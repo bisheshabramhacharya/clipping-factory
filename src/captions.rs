@@ -75,6 +75,47 @@ pub fn words_in_interval(words: &[Word], start_ms: u64, end_ms: u64) -> Vec<Word
         .collect()
 }
 
+/// Apply edited caption wording while retaining the transcription's timing.
+/// When the word count changes, spread the replacement words evenly across
+/// the original caption interval.
+pub fn with_caption_text(words: &[Word], caption_text: Option<&str>) -> Vec<Word> {
+    let Some(text) = caption_text.map(str::trim) else {
+        return words.to_vec();
+    };
+    let replacements: Vec<&str> = text.split_whitespace().collect();
+    if replacements.is_empty() {
+        return Vec::new();
+    }
+    if words.is_empty() {
+        return words.to_vec();
+    }
+    if replacements.len() == words.len() {
+        return words
+            .iter()
+            .zip(replacements)
+            .map(|(word, text)| Word {
+                text: text.to_string(),
+                ..word.clone()
+            })
+            .collect();
+    }
+
+    let start_ms = words.first().unwrap().start_ms;
+    let end_ms = words.last().unwrap().end_ms.max(start_ms + 1);
+    let duration = end_ms - start_ms;
+    let count = replacements.len() as u64;
+    replacements
+        .into_iter()
+        .enumerate()
+        .map(|(index, text)| Word {
+            text: text.to_string(),
+            start_ms: start_ms + duration * index as u64 / count,
+            end_ms: start_ms + duration * (index as u64 + 1) / count,
+            p: 1.0,
+        })
+        .collect()
+}
+
 /// Accent (currently spoken word). ASS colors are &HBBGGRR.
 const ACCENT_BGR: &str = "00DDFF"; // #FFDD00 vivid yellow
 const CLEAN_ACCENT_BGR: &str = "24B2FF"; // #FFB224 warm amber
@@ -949,5 +990,61 @@ mod restyle_support_tests {
         assert_eq!(inside.len(), 2);
         assert_eq!(inside[0].start_ms, 1000);
         assert_eq!(inside[1].end_ms, 2000);
+    }
+
+    #[test]
+    fn edited_caption_text_preserves_matching_word_timings() {
+        let words = vec![
+            Word {
+                text: "old".into(),
+                start_ms: 100,
+                end_ms: 400,
+                p: 0.8,
+            },
+            Word {
+                text: "words".into(),
+                start_ms: 500,
+                end_ms: 900,
+                p: 0.8,
+            },
+        ];
+        let edited = with_caption_text(&words, Some("new text"));
+        assert_eq!(edited[0].text, "new");
+        assert_eq!(edited[0].start_ms, 100);
+        assert_eq!(edited[1].text, "text");
+        assert_eq!(edited[1].end_ms, 900);
+    }
+
+    #[test]
+    fn edited_caption_text_with_new_word_count_spans_original_interval() {
+        let words = vec![
+            Word {
+                text: "old".into(),
+                start_ms: 100,
+                end_ms: 400,
+                p: 0.8,
+            },
+            Word {
+                text: "words".into(),
+                start_ms: 500,
+                end_ms: 900,
+                p: 0.8,
+            },
+        ];
+        let edited = with_caption_text(&words, Some("three new words"));
+        assert_eq!(edited.len(), 3);
+        assert_eq!(edited.first().unwrap().start_ms, 100);
+        assert_eq!(edited.last().unwrap().end_ms, 900);
+    }
+
+    #[test]
+    fn empty_edited_caption_text_removes_all_captions() {
+        let words = vec![Word {
+            text: "remove".into(),
+            start_ms: 100,
+            end_ms: 900,
+            p: 0.8,
+        }];
+        assert!(with_caption_text(&words, Some("   ")).is_empty());
     }
 }

@@ -9,7 +9,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
-pub const MIN_SOURCE_MS: u64 = 20_000;
 pub const MAX_SOURCE_MS: u64 = 4 * 3600 * 1000;
 
 /// Inspect and validate the uploaded source. Errors are user-actionable.
@@ -63,11 +62,8 @@ pub async fn probe(
         })?;
     let duration_ms = (duration_s * 1000.0) as u64;
 
-    if duration_ms < MIN_SOURCE_MS {
-        bail!(
-            "This video is {}s long. Sources must be at least 20 seconds.",
-            duration_ms / 1000
-        );
+    if duration_ms == 0 {
+        bail!("This video has no measurable duration.");
     }
     if duration_ms > MAX_SOURCE_MS {
         bail!("This video is over 4 hours. The MVP supports sources up to 4 hours.");

@@ -475,18 +475,25 @@
     if (!showResults) return;
 
     const total = clips.length;
-    $("results-title").textContent =
-      total === 0 ? "No clips produced" :
-      failed.length > 0
-        ? `${ready.length} of ${total} clips ready · ${failed.length} failed`
-        : p.status === "complete"
-        ? `${ready.length} strong clip${ready.length === 1 ? "" : "s"} found`
-        : `${ready.length} of ${total} clips ready`;
+    if (view.caption_only === true) {
+      $("results-title").textContent = p.status === "complete"
+        ? "Captioned video ready"
+        : "Captioning full video";
+      $("results-sub").textContent = "The full video is preserved without selecting or cutting clips.";
+    } else {
+      $("results-title").textContent =
+        total === 0 ? "No clips produced" :
+        failed.length > 0
+          ? `${ready.length} of ${total} clips ready · ${failed.length} failed`
+          : p.status === "complete"
+          ? `${ready.length} strong clip${ready.length === 1 ? "" : "s"} found`
+          : `${ready.length} of ${total} clips ready`;
 
-    const sel = view.selector ? ` Selected by ${view.selector}.` : "";
-    const count = total > 0 ? ` ${ready.length} ready${failed.length ? `, ${failed.length} failed` : ""}.` : "";
-    $("results-sub").textContent =
-      `Ranked by self-contained opening, tension, payoff, and clarity.${count}${sel}`;
+      const sel = view.selector ? ` Selected by ${view.selector}.` : "";
+      const count = total > 0 ? ` ${ready.length} ready${failed.length ? `, ${failed.length} failed` : ""}.` : "";
+      $("results-sub").textContent =
+        `Ranked by self-contained opening, tension, payoff, and clarity.${count}${sel}`;
+    }
 
     const openFolder = $("open-folder-btn");
     const outputAvailable = typeof view.output_dir === "string" && view.output_dir.trim().length > 0;
@@ -584,7 +591,10 @@
     }
 
     const body = document.createElement("div");
-    const rankLabel = c.rank === 1 ? "Best candidate" : `Candidate ${c.rank}`;
+    const captionOnly = view.caption_only === true;
+    const rankLabel = captionOnly
+      ? "Full video"
+      : (c.rank === 1 ? "Best candidate" : `Candidate ${c.rank}`);
     const badges = [];
     if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">face-tracked crop</span>`);
     else badges.push(`<span class="badge">blur-pad layout</span>`);
@@ -597,12 +607,14 @@
       <p class="why"></p>
       <div class="badges">${badges.join("")}</div>`;
     body.querySelector(".rank").textContent = `${rankLabel} · ${fmtMs(c.duration_ms)}`;
-    body.querySelector("h3").textContent = `“${c.headline}”`;
+    body.querySelector("h3").textContent = captionOnly ? "Captioned video" : `“${c.headline}”`;
     body.querySelector(".times").textContent =
-      `Starts at ${fmtMs(c.start_ms)} and ends at ${fmtMs(c.end_ms)}. One continuous excerpt from the podcast.`;
+      captionOnly
+        ? `The complete ${fmtMs(c.duration_ms)} video is preserved without clipping.`
+        : `Starts at ${fmtMs(c.start_ms)} and ends at ${fmtMs(c.end_ms)}. One continuous excerpt from the podcast.`;
     body.querySelector(".why").textContent = c.status === "failed" && c.error
       ? `Render error: ${c.error}`
-      : `Why it works: ${c.selection_reason}`;
+      : (captionOnly ? "Captions cover the entire video." : `Why it works: ${c.selection_reason}`);
     if (c.status === "ready") body.appendChild(restyleControls(c));
 
     const actions = document.createElement("div");
@@ -644,6 +656,13 @@
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
     restyleState[c.id] = state;
+
+    const captionText = document.createElement("textarea");
+    captionText.className = "caption-text";
+    captionText.rows = 3;
+    captionText.value = c.caption_text || "";
+    captionText.placeholder = "Edit caption text";
+    captionText.setAttribute("aria-label", "Caption text");
 
     const label = document.createElement("span");
     label.className = "muted small restyle-label";
@@ -785,14 +804,16 @@
       sync();
       try {
         const requestProjectId = projectId;
+        const payload = {
+          style: state.draft.style,
+          accent_color: state.draft.color,
+          font: state.draft.font,
+        };
+        if (view.caption_only === true) payload.caption_text = captionText.value;
         const updated = await requestJson(`/api/projects/${projectId}/clips/${c.id}/restyle`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            style: state.draft.style,
-            accent_color: state.draft.color,
-            font: state.draft.font,
-          }),
+          body: JSON.stringify(payload),
         }, "Captions could not be updated.");
         captionStyle = state.draft.style;
         accentColor = state.draft.color;
@@ -824,6 +845,7 @@
     });
 
     box.appendChild(label);
+    if (view.caption_only === true) box.appendChild(captionText);
     box.appendChild(seg);
     box.appendChild(swatches);
     box.appendChild(fontPicker);

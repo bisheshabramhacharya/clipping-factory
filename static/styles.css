@@ -459,3 +459,7 @@ body.modal-open { overflow: hidden; }
   .review-decisions { flex-wrap: nowrap; width: 100%; }
   .review-decisions button { flex: 1; min-width: 0; min-height: 46px; justify-content: center; }
 }
+.caption-text {
+  width: 100%;
+  resize: vertical;
+}

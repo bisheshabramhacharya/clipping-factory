@@ -520,6 +520,7 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
         "rejected": selection.as_ref().map(|s| s.rejected.len()).unwrap_or(0),
         "rejected_summary": rejected_summary,
         "selector": p.selector,
+        "caption_only": p.source.as_ref().is_some_and(|source| pipeline::is_caption_only(source.duration_ms)),
         "clips": manifest.as_ref().map(|m| m.clips.clone()).unwrap_or_default(),
         "output_dir": manifest.as_ref().and_then(|m| m.output_dir.clone()),
     }))
@@ -615,6 +616,9 @@ struct RestyleIn {
     /// Curated caption font. Omitted = keep the clip's current font.
     #[serde(default)]
     font: Option<String>,
+    /// Replacement caption wording. Omitted = keep the current text.
+    #[serde(default)]
+    caption_text: Option<String>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -638,7 +642,7 @@ async fn restyle_clip(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     use crate::captions::{
         accent_bgr_for, build_ass, caption_font_name, default_accent_hex, hex_to_ass_bgr,
-        words_in_interval, CaptionInput, CaptionStyle,
+        with_caption_text, words_in_interval, CaptionInput, CaptionStyle,
     };
 
     if !state.store.exists(&id) {
@@ -713,6 +717,10 @@ async fn restyle_clip(
             .clone()
             .unwrap_or_else(|| cfg.caption_font.clone()),
     };
+    let caption_text = body
+        .caption_text
+        .map(|text| text.trim().to_string())
+        .or_else(|| clip.caption_text.clone());
 
     let p = state
         .store
@@ -791,7 +799,10 @@ async fn restyle_clip(
     }
 
     // Build the new captions and burn them onto the base.
-    let words = words_in_interval(&transcript.words, clip.start_ms, clip.end_ms);
+    let words = with_caption_text(
+        &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+        caption_text.as_deref(),
+    );
     let ass = build_ass(
         &CaptionInput {
             words: &words,
@@ -846,6 +857,7 @@ async fn restyle_clip(
     manifest.clips[idx].caption_style = Some(style.label().to_string());
     manifest.clips[idx].accent_color = Some(accent_hex);
     manifest.clips[idx].caption_font = Some(caption_font);
+    manifest.clips[idx].caption_text = caption_text;
     state
         .store
         .save_manifest(&id, &manifest)

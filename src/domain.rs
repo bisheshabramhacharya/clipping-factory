@@ -312,6 +312,9 @@ pub struct ClipRecord {
     /// Caption font burned into the current render.
     #[serde(default)]
     pub caption_font: Option<String>,
+    /// Editable caption wording. Word timings are preserved when possible.
+    #[serde(default)]
+    pub caption_text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

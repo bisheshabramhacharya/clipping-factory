@@ -23,6 +23,11 @@ use tokio_util::sync::CancellationToken;
 
 const LOW_CONFIDENCE: f32 = 0.66;
 const CANCEL_ACK_TIMEOUT: Duration = Duration::from_secs(5);
+const SHORT_VIDEO_MS: u64 = 20_000;
+
+pub fn is_caption_only(duration_ms: u64) -> bool {
+    duration_ms < SHORT_VIDEO_MS
+}
 
 /// Start (or resume) processing for a project. Returns an error string if a
 /// run is already active.
@@ -287,6 +292,27 @@ fn is_cancelled(e: &anyhow::Error, token: &CancellationToken) -> bool {
     token.is_cancelled() || e.to_string().contains("cancelled")
 }
 
+fn full_video_candidate(transcript: &Transcript, duration_ms: u64) -> Candidate {
+    let caption = words_to_text(&transcript.words);
+    Candidate {
+        start_ms: 0,
+        end_ms: duration_ms,
+        headline: String::new(),
+        opening_quote: caption.clone(),
+        closing_quote: caption,
+        selection_reason: "Full short video captioned without clipping.".into(),
+        scores: Scores::default(),
+    }
+}
+
+fn words_to_text(words: &[Word]) -> String {
+    words
+        .iter()
+        .map(|word| word.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 async fn run(
     state: AppState,
     id: String,
@@ -433,46 +459,72 @@ async fn run(
     }
     let transcript = store.load_transcript(&id).await?;
 
-    // ---- 4. Select candidates ---------------------------------------------
-    if store.raw_candidates_path(&id).is_file() {
-        ctx.skip(&mut p, "selecting_candidates", "Proposals already on disk")
-            .await?;
-    } else {
-        let settings = state.settings.read().unwrap().clone();
+    // ---- 4–5. Select and validate -----------------------------------------
+    // Short videos are caption-only jobs: preserve the entire source instead
+    // of sending it through editorial selection and minimum clip validation.
+    if is_caption_only(source.duration_ms) {
+        let candidate = full_video_candidate(&transcript, source.duration_ms);
         stage!("selecting_candidates", {
-            let proposed = tokio::select! {
-                biased;
-                _ = ctx.cancel.cancelled() => Err(anyhow::anyhow!("cancelled")),
-                result = crate::select::propose(&settings, &transcript, &source) => result,
+            store
+                .save_raw_candidates(&id, &vec![candidate.clone()])
+                .await?;
+            p.selector = Some("caption-only".into());
+            Ok::<String, anyhow::Error>("Short video · using the full duration".into())
+        });
+        stage!("validating_candidates", {
+            let report = SelectionReport {
+                selector: "caption-only".into(),
+                accepted: vec![ValidatedCandidate {
+                    candidate,
+                    rank: 1,
+                    composite: 0.0,
+                    duration_exception: true,
+                }],
+                rejected: Vec::new(),
             };
-            match proposed {
-                Ok(outcome) => {
-                    store.save_raw_candidates(&id, &outcome.candidates).await?;
-                    p.selector = Some(outcome.selector.clone());
-                    Ok(format!(
-                        "{} proposal(s) from {}",
-                        outcome.candidates.len(),
-                        outcome.selector
-                    ))
+            store.save_selection(&id, &report).await?;
+            Ok::<String, anyhow::Error>("Full video accepted for captioning".into())
+        });
+    } else {
+        if store.raw_candidates_path(&id).is_file() {
+            ctx.skip(&mut p, "selecting_candidates", "Proposals already on disk")
+                .await?;
+        } else {
+            let settings = state.settings.read().unwrap().clone();
+            stage!("selecting_candidates", {
+                let proposed = tokio::select! {
+                    biased;
+                    _ = ctx.cancel.cancelled() => Err(anyhow::anyhow!("cancelled")),
+                    result = crate::select::propose(&settings, &transcript, &source) => result,
+                };
+                match proposed {
+                    Ok(outcome) => {
+                        store.save_raw_candidates(&id, &outcome.candidates).await?;
+                        p.selector = Some(outcome.selector.clone());
+                        Ok(format!(
+                            "{} proposal(s) from {}",
+                            outcome.candidates.len(),
+                            outcome.selector
+                        ))
+                    }
+                    Err(e) => Err(e),
                 }
-                Err(e) => Err(e),
-            }
+            });
+        }
+
+        let raw = store.load_raw_candidates(&id).await?;
+        let selector = p.selector.clone().unwrap_or_else(|| "unknown".into());
+        stage!("validating_candidates", {
+            let report = crate::validate::validate(raw, &transcript, source.duration_ms, selector);
+            let detail = format!(
+                "{} passed · {} rejected",
+                report.accepted.len(),
+                report.rejected.len()
+            );
+            store.save_selection(&id, &report).await?;
+            Ok::<String, anyhow::Error>(detail)
         });
     }
-
-    // ---- 5. Validate (always recomputed — cheap and deterministic) ---------
-    let raw = store.load_raw_candidates(&id).await?;
-    let selector = p.selector.clone().unwrap_or_else(|| "unknown".into());
-    stage!("validating_candidates", {
-        let report = crate::validate::validate(raw, &transcript, source.duration_ms, selector);
-        let detail = format!(
-            "{} passed · {} rejected",
-            report.accepted.len(),
-            report.rejected.len()
-        );
-        store.save_selection(&id, &report).await?;
-        Ok::<String, anyhow::Error>(detail)
-    });
     let report = store.load_selection(&id).await?;
 
     // No passing moments is a valid, honest outcome (PRD §6.2, §8.3).
@@ -558,6 +610,11 @@ async fn run(
                     caption_style: None,
                     accent_color: None,
                     caption_font: None,
+                    caption_text: Some(words_to_text(&crate::captions::words_in_interval(
+                        &transcript.words,
+                        c.start_ms,
+                        c.end_ms,
+                    ))),
                 });
             }
             match result {
@@ -680,8 +737,10 @@ async fn run(
                 store.mark_base_ready(&id, &clip.id).await?;
             }
             // Pass 2 — word-accurate captions burned onto the base.
-            let words =
-                crate::captions::words_in_interval(&transcript.words, clip.start_ms, clip.end_ms);
+            let words = crate::captions::with_caption_text(
+                &crate::captions::words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+                clip.caption_text.as_deref(),
+            );
             let ass = build_ass(
                 &CaptionInput {
                     words: &words,
@@ -862,5 +921,30 @@ mod tests {
         let result = wait_for_cancel_ack(&mut done, Duration::from_millis(10)).await;
         let message = result.unwrap_err();
         assert!(message.contains("no cancellation acknowledgement"));
+    }
+
+    #[test]
+    fn short_video_candidate_preserves_the_full_source() {
+        let transcript = Transcript {
+            language: "en".into(),
+            words: vec![Word {
+                text: "hello".into(),
+                start_ms: 250,
+                end_ms: 900,
+                p: 0.9,
+            }],
+            sentences: Vec::new(),
+            avg_confidence: 0.9,
+        };
+        let candidate = full_video_candidate(&transcript, 12_345);
+        assert_eq!(candidate.start_ms, 0);
+        assert_eq!(candidate.end_ms, 12_345);
+        assert!(candidate.headline.is_empty());
+    }
+
+    #[test]
+    fn caption_only_threshold_excludes_exactly_twenty_seconds() {
+        assert!(is_caption_only(19_999));
+        assert!(!is_caption_only(20_000));
     }
 }

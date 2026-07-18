@@ -323,6 +323,7 @@ mod tests {
                 caption_style: Some("impact".into()),
                 accent_color: Some("#FFDD00".into()),
                 caption_font: Some("Inter".into()),
+                caption_text: None,
             }],
             output_dir: Some("/tmp/out".into()),
         };
