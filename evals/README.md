@@ -66,7 +66,7 @@ The runner:
 1. verifies the studio and manifest;
 2. snapshots commit, branch, tool versions, platform, safe environment checks, and manifest hash;
 3. uploads each source only to the fixed loopback studio at `127.0.0.1:4571` and polls independently;
-4. preserves completed source evidence when another source fails;
+4. copies the full local selection report for exact rejection metrics and preserves completed evidence when another source fails;
 5. writes deterministic JSON, CSV, and Markdown reports.
 
 A run has this layout:
@@ -85,6 +85,7 @@ evals/results/<UTC-run-id>/
     <source-id>/
       upload-response.json
       view.json
+      selection.json
       result.json
 ```
 
