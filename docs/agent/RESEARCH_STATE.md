@@ -6,71 +6,72 @@
 
 ## Current research question
 
-Which local-first controls, reliability systems, and professional workflows would make creators, editors, and agencies pay for Clipping Factory without weakening faithful excerpt generation?
+What exact build order turns Clipping Factory’s local, faithful pipeline into a paid professional product without adding cloud dependency or misleading edits?
 
 ## Repository findings
 
-- The product has a real Rust end-to-end pipeline: MP4 ingestion, local whisper.cpp transcription, local or optional API selection, deterministic validation, face-aware framing, two-pass FFmpeg rendering, caption restyling, filesystem persistence, cancellation, and retry.
-- Existing work already covers post-render caption style/color/font changes, selectable fill/background framing, steadier single-face tracking, and a draft post-render keyboard Swipe Review PR.
-- The current app automatically renders every accepted candidate. It has no pre-render approval gate, transcript correction, boundary editor, manual crop override, project library, batch queue, export profile validation, or durable professional review state.
-- Transcription is currently English-only and has no correction or custom-vocabulary workflow.
-- Multi-face sources always fall back to blur-pad; there is no active-speaker framing.
-- Rendering is sequential, CPU-oriented, fixed at 1080×1920 H.264/AAC, and has no loudness normalization or technical QC report.
-- The eval harness is a scaffold. No real-media baseline results were found.
-- CI is documented in `docs/ci-workflow.yml`, not active under `.github/workflows/`.
-- No existing issue backlog was found. Open draft PR #1 must not be duplicated.
+- Real Rust end-to-end pipeline exists: MP4 ingestion, local whisper.cpp word timestamps, local/optional API selection, deterministic validation, single-face framing, two-pass FFmpeg rendering, caption restyling, filesystem persistence, cancellation, and retry.
+- Existing work already covers caption style/color/font changes, fill/background framing, steadier single-face tracking, and a draft post-render keyboard Swipe Review PR.
+- Current commercial gaps: automatic render of every accepted candidate; immutable transcript; fixed boundaries; no manual crop; no project library/migrations; no batch queue; no audio normalization/QC; no durable client review or provenance report.
+- Transcription is English-only. Multi-face sources always fall back to blur-pad.
+- Eval harness exists but no real-media baseline was found. CI is documented, not active under `.github/workflows/`.
+- No prior issue backlog was found. Draft PR #1 must not be duplicated.
 
 ## Market findings
 
-- Paid competitor tiers repeatedly gate text/timeline editing, caption correction, brand kits, multiple aspect ratios, bulk export, team workflow, and publishing preparation.
-- Reviews repeatedly report that bad clip selection, inaccurate cut boundaries, caption timing, moving-speaker framing, slow rendering, crashes, and repair work erase the time saved by automation.
-- Transcript-based editing is valuable when accurate, but timing/alignment errors and destructive automatic edits reduce trust.
-- Platform upload requirements differ and change, making deterministic export validation and safe-area checks professionally useful.
+- Paid competitors repeatedly gate transcript/timeline editing, caption correction, brand kits, multiple formats, bulk workflows, sharing, and professional export controls.
+- Reviews repeatedly report bad selection, awkward cuts, caption timing, wrong framing, slow rendering, crashes, and repair time erasing automation benefits.
+- Platform requirements and safe areas differ and change; versioned export/QC profiles are professionally useful.
+- The strongest willingness-to-pay message is less repair work and more confidence, not more generated clips.
 
 ## Decisions made
 
-- Preserve continuous-source excerpts and deterministic validation as the core trust advantage.
-- Do not create another post-render Swipe Review issue; PR #1 already covers it.
-- Prioritize correction, preview, approval, partial re-render, batch reliability, and verifiable output over generative novelty.
-- Keep cloud accounts, auto-posting, generative B-roll, voice cloning, internal filler deletion, and generic AI chat out of the approved near-term roadmap.
+- Preserve one continuous source interval, deterministic validation, local processing, no mandatory account, and no mandatory external AI.
+- Make candidate approval, correction, boundary control, framing control, verifiable output, and batch reliability the paid roadmap.
+- Keep active-speaker automation behind manual override and real-media evaluation.
+- Use a maximum of three simultaneous builder instances after foundation work.
 
-## Features approved for issue drafting
+## Features approved
 
-1. Real-media golden-set quality gates and active CI
-2. Versioned project persistence, project library, migration, and portability
-3. Pre-render candidate review and render-selected workflow
-4. Transcript correction with confidence and custom vocabulary
-5. Transcript-based boundary editor with conservative auto-snap and partial re-render
-6. Manual framing override with safe-area preview
-7. Conservative active-speaker framing for two-person sources
-8. Audio loudness normalization and technical media QC
-9. Batch project queue with hardware-aware scheduling and recovery
-10. Reusable creator/brand/export presets
-11. Local search across projects, transcripts, and clips
-12. Portable client review package with durable decisions
-13. Clip provenance, source verification, and export audit report
+1. #3 Real-media quality regression gate and active CI
+2. #4 Versioned project library, migrations, and portable bundles
+3. #5 Pre-render candidate review and render-selected workflow
+4. #6 Transcript correction, confidence review, and custom vocabulary
+5. #7 Transcript boundary editor and partial re-render
+6. #8 Manual framing override and platform safe-area preview
+7. #9 Clip provenance, source verification, and export audit report
+8. #10 Loudness normalization and technical audio QC
+9. #11 Reusable creator, brand, naming, and export presets
+10. #12 Batch project queue with hardware-aware scheduling and recovery
+11. #13 Conservative active-speaker framing for two-person podcasts
+12. #14 Local search across projects, transcripts, candidates, and clips
+13. #15 Portable client review packages with durable decisions
 
 ## Features rejected or deferred
 
 - Duplicate post-render swipe review — already covered by PR #1
-- Generative B-roll and invented hooks — misleading-output risk
-- Internal filler-word deletion — breaks the continuous-excerpt promise
-- Generic AI chat or virality dashboard — weak evidence and UI clutter
-- Hosted AI relay, accounts, and cloud project storage — deferred until local paid value is proven
-- Auto-posting and social scheduler — integration maintenance and credential risk
+- Generative B-roll, invented hooks, rewritten speech — misleading-output risk
+- Internal filler-word deletion — violates continuous-excerpt promise
+- Generic AI chat and virality dashboards — weak evidence and UI clutter
+- Hosted AI relay, accounts, cloud project storage — defer until local paid value is proven
+- Auto-posting/social scheduler — credential and platform-maintenance burden
 - Local preference learning — defer until durable accept/reject data exists
-- Full NLE replacement — architectural disruption without a focused advantage
+- Full NLE replacement — architectural disruption without focused advantage
+- Broad AI denoise — defer until a reversible local method survives real-media evaluation
 
 ## Issues created
 
-None yet.
+- Epic: #2 `Clipping Factory Paid Product Buildout`
+- Child issues: #3 through #15
+- Every issue specifies target user, evidence, commercial value, tier, UX, scope/non-goals, architecture, engine behavior, acceptance criteria, tests, risks, dependencies, parallelization, branch, PR base, demo, and definition of done.
+- All issues currently use the existing `enhancement` label because custom label-management capability was not available in the connector.
 
 ## Remaining research gaps
 
-- Validate exact implementation boundaries and dependency order while drafting issues.
-- Score all approved candidates using the weighted product rubric.
-- Create the epic, child issues, product research document, and final parallel build plan.
+- No real golden-set media was available in the repository, so actual would-post baselines remain unmeasured.
+- Competitor pricing/features can change and should be rechecked before launch packaging.
+- Active-speaker feasibility and browser-only offline review behavior require prototypes and cross-platform tests.
 
 ## Exact next action
 
-Create the epic and research-backed child issues, then write `docs/product/PAID_PRODUCT_RESEARCH.md` with issue links, scores, tier boundaries, dependencies, and rejected ideas.
+Write and commit `docs/product/PAID_PRODUCT_RESEARCH.md`, update epic #2 with all child links and merge order, then verify branch/files/issues and report the exact first builder issue: #3.
