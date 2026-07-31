@@ -41,6 +41,19 @@ class ReportTests(unittest.TestCase):
                 paths=[root/f"{prefix}.{ext}" for ext in ("json","md","csv")]
                 self.assertEqual(mod.main([str(run),"--output-json",str(paths[0]),"--output-md",str(paths[1]),"--output-csv",str(paths[2])]),0); outputs.append([p.read_bytes() for p in paths])
         self.assertEqual(outputs[0],outputs[1])
+    def test_full_selection_overrides_capped_view_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run=materialize(Path(tmp),self.data["current"])
+            folder=run/"sources"/"interview-clean"
+            view=json.loads((folder/"view.json").read_text()); view["rejected"]=2; view.pop("accepted",None); view["rejected_summary"]=[{"reasons":["context dependency"]}]
+            (folder/"view.json").write_text(json.dumps(view))
+            selection={"selector":"local","accepted":[{"rank":1},{"rank":2},{"rank":3}],"rejected":[{"reasons":["duplicate interval"]},{"reasons":["context dependency"]}]}
+            (folder/"selection.json").write_text(json.dumps(selection))
+            report=mod.aggregate(run)
+        source=report["sources"][0]
+        self.assertEqual(source["accepted_candidates"],3)
+        self.assertEqual(source["rejected_candidates"],2)
+        self.assertEqual(source["duplicate_rejections"],1)
     def test_invalid_score_is_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/"rubric.csv"; path.write_text("source,hook_1to5,would_post_1to5\nclip,9,5\n")
