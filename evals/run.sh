@@ -44,7 +44,8 @@ done
 
 for cmd in curl jq python3; do command -v "$cmd" >/dev/null || { echo "$cmd is required" >&2; exit 1; }; done
 [[ -f "$MANIFEST" ]] || { echo "Missing $MANIFEST; copy evals/manifest.example.json and edit local paths." >&2; exit 1; }
-curl -sf "$HOST/api/setup" >/dev/null || { echo "Studio not reachable at $HOST; run cargo run --release." >&2; exit 1; }
+SETUP="$(curl -sf "$HOST/api/setup")" || { echo "Studio not reachable at $HOST; run cargo run --release." >&2; exit 1; }
+DATA_DIR="$(jq -r '.data_dir // empty' <<<"$SETUP")"
 
 MANIFEST="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$MANIFEST")"
 MANIFEST_DIR="$(dirname "$MANIFEST")"
@@ -91,7 +92,7 @@ def version(*cmd):
 json.dump({'rustc':version('rustc','--version'),'cargo':version('cargo','--version'),'ffmpeg':version('ffmpeg','-version'),'ffprobe':version('ffprobe','-version'),'jq':version('jq','--version')},open(sys.argv[1],'w'),indent=2,sort_keys=True); open(sys.argv[1],'a').write('\n')
 PY
   # Store only booleans/numbers from setup. Paths and transcript/provider secrets are excluded.
-  curl -sf "$HOST/api/setup" | jq '{ffmpeg,ffmpeg_ass,ffprobe,whisper_ok,model_ok,model_mb,face_model_ok,disk_free_gb}' > "$RUN_DIR/environment.json"
+  jq '{ffmpeg,ffmpeg_ass,ffprobe,whisper_ok,model_ok,model_mb,face_model_ok,disk_free_gb}' <<<"$SETUP" > "$RUN_DIR/environment.json"
 fi
 
 SOURCE_COUNT="$(jq '.sources | length' "$MANIFEST")"
@@ -127,6 +128,9 @@ for ((i=0; i<SOURCE_COUNT; i++)); do
     if (( $(date +%s) - BEGIN > TIMEOUT )); then FINAL=failed; ERROR="source timed out after ${TIMEOUT}s"; break; fi
   done
   if [[ -z "$ERROR" && "$FINAL" == failed ]]; then ERROR="$(jq -r '.project.error // .error // "project failed"' "$OUT/view.json" 2>/dev/null || echo project failed)"; fi
+  if [[ -n "$DATA_DIR" && -f "$DATA_DIR/projects/$PROJECT/candidates.json" ]]; then
+    cp "$DATA_DIR/projects/$PROJECT/candidates.json" "$OUT/selection.json"
+  fi
   DURATION="$(( $(date +%s) - BEGIN ))"
   jq -n --arg id "$ID" --arg cat "$CATEGORY" --arg status "$FINAL" --arg project "$PROJECT" --arg error "$ERROR" --argjson seconds "$DURATION" '{schema_version:1,source_id:$id,category:$cat,status:$status,project_id:$project,duration_seconds:$seconds,error:(if $error=="" then null else $error end)}' > "$OUT/result.json"
 done
