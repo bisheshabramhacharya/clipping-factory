@@ -87,17 +87,19 @@ def load_sources(run_dir: Path) -> list[dict[str, Any]]:
             continue
         result = read_json(result_path)
         view = read_json(folder / "view.json") if (folder / "view.json").exists() else {}
-        rejects = rejected_entries(view)
+        selection = read_json(folder / "selection.json") if (folder / "selection.json").exists() else {}
+        evidence = selection or view
+        rejects = rejected_entries(evidence)
         output.append({
             "source_id": str(result.get("source_id") or folder.name),
             "category": str(result.get("category") or "unspecified"),
             "status": status(result, view),
             "ready_clips": clip_count(view, "ready"),
             "failed_clips": clip_count(view, "failed"),
-            "accepted_candidates": accepted(view),
-            "rejected_candidates": rejected_count(view),
+            "accepted_candidates": accepted(evidence),
+            "rejected_candidates": rejected_count(evidence),
             "duplicate_rejections": sum(1 for x in rejects if any(t in rejection_text(x).lower() for t in ("overlap", "duplicate"))),
-            "selector": str(view.get("selector") or "unknown"),
+            "selector": str(selection.get("selector") or view.get("selector") or "unknown"),
             "duration_seconds": result.get("duration_seconds"),
             "error": result.get("error"),
         })
