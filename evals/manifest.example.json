@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "interview-clean",
+      "path": "sources/interview-clean.mp4",
+      "category": "two_person_interview",
+      "description": "Clean two-person interview; happy path for selection, captions, and single-speaker framing.",
+      "tags": [
+        "clean-audio",
+        "two-person"
+      ]
+    },
+    {
+      "id": "solo-monologue",
+      "path": "sources/solo-monologue.mp4",
+      "category": "solo_monologue",
+      "description": "Solo source that stresses ranking without conversational reactions.",
+      "tags": [
+        "solo"
+      ]
+    },
+    {
+      "id": "panel",
+      "path": "sources/panel.mp4",
+      "category": "panel",
+      "description": "Three or more visible speakers; stresses blur-pad fallback and crosstalk.",
+      "tags": [
+        "multi-speaker",
+        "crosstalk"
+      ]
+    },
+    {
+      "id": "noisy-room",
+      "path": "sources/noisy-room.mp4",
+      "category": "noisy_audio",
+      "description": "Room tone or noisy recording; stresses transcription confidence and caption accuracy.",
+      "tags": [
+        "noise"
+      ]
+    },
+    {
+      "id": "fast-accented",
+      "path": "sources/fast-accented.mp4",
+      "category": "fast_or_accented_speech",
+      "description": "Fast or accented speech; stresses word timestamps and faithful quote matching.",
+      "tags": [
+        "fast-speech",
+        "accent"
+      ]
+    },
+    {
+      "id": "target-content",
+      "path": "sources/target-content.mp4",
+      "category": "target_distribution",
+      "description": "A representative source from the content distribution Clipping Factory is intended to ship.",
+      "tags": [
+        "representative"
+      ]
+    }
+  ]
+}
