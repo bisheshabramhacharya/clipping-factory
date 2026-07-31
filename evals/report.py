@@ -33,8 +33,8 @@ def status(result: dict[str, Any], view: dict[str, Any]) -> str:
     return str(result.get("status") or project.get("status") or "unknown")
 
 
-def ready(view: dict[str, Any]) -> int:
-    return sum(1 for clip in as_list(view.get("clips")) if isinstance(clip, dict) and clip.get("status") == "ready")
+def clip_count(view: dict[str, Any], wanted: str) -> int:
+    return sum(1 for clip in as_list(view.get("clips")) if isinstance(clip, dict) and clip.get("status") == wanted)
 
 
 def accepted(view: dict[str, Any]) -> int:
@@ -54,6 +54,11 @@ def rejected_entries(view: dict[str, Any]) -> list[Any]:
     if isinstance(report, dict):
         return as_list(report.get("rejected"))
     return []
+
+
+def rejected_count(view: dict[str, Any]) -> int:
+    value = view.get("rejected")
+    return max(value, 0) if isinstance(value, int) else len(rejected_entries(view))
 
 
 def rejection_text(item: Any) -> str:
@@ -87,9 +92,10 @@ def load_sources(run_dir: Path) -> list[dict[str, Any]]:
             "source_id": str(result.get("source_id") or folder.name),
             "category": str(result.get("category") or "unspecified"),
             "status": status(result, view),
-            "ready_clips": ready(view),
+            "ready_clips": clip_count(view, "ready"),
+            "failed_clips": clip_count(view, "failed"),
             "accepted_candidates": accepted(view),
-            "rejected_candidates": len(rejects),
+            "rejected_candidates": rejected_count(view),
             "duplicate_rejections": sum(1 for x in rejects if any(t in rejection_text(x).lower() for t in ("overlap", "duplicate"))),
             "selector": str(view.get("selector") or "unknown"),
             "duration_seconds": result.get("duration_seconds"),
@@ -159,7 +165,9 @@ def aggregate(run_dir: Path) -> dict[str, Any]:
         "completed_sources": states["complete"],
         "failed_sources": states["failed"],
         "cancelled_sources": states["cancelled"],
+        "completion_rate": round(states["complete"] / len(sources), 3) if sources else None,
         "ready_clips": sum(s["ready_clips"] for s in sources),
+        "failed_clips": sum(s["failed_clips"] for s in sources),
         "accepted_candidates": sum(s["accepted_candidates"] for s in sources),
         "rejected_candidates": sum(s["rejected_candidates"] for s in sources),
         "duplicate_rejections": duplicates,
@@ -179,10 +187,11 @@ def compare(current: dict[str, Any], baseline: dict[str, Any], thresholds: dict[
     policy = DEFAULTS | (thresholds or {})
     reasons: list[str] = []
     warnings: list[str] = []
-    co, bo = current["operational"], baseline["operational"]
-    new_failures = max(int(co["failed_sources"]) - int(bo["failed_sources"]), 0)
-    if new_failures > int(policy["max_new_source_failures"]):
-        reasons.append(f"new source failures: {new_failures}")
+    baseline_failed = {s["source_id"] for s in baseline["sources"] if s["status"] == "failed"}
+    current_failed = {s["source_id"] for s in current["sources"] if s["status"] == "failed"}
+    new_failed_ids = sorted(current_failed - baseline_failed)
+    if len(new_failed_ids) > int(policy["max_new_source_failures"]):
+        reasons.append(f"new source failures: {', '.join(new_failed_ids)}")
     cr, br = current["human_review"], baseline["human_review"]
     if cr["would_post_rate"] is not None and br["would_post_rate"] is not None:
         drop = round(float(br["would_post_rate"]) - float(cr["would_post_rate"]), 3)
@@ -208,7 +217,7 @@ def md_cell(value: Any) -> str:
 def render_md(report: dict[str, Any]) -> str:
     run, op, review = report["run"], report["operational"], report["human_review"]
     lines = [f"# Clipping Factory eval — {md_cell(run.get('run_id'))}", "", f"- Commit: `{md_cell(run.get('git_commit'))}`", f"- Branch: `{md_cell(run.get('git_branch'))}`", "", "## Operational", "", "| Metric | Value |", "|---|---:|"]
-    for key in ("source_count", "completed_sources", "failed_sources", "ready_clips", "accepted_candidates", "rejected_candidates", "duplicate_rate", "total_duration_seconds"):
+    for key in ("source_count", "completed_sources", "completion_rate", "failed_sources", "ready_clips", "failed_clips", "accepted_candidates", "rejected_candidates", "duplicate_rate", "total_duration_seconds"):
         lines.append(f"| {key} | {md_cell(op.get(key))} |")
     lines += ["", "## Human review", "", f"- Clips reviewed: {review['clips_reviewed']}", f"- Would-post rate: {md_cell(review['would_post_rate'])}", f"- False accepts / rejects: {review['false_accepts']} / {review['false_rejects']}"]
     for field, value in review["score_averages"].items():
@@ -218,9 +227,9 @@ def render_md(report: dict[str, Any]) -> str:
         lines += ["", "## Baseline gate", "", f"**{str(comparison['status']).upper()}**"]
         lines += [f"- {reason}" for reason in comparison["failure_reasons"]]
         lines += [f"- Warning: {warning}" for warning in comparison["warnings"]]
-    lines += ["", "## Source results", "", "| Source | Category | Status | Ready | Rejected | Selector | Error |", "|---|---|---|---:|---:|---|---|"]
+    lines += ["", "## Source results", "", "| Source | Category | Status | Ready | Failed clips | Rejected | Selector | Error |", "|---|---|---|---:|---:|---:|---|---|"]
     for source in report["sources"]:
-        lines.append("| {source_id} | {category} | {status} | {ready_clips} | {rejected_candidates} | {selector} | {error} |".format(**{k: md_cell(v) for k, v in source.items()}))
+        lines.append("| {source_id} | {category} | {status} | {ready_clips} | {failed_clips} | {rejected_candidates} | {selector} | {error} |".format(**{k: md_cell(v) for k, v in source.items()}))
     if review["invalid_rows"]:
         lines += ["", f"> Invalid rubric rows ignored: {', '.join(map(str, review['invalid_rows']))}"]
     return "\n".join(lines) + "\n"
@@ -228,8 +237,8 @@ def render_md(report: dict[str, Any]) -> str:
 
 def render_csv(report: dict[str, Any]) -> str:
     op, review = report["operational"], report["human_review"]
-    fields = ["run_id", "git_commit", "source_count", "completed_sources", "failed_sources", "ready_clips", "accepted_candidates", "rejected_candidates", "duplicate_rate", "clips_reviewed", "would_post_rate", "gate_status"]
-    row = {"run_id": report["run"].get("run_id"), "git_commit": report["run"].get("git_commit"), **{k: op.get(k) for k in fields}, "clips_reviewed": review["clips_reviewed"], "would_post_rate": review["would_post_rate"], "gate_status": (report.get("comparison") or {}).get("status")}
+    fields = ["run_id", "git_commit", "source_count", "completed_sources", "completion_rate", "failed_sources", "ready_clips", "failed_clips", "accepted_candidates", "rejected_candidates", "duplicate_rate", "clips_reviewed", "would_post_rate", "gate_status"]
+    row = {"run_id": report["run"].get("run_id"), "git_commit": report["run"].get("git_commit"), **{k: op.get(k) for k in fields if k in op}, "clips_reviewed": review["clips_reviewed"], "would_post_rate": review["would_post_rate"], "gate_status": (report.get("comparison") or {}).get("status")}
     from io import StringIO
     out = StringIO(newline="")
     writer = csv.DictWriter(out, fieldnames=fields, lineterminator="\n")
