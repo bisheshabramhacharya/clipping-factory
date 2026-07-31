@@ -1,0 +1,5 @@
+{
+  "max_new_source_failures": 0,
+  "max_would_post_rate_drop": 0.05,
+  "max_average_score_drop": 0.25
+}
