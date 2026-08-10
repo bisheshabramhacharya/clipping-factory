@@ -19,11 +19,13 @@
       </button>
     </header>
 
-    <div id="setup-banner" class="banner hidden"></div>
-    <div id="warning-banner" class="banner warn hidden"></div>
+    <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive"></div>
+    <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
+    <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
 
     <!-- Empty / import state -->
-    <section id="upload-state">
+    <section id="upload-state" aria-labelledby="upload-title">
+      <h2 id="upload-title" class="sr-only">Create clips</h2>
       <div id="drop" class="upload">
         <strong>Drop one podcast MP4 here</strong>
         <p class="muted">The original stays on this computer. Clips keep the original conversation intact — one continuous excerpt each, no invented speech.</p>
@@ -43,7 +45,7 @@
         <fieldset class="accent-choice">
           <legend>Caption highlight</legend>
           <div class="accent-option accent-palette">
-            <input type="radio" name="accent-mode" value="manual" checked>
+              <input type="radio" name="accent-mode" value="manual" aria-label="Choose a caption highlight color" checked>
             <div>
               <strong>Choose a color</strong>
               <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Caption highlight colors"></div>
@@ -65,14 +67,20 @@
         <p class="muted small">Supported input: MP4 with at least one audio stream, 20 seconds to 4 hours.<br>
         You can still change captions, color, and font on each finished clip.</p>
       </div>
-      <div id="upload-progress" class="hidden">
-        <p id="upload-label">Uploading…</p>
-        <div class="bar"><div id="upload-bar" class="bar-fill"></div></div>
+      <div id="upload-progress" class="hidden" aria-live="polite">
+        <div class="upload-progress-head">
+          <p id="upload-label" role="status">Uploading…</p>
+          <button id="cancel-upload-btn" type="button">Cancel upload</button>
+        </div>
+        <div class="bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="upload-bar" class="bar-fill"></div>
+        </div>
       </div>
     </section>
 
     <!-- Processing state -->
-    <section id="processing-state" class="hidden">
+    <section id="processing-state" class="hidden" aria-labelledby="processing-title">
+      <h2 id="processing-title" class="sr-only">Processing</h2>
       <div class="source-line">
         <div>
           <span id="source-name" class="source-name"></span>
@@ -80,26 +88,29 @@
         </div>
         <button id="cancel-btn" type="button">Cancel</button>
       </div>
-      <div id="stages" class="progress"></div>
+      <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
       <div id="current-op" class="current-op hidden">
         <span class="spinner"></span>
-        <span id="current-op-text"></span>
-        <span id="elapsed" class="muted"></span>
+        <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>
+        <span id="elapsed" class="muted" aria-hidden="true"></span>
       </div>
-      <div id="error-box" class="error hidden">
+      <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
         <div>
           <strong id="error-stage"></strong>
           <p id="error-text"></p>
         </div>
-        <button id="retry-btn" class="primary" type="button">Retry stage</button>
+        <div class="error-actions">
+          <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
+          <button id="retry-btn" class="primary" type="button">Retry stage</button>
+        </div>
       </div>
     </section>
 
     <!-- Results state -->
-    <section id="results-state" class="hidden">
+    <section id="results-state" class="hidden" aria-labelledby="results-title">
       <div class="results-head">
         <div>
-          <h2 id="results-title"></h2>
+          <h2 id="results-title" aria-live="polite"></h2>
           <p class="muted" id="results-sub">Ranked by self-contained opening, tension, payoff, and clarity.</p>
         </div>
         <div class="results-actions">
@@ -124,10 +135,10 @@
   </div>
 
   <!-- AI connection modal -->
-  <div id="modal-backdrop" class="modal-backdrop hidden">
-    <div class="modal">
-      <h3>AI connection</h3>
-      <p class="muted small">The editorial selector proposes which moments stand alone. Your key is stored locally with user-only permissions, never logged, and never shown again.</p>
+  <div id="modal-backdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title" aria-describedby="ai-modal-description">
+      <h3 id="ai-modal-title">AI connection</h3>
+      <p id="ai-modal-description" class="muted small">The editorial selector proposes which moments stand alone. Your key is stored locally with user-only permissions, never logged, and never shown again.</p>
       <label>Provider
         <select id="provider">
           <option value="openai">OpenAI</option>
@@ -144,7 +155,7 @@
       <p id="offline-note" class="muted small hidden">Local ranking scans the full transcript for strong openings, reactions, repeated claims, clean endings, and standalone clarity. No model or API key is required.</p>
       <p id="test-result" class="small hidden"></p>
       <div class="modal-actions">
-        <button id="modal-close" type="button">Close</button>
+        <button id="modal-close" type="button" aria-label="Close AI connection dialog">Close</button>
         <button id="test-save" class="primary" type="button">Test &amp; save</button>
       </div>
     </div>

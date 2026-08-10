@@ -1,0 +1,8 @@
+{
+  "name": "overlap-containment",
+  "word_count": 200,
+  "word_ms": 400,
+  "higher_ranked": { "start_ms": 10000, "end_ms": 30000 },
+  "lower_ranked": { "start_ms": 10000, "end_ms": 100000 },
+  "expected": "reject-lower-ranked-containing-clip"
+}

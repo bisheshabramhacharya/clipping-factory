@@ -3,9 +3,18 @@
 
 use anyhow::{anyhow, Result};
 use serde_json::json;
+use std::time::Duration;
+
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+
+fn client() -> Result<reqwest::Client> {
+    Ok(reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .build()?)
+}
 
 pub async fn complete(key: &str, model: &str, system: &str, user: &str) -> Result<String> {
-    let client = reqwest::Client::new();
+    let client = client()?;
     let body = json!({
         "model": model,
         "temperature": 0.3,
@@ -37,7 +46,7 @@ pub async fn complete(key: &str, model: &str, system: &str, user: &str) -> Resul
 }
 
 pub async fn test(key: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = client()?;
     let resp = client
         .get("https://api.openai.com/v1/models")
         .bearer_auth(key)

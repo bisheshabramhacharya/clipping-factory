@@ -195,7 +195,7 @@ static/          the studio UI (served by the binary; embedded fallback)
 
 Everything's overridable via environment variables: `CF_PORT`, `CF_DATA_DIR`, `CF_OUTPUT_DIR`,
 `CF_FFMPEG`, `CF_FFPROBE`, `CF_WHISPER_BIN`, `CF_WHISPER_MODEL`, `CF_FONTS_DIR`,
-`CF_FACE_MODEL`, `CF_THREADS`, `CF_BIND_ALL=1`, `CF_NO_OPEN=1`.
+`CF_FACE_MODEL`, `CF_THREADS`, `CF_NO_OPEN=1`.
 
 ### Tests
 

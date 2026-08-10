@@ -17,9 +17,11 @@
 use crate::config::Config;
 use crate::domain::{CropKey, LayoutPlan, SourceInfo};
 use crate::util::run_streaming;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use rustface::ImageData;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
 const SAMPLE_FPS: f64 = 1.0;
@@ -78,10 +80,22 @@ pub async fn analyze_layout(
     // 2. List frames + detect faces (blocking CPU/fs work off the runtime).
     let model_path = model_path.clone();
     let dir = frames_dir.to_path_buf();
-    let detections: Vec<Vec<f32>> =
-        tokio::task::spawn_blocking(move || detect_all(&model_path, &dir)).await??;
-
+    let cancelled = Arc::new(AtomicBool::new(cancel.is_cancelled()));
+    let watcher_flag = cancelled.clone();
+    let watcher_token = cancel.clone();
+    let watcher = tokio::spawn(async move {
+        watcher_token.cancelled().await;
+        watcher_flag.store(true, Ordering::Relaxed);
+    });
+    let worker_flag = cancelled.clone();
+    let detection_result =
+        tokio::task::spawn_blocking(move || detect_all(&model_path, &dir, &worker_flag)).await;
+    watcher.abort();
     tokio::fs::remove_dir_all(frames_dir).await.ok();
+    let detections: Vec<Vec<f32>> = detection_result??;
+    if cancelled.load(Ordering::Relaxed) || cancel.is_cancelled() {
+        bail!("cancelled");
+    }
     if detections.is_empty() {
         return Ok(LayoutPlan::BlurPad);
     }
@@ -100,7 +114,14 @@ pub async fn analyze_layout(
 /// Per frame, return the normalized x-centers (0–1) of detected faces.
 /// Runs inside `spawn_blocking`: directory listing and detection are
 /// synchronous CPU/fs work that must stay off the async runtime.
-fn detect_all(model_path: &Path, frames_dir: &Path) -> Result<Vec<Vec<f32>>> {
+fn detect_all(
+    model_path: &Path,
+    frames_dir: &Path,
+    cancelled: &AtomicBool,
+) -> Result<Vec<Vec<f32>>> {
+    if cancelled.load(Ordering::Relaxed) {
+        bail!("cancelled");
+    }
     let mut frames: Vec<PathBuf> = std::fs::read_dir(frames_dir)?
         .flatten()
         .map(|e| e.path())
@@ -117,6 +138,9 @@ fn detect_all(model_path: &Path, frames_dir: &Path) -> Result<Vec<Vec<f32>>> {
 
     let mut out = Vec::with_capacity(frames.len());
     for path in &frames {
+        if cancelled.load(Ordering::Relaxed) {
+            bail!("cancelled");
+        }
         let centers = match image::open(path) {
             Ok(img) => {
                 let gray = img.to_luma8();
@@ -346,5 +370,16 @@ mod tests {
             }
             other => panic!("expected FaceCrop, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn face_detection_checks_cancellation_before_blocking_work() {
+        let cancelled = AtomicBool::new(true);
+        let result = detect_all(
+            Path::new("missing-model"),
+            Path::new("missing-frames"),
+            &cancelled,
+        );
+        assert!(result.unwrap_err().to_string().contains("cancelled"));
     }
 }

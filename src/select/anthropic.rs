@@ -3,11 +3,19 @@
 use super::openai::map_error;
 use anyhow::{anyhow, Result};
 use serde_json::json;
+use std::time::Duration;
 
 const VERSION: &str = "2023-06-01";
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+
+fn client() -> Result<reqwest::Client> {
+    Ok(reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .build()?)
+}
 
 pub async fn complete(key: &str, model: &str, system: &str, user: &str) -> Result<String> {
-    let client = reqwest::Client::new();
+    let client = client()?;
     let body = json!({
         "model": model,
         "max_tokens": 4000,
@@ -38,7 +46,7 @@ pub async fn complete(key: &str, model: &str, system: &str, user: &str) -> Resul
 }
 
 pub async fn test(key: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = client()?;
     let resp = client
         .get("https://api.anthropic.com/v1/models")
         .header("x-api-key", key)

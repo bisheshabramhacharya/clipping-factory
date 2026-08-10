@@ -4,7 +4,7 @@
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -119,6 +119,48 @@ pub async fn run_capture(bin: &str, args: &[String]) -> Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// Run a quiet subprocess while retaining cancellation control over the child.
+/// `Command::output` owns its child, so it runs in a task that can be aborted;
+/// `kill_on_drop` then terminates the child when cancellation wins the race.
+pub async fn run_capture_cancellable(
+    bin: &str,
+    args: &[String],
+    cancel: &CancellationToken,
+) -> Result<String> {
+    let bin = bin.to_string();
+    let args = args.to_vec();
+    let task_bin = bin.clone();
+    let mut task = tokio::spawn(async move {
+        Command::new(&task_bin)
+            .args(&args)
+            .stdin(Stdio::null())
+            .kill_on_drop(true)
+            .output()
+            .await
+            .with_context(|| format!("failed to start `{}`", task_bin))
+    });
+
+    let out = tokio::select! {
+        biased;
+        _ = cancel.cancelled() => {
+            task.abort();
+            let _ = task.await;
+            bail!("cancelled");
+        }
+        result = &mut task => result.context("cancellable subprocess task failed")??,
+    };
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr);
+        bail!(
+            "`{}` exited with {} — {}",
+            bin,
+            out.status.code().unwrap_or(-1),
+            err.lines().last().unwrap_or("").trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 /// Whether this FFmpeg build can burn the generated ASS captions.
 pub async fn ffmpeg_has_ass(bin: &str) -> bool {
     let args = ["-hide_banner".into(), "-filters".into()];
@@ -126,6 +168,14 @@ pub async fn ffmpeg_has_ass(bin: &str) -> bool {
         .await
         .map(|output| filter_list_has(&output, "ass"))
         .unwrap_or(false)
+}
+
+/// Cancellable variant used inside a pipeline run, where an FFmpeg capability
+/// check must not hold cancellation acknowledgement open indefinitely.
+pub async fn ffmpeg_has_ass_cancellable(bin: &str, cancel: &CancellationToken) -> Result<bool> {
+    let args = ["-hide_banner".into(), "-filters".into()];
+    let output = run_capture_cancellable(bin, &args, cancel).await?;
+    Ok(filter_list_has(&output, "ass"))
 }
 
 fn filter_list_has(output: &str, name: &str) -> bool {
@@ -142,7 +192,7 @@ pub async fn atomic_write_json<T: Serialize>(path: &Path, value: &T) -> Result<(
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await.ok();
     }
-    let tmp = path.with_extension("json.tmp");
+    let tmp = unique_temp_path(path);
     tokio::fs::write(&tmp, &json)
         .await
         .with_context(|| format!("writing {}", tmp.display()))?;
@@ -150,6 +200,44 @@ pub async fn atomic_write_json<T: Serialize>(path: &Path, value: &T) -> Result<(
         .await
         .with_context(|| format!("renaming into {}", path.display()))?;
     Ok(())
+}
+
+/// Return a unique sibling path that preserves the final extension so tools
+/// such as FFmpeg still infer the intended container format.
+pub fn unique_temp_path(path: &Path) -> PathBuf {
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("artifact");
+    let suffix = short_id();
+    let name = match path.extension().and_then(|s| s.to_str()) {
+        Some(ext) => format!(".{stem}.part-{suffix}.{ext}"),
+        None => format!(".{stem}.part-{suffix}"),
+    };
+    path.with_file_name(name)
+}
+
+/// Atomically promote a completed sibling artifact into its public path.
+pub async fn promote_atomic(temp: &Path, final_path: &Path) -> Result<()> {
+    if let Some(parent) = final_path.parent() {
+        tokio::fs::create_dir_all(parent).await.ok();
+    }
+    tokio::fs::rename(temp, final_path)
+        .await
+        .with_context(|| format!("promoting {} to {}", temp.display(), final_path.display()))?;
+    Ok(())
+}
+
+/// Atomically write a small marker or other byte payload.
+pub async fn atomic_write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await.ok();
+    }
+    let temp = unique_temp_path(path);
+    tokio::fs::write(&temp, bytes)
+        .await
+        .with_context(|| format!("writing {}", temp.display()))?;
+    promote_atomic(&temp, path).await
 }
 
 /// Short, URL-safe project/clip id.
@@ -216,6 +304,7 @@ pub fn which(bin: &str) -> Option<std::path::PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, Instant};
 
     #[test]
     fn slugify_basic() {
@@ -242,5 +331,33 @@ mod tests {
         let filters = " T. crop V->V Crop video.\n ... ass V->V Render ASS subtitles.\n";
         assert!(filter_list_has(filters, "ass"));
         assert!(!filter_list_has(filters, "subtitles"));
+    }
+
+    #[tokio::test]
+    async fn cancellable_capture_stops_a_slow_child() {
+        let cancel = CancellationToken::new();
+        let trigger = cancel.clone();
+        let canceller = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            trigger.cancel();
+        });
+        let started = Instant::now();
+        let result = run_capture_cancellable("/bin/sleep", &["5".into()], &cancel).await;
+        assert!(result.unwrap_err().to_string().contains("cancelled"));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        canceller.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn atomic_promotion_replaces_only_after_the_temp_is_complete() {
+        let dir = std::env::temp_dir().join(format!("cf-atomic-{}", short_id()));
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let final_path = dir.join("clip.mp4");
+        let temp = unique_temp_path(&final_path);
+        tokio::fs::write(&temp, b"complete").await.unwrap();
+        promote_atomic(&temp, &final_path).await.unwrap();
+        assert_eq!(tokio::fs::read(&final_path).await.unwrap(), b"complete");
+        assert!(!temp.exists());
+        tokio::fs::remove_dir_all(&dir).await.ok();
     }
 }

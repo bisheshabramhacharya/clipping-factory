@@ -1,0 +1,74 @@
+[
+  {
+    "name": "generic-housekeeping",
+    "expected": "reject",
+    "sentences": [
+      "Welcome back to the show.",
+      "Today we are going to talk about the format and the schedule.",
+      "Before we begin remember to subscribe and leave a review.",
+      "We will be right back after a short break.",
+      "Thanks for listening and we hope you enjoy the episode.",
+      "Now let us get into the conversation for today."
+    ]
+  },
+  {
+    "name": "filler-dominated",
+    "expected": "reject",
+    "sentences": [
+      "Um, uh, like, you know, this is kind of sort of the point.",
+      "I mean, like, you know, we are um basically talking about stuff.",
+      "It is, uh, kind of hard to say, you know, what the answer is.",
+      "So, like, we just sort of keep going and, um, hope it works.",
+      "You know, I mean, the thing is, uh, we are still figuring it out.",
+      "Basically, like, that is sort of all I wanted to say today."
+    ]
+  },
+  {
+    "name": "sponsor-intro",
+    "expected": "reject",
+    "sentences": [
+      "This episode is brought to you by Acme Tools.",
+      "Acme makes simple tools for people who build useful things.",
+      "Use the code FACTORY for a discount at checkout.",
+      "We appreciate their support for the show and its listeners.",
+      "You can find the sponsor link in the episode notes.",
+      "Now let us get into the conversation for today."
+    ]
+  },
+  {
+    "name": "strong-standalone-insight",
+    "expected": "accept",
+    "sentences": [
+      "The biggest mistake is waiting to feel motivated before starting.",
+      "Motivation follows a visible first step, so make the first step tiny.",
+      "When the next action is obvious, your environment does the persuading.",
+      "That is why a small system beats a heroic burst of effort.",
+      "You can repeat the system even on a difficult day.",
+      "The result is progress that does not depend on perfect feelings."
+    ]
+  },
+  {
+    "name": "repeated-claim",
+    "expected": "accept",
+    "sentences": [
+      "Everyone can learn the skill if the practice is specific.",
+      "The point is to make the practice visible every morning.",
+      "A visible routine gives feedback before frustration takes over.",
+      "Everyone can learn the skill if the practice is specific.",
+      "That repeated idea matters because consistency beats intensity.",
+      "The lesson is to design practice that you can actually repeat."
+    ]
+  },
+  {
+    "name": "accented-unicode",
+    "expected": "accept",
+    "sentences": [
+      "The biggest lesson from the café is to measure one change at a time.",
+      "A résumé of small experiments is more useful than a grand theory.",
+      "Clear examples make a naïve assumption visible before it causes trouble.",
+      "That is why a small checklist beats a clever slogan.",
+      "The team can adjust the process without losing the original meaning.",
+      "Progress stays practical when every example remains easy to explain."
+    ]
+  }
+]

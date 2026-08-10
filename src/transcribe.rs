@@ -30,7 +30,13 @@ where
         .as_ref()
         .ok_or_else(|| anyhow!("Transcription model missing. Download ggml-base.en.bin (~148MB) into <data-dir>/models or set CF_WHISPER_MODEL."))?;
 
-    let out_prefix = wav.with_extension("whisper");
+    // Never let whisper write directly to a retry-visible name. A cancelled
+    // process may leave a JSON prefix that looks parseable on the next run.
+    let out_prefix = wav.with_file_name(format!(".whisper-{}", crate::util::short_id()));
+    let json_candidates = [
+        out_prefix.with_extension("json"),
+        out_prefix.with_extension("whisper.json"),
+    ];
     let args: Vec<String> = vec![
         "-m".into(),
         model.to_string_lossy().into_owned(),
@@ -49,56 +55,67 @@ where
         "--print-progress".into(),
     ];
 
-    run_streaming(&bin.to_string_lossy(), &args, cancel, |_is_err, line| {
-        // whisper.cpp prints `whisper_print_progress_callback: progress = 35%`
-        if let Some(idx) = line.find("progress =") {
-            let tail = &line[idx + 10..];
-            if let Ok(pct) = tail.trim().trim_end_matches('%').parse::<f32>() {
-                on_progress((pct / 100.0).clamp(0.0, 1.0));
+    let result: Result<Transcript> = async {
+        run_streaming(&bin.to_string_lossy(), &args, cancel, |_is_err, line| {
+            // whisper.cpp prints `whisper_print_progress_callback: progress = 35%`
+            if let Some(idx) = line.find("progress =") {
+                let tail = &line[idx + 10..];
+                if let Ok(pct) = tail.trim().trim_end_matches('%').parse::<f32>() {
+                    on_progress((pct / 100.0).clamp(0.0, 1.0));
+                }
             }
-        }
-    })
-    .await
-    .map_err(|e| {
-        if e.to_string().contains("cancelled") {
-            e
-        } else {
-            anyhow!("Transcription failed. {}", e)
-        }
-    })?;
-
-    let json_path = out_prefix.with_extension("whisper.json");
-    // whisper.cpp appends `.json` to the output prefix.
-    let json_path = if json_path.is_file() {
-        json_path
-    } else {
-        Path::new(&format!("{}.json", out_prefix.to_string_lossy())).to_path_buf()
-    };
-    let bytes = tokio::fs::read(&json_path)
+        })
         .await
-        .with_context(|| format!("whisper output not found at {}", json_path.display()))?;
-    let parsed: serde_json::Value = serde_json::from_slice(&bytes)?;
-    tokio::fs::remove_file(&json_path).await.ok();
+        .map_err(|e| {
+            if e.to_string().contains("cancelled") {
+                e
+            } else {
+                anyhow!("Transcription failed. {}", e)
+            }
+        })?;
 
-    let words = parse_words(&parsed);
-    if words.is_empty() {
-        return Err(anyhow!(
-            "No speech was detected in this video. Clipping Factory needs clear spoken audio."
-        ));
+        // whisper.cpp appends `.json` to the output prefix. Keep a fallback
+        // for versions that insert `.whisper` before that suffix.
+        let json_path = json_candidates
+            .iter()
+            .find(|path| path.is_file())
+            .ok_or_else(|| {
+                anyhow!(
+                    "whisper output not found at {}",
+                    json_candidates[0].display()
+                )
+            })?;
+        let bytes = tokio::fs::read(json_path)
+            .await
+            .with_context(|| format!("reading whisper output at {}", json_path.display()))?;
+        let parsed: serde_json::Value = serde_json::from_slice(&bytes)?;
+
+        let words = parse_words(&parsed);
+        if words.is_empty() {
+            return Err(anyhow!(
+                "No speech was detected in this video. Clipping Factory needs clear spoken audio."
+            ));
+        }
+        let sentences = build_sentences(&words);
+        let avg_confidence = words.iter().map(|w| w.p).sum::<f32>() / (words.len().max(1) as f32);
+        let language = parsed["result"]["language"]
+            .as_str()
+            .unwrap_or("en")
+            .to_string();
+
+        Ok(Transcript {
+            language,
+            words,
+            sentences,
+            avg_confidence,
+        })
     }
-    let sentences = build_sentences(&words);
-    let avg_confidence = words.iter().map(|w| w.p).sum::<f32>() / (words.len().max(1) as f32);
-    let language = parsed["result"]["language"]
-        .as_str()
-        .unwrap_or("en")
-        .to_string();
+    .await;
 
-    Ok(Transcript {
-        language,
-        words,
-        sentences,
-        avg_confidence,
-    })
+    for path in &json_candidates {
+        tokio::fs::remove_file(path).await.ok();
+    }
+    result
 }
 
 fn parse_words(v: &serde_json::Value) -> Vec<Word> {
