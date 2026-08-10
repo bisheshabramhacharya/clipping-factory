@@ -219,6 +219,15 @@ struct UploadFields {
     framing_mode: FramingMode,
 }
 
+const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
+
+fn upload_capacity_bytes(free_gb: Option<f64>) -> Option<u64> {
+    free_gb.map(|gb| {
+        let free_bytes = (gb.max(0.0) * 1024.0 * 1024.0 * 1024.0) as u64;
+        free_bytes.saturating_sub(UPLOAD_DISK_RESERVE_BYTES)
+    })
+}
+
 async fn cleanup_upload(state: &AppState, id: &str) {
     tokio::fs::remove_dir_all(state.store.project_dir(id))
         .await
@@ -261,6 +270,8 @@ async fn receive_upload(
 ) -> Result<UploadFields, ApiError> {
     state.store.create_dirs(id).await.map_err(ApiError::from)?;
     let dest = state.store.source_path(id);
+    let upload_capacity =
+        upload_capacity_bytes(crate::util::disk_free_gb(&state.cfg.data_dir).await);
 
     let mut original_name = String::new();
     let mut wrote_bytes: u64 = 0;
@@ -333,7 +344,13 @@ async fn receive_upload(
             .await
             .map_err(|e| bad_request(format!("upload interrupted: {e}")))?
         {
-            wrote_bytes += chunk.len() as u64;
+            let next_size = wrote_bytes.saturating_add(chunk.len() as u64);
+            if upload_capacity.is_some_and(|capacity| next_size > capacity) {
+                return Err(bad_request(
+                    "Not enough free disk space for this video. Free up space and try again.",
+                ));
+            }
+            wrote_bytes = next_size;
             file.write_all(&chunk)
                 .await
                 .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
@@ -1024,6 +1041,16 @@ mod tests {
         let multiple = axum::http::HeaderValue::from_static("bytes=0-1,4-5");
         assert!(parse_byte_range(Some(&beyond), 100).is_err());
         assert!(parse_byte_range(Some(&multiple), 100).is_err());
+    }
+
+    #[test]
+    fn upload_capacity_keeps_one_gibibyte_free() {
+        assert_eq!(
+            upload_capacity_bytes(Some(3.0)),
+            Some(2 * 1024 * 1024 * 1024)
+        );
+        assert_eq!(upload_capacity_bytes(Some(0.5)), Some(0));
+        assert_eq!(upload_capacity_bytes(None), None);
     }
 
     #[tokio::test]

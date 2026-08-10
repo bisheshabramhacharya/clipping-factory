@@ -8,10 +8,10 @@ Local-first podcast clipping with transcript ranking, face-aware reframing, and
 word-accurate captions. Built entirely in Rust.
 
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
-![CI](https://github.com/bramhacharyabishesha-hub/clipping-factory/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/codingwithb/clipping-factory/actions/workflows/ci.yml/badge.svg)
 ![Local first](https://img.shields.io/badge/processing-local--first-1f6feb)
 ![Output](https://img.shields.io/badge/output-1080%C3%971920-7c3aed)
-![Tests](https://img.shields.io/badge/tests-62%20passing-238636)
+![Tests](https://img.shields.io/badge/tests-95%20passing-238636)
 
 </div>
 
@@ -200,7 +200,7 @@ Everything's overridable via environment variables: `CF_PORT`, `CF_DATA_DIR`, `C
 ### Tests
 
 ```bash
-cargo test   # 62 tests: every validator rule, caption pagination, crop math,
+cargo test   # 95 tests: every validator rule, caption pagination, crop math,
              # face-track smoothing & pan clamping, layout decisions, restyle
              # plumbing, selector parsing, state recovery
 ```
