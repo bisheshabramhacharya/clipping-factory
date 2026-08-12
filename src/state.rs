@@ -6,9 +6,8 @@ use crate::settings::AiSettings;
 use crate::store::Store;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch, Mutex as AsyncMutex};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, Serialize, Debug)]
@@ -20,11 +19,27 @@ pub struct LiveStage {
 
 pub struct ProjectHandle {
     pub events: broadcast::Sender<String>,
-    pub cancel: Mutex<CancellationToken>,
-    pub running: AtomicBool,
+    pub operation: AsyncMutex<()>,
+    run: Mutex<RunState>,
     /// In-memory progress for the currently executing stage. Durable state
     /// transitions live in project.json; this fills the gaps between them.
     pub live: Mutex<Option<LiveStage>>,
+}
+
+struct RunState {
+    next_generation: u64,
+    active: Option<ActiveRun>,
+}
+
+struct ActiveRun {
+    generation: u64,
+    token: CancellationToken,
+    done: watch::Sender<bool>,
+}
+
+pub struct RunLease {
+    pub token: CancellationToken,
+    pub(crate) generation: u64,
 }
 
 impl ProjectHandle {
@@ -32,8 +47,11 @@ impl ProjectHandle {
         let (tx, _) = broadcast::channel(512);
         Arc::new(ProjectHandle {
             events: tx,
-            cancel: Mutex::new(CancellationToken::new()),
-            running: AtomicBool::new(false),
+            operation: AsyncMutex::new(()),
+            run: Mutex::new(RunState {
+                next_generation: 0,
+                active: None,
+            }),
             live: Mutex::new(None),
         })
     }
@@ -55,7 +73,45 @@ impl ProjectHandle {
     }
 
     pub fn is_running(&self) -> bool {
-        self.running.load(std::sync::atomic::Ordering::SeqCst)
+        self.run.lock().unwrap().active.is_some()
+    }
+
+    pub fn try_start(&self) -> Option<RunLease> {
+        let mut run = self.run.lock().unwrap();
+        if run.active.is_some() {
+            return None;
+        }
+        run.next_generation = run.next_generation.saturating_add(1);
+        let token = CancellationToken::new();
+        let (done, _) = watch::channel(false);
+        let generation = run.next_generation;
+        run.active = Some(ActiveRun {
+            generation,
+            token: token.clone(),
+            done,
+        });
+        Some(RunLease { token, generation })
+    }
+
+    pub fn request_cancel(&self) -> Option<watch::Receiver<bool>> {
+        let run = self.run.lock().unwrap();
+        let active = run.active.as_ref()?;
+        let done = active.done.subscribe();
+        active.token.cancel();
+        Some(done)
+    }
+
+    pub fn finish(&self, generation: u64) {
+        let done = {
+            let mut run = self.run.lock().unwrap();
+            if run.active.as_ref().map(|active| active.generation) != Some(generation) {
+                return;
+            }
+            run.active.take().map(|active| active.done)
+        };
+        if let Some(done) = done {
+            let _ = done.send(true);
+        }
     }
 }
 
@@ -97,5 +153,40 @@ impl AppState {
 
     pub fn end_restyle(&self, key: &str) {
         self.restyling.lock().unwrap().remove(key);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancel_without_an_active_run_does_not_poison_the_next_run() {
+        let handle = ProjectHandle::new();
+
+        assert!(handle.request_cancel().is_none());
+
+        let lease = handle.try_start().expect("run should start");
+        assert!(!lease.token.is_cancelled());
+        handle.finish(lease.generation);
+    }
+
+    #[test]
+    fn duplicate_cancel_is_idempotent_and_a_stale_finish_cannot_end_new_run() {
+        let handle = ProjectHandle::new();
+        let first = handle.try_start().expect("first run should start");
+        let first_done = handle.request_cancel().expect("first run is cancellable");
+        let second_done = handle.request_cancel().expect("duplicate cancel is safe");
+        assert!(first.token.is_cancelled());
+
+        handle.finish(first.generation);
+        assert!(*first_done.borrow());
+        assert!(*second_done.borrow());
+
+        let second = handle.try_start().expect("next run should start");
+        handle.finish(first.generation);
+        assert!(handle.is_running(), "stale completion ended the new run");
+        handle.finish(second.generation);
+        assert!(!handle.is_running());
     }
 }

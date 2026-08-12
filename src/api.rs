@@ -28,6 +28,7 @@ use axum::{Json, Router};
 use futures::stream::{self, Stream, StreamExt};
 use serde_json::json;
 use std::convert::Infallible;
+use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use tokio_stream::wrappers::BroadcastStream;
 
@@ -173,15 +174,18 @@ async fn set_settings(
         ));
     }
     let updated = {
-        let mut s = state.settings.write().unwrap();
-        s.provider = body.provider;
-        s.model = body.model;
+        let mut candidate = state.settings.read().unwrap().clone();
+        candidate.provider = body.provider;
+        candidate.model = body.model;
         // Empty key = keep the existing one (lets users switch model without retyping).
         if !body.api_key.trim().is_empty() {
-            s.api_key = Some(body.api_key.trim().to_string());
+            candidate.api_key = Some(body.api_key.trim().to_string());
         }
-        s.clone()
+        candidate
     };
+    crate::select::test_connection(&updated)
+        .await
+        .map_err(|e| ApiError(StatusCode::BAD_REQUEST, e.to_string()))?;
     // `settings::save` touches the filesystem synchronously (write + chmod
     // 0600) — keep that work off the async workers.
     let data_dir = state.cfg.data_dir.clone();
@@ -190,6 +194,7 @@ async fn set_settings(
         .await
         .map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    *state.settings.write().unwrap() = updated.clone();
     Ok(Json(
         serde_json::to_value(updated.public()).unwrap_or_default(),
     ))
@@ -207,13 +212,66 @@ async fn test_settings(State(state): State<AppState>) -> Json<serde_json::Value>
 // Projects
 // ---------------------------------------------------------------------------
 
-async fn create_project(
-    State(state): State<AppState>,
+struct UploadFields {
+    original_name: String,
+    caption_style: Option<String>,
+    accent_color: Option<String>,
+    framing_mode: FramingMode,
+}
+
+const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
+
+fn upload_capacity_bytes(free_gb: Option<f64>) -> Option<u64> {
+    free_gb.map(|gb| {
+        let free_bytes = (gb.max(0.0) * 1024.0 * 1024.0 * 1024.0) as u64;
+        free_bytes.saturating_sub(UPLOAD_DISK_RESERVE_BYTES)
+    })
+}
+
+async fn cleanup_upload(state: &AppState, id: &str) {
+    tokio::fs::remove_dir_all(state.store.project_dir(id))
+        .await
+        .ok();
+}
+
+struct UploadCleanupGuard {
+    path: PathBuf,
+    armed: bool,
+}
+
+impl UploadCleanupGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path, armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for UploadCleanupGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let path = self.path.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                tokio::fs::remove_dir_all(path).await.ok();
+            });
+        }
+    }
+}
+
+async fn receive_upload(
+    state: &AppState,
+    id: &str,
     mut multipart: Multipart,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let id = crate::util::short_id();
-    state.store.create_dirs(&id).await.map_err(ApiError::from)?;
-    let dest = state.store.source_path(&id);
+) -> Result<UploadFields, ApiError> {
+    state.store.create_dirs(id).await.map_err(ApiError::from)?;
+    let dest = state.store.source_path(id);
+    let upload_capacity =
+        upload_capacity_bytes(crate::util::disk_free_gb(&state.cfg.data_dir).await);
 
     let mut original_name = String::new();
     let mut wrote_bytes: u64 = 0;
@@ -243,7 +301,7 @@ async fn create_project(
                     accent_color = Some(if v.starts_with('#') {
                         v
                     } else {
-                        format!("#{}", v)
+                        format!("#{v}")
                     });
                 }
             }
@@ -251,17 +309,9 @@ async fn create_project(
         }
         if field.name() == Some("accent_mode") {
             if let Ok(v) = field.text().await {
-                accent_mode = match crate::accent::AccentMode::parse(&v) {
-                    Some(mode) => mode,
-                    None => {
-                        tokio::fs::remove_dir_all(state.store.project_dir(&id))
-                            .await
-                            .ok();
-                        return Err(bad_request(
-                            "accent_mode must be manual, random, or optimized",
-                        ));
-                    }
-                };
+                accent_mode = crate::accent::AccentMode::parse(&v).ok_or_else(|| {
+                    bad_request("accent_mode must be manual, random, or optimized")
+                })?;
             }
             continue;
         }
@@ -280,15 +330,13 @@ async fn create_project(
         original_name = field.file_name().unwrap_or("source.mp4").to_string();
         let lower = original_name.to_lowercase();
         if !(lower.ends_with(".mp4") || lower.ends_with(".m4v")) {
-            tokio::fs::remove_dir_all(state.store.project_dir(&id))
-                .await
-                .ok();
             return Err(bad_request(
                 "Attach an .mp4 file. Other containers are post-MVP.",
             ));
         }
         // Stream to disk without buffering the whole video in memory (PRD §7.2).
-        let mut file = tokio::fs::File::create(&dest)
+        let upload_temp = crate::util::unique_temp_path(&dest);
+        let mut file = tokio::fs::File::create(&upload_temp)
             .await
             .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
         while let Some(chunk) = field
@@ -296,18 +344,26 @@ async fn create_project(
             .await
             .map_err(|e| bad_request(format!("upload interrupted: {e}")))?
         {
-            wrote_bytes += chunk.len() as u64;
+            let next_size = wrote_bytes.saturating_add(chunk.len() as u64);
+            if upload_capacity.is_some_and(|capacity| next_size > capacity) {
+                return Err(bad_request(
+                    "Not enough free disk space for this video. Free up space and try again.",
+                ));
+            }
+            wrote_bytes = next_size;
             file.write_all(&chunk)
                 .await
                 .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
         }
-        file.flush().await.ok();
+        file.flush()
+            .await
+            .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+        crate::util::promote_atomic(&upload_temp, &dest)
+            .await
+            .map_err(ApiError::from)?;
     }
 
     if wrote_bytes == 0 {
-        tokio::fs::remove_dir_all(state.store.project_dir(&id))
-            .await
-            .ok();
         return Err(bad_request(
             "No file received. Drop one MP4 into the studio.",
         ));
@@ -334,26 +390,50 @@ async fn create_project(
         crate::accent::AccentMode::Manual => accent_color,
     };
 
-    let mut project = Project::new(id.clone(), dest);
-    project.caption_style = caption_style;
-    project.accent_color = accent_color;
-    project.framing_mode = framing_mode;
-    state
-        .store
-        .save_project(&project)
-        .await
-        .map_err(ApiError::from)?;
+    Ok(UploadFields {
+        original_name,
+        caption_style,
+        accent_color,
+        framing_mode,
+    })
+}
+
+async fn create_project(
+    State(state): State<AppState>,
+    multipart: Multipart,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let id = crate::util::short_id();
+    let mut cleanup = UploadCleanupGuard::new(state.store.project_dir(&id));
+    let fields = match receive_upload(&state, &id, multipart).await {
+        Ok(fields) => fields,
+        Err(error) => {
+            cleanup_upload(&state, &id).await;
+            cleanup.disarm();
+            return Err(error);
+        }
+    };
+
+    let mut project = Project::new(id.clone(), state.store.source_path(&id));
+    project.caption_style = fields.caption_style;
+    project.accent_color = fields.accent_color;
+    project.framing_mode = fields.framing_mode;
+    if let Err(error) = state.store.save_project(&project).await {
+        cleanup_upload(&state, &id).await;
+        cleanup.disarm();
+        return Err(ApiError::from(error));
+    }
+    cleanup.disarm();
     // The original filename lives in a sidecar file; the inspect stage and
     // output-folder naming read it from there.
     tokio::fs::write(
         state.store.project_dir(&id).join("original-name.txt"),
-        &original_name,
+        &fields.original_name,
     )
     .await
     .ok();
 
     // Processing begins automatically (PRD §7.2).
-    pipeline::start(state.clone(), id.clone()).ok();
+    pipeline::start(state.clone(), id.clone()).await.ok();
 
     let view = project_view(&state, &id).await.map_err(ApiError::from)?;
     Ok(Json(view))
@@ -446,7 +526,7 @@ async fn process_project(
     if !state.store.exists(&id) {
         return Err(not_found("Project not found."));
     }
-    match pipeline::start(state.clone(), id) {
+    match pipeline::start(state.clone(), id).await {
         Ok(()) => Ok(Json(json!({ "started": true }))),
         Err(msg) => Err(ApiError(StatusCode::CONFLICT, msg)),
     }
@@ -459,8 +539,21 @@ async fn cancel_project(
     if !state.store.exists(&id) {
         return Err(not_found("Project not found."));
     }
-    let was_running = pipeline::cancel(&state, &id);
-    Ok(Json(json!({ "cancelling": was_running })))
+    match pipeline::cancel(&state, &id)
+        .await
+        .map_err(|msg| ApiError(StatusCode::INTERNAL_SERVER_ERROR, msg))?
+    {
+        pipeline::CancelOutcome::Cancelled => Ok(Json(json!({
+            "cancelling": false,
+            "cancelled": true,
+            "status": "cancelled"
+        }))),
+        pipeline::CancelOutcome::Status(status) => Ok(Json(json!({
+            "cancelling": false,
+            "cancelled": false,
+            "status": status
+        }))),
+    }
 }
 
 async fn retry_project(
@@ -545,7 +638,9 @@ async fn restyle_clip(
     if !state.store.exists(&id) {
         return Err(not_found("Project not found."));
     }
-    if state.handle(&id).is_running() {
+    let handle = state.handle(&id);
+    let _operation = handle.operation.lock().await;
+    if handle.is_running() {
         return Err(ApiError(
             StatusCode::CONFLICT,
             "Processing is still running. Restyle clips once rendering finishes.".into(),
@@ -629,7 +724,25 @@ async fn restyle_clip(
     // Ensure the framed, uncaptioned base exists (projects rendered before
     // base intermediates existed rebuild it here from the source, one time).
     let base_path = state.store.base_clip_path(&id, &clip.id);
-    if !base_path.is_file() {
+    let mut base_ready = state
+        .store
+        .base_is_ready(&id, &clip.id)
+        .await
+        .map_err(ApiError::from)?;
+    if !base_ready
+        && tokio::fs::metadata(&base_path)
+            .await
+            .map(|m| m.is_file() && m.len() > 0)
+            .unwrap_or(false)
+    {
+        state
+            .store
+            .mark_base_ready(&id, &clip.id)
+            .await
+            .map_err(ApiError::from)?;
+        base_ready = true;
+    }
+    if !base_ready {
         let source = p.source.clone().ok_or_else(|| {
             ApiError(
                 StatusCode::CONFLICT,
@@ -645,6 +758,9 @@ async fn restyle_clip(
         tokio::fs::create_dir_all(state.store.base_dir(&id))
             .await
             .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+        tokio::fs::remove_file(&base_path).await.ok();
+        state.store.clear_base_ready(&id, &clip.id).await;
+        let base_temp = crate::util::unique_temp_path(&base_path);
         crate::render::render_base_clip(
             cfg,
             &p.source_path,
@@ -652,12 +768,20 @@ async fn restyle_clip(
             &clip.layout,
             clip.start_ms,
             clip.end_ms,
-            &base_path,
+            &base_temp,
             &cancel,
             |_| {},
         )
         .await
         .map_err(ApiError::from)?;
+        crate::util::promote_atomic(&base_temp, &base_path)
+            .await
+            .map_err(ApiError::from)?;
+        state
+            .store
+            .mark_base_ready(&id, &clip.id)
+            .await
+            .map_err(ApiError::from)?;
     }
 
     // Build the new captions and burn them onto the base.
@@ -674,8 +798,10 @@ async fn restyle_clip(
         style,
     );
     let clips_dir = state.store.clips_dir(&id);
-    let ass_path = clips_dir.join(format!("{}.restyle.ass", clip.id));
-    let tmp_out = clips_dir.join(format!("{}.restyle.tmp.mp4", clip.id));
+    let final_path = clips_dir.join(&clip.filename);
+    let ass_path =
+        crate::util::unique_temp_path(&clips_dir.join(format!("{}.restyle.ass", clip.id)));
+    let tmp_out = crate::util::unique_temp_path(&final_path);
     tokio::fs::write(&ass_path, &ass)
         .await
         .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
@@ -695,12 +821,16 @@ async fn restyle_clip(
         return Err(ApiError::from(e));
     }
 
-    // Swap the restyled clip into place, then refresh the copy in the
+    // Atomically promote the restyled clip into place, then refresh the copy in the
     // user-facing output folder (best-effort, mirroring the render stage).
-    let final_path = clips_dir.join(&clip.filename);
-    tokio::fs::rename(&tmp_out, &final_path)
+    crate::util::promote_atomic(&tmp_out, &final_path)
         .await
-        .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+        .map_err(ApiError::from)?;
+    state
+        .store
+        .mark_final_ready(&id, &clip.id)
+        .await
+        .map_err(ApiError::from)?;
     if let Some(dir) = manifest.output_dir.clone() {
         tokio::fs::copy(&final_path, std::path::Path::new(&dir).join(&clip.filename))
             .await
@@ -715,9 +845,7 @@ async fn restyle_clip(
         .save_manifest(&id, &manifest)
         .await
         .map_err(ApiError::from)?;
-    state
-        .handle(&id)
-        .emit(json!({"type": "clip", "clip": manifest.clips[idx]}));
+    handle.emit(json!({"type": "clip", "clip": manifest.clips[idx]}));
     Ok(Json(
         serde_json::to_value(&manifest.clips[idx]).unwrap_or_default(),
     ))
@@ -776,6 +904,7 @@ async fn serve_video(
     download_name: Option<String>,
 ) -> Result<Response, ApiError> {
     use tokio::io::{AsyncReadExt, AsyncSeekExt};
+    use tokio_util::io::ReaderStream;
     let mut file = tokio::fs::File::open(path)
         .await
         .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
@@ -786,24 +915,7 @@ async fn serve_video(
         .len();
 
     // Parse a simple `bytes=start-end` range.
-    let range = headers
-        .get(header::RANGE)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("bytes="))
-        .and_then(|spec| {
-            let (a, b) = spec.split_once('-')?;
-            let start: u64 = a.parse().ok()?;
-            let end: u64 = if b.is_empty() {
-                len.saturating_sub(1)
-            } else {
-                b.parse().ok()?
-            };
-            if start > end || end >= len {
-                None
-            } else {
-                Some((start, end))
-            }
-        });
+    let range = parse_byte_range(headers.get(header::RANGE), len);
 
     let mut builder = Response::builder()
         .header(header::ACCEPT_RANGES, "bytes")
@@ -819,26 +931,24 @@ async fn serve_video(
     }
 
     let (start, end, status) = match range {
-        Some((s, e)) => (s, e, StatusCode::PARTIAL_CONTENT),
-        None => (0, len.saturating_sub(1), StatusCode::OK),
+        Ok(Some((s, e))) => (s, e, StatusCode::PARTIAL_CONTENT),
+        Ok(None) if len > 0 => (0, len - 1, StatusCode::OK),
+        _ => {
+            return Response::builder()
+                .status(StatusCode::RANGE_NOT_SATISFIABLE)
+                .header(header::CONTENT_RANGE, format!("bytes */{len}"))
+                .body(axum::body::Body::empty())
+                .map_err(|e| ApiError::from(anyhow::Error::from(e)));
+        }
     };
     let read_len = end - start + 1;
     file.seek(std::io::SeekFrom::Start(start))
         .await
         .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
 
-    // Read the requested window in one buffered pass (clips are tens of MB max;
-    // range requests keep individual reads small during scrubbing).
-    let mut buf = Vec::with_capacity(read_len.min(64 * 1024 * 1024) as usize);
-    let mut limited = file.take(read_len);
-    limited
-        .read_to_end(&mut buf)
-        .await
-        .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
-
     builder = builder
         .status(status)
-        .header(header::CONTENT_LENGTH, buf.len().to_string());
+        .header(header::CONTENT_LENGTH, read_len.to_string());
     if status == StatusCode::PARTIAL_CONTENT {
         builder = builder.header(
             header::CONTENT_RANGE,
@@ -846,8 +956,49 @@ async fn serve_video(
         );
     }
     builder
-        .body(axum::body::Body::from(buf))
+        .body(axum::body::Body::from_stream(ReaderStream::new(
+            file.take(read_len),
+        )))
         .map_err(|e| ApiError::from(anyhow::Error::from(e)))
+}
+
+fn parse_byte_range(
+    value: Option<&axum::http::HeaderValue>,
+    len: u64,
+) -> Result<Option<(u64, u64)>, ()> {
+    let Some(value) = value else { return Ok(None) };
+    if len == 0 {
+        return Err(());
+    }
+    let spec = value
+        .to_str()
+        .map_err(|_| ())?
+        .strip_prefix("bytes=")
+        .ok_or(())?;
+    if spec.contains(',') {
+        return Err(());
+    }
+    let (start, end) = spec.split_once('-').ok_or(())?;
+    if start.is_empty() {
+        let suffix: u64 = end.parse().map_err(|_| ())?;
+        if suffix == 0 {
+            return Err(());
+        }
+        return Ok(Some((len.saturating_sub(suffix.min(len)), len - 1)));
+    }
+    let start: u64 = start.parse().map_err(|_| ())?;
+    if start >= len {
+        return Err(());
+    }
+    let end = if end.is_empty() {
+        len - 1
+    } else {
+        end.parse::<u64>().map_err(|_| ())?.min(len - 1)
+    };
+    if end < start {
+        return Err(());
+    }
+    Ok(Some((start, end)))
 }
 
 // ---------------------------------------------------------------------------
@@ -867,4 +1018,98 @@ async fn open_output_folder(
     };
     let opened = std::process::Command::new(opener).arg(&dir).spawn().is_ok();
     Ok(Json(json!({ "opened": opened, "path": dir })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::{Body, Bytes};
+    use axum::extract::FromRequest;
+    use axum::http::Request;
+
+    #[test]
+    fn byte_ranges_support_open_ended_and_suffix_requests() {
+        let open = axum::http::HeaderValue::from_static("bytes=10-");
+        let suffix = axum::http::HeaderValue::from_static("bytes=-20");
+        assert_eq!(parse_byte_range(Some(&open), 100), Ok(Some((10, 99))));
+        assert_eq!(parse_byte_range(Some(&suffix), 100), Ok(Some((80, 99))));
+    }
+
+    #[test]
+    fn byte_ranges_reject_unsatisfiable_and_multiple_requests() {
+        let beyond = axum::http::HeaderValue::from_static("bytes=100-");
+        let multiple = axum::http::HeaderValue::from_static("bytes=0-1,4-5");
+        assert!(parse_byte_range(Some(&beyond), 100).is_err());
+        assert!(parse_byte_range(Some(&multiple), 100).is_err());
+    }
+
+    #[test]
+    fn upload_capacity_keeps_one_gibibyte_free() {
+        assert_eq!(
+            upload_capacity_bytes(Some(3.0)),
+            Some(2 * 1024 * 1024 * 1024)
+        );
+        assert_eq!(upload_capacity_bytes(Some(0.5)), Some(0));
+        assert_eq!(upload_capacity_bytes(None), None);
+    }
+
+    #[tokio::test]
+    async fn video_range_response_caps_end_and_streams_only_requested_bytes() {
+        let tmp = std::env::temp_dir().join(format!("cf-range-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let path = tmp.join("clip.mp4");
+        tokio::fs::write(&path, b"0123456789").await.unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(header::RANGE, "bytes=4-99".parse().unwrap());
+
+        let response = match serve_video(&path, &headers, None).await {
+            Ok(response) => response,
+            Err(_) => panic!("range response should be served"),
+        };
+
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes 4-9/10");
+        assert_eq!(response.headers()[header::CONTENT_LENGTH], "6");
+        let body = axum::body::to_bytes(response.into_body(), 6).await.unwrap();
+        assert_eq!(&body[..], b"456789");
+
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn interrupted_multipart_upload_removes_the_project_directory() {
+        let boundary = "cf-upload-boundary";
+        let prefix = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\npartial"
+        );
+        let body = futures::stream::iter(vec![
+            Ok::<Bytes, std::io::Error>(Bytes::from(prefix)),
+            Err(std::io::Error::new(
+                std::io::ErrorKind::ConnectionAborted,
+                "client disconnected",
+            )),
+        ]);
+        let request = Request::builder()
+            .header(
+                header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(Body::from_stream(body))
+            .unwrap();
+        let multipart = Multipart::from_request(request, &()).await.unwrap();
+
+        let tmp = std::env::temp_dir().join(format!("cf-upload-{}", crate::util::short_id()));
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        let projects_dir = cfg.data_dir.join("projects");
+        let state = AppState::new(cfg);
+
+        assert!(create_project(State(state.clone()), multipart)
+            .await
+            .is_err());
+        let mut projects = tokio::fs::read_dir(projects_dir).await.unwrap();
+        assert!(projects.next_entry().await.unwrap().is_none());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
 }

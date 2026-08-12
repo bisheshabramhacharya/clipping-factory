@@ -106,18 +106,23 @@ pub fn validate(
                 reasons.push(format!("{} quote is empty", label));
                 continue;
             }
-            match excerpt_norm.find(&qn) {
+            let position = if near_start {
+                excerpt_norm.find(&qn)
+            } else {
+                excerpt_norm.rfind(&qn)
+            };
+            match position {
                 None => reasons.push(format!(
                     "{} quote cannot be found in the transcribed excerpt",
                     label
                 )),
                 Some(pos) => {
                     let len = excerpt_norm.len().max(1);
-                    let zone = (len as f64 * 0.5) as usize;
+                    let zone = (len / 4).min(160);
                     let ok = if near_start {
-                        pos <= zone.max(160)
+                        pos <= zone
                     } else {
-                        pos + qn.len() >= len.saturating_sub(zone.max(160))
+                        pos + qn.len() >= len.saturating_sub(zone)
                     };
                     if !ok {
                         reasons.push(format!(
@@ -154,7 +159,7 @@ pub fn validate(
 
     let mut accepted: Vec<ValidatedCandidate> = Vec::new();
     for (cand, duration_exception, composite) in passing {
-        let dur = (cand.end_ms - cand.start_ms).max(1) as f64;
+        let candidate_dur = (cand.end_ms - cand.start_ms).max(1) as f64;
         let too_much_overlap = accepted.iter().any(|a| {
             let inter = crate::select::overlap_ms(
                 a.candidate.start_ms,
@@ -162,7 +167,9 @@ pub fn validate(
                 cand.start_ms,
                 cand.end_ms,
             ) as f64;
-            inter / dur > MAX_OVERLAP
+            let contains_higher_ranked =
+                cand.start_ms <= a.candidate.start_ms && cand.end_ms >= a.candidate.end_ms;
+            contains_higher_ranked || inter / candidate_dur > MAX_OVERLAP
         });
         if too_much_overlap {
             rejected.push(RejectedCandidate {
@@ -449,6 +456,38 @@ mod tests {
     }
 
     #[test]
+    fn closing_quote_uses_the_occurrence_nearest_the_excerpt_end() {
+        let mut t = transcript(200, 400);
+        for start in [10usize, 190] {
+            for (offset, text) in ["we", "finally", "got", "there"].iter().enumerate() {
+                t.words[start + offset].text = (*text).into();
+            }
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let mut c = cand(&t, 0, 80_000, good_scores());
+        c.closing_quote = "we finally got there".into();
+        let r = validate(vec![c], &t, SRC, "t".into());
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+    }
+
+    #[test]
+    fn closing_quote_in_the_middle_is_not_close_enough_to_the_excerpt_end() {
+        let mut t = transcript(200, 400);
+        for (offset, text) in ["we", "finally", "got", "there"].iter().enumerate() {
+            t.words[150 + offset].text = (*text).into();
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let mut c = cand(&t, 0, 80_000, good_scores());
+        c.closing_quote = "we finally got there".into();
+        let r = validate(vec![c], &t, SRC, "t".into());
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("closing quote is not near the end")));
+    }
+
+    #[test]
     fn suppresses_overlap_above_30_percent() {
         let t = transcript(1500, 400);
         let strong = cand(&t, 10_000, 70_000, good_scores());
@@ -477,6 +516,42 @@ mod tests {
         let b = cand(&t, 60_000, 120_000, s2);
         let r = validate(vec![a, b], &t, SRC, "t".into());
         assert_eq!(r.accepted.len(), 2);
+    }
+
+    #[test]
+    fn a_candidate_containing_a_higher_ranked_clip_is_rejected_as_overlap() {
+        let t = transcript(1500, 400);
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../evals/fixtures/overlap_containment.json"))
+                .unwrap();
+        let interval = |name: &str| {
+            (
+                fixture[name]["start_ms"].as_u64().unwrap(),
+                fixture[name]["end_ms"].as_u64().unwrap(),
+            )
+        };
+        assert_eq!(fixture["expected"], "reject-lower-ranked-containing-clip");
+        let (strong_start, strong_end) = interval("higher_ranked");
+        let (containing_start, containing_end) = interval("lower_ranked");
+        let strong = cand(&t, strong_start, strong_end, good_scores());
+        let mut weaker_scores = good_scores();
+        weaker_scores.opening_strength = 3;
+        let containing = cand(&t, containing_start, containing_end, weaker_scores);
+        let r = validate(vec![strong, containing], &t, SRC, "t".into());
+        assert_eq!(r.accepted.len(), 1);
+        assert_eq!(r.rejected.len(), 1);
+        assert!(r.rejected[0].reasons[0].contains("overlaps"));
+    }
+
+    #[test]
+    fn small_overlap_with_a_shorter_higher_ranked_clip_is_allowed() {
+        let t = transcript(1500, 400);
+        let strong = cand(&t, 10_000, 30_000, good_scores());
+        let mut weaker_scores = good_scores();
+        weaker_scores.opening_strength = 3;
+        let mostly_distinct = cand(&t, 23_000, 113_000, weaker_scores);
+        let r = validate(vec![strong, mostly_distinct], &t, SRC, "t".into());
+        assert_eq!(r.accepted.len(), 2, "reasons: {:?}", r.rejected);
     }
 
     #[test]

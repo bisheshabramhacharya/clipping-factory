@@ -10,16 +10,14 @@
 //! - `CF_FONTS_DIR`       — directory containing caption fonts
 //! - `CF_FACE_MODEL`      — rustface seeta model path
 //! - `CF_THREADS`         — transcription threads (default = physical cores)
-//! - `CF_BIND_ALL=1`      — listen on 0.0.0.0 instead of 127.0.0.1
 //! - `CF_NO_OPEN=1`       — don't try to open the browser on start
 
 use crate::util::which;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub port: u16,
-    pub bind_all: bool,
     pub open_browser: bool,
     pub data_dir: PathBuf,
     pub output_root: PathBuf,
@@ -43,6 +41,15 @@ fn env_path(key: &str) -> Option<PathBuf> {
 
 fn first_existing(cands: Vec<PathBuf>) -> Option<PathBuf> {
     cands.into_iter().find(|p| p.is_file())
+}
+
+fn find_whisper_model(data_dir: &Path, cwd: &Path) -> Option<PathBuf> {
+    first_existing(vec![
+        data_dir.join("models/ggml-small.en.bin"),
+        data_dir.join("models/ggml-base.en.bin"),
+        cwd.join("models/ggml-base.en.bin"),
+        cwd.join("../models/ggml-base.en.bin"),
+    ])
 }
 
 impl Config {
@@ -90,14 +97,7 @@ impl Config {
         // Model: env → data dir → common local locations.
         let whisper_model = env_path("CF_WHISPER_MODEL")
             .filter(|p| p.is_file())
-            .or_else(|| {
-                first_existing(vec![
-                    data_dir.join("models/ggml-base.en.bin"),
-                    data_dir.join("models/ggml-small.en.bin"),
-                    cwd.join("models/ggml-base.en.bin"),
-                    cwd.join("../models/ggml-base.en.bin"),
-                ])
-            });
+            .or_else(|| find_whisper_model(&data_dir, &cwd));
 
         // Caption fonts: bundled assets dir preferred.
         let fonts_dir = env_path("CF_FONTS_DIR").filter(|p| p.is_dir()).or_else(|| {
@@ -149,9 +149,6 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(4571),
-            bind_all: std::env::var("CF_BIND_ALL")
-                .map(|v| v == "1")
-                .unwrap_or(false),
             open_browser: std::env::var("CF_NO_OPEN")
                 .map(|v| v != "1")
                 .unwrap_or(true),
@@ -171,5 +168,25 @@ impl Config {
 
     pub fn projects_dir(&self) -> PathBuf {
         self.data_dir.join("projects")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn small_model_is_preferred_when_base_and_small_are_available() {
+        let root = std::env::temp_dir().join(format!("cf-config-test-{}", uuid::Uuid::new_v4()));
+        let models = root.join("models");
+        std::fs::create_dir_all(&models).unwrap();
+        let small = models.join("ggml-small.en.bin");
+        let base = models.join("ggml-base.en.bin");
+        std::fs::write(&base, b"base").unwrap();
+        std::fs::write(&small, b"small").unwrap();
+
+        assert_eq!(find_whisper_model(&root, &root), Some(small));
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

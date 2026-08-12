@@ -4,7 +4,7 @@
 
 use crate::config::Config;
 use crate::domain::SourceInfo;
-use crate::util::{run_capture, run_streaming};
+use crate::util::run_streaming;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
@@ -13,7 +13,12 @@ pub const MIN_SOURCE_MS: u64 = 20_000;
 pub const MAX_SOURCE_MS: u64 = 4 * 3600 * 1000;
 
 /// Inspect and validate the uploaded source. Errors are user-actionable.
-pub async fn probe(cfg: &Config, src: &Path, original_filename: &str) -> Result<SourceInfo> {
+pub async fn probe(
+    cfg: &Config,
+    src: &Path,
+    original_filename: &str,
+    cancel: &CancellationToken,
+) -> Result<SourceInfo> {
     let args: Vec<String> = vec![
         "-v".into(),
         "error".into(),
@@ -23,9 +28,15 @@ pub async fn probe(cfg: &Config, src: &Path, original_filename: &str) -> Result<
         "-show_streams".into(),
         src.to_string_lossy().into_owned(),
     ];
-    let out = run_capture(&cfg.ffprobe, &args)
+    let out = crate::util::run_capture_cancellable(&cfg.ffprobe, &args, cancel)
         .await
-        .map_err(|e| anyhow!("This file could not be read as a video. {}", e))?;
+        .map_err(|e| {
+            if e.to_string().contains("cancelled") {
+                e
+            } else {
+                anyhow!("This file could not be read as a video. {}", e)
+            }
+        })?;
     let v: serde_json::Value =
         serde_json::from_str(&out).context("ffprobe returned unparseable output")?;
 

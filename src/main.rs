@@ -40,8 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(cfg.clone());
     let app = api::router(state);
 
-    let host = if cfg.bind_all { "0.0.0.0" } else { "127.0.0.1" };
-    let addr = format!("{}:{}", host, cfg.port);
+    let addr = format!("127.0.0.1:{}", cfg.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     let url = format!("http://localhost:{}", cfg.port);
     println!("\n  Clipping Factory studio ready → {}\n", url);

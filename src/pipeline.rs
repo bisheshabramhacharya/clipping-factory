@@ -8,33 +8,49 @@
 use crate::captions::{accent_bgr_for, build_ass, CaptionInput, CaptionStyle};
 use crate::domain::*;
 use crate::state::{AppState, ProjectHandle};
-use crate::util::slugify;
+use crate::util::{promote_atomic, slugify, unique_temp_path};
 use crate::validate::interval_confidence;
 use anyhow::Result;
 use chrono::Utc;
+use futures::FutureExt;
 use serde_json::json;
+use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 const LOW_CONFIDENCE: f32 = 0.66;
+const CANCEL_ACK_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Start (or resume) processing for a project. Returns an error string if a
 /// run is already active.
-pub fn start(state: AppState, id: String) -> Result<(), String> {
+pub async fn start(state: AppState, id: String) -> Result<(), String> {
     let handle = state.handle(&id);
-    if handle.running.swap(true, Ordering::SeqCst) {
-        return Err("Processing is already running for this project.".into());
-    }
-    let token = CancellationToken::new();
-    *handle.cancel.lock().unwrap() = token.clone();
+    let _operation = handle.operation.lock().await;
+    start_locked(state, id, handle.clone())
+}
+
+fn start_locked(state: AppState, id: String, handle: Arc<ProjectHandle>) -> Result<(), String> {
+    let lease = handle
+        .try_start()
+        .ok_or_else(|| "Processing is already running for this project.".to_string())?;
+    let token = lease.token;
+    let generation = lease.generation;
     handle.clear_live();
 
     tokio::spawn(async move {
         let hid = id.clone();
-        if let Err(e) = run(state.clone(), id, handle.clone(), token).await {
+        let result = AssertUnwindSafe(run(state.clone(), id, handle.clone(), token))
+            .catch_unwind()
+            .await;
+        let failure = match result {
+            Ok(Ok(())) => None,
+            Ok(Err(error)) => Some(error),
+            Err(_) => Some(anyhow::anyhow!("pipeline task panicked")),
+        };
+        if let Some(e) = failure {
             tracing::error!(project = %hid, "pipeline task error: {e:#}");
             let message = format!("Processing failed unexpectedly. {e}");
             if let Ok(mut project) = state.store.load_project(&hid).await {
@@ -51,46 +67,91 @@ pub fn start(state: AppState, id: String) -> Result<(), String> {
             }
             handle.emit(json!({"type": "done", "status": "failed"}));
         }
-        handle.running.store(false, Ordering::SeqCst);
+        handle.finish(generation);
         handle.clear_live();
     });
     Ok(())
 }
 
-pub fn cancel(state: &AppState, id: &str) -> bool {
+pub enum CancelOutcome {
+    Cancelled,
+    Status(JobState),
+}
+
+async fn wait_for_cancel_ack(
+    done: &mut watch::Receiver<bool>,
+    timeout: Duration,
+) -> Result<(), String> {
+    let wait = async {
+        while !*done.borrow() {
+            done.changed().await.map_err(|_| {
+                "Processing run ended before cancellation was acknowledged.".to_string()
+            })?;
+        }
+        Ok::<(), String>(())
+    };
+    tokio::time::timeout(timeout, wait)
+        .await
+        .map_err(|_| {
+            format!(
+                "Cancellation did not reach a terminal state within {} ms; no cancellation acknowledgement was issued.",
+                timeout.as_millis()
+            )
+        })??;
+    Ok(())
+}
+
+pub async fn cancel(state: &AppState, id: &str) -> Result<CancelOutcome, String> {
     let handle = state.handle(id);
-    let running = handle.is_running();
-    handle.cancel.lock().unwrap().cancel();
-    running
+    let mut done = {
+        let _operation = handle.operation.lock().await;
+        handle.request_cancel()
+    };
+    if let Some(done) = done.as_mut() {
+        wait_for_cancel_ack(done, CANCEL_ACK_TIMEOUT).await?;
+    }
+
+    let project = state
+        .store
+        .load_project(id)
+        .await
+        .map_err(|e| e.to_string())?;
+    if project.status == JobState::Cancelled {
+        Ok(CancelOutcome::Cancelled)
+    } else {
+        Ok(CancelOutcome::Status(project.status))
+    }
 }
 
 /// Reset failure markers so a new run resumes from persisted artifacts, then start.
 pub async fn retry(state: AppState, id: String) -> Result<(), String> {
     let handle = state.handle(&id);
+    let _operation = handle.operation.lock().await;
     if handle.is_running() {
-        return Err("Processing is already running.".into());
+        return Err("Processing is already running for this project.".into());
     }
+    state
+        .store
+        .cleanup_partial_files(&id)
+        .await
+        .map_err(|e| e.to_string())?;
+
     let mut p = state
         .store
         .load_project(&id)
         .await
         .map_err(|e| e.to_string())?;
     for s in &mut p.stages {
-        if s.error.is_some() {
+        if s.error.is_some() || s.detail.as_deref() == Some("Cancelled") {
             s.error = None;
             s.started_at = None;
             s.completed_at = None;
             s.progress = None;
+            s.detail = None;
         }
     }
     p.error = None;
     p.status = JobState::Created;
-    state
-        .store
-        .save_project(&p)
-        .await
-        .map_err(|e| e.to_string())?;
-
     if let Ok(mut manifest) = state.store.load_manifest(&id).await {
         let mut changed = false;
         for c in &mut manifest.clips {
@@ -104,7 +165,12 @@ pub async fn retry(state: AppState, id: String) -> Result<(), String> {
             state.store.save_manifest(&id, &manifest).await.ok();
         }
     }
-    start(state, id)
+    state
+        .store
+        .save_project(&p)
+        .await
+        .map_err(|e| e.to_string())?;
+    start_locked(state, id, handle.clone())
 }
 
 // ---------------------------------------------------------------------------
@@ -176,14 +242,24 @@ impl Ctx {
             .emit(json!({"type": "done", "status": "failed"}));
     }
 
-    async fn mark_cancelled(&self, p: &mut Project, stage: &str) {
+    async fn mark_cancelled(&self, p: &mut Project, stage: &str) -> Result<()> {
         p.status = JobState::Cancelled;
+        p.error = None;
         let rec = p.stage_mut(stage);
+        let now = Utc::now();
+        if rec.started_at.is_none() {
+            rec.started_at = Some(now);
+        }
+        rec.completed_at = Some(now);
+        rec.progress = Some(rec.progress.unwrap_or(0.0));
         rec.detail = Some("Cancelled".into());
-        self.state.store.save_project(p).await.ok();
+        rec.error = None;
+        self.state.store.save_project(p).await?;
         self.handle.clear_live();
+        self.emit_stage(p, stage, "cancelled");
         self.handle
             .emit(json!({"type": "done", "status": "cancelled"}));
+        Ok(())
     }
 
     /// Throttled live-progress reporter for a stage.
@@ -230,7 +306,7 @@ async fn run(
     macro_rules! stage {
         ($name:literal, $body:expr) => {{
             if ctx.cancel.is_cancelled() {
-                ctx.mark_cancelled(&mut p, $name).await;
+                ctx.mark_cancelled(&mut p, $name).await?;
                 return Ok(());
             }
             ctx.begin(&mut p, $name).await?;
@@ -242,7 +318,7 @@ async fn run(
                 Err(e) => {
                     let e: anyhow::Error = e;
                     if is_cancelled(&e, &ctx.cancel) {
-                        ctx.mark_cancelled(&mut p, $name).await;
+                        ctx.mark_cancelled(&mut p, $name).await?;
                     } else {
                         ctx.fail(&mut p, $name, e.to_string()).await;
                     }
@@ -263,7 +339,7 @@ async fn run(
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "source.mp4".into());
         stage!("inspecting", {
-            match crate::media::probe(cfg, &src, &original).await {
+            match crate::media::probe(cfg, &src, &original, &ctx.cancel).await {
                 Ok(info) => {
                     let detail = format!(
                         "{}×{} · {} · {}/{}",
@@ -290,24 +366,39 @@ async fn run(
             .await?;
     } else {
         let wav = store.audio_path(&id);
-        if wav.is_file() {
-            ctx.skip(&mut p, "extracting_audio", "Audio already extracted")
-                .await?;
-        } else {
-            let mut prog = ctx.progress_fn("extracting_audio");
-            stage!("extracting_audio", {
+        // A previous run may have been killed after FFmpeg created the final
+        // path. Always rebuild from a unique sibling and promote only after
+        // FFmpeg has exited successfully.
+        tokio::fs::remove_file(&wav).await.ok();
+        let wav_temp = unique_temp_path(&wav);
+        let mut prog = ctx.progress_fn("extracting_audio");
+        stage!("extracting_audio", {
+            let result = async {
                 crate::media::extract_audio(
                     cfg,
                     &src,
-                    &wav,
+                    &wav_temp,
                     source.duration_ms,
                     &ctx.cancel,
                     |pct| prog(pct, None),
                 )
-                .await
-                .map(|_| "16 kHz mono audio ready".to_string())
-            });
-        }
+                .await?;
+                let metadata = tokio::fs::metadata(&wav_temp).await?;
+                if !metadata.is_file() || metadata.len() == 0 {
+                    return Err(anyhow::anyhow!("Audio extraction produced an empty file."));
+                }
+                if ctx.cancel.is_cancelled() {
+                    return Err(anyhow::anyhow!("cancelled"));
+                }
+                promote_atomic(&wav_temp, &wav).await?;
+                Ok::<String, anyhow::Error>("16 kHz mono audio ready".to_string())
+            }
+            .await;
+            if result.is_err() {
+                tokio::fs::remove_file(&wav_temp).await.ok();
+            }
+            result
+        });
     }
 
     // ---- 3. Transcribe ----------------------------------------------------
@@ -349,7 +440,12 @@ async fn run(
     } else {
         let settings = state.settings.read().unwrap().clone();
         stage!("selecting_candidates", {
-            match crate::select::propose(&settings, &transcript, &source).await {
+            let proposed = tokio::select! {
+                biased;
+                _ = ctx.cancel.cancelled() => Err(anyhow::anyhow!("cancelled")),
+                result = crate::select::propose(&settings, &transcript, &source) => result,
+            };
+            match proposed {
                 Ok(outcome) => {
                     store.save_raw_candidates(&id, &outcome.candidates).await?;
                     p.selector = Some(outcome.selector.clone());
@@ -381,6 +477,10 @@ async fn run(
 
     // No passing moments is a valid, honest outcome (PRD §6.2, §8.3).
     if report.accepted.is_empty() {
+        if ctx.cancel.is_cancelled() {
+            ctx.mark_cancelled(&mut p, "validating_candidates").await?;
+            return Ok(());
+        }
         ctx.skip(
             &mut p,
             "analyzing_layout",
@@ -487,15 +587,30 @@ async fn run(
 
     // ---- 7. Render (sequential, incremental, per-clip isolation) ------------
     let mut manifest = store.load_manifest(&id).await?;
-    ctx.begin(&mut p, "rendering").await?;
-    if !crate::util::ffmpeg_has_ass(&cfg.ffmpeg).await {
-        ctx.fail(
-            &mut p,
-            "rendering",
-            "This FFmpeg build cannot burn captions because the ASS filter is missing. On macOS, install `ffmpeg-full` with Homebrew and restart.".into(),
-        )
-        .await;
+    if ctx.cancel.is_cancelled() {
+        ctx.mark_cancelled(&mut p, "rendering").await?;
         return Ok(());
+    }
+    ctx.begin(&mut p, "rendering").await?;
+    match crate::util::ffmpeg_has_ass_cancellable(&cfg.ffmpeg, &ctx.cancel).await {
+        Ok(true) => {}
+        Ok(false) => {
+            ctx.fail(
+                &mut p,
+                "rendering",
+                "This FFmpeg build cannot burn captions because the ASS filter is missing. On macOS, install `ffmpeg-full` with Homebrew and restart.".into(),
+            )
+            .await;
+            return Ok(());
+        }
+        Err(e) if is_cancelled(&e, &ctx.cancel) => {
+            ctx.mark_cancelled(&mut p, "rendering").await?;
+            return Ok(());
+        }
+        Err(e) => {
+            ctx.fail(&mut p, "rendering", e.to_string()).await;
+            return Ok(());
+        }
     }
     let caption_style =
         CaptionStyle::from_str(p.caption_style.as_deref().unwrap_or(&cfg.caption_style));
@@ -513,12 +628,14 @@ async fn run(
 
     for i in 0..manifest.clips.len() {
         if ctx.cancel.is_cancelled() {
-            ctx.mark_cancelled(&mut p, "rendering").await;
+            ctx.mark_cancelled(&mut p, "rendering").await?;
             return Ok(());
         }
         let clip = manifest.clips[i].clone();
         let out_path = store.clips_dir(&id).join(&clip.filename);
-        if clip.status == ClipStatus::Ready && out_path.is_file() {
+        if clip.status == ClipStatus::Ready
+            && store.final_is_ready(&id, &clip.id, &clip.filename).await?
+        {
             continue;
         }
 
@@ -531,13 +648,19 @@ async fn run(
         let done_label = format!("Rendering clip {} of {}", i + 1, total);
         let caption_label = format!("Burning captions for clip {} of {}", i + 1, total);
         let base_path = store.base_clip_path(&id, &clip.id);
-        let ass_path: PathBuf = store.clips_dir(&id).join(format!("{}.ass", clip.id));
+        let ass_path: PathBuf =
+            unique_temp_path(&store.clips_dir(&id).join(format!("{}.ass", clip.id)));
+        let base_temp = unique_temp_path(&base_path);
+        let out_temp = unique_temp_path(&out_path);
+        let base_ready = store.base_is_ready(&id, &clip.id).await?;
 
         let render_result: anyhow::Result<()> = async {
             // Pass 1 — framed, uncaptioned base. Kept on disk so captions can
             // be restyled later without re-doing the expensive framing work
             // (and reused as-is when retrying a failed caption burn).
-            if !base_path.is_file() {
+            if !base_ready {
+                tokio::fs::remove_file(&base_path).await.ok();
+                store.clear_base_ready(&id, &clip.id).await;
                 crate::render::render_base_clip(
                     cfg,
                     &src,
@@ -545,11 +668,16 @@ async fn run(
                     &clip.layout,
                     clip.start_ms,
                     clip.end_ms,
-                    &base_path,
+                    &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),
                 )
                 .await?;
+                if ctx.cancel.is_cancelled() {
+                    return Err(anyhow::anyhow!("cancelled"));
+                }
+                promote_atomic(&base_temp, &base_path).await?;
+                store.mark_base_ready(&id, &clip.id).await?;
             }
             // Pass 2 — word-accurate captions burned onto the base.
             let words =
@@ -566,20 +694,32 @@ async fn run(
                 caption_style,
             );
             tokio::fs::write(&ass_path, &ass).await?;
+            if ctx.cancel.is_cancelled() {
+                return Err(anyhow::anyhow!("cancelled"));
+            }
             let burn = crate::render::burn_captions(
                 cfg,
                 &base_path,
                 &ass_path,
-                &out_path,
+                &out_temp,
                 clip.end_ms.saturating_sub(clip.start_ms),
                 &ctx.cancel,
                 |pct| prog(0.85 + pct * 0.15, Some(caption_label.clone())),
             )
             .await;
-            tokio::fs::remove_file(&ass_path).await.ok();
-            burn
+            burn?;
+            if ctx.cancel.is_cancelled() {
+                return Err(anyhow::anyhow!("cancelled"));
+            }
+            promote_atomic(&out_temp, &out_path).await?;
+            store.mark_final_ready(&id, &clip.id).await?;
+            Ok(())
         }
         .await;
+
+        tokio::fs::remove_file(&base_temp).await.ok();
+        tokio::fs::remove_file(&out_temp).await.ok();
+        tokio::fs::remove_file(&ass_path).await.ok();
 
         match render_result {
             Ok(()) => {
@@ -598,18 +738,33 @@ async fn run(
                 store.save_manifest(&id, &manifest).await?;
                 ctx.handle
                     .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
+                if ctx.cancel.is_cancelled() {
+                    ctx.mark_cancelled(&mut p, "rendering").await?;
+                    return Ok(());
+                }
             }
             Err(e) if is_cancelled(&e, &ctx.cancel) => {
+                tokio::fs::remove_file(&out_path).await.ok();
+                store.clear_final_ready(&id, &clip.id).await;
+                if !base_ready {
+                    tokio::fs::remove_file(&base_path).await.ok();
+                    store.clear_base_ready(&id, &clip.id).await;
+                }
                 manifest.clips[i].status = ClipStatus::Pending;
                 store.save_manifest(&id, &manifest).await?;
-                ctx.mark_cancelled(&mut p, "rendering").await;
+                ctx.mark_cancelled(&mut p, "rendering").await?;
                 return Ok(());
             }
             Err(e) => {
                 // A failed render must not discard successful outputs (PRD §12).
                 // Drop this clip's base so retry rebuilds it from scratch — a
                 // truncated base from a crash would poison every re-burn.
-                tokio::fs::remove_file(&base_path).await.ok();
+                if !base_ready {
+                    tokio::fs::remove_file(&base_path).await.ok();
+                    store.clear_base_ready(&id, &clip.id).await;
+                }
+                tokio::fs::remove_file(&out_path).await.ok();
+                store.clear_final_ready(&id, &clip.id).await;
                 manifest.clips[i].status = ClipStatus::Failed;
                 manifest.clips[i].error = Some(e.to_string());
                 store.save_manifest(&id, &manifest).await?;
@@ -629,6 +784,11 @@ async fn run(
         .iter()
         .filter(|c| c.status == ClipStatus::Failed)
         .count();
+
+    if ctx.cancel.is_cancelled() {
+        ctx.mark_cancelled(&mut p, "rendering").await?;
+        return Ok(());
+    }
 
     if ready > 0 {
         ctx.complete(
@@ -657,4 +817,50 @@ async fn run(
         .await;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    #[tokio::test]
+    async fn cancellation_persists_terminal_stage_metadata() {
+        let tmp = std::env::temp_dir().join(format!("cf-cancel-{}", crate::util::short_id()));
+        let mut cfg = Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        let state = AppState::new(cfg);
+        let id = "cancel-test".to_string();
+
+        state.store.create_dirs(&id).await.unwrap();
+        state
+            .store
+            .save_project(&Project::new(id.clone(), state.store.source_path(&id)))
+            .await
+            .unwrap();
+
+        let token = CancellationToken::new();
+        token.cancel();
+        run(state.clone(), id.clone(), state.handle(&id), token)
+            .await
+            .unwrap();
+
+        let mut project = state.store.load_project(&id).await.unwrap();
+        assert_eq!(project.status, JobState::Cancelled);
+        let stage = project.stage_mut("inspecting");
+        assert!(stage.started_at.is_some());
+        assert!(stage.completed_at.is_some());
+        assert_eq!(stage.detail.as_deref(), Some("Cancelled"));
+
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn cancellation_ack_timeout_returns_an_error_instead_of_hanging() {
+        let (_sender, mut done) = watch::channel(false);
+        let result = wait_for_cancel_ack(&mut done, Duration::from_millis(10)).await;
+        let message = result.unwrap_err();
+        assert!(message.contains("no cancellation acknowledgement"));
+    }
 }

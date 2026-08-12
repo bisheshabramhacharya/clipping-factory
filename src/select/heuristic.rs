@@ -98,6 +98,31 @@ const PRONOUN_OPENERS: &[&str] = &[
 
 const FILLER_WORDS: &[&str] = &["um", "uh", "like", "you know", "kind of", "sort of"];
 
+// These are production/editorial blockers, not quality signals. A local
+// selector should never turn routine show housekeeping or an ad read into a
+// clip merely because the window happens to be long enough.
+const HOUSEKEEPING_OR_SPONSOR_CUES: &[&str] = &[
+    "welcome back to the show",
+    "today we are going to talk about",
+    "before we begin",
+    "subscribe and leave a review",
+    "we will be right back",
+    "we'll be right back",
+    "thanks for listening",
+    "now let us get into the conversation",
+    "now let's get into the conversation",
+    "this episode is brought to you by",
+    "brought to you by",
+    "sponsored by",
+    "use the code",
+    "discount at checkout",
+    "in the episode notes",
+    "in the show notes",
+    "sponsor link",
+    "thanks to our sponsor",
+    "support for the show",
+];
+
 const MIN_MS: u64 = 20_000;
 const MAX_MS: u64 = 90_000;
 
@@ -176,9 +201,11 @@ pub fn propose(t: &Transcript, source_duration_ms: u64, proposal_count: usize) -
         let reference = REFERENCE_CUES.iter().any(|c| window_lower.contains(c));
         let has_number = window_text.chars().any(|c| c.is_ascii_digit());
         let word_count = window_text.split_whitespace().count().max(1);
+        let normalized_window = normalized_claim(&window_lower);
+        let normalized_words: Vec<&str> = normalized_window.split_whitespace().collect();
         let filler_count = FILLER_WORDS
             .iter()
-            .map(|f| window_lower.matches(f).count())
+            .map(|f| count_phrase_occurrences(&normalized_words, f))
             .sum::<usize>();
         let filler_rate = filler_count as f32 / word_count as f32;
         let question_open = opener.text.contains('?')
@@ -186,6 +213,21 @@ pub fn propose(t: &Transcript, source_duration_ms: u64, proposal_count: usize) -
         let repeated_claim = has_repeated_claim(window);
         let exchange = has_reaction_exchange(window);
         let absolute_claim = contains_absolute_claim(&window_lower);
+
+        // Keep routine housekeeping, sponsor reads, and filler-heavy windows
+        // out of the candidate set before ranking can reward their length.
+        // The signal gate below remains deliberately narrow so a specific,
+        // standalone thought with no magic phrase can still be proposed.
+        if has_housekeeping_or_sponsor_cue(&window_lower)
+            || is_filler_dominated(filler_count, filler_rate)
+        {
+            continue;
+        }
+        let has_editorial_signal =
+            hook || contrast || payoff_cue || repeated_claim || exchange || absolute_claim;
+        if !has_editorial_signal {
+            continue;
+        }
 
         let self_contained: u8 = match (pronoun_open, reference) {
             (false, false) => {
@@ -334,6 +376,27 @@ fn is_vague_opener(text: &str) -> bool {
             || text.starts_with("it "))
 }
 
+fn has_housekeeping_or_sponsor_cue(text: &str) -> bool {
+    HOUSEKEEPING_OR_SPONSOR_CUES
+        .iter()
+        .any(|cue| text.contains(cue))
+}
+
+fn is_filler_dominated(filler_count: usize, filler_rate: f32) -> bool {
+    filler_count >= 5 && filler_rate >= 0.08
+}
+
+fn count_phrase_occurrences(words: &[&str], phrase: &str) -> usize {
+    let phrase_words: Vec<&str> = phrase.split_whitespace().collect();
+    if phrase_words.is_empty() || phrase_words.len() > words.len() {
+        return 0;
+    }
+    words
+        .windows(phrase_words.len())
+        .filter(|window| *window == phrase_words.as_slice())
+        .count()
+}
+
 fn normalized_claim(text: &str) -> String {
     text.to_lowercase()
         .chars()
@@ -416,9 +479,13 @@ fn make_headline(opener: &Sentence) -> String {
         }
     }
     let mut headline = text.trim_end_matches(['.', ',']).to_string();
-    if headline.len() > 90 {
-        let cut = headline[..90].rfind(' ').unwrap_or(87);
-        headline = format!("{}…", headline[..cut].trim_end());
+    if headline.chars().count() > 90 {
+        let prefix: String = headline.chars().take(90).collect();
+        let cut = prefix
+            .rfind(' ')
+            .or_else(|| prefix.char_indices().nth(87).map(|(i, _)| i))
+            .unwrap_or(prefix.len());
+        headline = format!("{}…", prefix[..cut].trim_end());
     }
     // Sentence case.
     let mut chars = headline.chars();
@@ -571,5 +638,92 @@ mod tests {
         assert!(is_vague_opener("how would that work?"));
         assert!(is_vague_opener("are those things possible?"));
         assert!(!is_vague_opener("can everyone be rich?"));
+    }
+
+    #[test]
+    fn accented_headline_truncation_is_utf8_safe() {
+        let text = format!("What {}", "é ".repeat(120));
+        let t = Transcript {
+            language: "en".into(),
+            words: vec![],
+            sentences: vec![Sentence {
+                text,
+                start_ms: 0,
+                end_ms: 40_000,
+                word_start: 0,
+                word_end: 0,
+            }],
+            avg_confidence: 0.92,
+        };
+
+        let cands = propose(&t, 60_000, 1);
+        assert_eq!(cands.len(), 1);
+        assert!(cands[0].headline.ends_with('…'));
+        assert!(cands[0].headline.chars().count() <= 91);
+    }
+
+    #[test]
+    fn filler_count_uses_whole_words_and_phrases() {
+        let words = ["number", "summary", "unlikely", "like", "you", "know"];
+        assert_eq!(count_phrase_occurrences(&words, "um"), 0);
+        assert_eq!(count_phrase_occurrences(&words, "like"), 1);
+        assert_eq!(count_phrase_occurrences(&words, "you know"), 1);
+    }
+
+    #[test]
+    fn numbers_alone_do_not_turn_housekeeping_into_a_candidate() {
+        let t = transcript_from(&[
+            ("Episode 42 covers our 3 schedule changes.", 0),
+            (
+                "The first item starts at 9 and the second starts at 10.",
+                500,
+            ),
+            ("We also have 2 reminders for next week's recording.", 500),
+            ("That is the full schedule for episode 42.", 500),
+        ]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+        assert!(propose(&t, duration, 3).is_empty());
+    }
+
+    #[derive(serde::Deserialize)]
+    struct EditorialFixture {
+        name: String,
+        expected: String,
+        sentences: Vec<String>,
+    }
+
+    #[test]
+    fn synthetic_editorial_fixtures_match_selector_expectations() {
+        let fixtures: Vec<EditorialFixture> =
+            serde_json::from_str(include_str!("../../evals/fixtures/editorial_cases.json"))
+                .unwrap();
+
+        for fixture in fixtures {
+            let script: Vec<(&str, u64)> = fixture
+                .sentences
+                .iter()
+                .enumerate()
+                .map(|(idx, sentence)| (sentence.as_str(), if idx == 0 { 0 } else { 400 }))
+                .collect();
+            let t = transcript_from(&script);
+            let duration = t.words.last().map(|w| w.end_ms + 500).unwrap_or(60_000);
+            let candidates = propose(&t, duration, 3);
+            let observed = if candidates.is_empty() {
+                "reject"
+            } else {
+                "accept"
+            };
+            println!(
+                "{}: {} candidate(s) -> {}",
+                fixture.name,
+                candidates.len(),
+                observed
+            );
+            assert_eq!(
+                observed, fixture.expected,
+                "fixture {} produced the wrong selector outcome",
+                fixture.name
+            );
+        }
     }
 }
