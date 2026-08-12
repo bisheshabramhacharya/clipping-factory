@@ -13,3 +13,6 @@
 # Promo video generator (Remotion) — generated artifacts
 /promo-videos/node_modules/
 /promo-videos/output/
+
+# Python bytecode
+__pycache__/
