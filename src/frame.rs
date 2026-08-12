@@ -8,7 +8,9 @@
 //! The face track is stabilized in three stages before it becomes crop
 //! keyframes: a median-of-three filter rejects single-frame detection
 //! outliers, a centered moving average removes jitter, and a pan-speed clamp
-//! guarantees the crop window never whips across the frame.
+//! guarantees the crop window never whips across the frame. The clamp is
+//! deliberately slow (0.04 frame-widths/s) and the dead band wide (0.02) so
+//! gentle speaker sway produces no camera motion at all.
 //!
 //! Face detection uses rustface (SeetaFace, pure Rust). If the model file is
 //! missing or detection fails, we degrade gracefully to BlurPad — never crash
@@ -33,9 +35,11 @@ const PERSISTENCE: f64 = 0.5;
 const CLUSTER_EPS: f32 = 0.18;
 /// Maximum pan speed of the crop center, in frame-widths per second.
 /// Keeps the crop calm even if detections jump (PRD: no rapid movement).
-const MAX_PAN_PER_S: f32 = 0.10;
+/// Deliberately slow so the camera feels stationary for small drift.
+const MAX_PAN_PER_S: f32 = 0.04;
 /// Ignore keyframe-to-keyframe movements smaller than this (dead band).
-const MIN_KEY_DELTA: f32 = 0.012;
+/// Wide enough that gentle speaker sway never emits a crop keyframe.
+const MIN_KEY_DELTA: f32 = 0.02;
 
 pub async fn analyze_layout(
     cfg: &Config,
@@ -240,8 +244,8 @@ fn smooth_track(filled: &[f32]) -> Vec<f32> {
         .collect();
     (0..median3.len())
         .map(|i| {
-            let lo = i.saturating_sub(2);
-            let hi = (i + 3).min(median3.len());
+            let lo = i.saturating_sub(3);
+            let hi = (i + 4).min(median3.len());
             median3[lo..hi].iter().sum::<f32>() / (hi - lo) as f32
         })
         .collect()
@@ -355,6 +359,27 @@ mod tests {
             let dt_s = (w[1].t_ms - w[0].t_ms) as f32 / 1000.0;
             let v = (w[1].cx - w[0].cx).abs() / dt_s;
             assert!(v <= MAX_PAN_PER_S + 1e-4, "pan speed {v} exceeds clamp");
+        }
+    }
+
+    #[test]
+    fn slow_face_drift_produces_at_most_two_keyframes() {
+        // A gentle 0.001/frame drift (0.03 across 30 frames) must be mostly
+        // swallowed by the dead band: at most 2 crop keyframes, so the camera
+        // stays essentially put.
+        let det: Vec<Vec<f32>> = (0..30).map(|i| vec![0.5 + i as f32 * 0.001]).collect();
+        match decide_layout(&det, 30) {
+            LayoutPlan::FaceCrop { keyframes } => {
+                assert!(
+                    keyframes.len() <= 2,
+                    "expected <=2 keyframes, got {}",
+                    keyframes.len()
+                );
+                for k in &keyframes {
+                    assert!((k.cx - 0.5).abs() <= 0.03, "keyframe drifted: {}", k.cx);
+                }
+            }
+            other => panic!("expected FaceCrop, got {:?}", other),
         }
     }
 

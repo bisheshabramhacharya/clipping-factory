@@ -1,0 +1,93 @@
+{
+  "baseline": {
+    "metadata": {
+      "completed_at": "2026-07-29T10:10:00Z",
+      "git_branch": "agent/clipping-factory-buildout",
+      "git_commit": "aaa111",
+      "run_id": "baseline-001",
+      "schema_version": 1,
+      "started_at": "2026-07-29T10:00:00Z"
+    },
+    "rubric_csv": "source,clip_rank,headline,hook_1to5,standalone_1to5,payoff_1to5,caption_accuracy_1to5,framing_1to5,would_post_1to5,decision_error,reviewer,notes\ninterview-clean,1,Strong opening,5,5,4,5,4,5,,tester,good\ninterview-clean,2,Second clip,4,4,4,4,4,5,,tester,good\npanel,1,Panel clip,4,4,4,4,3,1,false_accept,tester,weak framing\n",
+    "sources": [
+      {
+        "dir": "interview-clean",
+        "result": {
+          "category": "two_person_interview",
+          "duration_seconds": 300.0,
+          "error": null,
+          "schema_version": 1,
+          "source_id": "interview-clean",
+          "status": "complete"
+        },
+        "view": {
+          "accepted": [{"id": "a"}, {"id": "b"}],
+          "clips": [{"status": "ready"}, {"status": "ready"}],
+          "project": {"status": "complete"},
+          "rejected": [{"reason": "overlap with a stronger candidate"}],
+          "selector": "local"
+        }
+      },
+      {
+        "dir": "panel",
+        "result": {
+          "category": "panel",
+          "duration_seconds": 400.0,
+          "error": null,
+          "schema_version": 1,
+          "source_id": "panel",
+          "status": "complete"
+        },
+        "view": {
+          "accepted": [{"id": "c"}],
+          "clips": [{"status": "ready"}],
+          "project": {"status": "complete"},
+          "rejected": [{"reason": "context dependency too high"}],
+          "selector": "local"
+        }
+      }
+    ]
+  },
+  "current": {
+    "metadata": {
+      "completed_at": "2026-07-30T10:12:00Z",
+      "git_branch": "agent/issue-3-real-media-quality-gate",
+      "git_commit": "bbb222",
+      "run_id": "current-002",
+      "schema_version": 1,
+      "started_at": "2026-07-30T10:00:00Z"
+    },
+    "rubric_csv": "source,clip_rank,headline,hook_1to5,standalone_1to5,payoff_1to5,caption_accuracy_1to5,framing_1to5,would_post_1to5,decision_error,reviewer,notes\ninterview-clean,1,Strong opening,4,4,4,4,4,5,,tester,good\ninterview-clean,2,Second clip,3,3,3,3,3,1,false_accept,tester,weak\n",
+    "sources": [
+      {
+        "dir": "interview-clean",
+        "result": {
+          "category": "two_person_interview",
+          "duration_seconds": 320.5,
+          "error": null,
+          "schema_version": 1,
+          "source_id": "interview-clean",
+          "status": "complete"
+        },
+        "view": {
+          "accepted": [{"id": "a"}, {"id": "b"}, {"id": "c"}],
+          "clips": [{"status": "ready"}, {"status": "ready"}, {"status": "failed"}],
+          "project": {"status": "complete"},
+          "rejected": [{"reason": "duplicate interval"}, {"reason": "context dependency too high"}],
+          "selector": "local"
+        }
+      },
+      {
+        "dir": "panel",
+        "result": {
+          "category": "panel",
+          "duration_seconds": 55.25,
+          "error": "render process exited 1",
+          "schema_version": 1,
+          "source_id": "panel",
+          "status": "failed"
+        }
+      }
+    ]
+  }
+}

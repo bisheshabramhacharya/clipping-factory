@@ -114,6 +114,7 @@
           <p class="muted" id="results-sub">Ranked by self-contained opening, tension, payoff, and clarity.</p>
         </div>
         <div class="results-actions">
+          <button id="review-clips-btn" type="button" hidden>Review clips</button>
           <button id="open-folder-btn" type="button">Open output folder</button>
           <button id="new-project-btn" type="button">New project</button>
         </div>
@@ -161,6 +162,38 @@
     </div>
   </div>
 
+  <!-- Swipe Review theater: keyboard-first triage over rendered clips -->
+  <div id="review-theater" class="review-theater" role="dialog" aria-modal="true" aria-label="Clip review theater" hidden>
+    <div class="review-top">
+      <div>
+        <strong id="review-progress" aria-live="polite">1 / 1</strong>
+        <span id="review-counts" class="review-counts"></span>
+      </div>
+      <button id="review-close" class="review-close" type="button">Close · Esc</button>
+    </div>
+    <div class="review-stage">
+      <video id="review-video" controls playsinline></video>
+      <div class="review-copy">
+        <h2 id="review-title"></h2>
+        <p id="review-reason"></p>
+        <div class="review-kbd">
+          <kbd>←</kbd><kbd>→</kbd> navigate ·
+          <kbd>Space</kbd> play / pause ·
+          <kbd>1</kbd> Keep · <kbd>2</kbd> Maybe · <kbd>3</kbd> Skip
+        </div>
+      </div>
+    </div>
+    <div class="review-bottom">
+      <div class="review-decisions">
+        <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
+        <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
+        <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
+      </div>
+      <span class="review-counts">Decide and jump to the next clip</span>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
+  <script src="/review.js"></script>
 </body>
 </html>

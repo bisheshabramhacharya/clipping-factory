@@ -1,6 +1,3 @@
-# Reference copy of the active workflow at `.github/workflows/ci.yml`.
-# Keep both files identical below this comment when editing CI.
-
 name: CI
 
 on:
