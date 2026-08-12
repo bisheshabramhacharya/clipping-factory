@@ -104,7 +104,11 @@ macro_rules! static_asset {
 }
 static_asset!(styles_css, "styles.css", "text/css; charset=utf-8");
 static_asset!(app_js, "app.js", "application/javascript; charset=utf-8");
-static_asset!(review_js, "review.js", "application/javascript; charset=utf-8");
+static_asset!(
+    review_js,
+    "review.js",
+    "application/javascript; charset=utf-8"
+);
 
 async fn index_html() -> Html<String> {
     let disk = std::path::Path::new("static").join("index.html");
