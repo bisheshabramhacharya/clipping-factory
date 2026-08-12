@@ -12,6 +12,11 @@
 //! deliberately slow (0.04 frame-widths/s) and the dead band wide (0.02) so
 //! gentle speaker sway produces no camera motion at all.
 //!
+//! A leading-gap guard runs before any of that: if the chosen face cluster
+//! has no detection within the first sampled seconds, the clip is treated as
+//! BlurPad instead of emitting a FaceCrop aimed at the face's future position
+//! (which would open on an empty table or room).
+//!
 //! Face detection uses rustface (SeetaFace, pure Rust). If the model file is
 //! missing or detection fails, we degrade gracefully to BlurPad — never crash
 //! a render over framing.
@@ -40,6 +45,11 @@ const MAX_PAN_PER_S: f32 = 0.04;
 /// Ignore keyframe-to-keyframe movements smaller than this (dead band).
 /// Wide enough that gentle speaker sway never emits a crop keyframe.
 const MIN_KEY_DELTA: f32 = 0.02;
+/// Earliest frame index at which the chosen face cluster must have a
+/// detection (sampling is 1 fps). `1` means the face must appear in the
+/// first or second sampled second; 2+ empty leading seconds means the shot
+/// starts face-less, and the safe full-frame blur-pad is the honest framing.
+const MAX_LEADING_GAP_FRAMES: usize = 1;
 
 pub async fn analyze_layout(
     cfg: &Config,
@@ -196,6 +206,16 @@ pub fn decide_layout(detections: &[Vec<f32>], n_frames: usize) -> LayoutPlan {
     match persistent.len() {
         1 => {
             let cluster = persistent[0];
+            // Leading-gap guard: if the face does not show up within the
+            // first sampled seconds, a FaceCrop would aim at the face's
+            // future position and open on an empty table/room. Pad instead.
+            // ponytail: the trailing gap (face leaves before clip end) is
+            // deliberately out of scope — it just leaves the crop following
+            // the last known position, which is less jarring than a pad.
+            let first_fi = cluster.iter().map(|(fi, _)| *fi).min().unwrap_or(0);
+            if first_fi > MAX_LEADING_GAP_FRAMES {
+                return LayoutPlan::BlurPad;
+            }
             // Per-frame center: true mean when a frame has several in-cluster
             // detections, then forward-filled for frames without one.
             let mut sums: Vec<(f32, u32)> = vec![(0.0, 0); n_frames];
@@ -294,6 +314,33 @@ mod tests {
     fn no_faces_means_blur_pad() {
         let det: Vec<Vec<f32>> = vec![vec![]; 30];
         assert_eq!(decide_layout(&det, 30), LayoutPlan::BlurPad);
+    }
+
+    #[test]
+    fn leading_gap_beyond_one_second_means_blur_pad() {
+        // Face absent for frames 0..=2 (3 empty leading seconds), then
+        // present and persistent for the rest. First detection at frame 3
+        // exceeds MAX_LEADING_GAP_FRAMES → BlurPad, never a FaceCrop aimed
+        // at the face's future position.
+        let det: Vec<Vec<f32>> = (0..30)
+            .map(|i| if i < 3 { vec![] } else { vec![0.5] })
+            .collect();
+        assert_eq!(decide_layout(&det, 30), LayoutPlan::BlurPad);
+    }
+
+    #[test]
+    fn face_present_from_second_sample_still_face_crops() {
+        // Face absent only for frame 0, present from frame 1 on (first
+        // detection at frame 1 ≤ MAX_LEADING_GAP_FRAMES) → still FaceCrop.
+        let det: Vec<Vec<f32>> = (0..30)
+            .map(|i| if i == 0 { vec![] } else { vec![0.5] })
+            .collect();
+        match decide_layout(&det, 30) {
+            LayoutPlan::FaceCrop { keyframes } => {
+                assert!(!keyframes.is_empty());
+            }
+            other => panic!("expected FaceCrop, got {:?}", other),
+        }
     }
 
     #[test]
