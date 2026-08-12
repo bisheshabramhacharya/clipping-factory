@@ -6,10 +6,8 @@ never both. Tests land with the change.
 
 ## Done
 
-- [x] **CI guardrails** — `cargo fmt --check`, `clippy -D warnings`, `cargo test`
-      on every push/PR. The workflow ships as `docs/ci-workflow.yml` (API tokens
-      can't write `.github/workflows/`); activate it with the one-liner in that
-      file's header.
+- [x] **CI guardrails** — `cargo fmt --check`, `clippy -D warnings`, and
+      `cargo test` run on every push to `main` and on every pull request.
 - [x] **Two-pass rendering** — framed, uncaptioned base intermediates are kept
       per clip; captions burn in a fast second pass.
 - [x] **Post-render caption restyling** — style + accent color are chosen on

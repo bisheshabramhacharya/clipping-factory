@@ -4,6 +4,8 @@ version = "0.2.0"
 edition = "2021"
 description = "A local clipping studio: one podcast MP4 in, several faithful vertical clips out."
 license = "MIT"
+repository = "https://github.com/codingwithb/clipping-factory"
+readme = "README.md"
 
 [dependencies]
 axum = { version = "0.8", features = ["multipart"] }

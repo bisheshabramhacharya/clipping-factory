@@ -4,228 +4,219 @@
 
 ### One podcast in. Every strong, faithful clip out.
 
-Local-first podcast clipping with transcript ranking, face-aware reframing, and
-word-accurate captions. Built entirely in Rust.
+A local-first podcast clipping studio with full-transcript ranking, face-aware reframing, and word-accurate captions. Built entirely in Rust.
 
+[![CI](https://github.com/codingwithb/clipping-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/codingwithb/clipping-factory/actions/workflows/ci.yml)
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
-![CI](https://github.com/codingwithb/clipping-factory/actions/workflows/ci.yml/badge.svg)
 ![Local first](https://img.shields.io/badge/processing-local--first-1f6feb)
 ![Output](https://img.shields.io/badge/output-1080%C3%971920-7c3aed)
-![Tests](https://img.shields.io/badge/tests-95%20passing-238636)
+![Tests](https://img.shields.io/badge/tests-100%20passing-238636)
 
 </div>
 
 ![Clipping Factory results showing six rendered vertical clips](docs/assets/studio-results.png)
 
-Clipping Factory turns a podcast MP4 into as many **strong, distinct 1080×1920
-vertical clips** as the source supports. Every result is one continuous excerpt
-of the original conversation, with word-accurate captions and clean,
-face-tracked framing.
+Clipping Factory turns a podcast MP4 into a set of strong, distinct vertical clips. Every result is one continuous excerpt with word-timed captions and clean, face-aware framing.
 
-No accounts. No cloud upload. No required AI model. The local ranking engine
-scans the full transcript for strong openings, reactions, repeated claims,
-specific insights, and clean payoffs. A deterministic validator rejects
-context-dependent or overlapping moments before anything renders.
+The goal is simple: find moments worth posting without rewriting the speaker, inventing context, or hiding weak edits behind effects.
+
+No account. No cloud upload. No required AI model. The built-in ranker scans the full transcript, and a deterministic validator rejects clips that depend on missing context or overlap stronger moments.
 
 ## What you get
 
 | | |
 |---|---|
-| **More useful candidates** | Local ranking keeps every strong, sufficiently distinct moment instead of stopping at three. |
-| **Faithful excerpts** | Speech is never rewritten, reordered, spliced, or invented. |
-| **Feed-ready video** | H.264/AAC, 1080×1920, face-tracked crop or a safe blur-pad fallback. |
-| **Karaoke captions** | Word-timestamped Impact and Clean styles. Restyle any finished clip — style and accent color — in seconds, without a re-render. |
-| **Private by default** | Video, audio, transcript, project state, and rendering stay on your Mac. |
+| **More useful candidates** | Keeps every strong, distinct moment instead of stopping at an arbitrary quota. |
+| **Faithful excerpts** | Never rewrites, reorders, splices, or invents speech. |
+| **Feed-ready video** | Produces H.264/AAC MP4s at 1080×1920. |
+| **Word-accurate captions** | Offers Impact and Clean styles with per-clip restyling. |
+| **Private by default** | Keeps video, audio, transcripts, project state, and rendering on your machine. |
 
 <p align="center">
   <img src="docs/assets/clip-details.png" alt="Rendered clip cards with captions and face tracking" width="620">
 </p>
 
-```
-Drop MP4 → Inspect → Extract audio → Transcribe (whisper.cpp, word timestamps)
-        → Find moments (local ranking, or optional OpenAI/Anthropic)
-        → Deterministic quality validator → Face-aware framing analysis
-        → Two-pass FFmpeg renders (framed base + caption burn)
-        → Preview, restyle captions per clip & download
+```text
+Drop MP4 → Inspect → Extract audio → Transcribe → Find moments
+         → Validate → Analyze framing → Render → Preview and download
 ```
 
----
+## Quickstart
 
-## Quickstart (macOS, Apple Silicon)
-
-Four commands, then it's a browser app:
+The first supported setup is macOS on Apple Silicon.
 
 ```bash
-# 1. Media + transcription runtimes
+# Media and transcription runtimes
 brew install ffmpeg-full whisper-cpp
 
-# 2. Rust toolchain (skip if you have it)
+# Rust toolchain — skip this if Rust is already installed
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# 3. Transcription model (~148 MB, one time)
+# Download the base English transcription model once
 mkdir -p ~/.clipping-factory/models
 curl -L -o ~/.clipping-factory/models/ggml-base.en.bin \
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
 
-# 4. Run the studio (from this repo's directory)
+# Run from the repository root
 cargo run --release
 ```
 
-The studio opens at **http://localhost:4571**. Drop one MP4 in. That's the product.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts.
 
-> **Linux:** identical, except install ffmpeg via your package manager and build
-> [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`cmake -B build && cmake --build build -j --target whisper-cli`),
-> then point `CF_WHISPER_BIN` at the built `whisper-cli` if it isn't on your PATH.
+### Linux
 
-### Better transcription (optional)
+Install FFmpeg through your package manager and build [whisper.cpp](https://github.com/ggml-org/whisper.cpp):
 
-`base.en` is fast and solid. For noticeably better captions on tricky audio, download
-`ggml-small.en.bin` (~466 MB) into the same folder — it's picked up automatically —
-or set `CF_WHISPER_MODEL` to any ggml model path.
+```bash
+cmake -B build
+cmake --build build -j --target whisper-cli
+```
 
----
+Set `CF_WHISPER_BIN` to the resulting `whisper-cli` path if it is not already on your `PATH`.
 
-## Local by default, AI optional
+### Better transcription
 
-Local ranking needs no key and is the default. Open **Local ranking** in the
-studio header if you want to connect an optional provider instead.
+`ggml-base.en` is the fast default. For tougher audio, put `ggml-small.en.bin` in `~/.clipping-factory/models/` or set `CF_WHISPER_MODEL` to another compatible ggml model.
+
+## Local by default. AI optional.
+
+Local ranking is the default and needs no API key. If you want model-assisted selection, open the provider control in the studio and connect OpenAI or Anthropic.
 
 | Provider | Default model | Notes |
 |---|---|---|
-| Local ranking | — | No key needed. Scans the full transcript for reactions, repeated claims, strong hooks, and clean payoffs. |
-| OpenAI | `gpt-4o-mini` | The PRD's primary provider. Any chat-completions model name works. |
-| Anthropic | `claude-sonnet-4-5` | Alternative provider. |
+| Local ranking | — | Scans the full transcript locally. No key required. |
+| OpenAI | `gpt-4o-mini` | Accepts another chat-completions model name. |
+| Anthropic | `claude-sonnet-4-5` | Optional alternative provider. |
 
-Privacy posture (enforced in code):
+When a provider is enabled, only transcript text is sent to it. The source video stays on your machine.
 
-- Your key is stored in `~/.clipping-factory/settings.json` with `0600` permissions — outside any project folder, never logged, never sent back to the browser.
-- Only **transcript text** is sent to the provider. The video never leaves your machine.
+API keys are stored in `~/.clipping-factory/settings.json` with user-only `0600` permissions. Keys are never logged or returned by the settings API.
 
----
+## The anti-slop gate
 
-## What the validator enforces (the anti-slop gate)
+Finding a possible moment is not enough. Every proposed clip must pass the same deterministic validator before rendering:
 
-Every AI proposal must survive these deterministic rules before it renders
-(all unit-tested in `src/validate.rs`):
+- The excerpt must meet minimum scores for self-containment, payoff, and clarity.
+- Context dependency and slop risk must stay below fixed limits.
+- The opening and closing quotes must appear in the transcript near the proposed boundaries.
+- Boundaries snap to real word timestamps instead of trusting model-generated milliseconds.
+- A clip cannot overlap more than 30% with a higher-ranked result.
+- Timestamps must stay inside the source duration.
+- Normal duration is 20–90 seconds, with a narrow exception for unusually strong moments.
 
-- `self_contained ≥ 4`, `payoff ≥ 3`, `clarity ≥ 4`, `context_dependency ≤ 2`, `slop_risk ≤ 2`
-- Duration 20–90 s (15–110 s allowed only for exceptionally-scored moments, flagged as exceptions)
-- Opening & closing quotes must be **verbatim** in the transcribed excerpt, near its start/end
-- Start/end snapped to real word timestamps — never trusting raw LLM milliseconds
-- ≤ 30 % overlap with any higher-ranked clip
-- Timestamps inside the source duration
+Zero clips is a valid result. The studio shows what it considered, what it rejected, and which rule rejected it.
 
-Zero survivors is a valid result: the studio says no excerpt passed the bar, and the
-**"What was considered and rejected"** panel shows each rejection with its named rule.
+## Captions you choose after rendering
 
-## Caption styles — pick them *after* rendering
+Clips render with the default style first. Each finished clip can then be restyled without repeating the expensive framing pass.
 
-Clips render in the house default first (Impact — change the default with
-`CF_CAPTION_STYLE=clean`). Then every finished clip card offers a restyle
-control: switch style, pick any accent color, hit Apply.
+- **Impact** uses tight, kinetic stacks with one dominant word and a restrained active-word accent.
+- **Clean** uses compact conversational groups in the lower safe area with a softer active-word accent.
 
-- **Impact** (default) — kinetic stacked lockups. Each phrase renders as a tight,
-  ragged stack: connective words small, the key word HUGE in caps, the currently
-  spoken word tinted yellow, with a subtle pop-in per phrase. Built for
-  short-form feeds.
-- **Clean** — the restrained original: 3–7 word groups in the lower safe area,
-  white with a soft outline, one amber accent on the active word.
+You can switch styles, choose an accent color, and apply the change from the result card. Clipping Factory re-burns captions from the cached base render in seconds.
 
-Restyling re-burns captions from the clip's cached, uncaptioned base render —
-seconds of work, not a full re-render — and refreshes both the studio preview
-and the copy in your output folder
-(`POST /api/projects/{id}/clips/{clipId}/restyle`). Projects rendered by older
-versions rebuild the base once, automatically.
+## House rendering rules
 
-## The house rendering rules (applied to both styles)
+- 1080×1920 H.264/AAC output.
+- Source frame rate is preserved, with a 30 fps fallback.
+- One persistent face gets a smoothed, face-tracked vertical crop.
+- Multiple faces or no reliable face gets a centered source over a darkened blur background.
+- Captions use short conversational groups in the lower safe area.
+- A headline appears briefly only when it adds context beyond the opening words.
+- No B-roll, emojis, music, transitions, or automatic zoom patterns.
 
-- 1080×1920 H.264/AAC MP4, source frame rate preserved (or 30 fps)
-- **One persistent face** → smoothed, face-tracked vertical crop (rustface detection,
-  moving-average smoothing, piecewise-linear crop path — no jitter, no crop through faces)
-- **Two+ faces or no reliable face** → original framing centered over a blurred,
-  darkened copy of itself (never guesses the active speaker)
-- Captions: Inter, 3–7 word conversational groups in the lower safe area, white with
-  soft outline, the currently-spoken word in one restrained amber accent
-- Headline appears top-of-frame for the first 3.5 s **only when** it adds context beyond
-  the opening words
-- No emojis, no B-roll, no zoom patterns, no music, no transitions. Ever.
+## Outputs and local state
 
-## Outputs & state
+```text
+~/Downloads/Clipping Factory/<source-name>/
+  01-headline-slug.mp4
 
-```
-~/Downloads/Clipping Factory/<source-name>/   ← finished clips (01-headline-slug.mp4)
-~/.clipping-factory/projects/<project-id>/    ← project.json, transcript.json,
-                                                 candidates.json, render-manifest.json,
-                                                 clips/ (finals + base/ restyle intermediates)
+~/.clipping-factory/projects/<project-id>/
+  project.json
+  transcript.json
+  candidates.json
+  render-manifest.json
+  clips/
 ```
 
-Filesystem JSON only — no database. Temporary audio is deleted after transcription.
-Refresh the browser mid-run and the studio restores progress; restart the server mid-run
-and the project reports the interruption with a one-click **Retry** that resumes from the
-last completed stage (finished clips are never re-rendered).
+Project state is plain JSON. Temporary audio is deleted after transcription. Finished clips survive retries, and interrupted projects can resume from the last completed stage.
 
----
+## Architecture
 
-## Architecture (all Rust)
+Clipping Factory is a browser-based studio backed by one Rust binary. There is no Node or Python application runtime.
 
-| | |
+| Area | Implementation |
 |---|---|
-| Web server & API | axum 0.8 + tokio (SSE progress events, streaming multipart upload, Range-aware clip serving) |
-| Media probe/extract/render | FFmpeg & FFprobe subprocesses, `-progress` parsing, kill-on-cancel |
-| Transcription | whisper.cpp (`--max-len 1 --split-on-word`) → word timestamps + rebuilt sentence segments |
-| Editorial selection | Local full-transcript ranking, or OpenAI / Anthropic with 12-minute overlapping transcript windows |
-| Quality gate | Pure-Rust deterministic validator (`src/validate.rs`) |
-| Framing | rustface (SeetaFace) over 1 fps sampled frames → layout decision + smoothed crop keyframes |
-| Captions | Generated ASS subtitles burned by libass (`Inter`, bundled in `assets/fonts/`) in a fast second pass over cached base renders — per-clip restyling |
-| State | Filesystem JSON with atomic writes |
+| Web server and API | axum, tokio, server-sent events, streaming multipart uploads |
+| Media inspection and rendering | FFmpeg and FFprobe subprocesses |
+| Transcription | whisper.cpp with word timestamps |
+| Editorial selection | Local ranker, optional OpenAI, optional Anthropic |
+| Quality gate | Pure Rust deterministic validator |
+| Framing | rustface detections with smoothing and crop clamping |
+| Captions | Generated ASS subtitles burned by libass |
+| State | Atomic filesystem JSON writes |
 
-```
+```text
 src/
-  main.rs        boot, first-run checks       select/mod.rs      windowing, prompts, parsing
-  api.rs         PRD §14.1 HTTP surface       select/openai.rs   OpenAI provider
-  pipeline.rs    stage orchestrator           select/anthropic.rs Anthropic provider
-  media.rs       ffprobe + audio extract      select/heuristic.rs offline selector
-  transcribe.rs  whisper.cpp integration      validate.rs        deterministic quality gate
-  frame.rs       face detect + layout         captions.rs        ASS builder (karaoke accent)
-  render.rs      FFmpeg filtergraphs          store.rs / state.rs / settings.rs / config.rs
-static/          the studio UI (served by the binary; embedded fallback)
+  main.rs          startup and first-run checks
+  api.rs           HTTP API and static studio
+  pipeline.rs      stage orchestration
+  media.rs         probing and audio extraction
+  transcribe.rs    whisper.cpp integration
+  select/          local and optional model-assisted selection
+  validate.rs      deterministic quality gate
+  frame.rs         face detection and layout decisions
+  captions.rs      caption grouping and ASS generation
+  render.rs        FFmpeg filter graphs
+  store.rs         project persistence
+
+static/            browser studio
+evals/             golden-set evaluation harness
 ```
+
+The original product decisions live in the [PRD](docs/PRD.md). Current priorities and working agreements live in the [roadmap](docs/ROADMAP.md).
 
 ### Configuration
 
-Everything's overridable via environment variables: `CF_PORT`, `CF_DATA_DIR`, `CF_OUTPUT_DIR`,
-`CF_FFMPEG`, `CF_FFPROBE`, `CF_WHISPER_BIN`, `CF_WHISPER_MODEL`, `CF_FONTS_DIR`,
-`CF_FACE_MODEL`, `CF_THREADS`, `CF_NO_OPEN=1`.
+| Variable | Purpose |
+|---|---|
+| `CF_PORT` | Studio port; defaults to `4571` |
+| `CF_DATA_DIR` | Project state directory |
+| `CF_OUTPUT_DIR` | Finished clip directory |
+| `CF_FFMPEG`, `CF_FFPROBE` | Media binary overrides |
+| `CF_WHISPER_BIN`, `CF_WHISPER_MODEL` | Transcription overrides |
+| `CF_FONTS_DIR`, `CF_FACE_MODEL` | Bundled asset overrides |
+| `CF_THREADS` | Transcription thread count |
+| `CF_CAPTION_STYLE` | Default style: `impact` or `clean` |
+| `CF_NO_OPEN=1` | Do not open the browser on startup |
+| `CF_BIND_ALL=1` | Listen on every network interface |
 
-### Tests
+The studio has no authentication because it is designed for localhost. Do not use `CF_BIND_ALL=1` on an untrusted or public network.
+
+## Testing
 
 ```bash
-cargo test   # 95 tests: every validator rule, caption pagination, crop math,
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+cargo test   # 100 tests: every validator rule, caption pagination, crop math,
              # face-track smoothing & pan clamping, layout decisions, restyle
              # plumbing, selector parsing, state recovery
 ```
 
----
+Unit tests cover validation rules, selector parsing, caption timing and pagination, framing decisions, crop smoothing, rendering filters, restyling, persistence, and recovery.
 
-## Deliberate deviations from the PRD's suggested stack
+Selection and rendering quality also need real media. The [evaluation harness](evals/README.md) defines the golden-set workflow used to catch regressions that unit tests cannot see.
 
-The PRD (§14) suggested Node/Express + React + Python faster-whisper + Remotion. This
-implementation is **all Rust** by design — one static binary, no Node/Python runtimes:
+## Contributing
 
-| PRD suggestion | This build | Why |
-|---|---|---|
-| Node + Express | axum (Rust) | Single binary, lower memory on 4-hour sources, and the codebase drops straight into a Tauri desktop app for the post-MVP $5 product |
-| Python `faster-whisper` | whisper.cpp | Best-in-class on Apple Silicon (Metal), no Python dependency, same models |
-| Remotion renderer | FFmpeg filtergraphs + libass | 10–50× faster for a fixed restrained style (Remotion renders via headless Chrome), and sidesteps the Remotion commercial-license review the PRD itself flags (§21). If post-MVP you want animated caption packs, a Remotion sidecar can be added behind the same render interface. |
-| OpenAI only | Local ranking + OpenAI + Anthropic | Strong keyless selection by default, with provider choice when wanted |
+Small, focused changes are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
-Product behavior follows the PRD: same stages, same API shape, same rubric and
-thresholds, same outputs, same privacy rules.
+For security reports, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
-## Credits & licenses
+## Credits and license
 
-[FFmpeg](https://ffmpeg.org) (LGPL/GPL builds) · [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (MIT) ·
-[rustface](https://github.com/atomashpolskiy/rustface) (MIT, SeetaFace model) ·
-[Inter](https://rsms.me/inter/) (SIL OFL 1.1, bundled) · Whisper models by OpenAI (MIT).
+Clipping Factory uses [FFmpeg](https://ffmpeg.org), [whisper.cpp](https://github.com/ggml-org/whisper.cpp), [rustface](https://github.com/atomashpolskiy/rustface), and the [Inter](https://rsms.me/inter/) typeface.
 
-You are responsible for processing only content you own or have permission to use.
+The source code is available under the [MIT License](LICENSE). Bundled fonts, models, tools, and user-provided media remain subject to their own licenses.
+
+Only process media you own or have permission to use.
