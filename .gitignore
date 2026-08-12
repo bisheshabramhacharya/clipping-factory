@@ -4,6 +4,7 @@
 /.qa-output/
 /target/
 
-# Eval harness inputs/outputs (local media, never committed)
+# Eval harness inputs/outputs (local media, local manifest, generated reports)
+/evals/manifest.json
 /evals/sources/
 /evals/results/
