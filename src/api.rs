@@ -37,6 +37,7 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(index_html))
         .route("/styles.css", get(styles_css))
         .route("/app.js", get(app_js))
+        .route("/review.js", get(review_js))
         .route("/api/setup", get(setup_status))
         .route("/api/settings/ai", get(get_settings).post(set_settings))
         .route("/api/settings/ai/test", post(test_settings))
@@ -103,6 +104,7 @@ macro_rules! static_asset {
 }
 static_asset!(styles_css, "styles.css", "text/css; charset=utf-8");
 static_asset!(app_js, "app.js", "application/javascript; charset=utf-8");
+static_asset!(review_js, "review.js", "application/javascript; charset=utf-8");
 
 async fn index_html() -> Html<String> {
     let disk = std::path::Path::new("static").join("index.html");
