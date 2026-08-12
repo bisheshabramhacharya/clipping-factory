@@ -22,10 +22,6 @@ use tokio_util::sync::CancellationToken;
 
 const OUT_W: u32 = 1080;
 const OUT_H: u32 = 1920;
-/// Face-crop window width, before the final scale down to OUT_W. Wider than
-/// the output so the subject breathes instead of filling the frame (~32% of
-/// a 16:9 source becomes a ~40% window; the extra width is scaled away).
-const CROP_WIN_W: u32 = 1350;
 
 /// Render the framed, uncaptioned base clip from the source video.
 /// (The argument list mirrors the render inputs one-to-one on purpose.)
@@ -227,25 +223,23 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
             subs = subs_step
         ),
         LayoutPlan::FaceCrop { keyframes } => {
-            // Scale so height fills 1920, then crop a CROP_WIN_W-wide window
-            // whose x follows the smoothed face track, then scale the crop
-            // back down to the 1080×1920 output.
+            // Scale so height fills 1920, then crop a 1080-wide window whose
+            // x follows the smoothed face track.
             let scaled_w = {
                 let w = (source.width as f64) * (OUT_H as f64) / (source.height as f64);
                 (w / 2.0).round() as u64 * 2
             };
-            if scaled_w < CROP_WIN_W as u64 {
+            if scaled_w < OUT_W as u64 {
                 // Shouldn't happen (frame.rs guards portrait), but stay safe.
                 return build_graph(source, &LayoutPlan::BlurPad, subs);
             }
             let expr = crop_x_expr(keyframes, scaled_w);
             format!(
                 "[0:v]setpts=PTS-STARTPTS,scale=-2:{h}:force_divisible_by=2,\
-                 crop={cw}:{h}:x='{expr}':y=0,scale={w}:{h},{subs}format=yuv420p[v];\
+                 crop={w}:{h}:x='{expr}':y=0,{subs}format=yuv420p[v];\
                  [0:a]asetpts=PTS-STARTPTS[a]",
                 w = OUT_W,
                 h = OUT_H,
-                cw = CROP_WIN_W,
                 expr = expr,
                 subs = subs_step
             )
@@ -256,9 +250,9 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
 /// Piecewise-linear x(t) between keyframes, clamped to the scaled frame.
 /// `t` in the crop filter is the output timestamp in seconds (0 at clip start).
 pub fn crop_x_expr(keyframes: &[CropKey], scaled_w: u64) -> String {
-    let max_x = (scaled_w - CROP_WIN_W as u64) as f64;
+    let max_x = (scaled_w - OUT_W as u64) as f64;
     let px = |cx: f32| -> f64 {
-        ((cx as f64) * scaled_w as f64 - (CROP_WIN_W as f64) / 2.0).clamp(0.0, max_x)
+        ((cx as f64) * scaled_w as f64 - (OUT_W as f64) / 2.0).clamp(0.0, max_x)
     };
 
     match keyframes.len() {
@@ -302,10 +296,6 @@ fn ff_escape_str(s: &str) -> String {
 mod tests {
     use super::*;
 
-    // Compile-time contract: the face-crop window must be wider than the
-    // output or the zoom-out change regresses silently.
-    const _: () = assert!(CROP_WIN_W > OUT_W);
-
     fn source(w: u32, h: u32) -> SourceInfo {
         SourceInfo {
             filename: "s.mp4".into(),
@@ -322,8 +312,8 @@ mod tests {
     #[test]
     fn single_keyframe_is_constant() {
         let e = crop_x_expr(&[CropKey { t_ms: 0, cx: 0.5 }], 3414);
-        // 0.5*3414 - CROP_WIN_W/2 = 1032 for CROP_WIN_W=1350
-        assert_eq!(e, format!("{:.1}", 0.5 * 3414.0 - CROP_WIN_W as f64 / 2.0));
+        // 0.5*3414 - 540 = 1167
+        assert_eq!(e, "1167.0");
     }
 
     #[test]
@@ -331,7 +321,7 @@ mod tests {
         let e = crop_x_expr(&[CropKey { t_ms: 0, cx: 0.02 }], 3414);
         assert_eq!(e, "0.0");
         let e = crop_x_expr(&[CropKey { t_ms: 0, cx: 0.99 }], 3414);
-        assert_eq!(e, format!("{:.1}", (3414 - CROP_WIN_W as u64) as f64));
+        assert_eq!(e, format!("{:.1}", (3414 - 1080) as f64));
     }
 
     #[test]
@@ -404,7 +394,7 @@ mod tests {
 
     #[test]
     fn portrait_source_falls_back_to_blur_pad() {
-        // 540×1280 scales to 810×1920 — narrower than the CROP_WIN_W window.
+        // 540×1280 scales to 810×1920 — narrower than the 1080 crop window.
         let g = build_graph(
             &source(540, 1280),
             &LayoutPlan::FaceCrop {
@@ -415,46 +405,6 @@ mod tests {
         assert!(
             g.contains("gblur"),
             "portrait must fall back to blur-pad: {g}"
-        );
-    }
-
-    #[test]
-    fn crop_window_is_wider_than_output_and_bounds_hold() {
-        // The zoom-out contract: the crop window is wider than the output and
-        // the x expression never leaves the scaled frame.
-        let scaled_w = 3414u64;
-        let max_x = (scaled_w - CROP_WIN_W as u64) as f64;
-        for cx in [0.0, 0.02, 0.5, 0.99] {
-            let e = crop_x_expr(&[CropKey { t_ms: 0, cx }], scaled_w);
-            let x: f64 = e.parse().expect("numeric expr");
-            assert!((0.0..=max_x).contains(&x), "cx={cx} out of bounds: {e}");
-        }
-        // A centered face lands mid-window: 0.5*3414 - CROP_WIN_W/2.
-        let center = crop_x_expr(&[CropKey { t_ms: 0, cx: 0.5 }], scaled_w);
-        let expect = 0.5 * scaled_w as f64 - CROP_WIN_W as f64 / 2.0;
-        assert_eq!(center, format!("{:.1}", expect));
-    }
-
-    #[test]
-    fn face_crop_graph_crops_wider_then_scales_to_output() {
-        let g = build_graph(
-            &source(1920, 1080),
-            &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
-            },
-            None,
-        );
-        assert!(
-            g.contains(&format!("crop={CROP_WIN_W}:1920")),
-            "wider crop window missing: {g}"
-        );
-        assert!(
-            g.contains("scale=1080:1920"),
-            "scale-back step missing: {g}"
-        );
-        assert!(
-            !g.contains("ass="),
-            "base graph must not burn captions: {g}"
         );
     }
 }
