@@ -1,9 +1,8 @@
 //! Local word-timestamp transcription via whisper.cpp (PRD §10).
 //!
-//! We run `whisper-cli` with `--max-len 1 --split-on-word` so every emitted
-//! segment is a single word with exact offsets, then rebuild sentence-level
-//! segments deterministically (punctuation + pause boundaries). Both raw words
-//! and normalized sentences are stored, as the PRD requires.
+//! We consume lexical token offsets from whisper.cpp's full JSON output and
+//! rebuild sentence-level segments deterministically. Sentence/segment offsets
+//! are deliberately not treated as word boundaries because they absorb pauses.
 
 use crate::config::Config;
 use crate::domain::{Sentence, Transcript, Word};
@@ -46,9 +45,6 @@ where
         "en".into(),
         "-t".into(),
         cfg.threads.to_string(),
-        "--max-len".into(),
-        "1".into(),
-        "--split-on-word".into(),
         "--output-json-full".into(),
         "--output-file".into(),
         out_prefix.to_string_lossy().into_owned(),
@@ -118,11 +114,128 @@ where
     result
 }
 
+#[derive(Default)]
+struct PendingWord {
+    text: String,
+    start_ms: u64,
+    end_ms: u64,
+    p_sum: f64,
+    p_count: usize,
+}
+
+fn finish_word(words: &mut Vec<Word>, pending: &mut Option<PendingWord>) {
+    let Some(word) = pending.take() else { return };
+    if !word.text.chars().any(char::is_alphanumeric) {
+        return;
+    }
+    words.push(Word {
+        text: word.text,
+        start_ms: word.start_ms,
+        end_ms: word.end_ms.max(word.start_ms.saturating_add(10)),
+        p: if word.p_count == 0 {
+            0.5
+        } else {
+            (word.p_sum / word.p_count as f64) as f32
+        },
+    });
+}
+
+fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
+    let mut words = Vec::new();
+    let mut saw_timed_token = false;
+
+    for segment in segments {
+        let mut pending: Option<PendingWord> = None;
+        let Some(tokens) = segment["tokens"].as_array() else {
+            continue;
+        };
+        for token in tokens {
+            let raw = token["text"].as_str().unwrap_or("");
+            let part = raw.trim();
+            if part.is_empty() || part.starts_with("[_") {
+                continue;
+            }
+            let starts_word = raw.chars().next().is_some_and(char::is_whitespace);
+            if starts_word {
+                finish_word(&mut words, &mut pending);
+            }
+
+            let lexical = part.chars().any(char::is_alphanumeric);
+            let annotation = (part.starts_with('[') && part.ends_with(']'))
+                || (part.starts_with('(') && part.ends_with(')'));
+            if annotation || (!lexical && pending.is_none()) {
+                continue;
+            }
+
+            let from = token["offsets"]["from"].as_u64();
+            let to = token["offsets"]["to"].as_u64();
+            let (Some(from), Some(to)) = (from, to) else {
+                continue;
+            };
+            let (from, to) = if from <= to { (from, to) } else { (to, from) };
+            saw_timed_token = true;
+
+            if pending.is_none() {
+                if !lexical {
+                    continue;
+                }
+                pending = Some(PendingWord {
+                    text: part.to_string(),
+                    start_ms: from,
+                    end_ms: to,
+                    p_sum: token["p"].as_f64().unwrap_or(0.5),
+                    p_count: 1,
+                });
+                continue;
+            }
+
+            let word = pending.as_mut().unwrap();
+            word.text.push_str(part);
+            // Punctuation has no spoken duration. Keep it visible, but do not
+            // let its timestamp absorb the silence after the lexical word.
+            if lexical {
+                word.end_ms = word.end_ms.max(to);
+                word.p_sum += token["p"].as_f64().unwrap_or(0.5);
+                word.p_count += 1;
+            }
+        }
+        finish_word(&mut words, &mut pending);
+    }
+
+    if !saw_timed_token {
+        return Vec::new();
+    }
+    // Token heuristics can overlap at a boundary. Split only those overlaps;
+    // genuine silence gaps remain untouched.
+    for i in 0..words.len().saturating_sub(1) {
+        if words[i].end_ms <= words[i + 1].start_ms {
+            continue;
+        }
+        let min_boundary = words[i].start_ms.saturating_add(10);
+        let max_boundary = words[i + 1].end_ms.saturating_sub(10);
+        let midpoint =
+            words[i + 1].start_ms + words[i].end_ms.saturating_sub(words[i + 1].start_ms) / 2;
+        let boundary = if min_boundary <= max_boundary {
+            midpoint.clamp(min_boundary, max_boundary)
+        } else {
+            min_boundary
+        };
+        words[i].end_ms = boundary;
+        words[i + 1].start_ms = boundary;
+        words[i + 1].end_ms = words[i + 1].end_ms.max(boundary.saturating_add(10));
+    }
+    words
+}
+
 fn parse_words(v: &serde_json::Value) -> Vec<Word> {
     let mut words = Vec::new();
     let Some(segments) = v["transcription"].as_array() else {
         return words;
     };
+    let token_words = parse_token_words(segments);
+    if !token_words.is_empty() {
+        return token_words;
+    }
     for seg in segments {
         let text = seg["text"].as_str().unwrap_or("").trim().to_string();
         if text.is_empty() {
@@ -237,5 +350,51 @@ mod tests {
         assert_eq!(s[0].text, "Hello there.");
         assert_eq!(s[1].word_start, 2);
         assert_eq!(s[2].start_ms, 3000);
+    }
+
+    #[test]
+    fn token_offsets_preserve_variable_rate_word_spans_and_silence() {
+        let parsed = serde_json::json!({
+            "transcription": [{
+                "offsets": {"from": 0, "to": 1200},
+                "text": "Fast slowly now.",
+                "tokens": [
+                    {"text": "[_BEG_]", "offsets": {"from": 0, "to": 0}, "p": 1.0, "t_dtw": -1},
+                    {"text": " Fast", "offsets": {"from": 100, "to": 180}, "p": 0.9, "t_dtw": 14},
+                    {"text": " slowly", "offsets": {"from": 400, "to": 900}, "p": 0.9, "t_dtw": 62},
+                    {"text": " now", "offsets": {"from": 950, "to": 1050}, "p": 0.9, "t_dtw": 100},
+                    {"text": ".", "offsets": {"from": 1050, "to": 1180}, "p": 0.8, "t_dtw": 106}
+                ]
+            }]
+        });
+
+        let words = parse_words(&parsed);
+        assert_eq!(
+            words
+                .iter()
+                .map(|word| (word.text.as_str(), word.start_ms, word.end_ms))
+                .collect::<Vec<_>>(),
+            vec![
+                ("Fast", 100, 180),
+                ("slowly", 400, 900),
+                ("now.", 950, 1050),
+            ]
+        );
+    }
+
+    #[test]
+    fn token_offsets_repair_reversed_and_overlapping_spans() {
+        let parsed = serde_json::json!({
+            "transcription": [{
+                "tokens": [
+                    {"text": " First", "offsets": {"from": 200, "to": 100}, "p": 0.9},
+                    {"text": " second", "offsets": {"from": 150, "to": 300}, "p": 0.9}
+                ]
+            }]
+        });
+
+        let words = parse_words(&parsed);
+        assert_eq!((words[0].start_ms, words[0].end_ms), (100, 175));
+        assert_eq!((words[1].start_ms, words[1].end_ms), (175, 300));
     }
 }

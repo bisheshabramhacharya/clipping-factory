@@ -160,7 +160,7 @@ pub fn build_ass(input: &CaptionInput, style: CaptionStyle) -> String {
 }
 
 fn relative_words(input: &CaptionInput) -> (Vec<Word>, u64) {
-    let rel: Vec<Word> = input
+    let mut rel: Vec<Word> = input
         .words
         .iter()
         .map(|w| Word {
@@ -170,6 +170,19 @@ fn relative_words(input: &CaptionInput) -> (Vec<Word>, u64) {
             p: w.p,
         })
         .collect();
+    // Old heuristic transcripts can contain zero-length words. Give each one
+    // a single ASS tick and move the following onset forward by that tick so
+    // every spoken token can receive a non-overlapping active window.
+    for i in 0..rel.len() {
+        if rel[i].end_ms <= rel[i].start_ms {
+            rel[i].end_ms = rel[i].start_ms + 10;
+            let repaired_end = rel[i].end_ms;
+            if let Some(next) = rel.get_mut(i + 1) {
+                next.start_ms = next.start_ms.max(repaired_end);
+                next.end_ms = next.end_ms.max(next.start_ms + 10);
+            }
+        }
+    }
     let clip_len = input.clip_end_ms.saturating_sub(input.clip_start_ms);
     (rel, clip_len)
 }
@@ -366,11 +379,12 @@ fn build_impact(input: &CaptionInput) -> String {
 
         for (k, word) in page.iter().enumerate() {
             let start = word.start_ms;
-            let end = if k + 1 < page.len() {
+            let gap_end = if k + 1 < page.len() {
                 page[k + 1].start_ms
             } else {
                 page_end
             };
+            let end = word.end_ms.max(start + 10).min(gap_end);
             if end <= start {
                 continue;
             }
@@ -410,6 +424,30 @@ fn build_impact(input: &CaptionInput) -> String {
                     ass_time(end),
                     text
                 ));
+                if gap_end > end {
+                    let mut neutral = format!(
+                        "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur0.6}}",
+                        line.x, line.y, line.fs
+                    );
+                    for (j, &wi) in line.word_idx.iter().enumerate() {
+                        if j > 0 {
+                            neutral.push(' ');
+                        }
+                        let raw = escape(&page[wi].text);
+                        let shown = if line.emphasis {
+                            raw.to_uppercase()
+                        } else {
+                            raw.to_lowercase()
+                        };
+                        neutral.push_str(&shown);
+                    }
+                    ass.push_str(&format!(
+                        "Dialogue: 0,{},{},Impact,,0,0,0,,{}\n",
+                        ass_time(end),
+                        ass_time(gap_end),
+                        neutral
+                    ));
+                }
             }
         }
     }
@@ -521,7 +559,8 @@ fn build_clean(input: &CaptionInput) -> String {
             .unwrap_or(0);
         for (i, word) in page.iter().enumerate() {
             let start = word.start_ms;
-            let end = page.get(i + 1).map(|n| n.start_ms).unwrap_or(page_end);
+            let gap_end = page.get(i + 1).map(|n| n.start_ms).unwrap_or(page_end);
+            let end = word.end_ms.max(start + 10).min(gap_end);
             if end <= start {
                 continue;
             }
@@ -547,6 +586,19 @@ fn build_clean(input: &CaptionInput) -> String {
                 ass_time(end),
                 line
             ));
+            if gap_end > end {
+                let neutral = page
+                    .iter()
+                    .map(|word| escape(&word.text))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                ass.push_str(&format!(
+                    "Dialogue: 0,{},{},Caption,,0,0,0,,{}\n",
+                    ass_time(end),
+                    ass_time(gap_end),
+                    neutral
+                ));
+            }
         }
     }
     ass
@@ -726,9 +778,7 @@ mod tests {
             accent_bgr: accent_bgr_for(CaptionStyle::Clean, None),
         };
         let ass = build_ass(&input, CaptionStyle::Clean);
-        let dialogue_lines = ass.lines().filter(|l| l.starts_with("Dialogue:")).count();
-        assert_eq!(dialogue_lines, 5);
-        assert!(ass.contains(CLEAN_ACCENT_BGR));
+        assert_eq!(parse_accent_events(&ass, CLEAN_ACCENT_BGR).len(), 5);
     }
 
     #[test]
@@ -774,6 +824,17 @@ mod tests {
                 (t(f[1]), t(f[2]))
             })
             .collect()
+    }
+
+    fn parse_accent_events(ass: &str, accent_bgr: &str) -> Vec<(u64, u64)> {
+        let mut events = ass
+            .lines()
+            .filter(|line| line.starts_with("Dialogue:") && line.contains(accent_bgr))
+            .flat_map(parse_events)
+            .collect::<Vec<_>>();
+        events.sort_unstable();
+        events.dedup();
+        events
     }
 
     #[test]
@@ -891,6 +952,40 @@ mod tests {
                 "windows overlap: {:?} then {:?}",
                 pair[0],
                 pair[1]
+            );
+        }
+    }
+
+    #[test]
+    fn active_word_windows_follow_variable_speech_spans_exactly() {
+        let words = vec![
+            Word {
+                text: "fast".into(),
+                start_ms: 100,
+                end_ms: 180,
+                p: 0.9,
+            },
+            Word {
+                text: "slowly".into(),
+                start_ms: 400,
+                end_ms: 900,
+                p: 0.9,
+            },
+            Word {
+                text: "now".into(),
+                start_ms: 950,
+                end_ms: 1050,
+                p: 0.9,
+            },
+        ];
+        for style in [CaptionStyle::Impact, CaptionStyle::Clean] {
+            let accent = accent_bgr_for(style, None);
+            let mut caption_input = input(&words, 1400);
+            caption_input.accent_bgr = accent.clone();
+            let ass = build_ass(&caption_input, style);
+            assert_eq!(
+                parse_accent_events(&ass, &accent),
+                vec![(100, 180), (400, 900), (950, 1050)]
             );
         }
     }

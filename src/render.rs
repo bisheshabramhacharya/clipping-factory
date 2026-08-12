@@ -63,7 +63,7 @@ where
         "-map".into(),
         "[v]".into(),
         "-map".into(),
-        "0:a:0".into(),
+        "[a]".into(),
     ];
     args.extend(video_encode_args());
     args.extend([
@@ -216,11 +216,12 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
     match layout {
         LayoutPlan::BlurPad => format!(
-            "[0:v]split=2[bga][fga];\
+            "[0:v]setpts=PTS-STARTPTS,split=2[bga][fga];\
              [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
-             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v]",
+             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v];\
+             [0:a]asetpts=PTS-STARTPTS[a]",
             w = OUT_W,
             h = OUT_H,
             subs = subs_step
@@ -239,8 +240,9 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
             }
             let expr = crop_x_expr(keyframes, scaled_w);
             format!(
-                "[0:v]scale=-2:{h}:force_divisible_by=2,\
-                 crop={cw}:{h}:x='{expr}':y=0,scale={w}:{h},{subs}format=yuv420p[v]",
+                "[0:v]setpts=PTS-STARTPTS,scale=-2:{h}:force_divisible_by=2,\
+                 crop={cw}:{h}:x='{expr}':y=0,scale={w}:{h},{subs}format=yuv420p[v];\
+                 [0:a]asetpts=PTS-STARTPTS[a]",
                 w = OUT_W,
                 h = OUT_H,
                 cw = CROP_WIN_W,
@@ -376,8 +378,15 @@ mod tests {
                 !g.contains("ass="),
                 "base graph must not burn captions: {g}"
             );
-            assert!(g.ends_with("[v]"));
+            assert!(g.contains("format=yuv420p[v]"));
         }
+    }
+
+    #[test]
+    fn base_graph_resets_audio_and_video_to_the_same_zero_origin() {
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None);
+        assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
+        assert!(g.contains("[0:a]asetpts=PTS-STARTPTS[a]"));
     }
 
     #[test]

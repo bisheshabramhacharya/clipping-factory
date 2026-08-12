@@ -358,6 +358,7 @@ mod tests {
             error: None,
             low_confidence: false,
             caption_style: None,
+            caption_text: None,
             accent_color: None,
             caption_font: None,
         };
@@ -442,6 +443,7 @@ mod tests {
                         error: None,
                         low_confidence: false,
                         caption_style: None,
+                        caption_text: None,
                         accent_color: None,
                         caption_font: None,
                     }],
