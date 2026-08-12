@@ -1,0 +1,28 @@
+{
+  "name": "clipping-factory-promo-videos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts --no-open",
+    "music": "node scripts/generate-music.mjs",
+    "render": "npm run render:editorial && npm run render:momentum && npm run render:quiet",
+    "render:editorial": "remotion render src/index.ts ClippingFactory-Editorial output/clipping-factory-editorial.mp4 --codec=h264 --audio-codec=aac --crf=17 --pixel-format=yuv420p",
+    "render:momentum": "remotion render src/index.ts ClippingFactory-Momentum output/clipping-factory-momentum.mp4 --codec=h264 --audio-codec=aac --crf=17 --pixel-format=yuv420p",
+    "render:quiet": "remotion render src/index.ts ClippingFactory-Quiet output/clipping-factory-quiet.mp4 --codec=h264 --audio-codec=aac --crf=17 --pixel-format=yuv420p",
+    "stills": "remotion still src/index.ts ClippingFactory-Editorial output/editorial-preview.png --frame=210 && remotion still src/index.ts ClippingFactory-Momentum output/momentum-preview.png --frame=240 && remotion still src/index.ts ClippingFactory-Quiet output/quiet-preview.png --frame=220"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.506",
+    "@remotion/fonts": "4.0.506",
+    "@remotion/media": "4.0.506",
+    "@remotion/transitions": "4.0.506",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "remotion": "4.0.506"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.10",
+    "@types/react-dom": "19.1.7",
+    "typescript": "5.9.2"
+  }
+}
