@@ -53,6 +53,7 @@
       const badge = document.createElement("span");
       badge.className = "review-badge";
       badge.textContent = decision;
+      badge.dataset.decision = decision; // visual-state only: lets CSS color per decision
       const rank = item.card.querySelector(".rank");
       if (rank) rank.appendChild(badge);
     }
