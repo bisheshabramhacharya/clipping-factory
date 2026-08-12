@@ -38,6 +38,7 @@ pub async fn propose(
     settings: &AiSettings,
     transcript: &Transcript,
     source: &SourceInfo,
+    energy: Option<&crate::energy::EnergyProfile>,
 ) -> Result<SelectionOutcome> {
     let (target, proposals) = plan_counts(source.duration_ms);
 
@@ -53,6 +54,7 @@ pub async fn propose(
                 transcript,
                 source.duration_ms,
                 local_proposal_limit(source.duration_ms),
+                energy,
             ),
             selector: "local ranking".into(),
         }),
@@ -199,10 +201,20 @@ A PASSING CLIP MUST
 - Avoid unresolved references like "like I said earlier".
 - Avoid sponsor reads, housekeeping, introductions, and generic agreement.
 
+WHAT MAKES A MOMENT WORTHY (in priority order)
+1. Conflict, tension, or a strong disagreement — people stop scrolling for friction.
+2. A surprising claim, counter-intuitive insight, or a reveal that reframes something.
+3. A complete micro-story: setup → buildup → payoff.
+4. A personal admission, vulnerability, or strong opinion stated plainly.
+5. A quotable line that works as a standalone hook.
+6. A loud, emotional, high-energy exchange (raised voices, laughter, excitement).
+
+When in doubt between two moments, prefer the one with more emotion or conflict over neutral-but-correct explanation. Never invent emotion that is not in the transcript — the energy must be audible in the words themselves.
+
 SCORING (1–5 integers)
 self_contained, opening_strength, specificity, tension_or_novelty, payoff, clarity: 5 is best.
 context_dependency, slop_risk: these are penalties — 1 is safest, 5 is worst.
-Score honestly; weak moments should score low so the validator can reject them.
+Score honestly; weak moments should score low so the validator can reject them. opening_strength must reflect whether the FIRST few seconds would stop a viewer from scrolling.
 
 OUTPUT
 Return ONLY a JSON object, no markdown fences, shaped exactly like:

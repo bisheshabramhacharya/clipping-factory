@@ -61,7 +61,7 @@ where
         "-map".into(),
         "[a]".into(),
     ];
-    args.extend(video_encode_args());
+    args.extend(video_encode_args(cfg));
     args.extend([
         "-c:a".into(),
         "aac".into(),
@@ -119,7 +119,7 @@ where
         "-vf".into(),
         subs,
     ];
-    args.extend(video_encode_args());
+    args.extend(video_encode_args(cfg));
     args.extend([
         "-c:a".into(),
         "copy".into(),
@@ -172,18 +172,51 @@ where
     .await
 }
 
-/// Shared x264 output settings for both passes (PRD §11.1).
-fn video_encode_args() -> [String; 8] {
-    [
-        "-c:v".into(),
-        "libx264".into(),
-        "-preset".into(),
-        "veryfast".into(),
-        "-crf".into(),
-        "19".into(),
-        "-pix_fmt".into(),
-        "yuv420p".into(),
-    ]
+/// Shared output settings for both passes (PRD §11.1). On macOS, use the
+/// VideoToolbox hardware encoder when the ffmpeg build ships it — same H.264
+/// output, roughly 3–5× faster encodes on Apple Silicon — and fall back to
+/// libx264 otherwise. Probed once per process.
+fn video_encode_args(cfg: &Config) -> Vec<String> {
+    static HAS_VIDEOTOOLBOX: std::sync::OnceLock<Option<bool>> = std::sync::OnceLock::new();
+    let has_vt = *HAS_VIDEOTOOLBOX.get_or_init(|| {
+        if !cfg!(target_os = "macos") {
+            return Some(false);
+        }
+        match std::process::Command::new(&cfg.ffmpeg)
+            .args(["-hide_banner", "-encoders"])
+            .output()
+        {
+            Ok(out) => {
+                let listing = String::from_utf8_lossy(&out.stdout);
+                Some(listing.contains("h264_videotoolbox"))
+            }
+            Err(_) => Some(false),
+        }
+    });
+
+    if has_vt == Some(true) {
+        // VideoToolbox quality scale is 1–100 (lower = better); 60 sits close
+        // to libx264 crf 19 visually while encoding much faster.
+        vec![
+            "-c:v".into(),
+            "h264_videotoolbox".into(),
+            "-q:v".into(),
+            "60".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+        ]
+    } else {
+        vec![
+            "-c:v".into(),
+            "libx264".into(),
+            "-preset".into(),
+            "veryfast".into(),
+            "-crf".into(),
+            "19".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+        ]
+    }
 }
 
 /// The output must exist and be non-trivial.

@@ -49,6 +49,16 @@ impl Store {
     pub fn raw_candidates_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("candidates-raw.json")
     }
+    pub fn energy_path(&self, id: &str) -> PathBuf {
+        self.project_dir(id).join("energy.json")
+    }
+    pub async fn save_energy(&self, id: &str, e: &crate::energy::EnergyProfile) -> Result<()> {
+        atomic_write_json(&self.energy_path(id), e).await
+    }
+    pub async fn load_energy(&self, id: &str) -> Option<crate::energy::EnergyProfile> {
+        let bytes = tokio::fs::read(self.energy_path(id)).await.ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
     pub fn candidates_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("candidates.json")
     }

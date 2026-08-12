@@ -439,6 +439,11 @@ async fn run(
             {
                 Ok(t) => {
                     store.save_transcript(&id, &t).await?;
+                    // Energy profile is advisory: measure before the WAV is
+                    // deleted (PRD §13), but never fail the stage on it.
+                    if let Ok(profile) = crate::energy::measure(cfg, &wav, &ctx.cancel).await {
+                        let _ = store.save_energy(&id, &profile).await;
+                    }
                     // PRD §13: delete temporary audio after successful transcription.
                     tokio::fs::remove_file(&wav).await.ok();
                     if t.avg_confidence < 0.68 {
@@ -491,11 +496,17 @@ async fn run(
                 .await?;
         } else {
             let settings = state.settings.read().unwrap().clone();
+            let energy = store.load_energy(&id).await;
             stage!("selecting_candidates", {
                 let proposed = tokio::select! {
                     biased;
                     _ = ctx.cancel.cancelled() => Err(anyhow::anyhow!("cancelled")),
-                    result = crate::select::propose(&settings, &transcript, &source) => result,
+                    result = crate::select::propose(
+                        &settings,
+                        &transcript,
+                        &source,
+                        energy.as_ref(),
+                    ) => result,
                 };
                 match proposed {
                     Ok(outcome) => {

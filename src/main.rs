@@ -8,6 +8,7 @@ mod api;
 mod captions;
 mod config;
 mod domain;
+mod energy;
 mod frame;
 mod media;
 mod pipeline;

@@ -126,7 +126,14 @@ const HOUSEKEEPING_OR_SPONSOR_CUES: &[&str] = &[
 const MIN_MS: u64 = 20_000;
 const MAX_MS: u64 = 90_000;
 
-pub fn propose(t: &Transcript, source_duration_ms: u64, proposal_count: usize) -> Vec<Candidate> {
+/// Propose candidates; an optional loudness profile adds a modest composite
+/// boost to high-energy windows (see [`crate::energy`]).
+pub fn propose(
+    t: &Transcript,
+    source_duration_ms: u64,
+    proposal_count: usize,
+    energy: Option<&crate::energy::EnergyProfile>,
+) -> Vec<Candidate> {
     let sentences = &t.sentences;
     if sentences.is_empty() {
         return Vec::new();
@@ -308,7 +315,10 @@ pub fn propose(t: &Transcript, source_duration_ms: u64, proposal_count: usize) -
             + if repeated_claim { 4.0 } else { 0.0 }
             + if exchange { 3.0 } else { 0.0 }
             + if absolute_claim { 1.5 } else { 0.0 }
-            - if vague_open { 4.0 } else { 0.0 };
+            - if vague_open { 4.0 } else { 0.0 }
+            + energy
+                .map(|e| crate::energy::window_boost(e, opener.start_ms, closer.end_ms))
+                .unwrap_or(0.0);
 
         let headline = make_headline(best_headline_sentence(window));
         let opening_quote = quote_head(&opener.text, 12);
@@ -588,7 +598,7 @@ mod tests {
         let mid = "The mistake is thinking discipline is about motivation when really it is about designing your environment so the default action is the right one every single day without fail.";
         let close = "So the lesson is simple: stop negotiating with yourself every morning and build the system once. That's why the habit finally sticks.";
         let t = transcript_from(&[(long, 0), (mid, 400), (close, 400)]);
-        let cands = propose(&t, t.words.last().unwrap().end_ms + 500, 3);
+        let cands = propose(&t, t.words.last().unwrap().end_ms + 500, 3, None);
         assert!(!cands.is_empty(), "expected at least one candidate");
         let c = &cands[0];
         assert!(c.end_ms - c.start_ms >= MIN_MS);
@@ -605,7 +615,7 @@ mod tests {
             sentences: vec![],
             avg_confidence: 0.0,
         };
-        assert!(propose(&t, 60_000, 3).is_empty());
+        assert!(propose(&t, 60_000, 3, None).is_empty());
     }
 
     #[test]
@@ -623,7 +633,7 @@ mod tests {
             ("Yes, everybody can be rich, and the reason is that knowledge and productive tools can spread.", 200),
         ]);
         let duration = t.words.last().unwrap().end_ms + 500;
-        let cands = propose(&t, duration, 3);
+        let cands = propose(&t, duration, 3, None);
         assert!(!cands.is_empty());
         let headline = cands[0].headline.to_lowercase();
         assert!(
@@ -656,7 +666,7 @@ mod tests {
             avg_confidence: 0.92,
         };
 
-        let cands = propose(&t, 60_000, 1);
+        let cands = propose(&t, 60_000, 1, None);
         assert_eq!(cands.len(), 1);
         assert!(cands[0].headline.ends_with('…'));
         assert!(cands[0].headline.chars().count() <= 91);
@@ -682,7 +692,7 @@ mod tests {
             ("That is the full schedule for episode 42.", 500),
         ]);
         let duration = t.words.last().unwrap().end_ms + 500;
-        assert!(propose(&t, duration, 3).is_empty());
+        assert!(propose(&t, duration, 3, None).is_empty());
     }
 
     #[derive(serde::Deserialize)]
@@ -707,7 +717,7 @@ mod tests {
                 .collect();
             let t = transcript_from(&script);
             let duration = t.words.last().map(|w| w.end_ms + 500).unwrap_or(60_000);
-            let candidates = propose(&t, duration, 3);
+            let candidates = propose(&t, duration, 3, None);
             let observed = if candidates.is_empty() {
                 "reject"
             } else {
@@ -725,5 +735,38 @@ mod tests {
                 fixture.name
             );
         }
+    }
+
+    #[test]
+    fn loud_windows_outrank_quiet_ones_all_else_equal() {
+        // Two structurally identical story groups (~60s of speech each, so the
+        // merged whole-episode window exceeds the 90s cap and never forms).
+        // Only loudness differs: the second group is an intense loud stretch.
+        let a = "Most people completely misunderstand what discipline actually is and I want to explain the real mechanics behind it because once you see it you cannot unsee it and the whole thing comes down to designing your environment so the default action is the right one every single day without fail and that is the entire secret of lasting change and it applies to money health and relationships equally and the reason most people struggle is that they rely on motivation instead of systems and motivation is a feeling that comes and goes while systems run on their own.";
+        let b = "Most people also misunderstand how tiny systems compound and why small daily actions beat big annual plans every single time without exception and the reason is that momentum quietly builds when nobody is watching and then it shows up as results that look like overnight success but never are and the compounding curve always looks flat until it suddenly does not and that is when everyone calls you lucky and the truth is that the winners were just boring enough to keep going.";
+        let t = transcript_from(&[(a, 0), (b, 400)]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+
+        let quiet = propose(&t, duration, 3, None);
+        assert!(!quiet.is_empty());
+        assert!(
+            quiet[0].start_ms < 10_000,
+            "quiet ranking should favor the first group, got {}",
+            quiet[0].start_ms
+        );
+
+        // Second group sits in an intense loud stretch; the rest is quiet.
+        let mut db = vec![-45.0f32; 300];
+        for v in db.iter_mut().skip(40).take(32) {
+            *v = -12.0;
+        }
+        let energy = crate::energy::EnergyProfile { per_second_db: db };
+        let boosted = propose(&t, duration, 3, Some(&energy));
+        assert!(!boosted.is_empty());
+        assert!(
+            boosted[0].start_ms >= 35_000,
+            "loud second group should rank first, got {}",
+            boosted[0].start_ms
+        );
     }
 }
