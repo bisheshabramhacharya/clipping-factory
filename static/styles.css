@@ -352,3 +352,45 @@ body.modal-open { overflow: hidden; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Swipe Review theater ─────────────────────────────────────────── */
+.review-theater[hidden] { display: none; }
+.review-theater {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 10, 10, .97); color: #f7f7f2;
+  display: grid; grid-template-rows: auto 1fr auto; padding: 22px;
+}
+.review-top, .review-bottom { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.review-top { padding-bottom: 16px; }
+.review-bottom { padding-top: 16px; }
+.review-stage {
+  min-height: 0; display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 24px; align-items: center;
+}
+.review-stage video {
+  width: 100%; height: 100%; max-height: calc(100vh - 190px);
+  object-fit: contain; border-radius: 10px; background: #000;
+}
+.review-copy h2 { font-size: clamp(24px, 3vw, 42px); line-height: 1.08; margin: 0 0 14px; }
+.review-copy p { color: #b8b8b0; line-height: 1.55; }
+.review-kbd, .review-counts { font-size: 12px; color: #aaa; }
+.review-decisions { display: flex; gap: 10px; flex-wrap: wrap; }
+.review-decisions button { border-color: #777; background: #191919; color: #fff; min-width: 110px; }
+.review-decisions button.active { background: #f5f5ef; color: #111; border-color: #f5f5ef; }
+.review-close { background: transparent; color: #fff; border-color: #666; }
+.review-badge {
+  display: inline-flex; align-items: center; margin: 0 0 8px 8px; padding: 3px 8px;
+  border: 1px solid #aaa; border-radius: 999px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+}
+.clip.review-skip { opacity: .52; }
+#review-clips-btn { white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .review-theater { padding: 14px; }
+  .review-stage { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 12px; }
+  .review-stage video { max-height: 58vh; }
+  .review-copy h2 { font-size: 24px; }
+  .review-bottom { align-items: flex-end; }
+  .review-decisions button { min-width: 82px; }
+}
