@@ -193,6 +193,8 @@ The original product decisions live in the [PRD](docs/PRD.md). Current prioritie
 
 The studio has no authentication because it is designed for localhost. Do not use `CF_BIND_ALL=1` on an untrusted or public network.
 
+For build, run, keep-alive (launchd), and troubleshooting details, see the [runbook](docs/RUNBOOK.md).
+
 ## Testing
 
 ```bash
