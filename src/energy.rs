@@ -125,6 +125,7 @@ pub fn parse_rms_lines(output: &str) -> Vec<f32> {
     // Quietest finite level observed so far; starts at 0 dBFS (the loudest
     // possible) and descends as real samples arrive.
     let mut floor = 0.0f32;
+    let mut seen_finite = false;
 
     for line in output.lines() {
         if let Some(sec) = line
@@ -142,14 +143,19 @@ pub fn parse_rms_lines(output: &str) -> Vec<f32> {
             .and_then(|s| s.trim().parse::<f32>().ok());
         if let Some(v) = value {
             if v.is_finite() {
+                seen_finite = true;
                 if v < floor {
                     floor = v;
                 }
                 samples.push((pending_sec.unwrap_or(samples.len() as f32), v));
-            } else {
+            } else if seen_finite {
                 // `-inf` (digital silence) -> quietest level observed so far.
                 samples.push((pending_sec.unwrap_or(samples.len() as f32), floor));
             }
+            // Leading silence (all `-inf` before the first finite sample) is
+            // skipped: those buckets stay empty and resolve to the final
+            // floor, so an intro of exact zeros is scored as quiet, never as
+            // the initial 0 dBFS sentinel.
         }
     }
     if samples.is_empty() {
@@ -229,6 +235,29 @@ noise";
         );
         assert_eq!(out.len(), 2);
         assert!((out[1] + 20.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn leading_digital_silence_is_scored_quiet_not_loud() {
+        // An intro of exact zeros emits `-inf` before any finite sample. The
+        // initial floor (0 dBFS, the loudest possible) must not leak into
+        // those buckets: they resolve to the final floor instead.
+        let out = parse_rms_lines(
+            "[Parsed_ametadata_1 @ 0x0] frame:0    pts:0       pts_time:0\n\
+             [Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-inf\n\
+             [Parsed_ametadata_1 @ 0x0] frame:1    pts:1024    pts_time:1.024\n\
+             [Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-inf\n\
+             [Parsed_ametadata_1 @ 0x0] frame:2    pts:2048    pts_time:2.048\n\
+             [Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-24.0\n\
+             [Parsed_ametadata_1 @ 0x0] frame:3    pts:3072    pts_time:3.072\n\
+             [Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-18.0",
+        );
+        assert_eq!(out.len(), 4);
+        // Leading-silence buckets (0-1) resolve to the final floor, not 0 dBFS.
+        assert_eq!(out[0], -24.0);
+        assert_eq!(out[1], -24.0);
+        assert!((out[2] + 24.0).abs() < 1e-4);
+        assert!((out[3] + 18.0).abs() < 1e-4);
     }
 
     #[test]
