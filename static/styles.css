@@ -40,7 +40,7 @@ button:disabled, .primary:disabled { opacity: .45; cursor: not-allowed; }
 a { color: inherit; }
 .action-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
-  outline: 3px solid #4f46e5;
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
 .sr-only {
