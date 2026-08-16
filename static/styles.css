@@ -379,7 +379,7 @@ body.modal-open { overflow: hidden; }
 }
 .review-close {
   background: #fff; border-color: #8a8a84; color: var(--ink);
-  min-height: 40px; padding: 7px 14px;
+  min-height: 44px; padding: 7px 14px;
 }
 .review-stage {
   min-height: 0; display: grid; align-items: center;
