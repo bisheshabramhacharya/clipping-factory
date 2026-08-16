@@ -83,6 +83,7 @@
     index = first < 0 ? 0 : first;
     theater.hidden = false;
     document.body.style.overflow = "hidden";
+    document.querySelector(".shell").inert = true;
     closeBtn.focus();
     show(true);
   }
@@ -90,6 +91,7 @@
     video.pause();
     theater.hidden = true;
     document.body.style.overflow = "";
+    document.querySelector(".shell").inert = false;
     paint();
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
   }
@@ -110,6 +112,12 @@
     return target instanceof Element && (target.matches("input,select,textarea") || target.isContentEditable);
   }
 
+  function theaterFocusables() {
+    return [...theater.querySelectorAll(
+      "button, a[href], video, [tabindex]:not([tabindex='-1'])"
+    )].filter((el) => !el.disabled && el.getClientRects().length > 0);
+  }
+
   openBtn.addEventListener("click", openReview);
   closeBtn.addEventListener("click", closeReview);
   for (const b of buttons) b.addEventListener("click", () => decide(b.dataset.reviewDecision));
@@ -124,6 +132,19 @@
       return;
     }
     if (event.key === "Escape") closeReview();
+    else if (event.key === "Tab") {
+      const focusables = theaterFocusables();
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
     else if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); }
     else if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
     else if (event.key === " ") { event.preventDefault(); video.paused ? video.play().catch(() => {}) : video.pause(); }

@@ -172,10 +172,10 @@
       <button id="review-close" class="review-close" type="button">Close · Esc</button>
     </div>
     <div class="review-stage">
-      <video id="review-video" controls playsinline></video>
+      <video id="review-video" controls playsinline aria-label="Clip preview"></video>
       <div class="review-copy">
-        <h2 id="review-title"></h2>
-        <p id="review-reason"></p>
+        <h2 id="review-title" aria-live="polite"></h2>
+        <p id="review-reason" aria-live="polite"></p>
         <div class="review-kbd">
           <kbd>←</kbd><kbd>→</kbd> navigate ·
           <kbd>Space</kbd> play / pause ·
