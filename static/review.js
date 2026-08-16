@@ -126,6 +126,9 @@
     if (typing(event.target)) return;
     if (theater.hidden) {
       if ((event.key === "r" || event.key === "R") && !results.classList.contains("hidden") && items.length) {
+        // Don't stack the theater on top of the AI modal — both are fixed
+        // overlays with their own focus traps and Escape handlers.
+        if (!document.getElementById("modal-backdrop").classList.contains("hidden")) return;
         event.preventDefault();
         openReview();
       }
