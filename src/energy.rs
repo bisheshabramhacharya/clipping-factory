@@ -65,6 +65,11 @@ pub async fn measure(
     Ok(EnergyProfile { per_second_db })
 }
 
+/// Fixed level for digital silence when the file has no quiet finite
+/// reference; `-inf` resolves to the quieter of this and the file-wide floor,
+/// keeping a contrast signal in silence-dominated files.
+const SILENCE_REFERENCE_DB: f32 = -60.0;
+
 /// Run ffmpeg capturing BOTH streams — `ametadata=print` writes to stderr on
 /// this ffmpeg build — while keeping cancellation control over the child.
 async fn run_astats_capture(
@@ -117,9 +122,14 @@ async fn run_astats_capture(
 /// ```
 ///
 /// and the older `frame:N|key:…RMS_level|value:-24.53` pipe format. `-inf`
-/// values (digital silence) and empty buckets map to the quietest level in the
-/// WHOLE file — computed in a second pass so leading silence cannot masquerade
-/// as a loud peak (a one-pass "quietest so far" floor starts at 0 dBFS).
+/// values (digital silence) and empty buckets map to the quieter of the
+/// file-wide floor and [`SILENCE_REFERENCE_DB`] — computed in a second pass so
+/// leading silence cannot masquerade as a loud peak (a one-pass "quietest so
+/// far" floor starts at 0 dBFS).
+///
+/// The fixed reference only bites when the file has no quiet finite level: a
+/// mostly-silent recording whose only sound is loud would otherwise resolve
+/// silence to that loud level and collapse to a flat profile.
 pub fn parse_rms_lines(output: &str) -> Vec<f32> {
     let mut samples: Vec<(f32, Option<f32>)> = Vec::new();
     let mut pending_sec: Option<f32> = None;
@@ -154,23 +164,23 @@ pub fn parse_rms_lines(output: &str) -> Vec<f32> {
     if samples.is_empty() {
         return Vec::new();
     }
-    // All-silence (or unreadable) input: no finite reference; keep the loudest
-    // possible level so the flat-audio guard in `window_boost` still applies.
-    if !floor.is_finite() {
-        floor = 0.0;
-    }
+    // Resolve silence to the quieter of the file-wide floor or the fixed
+    // reference. All-silence input falls out of the same expression
+    // (INFINITY.min(-60.0) = -60.0), yielding a flat profile that the
+    // flat-audio guard in `window_boost` neutralizes.
+    let silence_level = floor.min(SILENCE_REFERENCE_DB);
 
     let buckets = samples.iter().map(|(s, _)| *s as usize).max().unwrap_or(0) + 1;
     let mut acc: Vec<(f32, u32)> = vec![(0.0, 0); buckets];
     for (sec, v) in samples {
         let (sum, count) = &mut acc[sec as usize];
-        *sum += v.unwrap_or(floor);
+        *sum += v.unwrap_or(silence_level);
         *count += 1;
     }
     acc.into_iter()
         .map(|(sum, count)| {
             if count == 0 {
-                floor
+                silence_level
             } else {
                 sum / count as f32
             }
@@ -222,7 +232,7 @@ noise";
         assert_eq!(out.len(), 3);
         assert!((out[0] + 24.531234).abs() < 1e-4);
         assert!((out[1] + 18.0).abs() < 1e-4);
-        assert_eq!(out[2], out[0]); // -inf -> quietest observed
+        assert_eq!(out[2], SILENCE_REFERENCE_DB); // -inf -> quietest reference, quieter than any content
     }
 
     #[test]
@@ -236,7 +246,7 @@ noise";
     }
 
     #[test]
-    fn leading_silence_maps_to_the_file_floor_not_to_max_loudness() {
+    fn leading_silence_maps_to_a_quiet_reference_not_to_max_loudness() {
         // A recording that OPENS with digital silence must not look like a
         // 0 dBFS climax (one-pass "quietest so far" started at 0.0).
         let mut out = String::new();
@@ -255,21 +265,43 @@ noise";
         }
         let out = parse_rms_lines(&out);
         assert_eq!(out.len(), 6);
-        for v in &out {
+        for (i, v) in out.iter().enumerate() {
+            let expected = if i < 3 { SILENCE_REFERENCE_DB } else { -18.0 };
             assert!(
-                (v + 18.0).abs() < 1e-4,
-                "bucket should be the file floor -18, got {v}"
+                (v - expected).abs() < 1e-4,
+                "bucket {i} should be {expected}, got {v}"
             );
         }
         // The silent intro must NOT look loud relative to the file floor...
         let profile = EnergyProfile { per_second_db: out };
         assert_eq!(window_boost(&profile, 0, 3_000), 0.0);
         // ...while a genuinely loud stretch still gets its boost.
-        let mut db = vec![-18.0f32; 6];
-        db[3] = -6.0;
-        db[4] = -6.0;
-        let profile = EnergyProfile { per_second_db: db };
         assert!(window_boost(&profile, 3_000, 5_000) > 0.0);
+    }
+
+    #[test]
+    fn all_silence_stays_flat_and_never_boosts() {
+        // No finite RMS level anywhere: every bucket resolves to the fixed
+        // silence reference, giving a flat profile that the flat-audio guard
+        // in `window_boost` neutralizes.
+        let mut out = String::new();
+        for i in 0..4u32 {
+            let pts = i as f32 * 1.024;
+            out.push_str(&format!(
+                "[Parsed_ametadata_1 @ 0x0] frame:{i}    pts_time:{pts}\n"
+            ));
+            out.push_str("[Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-inf\n");
+        }
+        let out = parse_rms_lines(&out);
+        assert_eq!(out.len(), 4);
+        for v in &out {
+            assert!(
+                (v - SILENCE_REFERENCE_DB).abs() < 1e-4,
+                "bucket should be the silence reference, got {v}"
+            );
+        }
+        let profile = EnergyProfile { per_second_db: out };
+        assert_eq!(window_boost(&profile, 0, 4_000), 0.0);
     }
 
     #[test]
