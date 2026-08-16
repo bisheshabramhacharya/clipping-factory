@@ -25,6 +25,7 @@ body {
 .shell { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
 
 button, input, select { font: inherit; color: inherit; }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); }
 button {
   border: 1px solid #8a8a84;
   border-radius: 5px;
