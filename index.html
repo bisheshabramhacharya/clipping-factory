@@ -1,0 +1,2453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clipping Factory — Design Consultation & 6-Variant Studio Shotgun</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Geist+Mono:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       GLOBAL BASE & DESIGN TOKENS (Apple-Restraint & High-End Studio)
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-dark: #090a0d;
+      --bg-canvas: #0d0f14;
+      --surface-1: #13161f;
+      --surface-2: #1a1e2a;
+      --surface-glass: rgba(19, 22, 31, 0.75);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(255, 255, 255, 0.16);
+      
+      --ink-1: #f8fafc;
+      --ink-2: #94a3b8;
+      --ink-3: #64748b;
+      
+      --accent-blue: #0071e3;
+      --accent-blue-glow: #0a84ff;
+      --accent-cyan: #00f2fe;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+
+      --clip-yellow: #ffdd00;
+      --clip-green: #7cff4f;
+      --clip-pink: #ff4f4f;
+      --clip-cyan: #4fb5ff;
+      --clip-purple: #c77dff;
+
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, monospace;
+      --font-display: 'Cabinet Grotesk', -apple-system, sans-serif;
+
+      --shadow-ambient: 0 24px 64px -12px rgba(0, 0, 0, 0.6);
+      --shadow-glow: 0 0 32px rgba(0, 113, 227, 0.25);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 980px;
+
+      --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
+      --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--ink-1);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+      selection-background-color: var(--accent-blue);
+    }
+
+    /* ==========================================================================
+       TOP COMMAND BAR & VARIANT CONTROLS
+       ========================================================================== */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: rgba(9, 10, 13, 0.88);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0071e3 0%, #00f2fe 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+      box-shadow: 0 0 16px rgba(0, 113, 227, 0.4);
+      letter-spacing: -0.05em;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-tag {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--ink-2);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Variant Switcher Pills */
+    .variant-nav {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      gap: 2px;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    .variant-tab {
+      background: transparent;
+      border: none;
+      color: var(--ink-2);
+      padding: 7px 14px;
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.22s var(--ease-apple);
+      white-space: nowrap;
+    }
+
+    .variant-tab:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .variant-tab.active {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .tab-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      font-weight: 700;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      color: var(--ink-1);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: var(--font-sans);
+    }
+
+    .btn-pill:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--border-highlight);
+      transform: translateY(-1px);
+    }
+
+    .btn-pill.primary {
+      background: var(--accent-blue);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 113, 227, 0.35);
+    }
+    .btn-pill.primary:hover {
+      background: var(--accent-blue-glow);
+    }
+
+    /* ==========================================================================
+       DESIGN CONSULTATION DRAWER
+       ========================================================================== */
+    .consultation-panel {
+      background: linear-gradient(180deg, #11141e 0%, #0a0c11 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 24px 32px;
+      display: grid;
+      grid-template-columns: 1.2fr 2fr 1.1fr;
+      gap: 32px;
+      animation: slideDown 0.3s var(--ease-apple);
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .consultation-intro h3 {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+    .consultation-intro p {
+      font-size: 13px;
+      color: var(--ink-2);
+      line-height: 1.6;
+    }
+
+    .consultation-pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .pillar-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+
+    .pillar-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      margin-bottom: 4px;
+    }
+
+    .pillar-val {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink-1);
+      line-height: 1.4;
+    }
+
+    .consultation-stats {
+      background: rgba(0, 113, 227, 0.08);
+      border: 1px solid rgba(0, 113, 227, 0.2);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+    }
+    .stats-header {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stats-body {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .stats-sub {
+      font-size: 11px;
+      color: var(--ink-2);
+    }
+
+    /* ==========================================================================
+       VARIANT CONTAINER / STAGE
+       ========================================================================== */
+    .stage-container {
+      padding: 32px;
+      max-width: 1680px;
+      margin: 0 auto;
+      min-height: calc(100vh - 120px);
+    }
+
+    .variant-view {
+      display: none;
+      animation: viewTransition 0.4s var(--ease-apple) forwards;
+    }
+
+    .variant-view.active {
+      display: block;
+    }
+
+    @keyframes viewTransition {
+      from { opacity: 0; transform: translateY(12px) scale(0.995); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Common Header for all variants */
+    .variant-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding: 12px 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      backdrop-filter: blur(12px);
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.7; }
+    }
+
+    .status-text {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .status-meta {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-2);
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       VARIANT 1: APPLE STUDIO MASTER (Pro Post-Production Suite)
+       ========================================================================== */
+    .v1-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr 340px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .v1-side-queue {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-ambient);
+    }
+
+    .v1-queue-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #fff;
+    }
+
+    .v1-clip-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .v1-clip-item {
+      display: grid;
+      grid-template-columns: 68px 1fr;
+      gap: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s var(--ease-apple);
+    }
+
+    .v1-clip-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+      transform: translateX(3px);
+    }
+
+    .v1-clip-item.active {
+      background: rgba(0, 113, 227, 0.12);
+      border-color: rgba(0, 113, 227, 0.4);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .v1-clip-thumb {
+      width: 68px;
+      height: 100px;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      background: #000;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    }
+
+    .v1-clip-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    .v1-clip-item:hover .v1-clip-thumb img {
+      transform: scale(1.06);
+    }
+
+    .v1-thumb-badge {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: #fff;
+    }
+
+    .v1-clip-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .v1-clip-rank {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+    }
+
+    .v1-clip-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .v1-clip-meta {
+      font-size: 11px;
+      color: var(--ink-2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .v1-score-pill {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    /* V1 Main Stage */
+    .v1-main-stage {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-ambient);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .v1-stage-player-row {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .v1-player-box {
+      width: 280px;
+      height: 480px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: relative;
+      background: #000;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-subtle);
+    }
+
+    .v1-player-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .v1-live-captions {
+      position: absolute;
+      bottom: 24px;
+      left: 16px;
+      right: 16px;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .caption-bubble {
+      display: inline-block;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.3;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .caption-bubble .highlight {
+      color: var(--clip-yellow);
+      background: rgba(255, 221, 0, 0.15);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .v1-stage-intel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .v1-intel-tagline {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .v1-intel-heading {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .v1-quote-box {
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 3px solid var(--accent-blue);
+      padding: 14px 16px;
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      font-size: 13.5px;
+      color: var(--ink-1);
+      line-height: 1.6;
+      font-style: italic;
+    }
+
+    .v1-reasoning-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .v1-reason-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+    }
+
+    .v1-reason-lbl {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--ink-3);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .v1-reason-val {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    /* Waveform timeline */
+    .v1-timeline-wrapper {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .timeline-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timeline-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .play-trigger {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .play-trigger:hover {
+      transform: scale(1.1);
+      background: var(--accent-blue-glow);
+    }
+
+    .timecode-display {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .waveform-canvas {
+      width: 100%;
+      height: 48px;
+      cursor: pointer;
+      display: block;
+    }
+
+    /* V1 Inspector Sidebar */
+    .v1-inspector {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-ambient);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .v1-inspector-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+
+    .v1-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .v1-control-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--ink-2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .v1-swatch-picker {
+      display: flex;
+      gap: 8px;
+    }
+
+    .v1-swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .v1-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .v1-swatch.active {
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+    }
+
+    .v1-action-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: auto;
+    }
+
+    /* ==========================================================================
+       VARIANT 2: SPATIAL FLUID STREAM (Dynamic Ambient Glass)
+       ========================================================================== */
+    .v2-wrapper {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      background: radial-gradient(circle at 50% 30%, rgba(0, 113, 227, 0.15), transparent 70%), var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .v2-ambient-glow {
+      position: absolute;
+      top: -10%;
+      left: 30%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(0, 242, 254, 0.25) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+      transition: background 0.8s ease;
+    }
+
+    .v2-header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 36px;
+    }
+
+    .v2-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+    }
+
+    .v2-headline {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .v2-cards-flow {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .v2-card {
+      background: rgba(20, 24, 35, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.35s var(--ease-apple);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .v2-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(0, 242, 254, 0.6), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .v2-card:hover {
+      transform: translateY(-8px) scale(1.01);
+      border-color: rgba(0, 242, 254, 0.3);
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 242, 254, 0.2);
+    }
+
+    .v2-card:hover::before {
+      opacity: 1;
+    }
+
+    .v2-card-hero {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #000;
+    }
+
+    .v2-card-hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+
+    .v2-card:hover .v2-card-hero img {
+      transform: scale(1.05);
+    }
+
+    .v2-floating-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .v2-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .v2-card-title {
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.3;
+    }
+
+    .v2-card-reason {
+      font-size: 12.5px;
+      color: var(--ink-2);
+      line-height: 1.5;
+    }
+
+    .v2-card-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* ==========================================================================
+       VARIANT 3: SWISS EDITORIAL ARCHIVE (Typographic Precision)
+       ========================================================================== */
+    .v3-wrapper {
+      background: #0d0e12;
+      border: 1px solid #262933;
+      padding: 40px;
+      border-radius: 0;
+    }
+
+    .v3-header-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      border-bottom: 2px solid #fff;
+      padding-bottom: 20px;
+      margin-bottom: 32px;
+      gap: 24px;
+    }
+
+    .v3-big-title {
+      font-family: var(--font-display);
+      font-size: 38px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .v3-meta-cell {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-left: 1px solid #333846;
+      padding-left: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .v3-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .v3-row {
+      border-bottom: 1px solid #262933;
+      transition: background 0.2s ease;
+      cursor: pointer;
+    }
+
+    .v3-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .v3-row.active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .v3-cell {
+      padding: 20px 16px;
+      vertical-align: middle;
+    }
+
+    .v3-cell-index {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      width: 48px;
+    }
+
+    .v3-cell-thumb {
+      width: 72px;
+    }
+
+    .v3-cell-thumb img {
+      width: 60px;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 2px;
+      filter: grayscale(40%);
+      transition: filter 0.2s ease;
+    }
+
+    .v3-row:hover .v3-cell-thumb img {
+      filter: grayscale(0%);
+    }
+
+    .v3-cell-headline {
+      font-family: var(--font-sans);
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .v3-cell-sub {
+      font-size: 12px;
+      color: var(--ink-2);
+      margin-top: 4px;
+    }
+
+    .v3-cell-metric {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #cbd5e1;
+      text-align: right;
+    }
+
+    .v3-cell-actions {
+      text-align: right;
+      width: 160px;
+    }
+
+    /* ==========================================================================
+       VARIANT 4: LINEAR HIGH-VELOCITY (Keyboard-First Creator Triage)
+       ========================================================================== */
+    .v4-wrapper {
+      background: #0f1117;
+      border: 1px solid #1f2430;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 440px 1fr;
+      gap: 28px;
+    }
+
+    .v4-command-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .v4-feed-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1f2430;
+    }
+
+    .v4-badge-stack {
+      display: flex;
+      gap: 6px;
+    }
+
+    .v4-key-badge {
+      background: #1e2330;
+      border: 1px solid #2d3446;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      color: #94a3b8;
+    }
+
+    .v4-ticket-card {
+      background: #141720;
+      border: 1px solid #232838;
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .v4-ticket-card:hover {
+      background: #1a1e2a;
+      border-color: #3b4256;
+      transform: translateY(-2px);
+    }
+
+    .v4-ticket-card.active {
+      border-color: var(--accent-blue-glow);
+      background: #171d2b;
+      box-shadow: 0 0 0 1px var(--accent-blue-glow);
+    }
+
+    .v4-ticket-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .v4-ticket-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .v4-ticket-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--ink-2);
+      font-family: var(--font-mono);
+    }
+
+    .v4-preview-pane {
+      background: #141720;
+      border: 1px solid #232838;
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .v4-triage-bar {
+      display: flex;
+      gap: 12px;
+      background: #0b0d12;
+      padding: 8px;
+      border-radius: var(--radius-md);
+      border: 1px solid #1f2430;
+    }
+
+    .v4-triage-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-sans);
+      transition: all 0.15s ease;
+    }
+
+    .v4-triage-btn.keep {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .v4-triage-btn.keep:hover {
+      background: #10b981;
+      color: #000;
+    }
+
+    .v4-triage-btn.maybe {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .v4-triage-btn.maybe:hover {
+      background: #f59e0b;
+      color: #000;
+    }
+
+    .v4-triage-btn.skip {
+      background: rgba(244, 63, 94, 0.15);
+      color: #f43f5e;
+      border-color: rgba(244, 63, 94, 0.3);
+    }
+    .v4-triage-btn.skip:hover {
+      background: #f43f5e;
+      color: #fff;
+    }
+
+    /* ==========================================================================
+       VARIANT 5: ZEN CINEMATIC THEATER (Distraction-Free Immersion)
+       ========================================================================== */
+    .v5-theater-box {
+      max-width: 980px;
+      margin: 0 auto;
+      background: #08090c;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      position: relative;
+    }
+
+    .v5-screen-wrapper {
+      position: relative;
+      width: 320px;
+      height: 568px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+
+    .v5-screen-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .v5-teleprompter {
+      text-align: center;
+      max-width: 600px;
+    }
+
+    .v5-tele-headline {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .v5-tele-quote {
+      font-size: 15px;
+      color: var(--ink-2);
+      line-height: 1.6;
+    }
+
+    .v5-floating-nav {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      padding: 8px 16px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* ==========================================================================
+       VARIANT 6: BENTO WORKBENCH PRO (Multi-Angle Intelligence & Metadata)
+       ========================================================================== */
+    .v6-bento-grid {
+      display: grid;
+      grid-template-columns: 320px 1.4fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 20px;
+    }
+
+    .bento-card {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-ambient);
+      position: relative;
+    }
+
+    .bento-hero-cell {
+      grid-row: span 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      background: #0a0c12;
+    }
+
+    .bento-preview-frame {
+      width: 100%;
+      height: 480px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      position: relative;
+      background: #000;
+    }
+
+    .bento-preview-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .bento-header-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .bento-metric-value {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .bento-curve-chart {
+      width: 100%;
+      height: 80px;
+      margin-top: 12px;
+    }
+
+    /* ==========================================================================
+       INTERACTIVE REVIEW THEATER OVERLAY
+       ========================================================================== */
+    .theater-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: rgba(5, 6, 8, 0.94);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: modalFadeIn 0.25s var(--ease-apple);
+    }
+
+    .theater-modal.active {
+      display: flex;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .theater-stage {
+      width: 100%;
+      max-width: 1080px;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 36px;
+      align-items: center;
+      position: relative;
+    }
+
+    .theater-video-frame {
+      width: 100%;
+      height: 640px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: relative;
+      background: #000;
+      box-shadow: 0 32px 100px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--border-highlight);
+    }
+
+    .theater-video-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .theater-details {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .theater-top-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .theater-counter {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    .theater-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+
+    .theater-quote {
+      font-size: 15px;
+      color: var(--ink-1);
+      line-height: 1.6;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--accent-cyan);
+    }
+
+    .theater-triage-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .triage-action-btn {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s var(--ease-apple);
+    }
+
+    .triage-action-btn kbd {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .triage-action-btn.keep {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .triage-action-btn.keep:hover {
+      background: #10b981;
+      color: #000;
+      transform: translateY(-2px);
+    }
+
+    .triage-action-btn.maybe {
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .triage-action-btn.maybe:hover {
+      background: #f59e0b;
+      color: #000;
+      transform: translateY(-2px);
+    }
+
+    .triage-action-btn.skip {
+      background: rgba(244, 63, 94, 0.2);
+      color: #f43f5e;
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+    .triage-action-btn.skip:hover {
+      background: #f43f5e;
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    .theater-close-btn {
+      position: absolute;
+      top: -48px;
+      right: 0;
+      background: transparent;
+      border: none;
+      color: var(--ink-2);
+      font-size: 14px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .theater-close-btn:hover {
+      color: #fff;
+    }
+
+    /* Interactive toast notification */
+    .toast-msg {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(20, 24, 35, 0.95);
+      border: 1px solid var(--accent-cyan);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      z-index: 400;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s var(--ease-spring);
+    }
+    .toast-msg.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .v1-layout { grid-template-columns: 1fr; }
+      .v4-wrapper { grid-template-columns: 1fr; }
+      .v6-bento-grid { grid-template-columns: 1fr; }
+      .consultation-panel { grid-template-columns: 1fr; }
+      .theater-stage { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Global Navigation Bar -->
+  <header class="top-bar">
+    <div class="brand-cluster">
+      <div class="brand-icon">CF</div>
+      <div>
+        <div class="brand-title">
+          Clipping Factory
+          <span class="brand-tag">Studio Shotgun</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6-Variant Switcher Navigation -->
+    <nav class="variant-nav" aria-label="Design variants">
+      <button class="variant-tab active" onclick="switchVariant('v1')" id="tab-v1">
+        <span class="tab-num">01</span> Apple Studio Master
+      </button>
+      <button class="variant-tab" onclick="switchVariant('v2')" id="tab-v2">
+        <span class="tab-num">02</span> Spatial Fluid Stream
+      </button>
+      <button class="variant-tab" onclick="switchVariant('v3')" id="tab-v3">
+        <span class="tab-num">03</span> Swiss Editorial
+      </button>
+      <button class="variant-tab" onclick="switchVariant('v4')" id="tab-v4">
+        <span class="tab-num">04</span> Linear Velocity
+      </button>
+      <button class="variant-tab" onclick="switchVariant('v5')" id="tab-v5">
+        <span class="tab-num">05</span> Zen Theater
+      </button>
+      <button class="variant-tab" onclick="switchVariant('v6')" id="tab-v6">
+        <span class="tab-num">06</span> Bento Workbench
+      </button>
+    </nav>
+
+    <div class="top-actions">
+      <button class="btn-pill" onclick="toggleConsultation()" id="consultBtn">
+        <span>⚡ Design Specs</span>
+      </button>
+      <button class="btn-pill primary" onclick="openReviewTheater(0)">
+        <span>▶ Quick Review</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Design Consultation Specs Drawer -->
+  <section class="consultation-panel" id="consultationPanel">
+    <div class="consultation-intro">
+      <h3>Design Consultation & Taste Blueprint</h3>
+      <p>Redesigned for creative power-users who demand Apple-level restraint, zero cognitive clutter, and high-velocity clip triage.</p>
+    </div>
+    <div class="consultation-pillars">
+      <div class="pillar-card">
+        <div class="pillar-label">Aesthetic Voice</div>
+        <div class="pillar-val">Apple Pro Restraint. The clips are the art; UI chrome stays whisper-quiet.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-label">Motion Curve</div>
+        <div class="pillar-val">cubic-bezier(0.32, 0.72, 0, 1). GPU transforms, blur resolves, zero harsh jump-cuts.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-label">Triage Physics</div>
+        <div class="pillar-val">Keyboard-first: 1 Keep, 2 Maybe, 3 Skip with instant haptic/acoustic feedback.</div>
+      </div>
+    </div>
+    <div class="consultation-stats">
+      <div class="stats-header">● Pipeline Status</div>
+      <div class="stats-body">6 Vertical 9:16 Clips Rendered</div>
+      <div class="stats-sub">1080×1920 60fps · Face-Tracked · Smart Captions</div>
+    </div>
+  </section>
+
+  <!-- Main Showcase Stage -->
+  <main class="stage-container">
+
+    <!-- Unified Status Bar -->
+    <div class="variant-status-bar">
+      <div class="status-left">
+        <span class="status-dot"></span>
+        <span class="status-text" id="activeVariantLabel">Variant 01 — Apple Studio Master</span>
+        <span class="status-meta">· Press 1–6 on keyboard to switch variants instantly</span>
+      </div>
+      <div class="status-right">
+        <button class="btn-pill" onclick="showToast('Output folder opened')">📁 Open Folder</button>
+        <button class="btn-pill" onclick="showToast('Exported all clips to ZIP')">⬇ Export All</button>
+      </div>
+    </div>
+
+    <!-- =======================================================================
+         VARIANT 1: APPLE STUDIO MASTER (Pro Post-Production Suite)
+         ======================================================================= -->
+    <section class="variant-view active" id="view-v1">
+      <div class="v1-layout">
+        
+        <!-- Left: Vertical Clip Queue -->
+        <aside class="v1-side-queue">
+          <div class="v1-queue-title">
+            <span>Rendered Clips</span>
+            <span class="brand-tag">6 Total</span>
+          </div>
+          <div class="v1-clip-list">
+            <div class="v1-clip-item active" onclick="selectClip(0, 'v1')">
+              <div class="v1-clip-thumb">
+                <img src="./assets/clip_podcast_studio.jpg" alt="Podcast Clip">
+                <span class="v1-thumb-badge">0:42</span>
+              </div>
+              <div class="v1-clip-info">
+                <span class="v1-clip-rank">#1 Top Virality</span>
+                <span class="v1-clip-title">The Exact Moment AI Stopped Being A Toy</span>
+                <div class="v1-clip-meta">
+                  <span class="v1-score-pill">98 Hook</span>
+                  <span>42s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="v1-clip-item" onclick="selectClip(1, 'v1')">
+              <div class="v1-clip-thumb">
+                <img src="./assets/clip_ai_robotics.jpg" alt="AI Robotics Clip">
+                <span class="v1-thumb-badge">0:38</span>
+              </div>
+              <div class="v1-clip-info">
+                <span class="v1-clip-rank">#2 High Tension</span>
+                <span class="v1-clip-title">Neural Actuators & The Speed Problem</span>
+                <div class="v1-clip-meta">
+                  <span class="v1-score-pill">94 Hook</span>
+                  <span>38s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="v1-clip-item" onclick="selectClip(2, 'v1')">
+              <div class="v1-clip-thumb">
+                <img src="./assets/clip_cyber_esports.jpg" alt="Esports Clip">
+                <span class="v1-thumb-badge">0:45</span>
+              </div>
+              <div class="v1-clip-info">
+                <span class="v1-clip-rank">#3 Energy Surge</span>
+                <span class="v1-clip-title">Clutch 1v5 Defuse with 0.2s Remaining</span>
+                <div class="v1-clip-meta">
+                  <span class="v1-score-pill">91 Hook</span>
+                  <span>45s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="v1-clip-item" onclick="selectClip(3, 'v1')">
+              <div class="v1-clip-thumb">
+                <img src="./assets/clip_skate_street.jpg" alt="Skate Clip">
+                <span class="v1-thumb-badge">0:29</span>
+              </div>
+              <div class="v1-clip-info">
+                <span class="v1-clip-rank">#4 Urban Rhythm</span>
+                <span class="v1-clip-title">Switch Hardflip Over The 12-Stair Gap</span>
+                <div class="v1-clip-meta">
+                  <span class="v1-score-pill">89 Hook</span>
+                  <span>29s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="v1-clip-item" onclick="selectClip(4, 'v1')">
+              <div class="v1-clip-thumb">
+                <img src="./assets/clip_dj_festival.jpg" alt="DJ Festival Clip">
+                <span class="v1-thumb-badge">0:52</span>
+              </div>
+              <div class="v1-clip-info">
+                <span class="v1-clip-rank">#5 Crowd Explosion</span>
+                <span class="v1-clip-title">Unreleased Bass Drop At Midnight</span>
+                <div class="v1-clip-meta">
+                  <span class="v1-score-pill">88 Hook</span>
+                  <span>52s</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Center: Studio Player Stage & Waveform Timeline -->
+        <div class="v1-main-stage">
+          <div class="v1-stage-player-row">
+            <div class="v1-player-box">
+              <img id="v1-hero-img" src="./assets/clip_podcast_studio.jpg" alt="Active Clip Player">
+              <div class="v1-live-captions">
+                <div class="caption-bubble" id="v1-caption-box">
+                  "The exact moment <span class="highlight">everything shifted</span> was silent."
+                </div>
+              </div>
+            </div>
+
+            <div class="v1-stage-intel">
+              <span class="v1-intel-tagline">Self-Contained Excerpt Analysis</span>
+              <h2 class="v1-intel-heading" id="v1-active-title">The Exact Moment AI Stopped Being A Toy</h2>
+              
+              <div class="v1-quote-box" id="v1-active-quote">
+                "We were looking for fireworks, but the biggest revolution arrived when the model stopped guessing and started reasoning step by step."
+              </div>
+
+              <div class="v1-reasoning-grid">
+                <div class="v1-reason-item">
+                  <div class="v1-reason-lbl">Opening Hook</div>
+                  <div class="v1-reason-val">Immediate Contrarian Claim</div>
+                </div>
+                <div class="v1-reason-item">
+                  <div class="v1-reason-lbl">Tension Arc</div>
+                  <div class="v1-reason-val">4.2s Build to Revelation</div>
+                </div>
+                <div class="v1-reason-item">
+                  <div class="v1-reason-lbl">Payoff Punchline</div>
+                  <div class="v1-reason-val">Clean Epiphany Resolution</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Waveform Timeline -->
+          <div class="v1-timeline-wrapper">
+            <div class="timeline-head">
+              <div class="timeline-controls">
+                <button class="play-trigger" onclick="togglePlaySimulation()" id="v1-play-btn">▶</button>
+                <span class="timecode-display" id="v1-timecode">00:00:18:24</span>
+              </div>
+              <span class="status-meta">Click waveform to scrub · Space to play</span>
+            </div>
+            <canvas id="v1-waveform" class="waveform-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Right: Real-time Clip Customizer Inspector -->
+        <aside class="v1-inspector">
+          <div class="v1-inspector-title">Clip Inspector</div>
+          
+          <div class="v1-control-group">
+            <div class="v1-control-label">Caption Highlight Color</div>
+            <div class="v1-swatch-picker">
+              <div class="v1-swatch active" style="background:#ffdd00;" onclick="setHighlightColor('#ffdd00', this)"></div>
+              <div class="v1-swatch" style="background:#7cff4f;" onclick="setHighlightColor('#7cff4f', this)"></div>
+              <div class="v1-swatch" style="background:#ff4f4f;" onclick="setHighlightColor('#ff4f4f', this)"></div>
+              <div class="v1-swatch" style="background:#4fb5ff;" onclick="setHighlightColor('#4fb5ff', this)"></div>
+              <div class="v1-swatch" style="background:#c77dff;" onclick="setHighlightColor('#c77dff', this)"></div>
+            </div>
+          </div>
+
+          <div class="v1-control-group">
+            <div class="v1-control-label">Framing Crop</div>
+            <select class="btn-pill" style="width: 100%; border-radius: 8px;">
+              <option>9:16 Face-Tracking Smart Crop</option>
+              <option>9:16 Center Fixed</option>
+              <option>Fit with Gaussian Blur Background</option>
+            </select>
+          </div>
+
+          <div class="v1-control-group">
+            <div class="v1-control-label">Caption Typography</div>
+            <select class="btn-pill" style="width: 100%; border-radius: 8px;">
+              <option>Impact Heavy Outline (MrBeast Style)</option>
+              <option>Apple Clean Pro Sans</option>
+              <option>Editorial Serif Minimalist</option>
+            </select>
+          </div>
+
+          <div class="v1-action-stack">
+            <button class="btn-pill primary" style="width: 100%; justify-content: center;" onclick="openReviewTheater(0)">
+              ⚡ Triage in Review Theater
+            </button>
+            <button class="btn-pill" style="width: 100%; justify-content: center;" onclick="showToast('Clip downloaded: 1080x1920 MP4')">
+              ⬇ Download This Clip
+            </button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VARIANT 2: SPATIAL FLUID STREAM (Dynamic Ambient Glass)
+         ======================================================================= -->
+    <section class="variant-view" id="view-v2">
+      <div class="v2-wrapper">
+        <div class="v2-ambient-glow" id="v2-glow"></div>
+        <div class="v2-header">
+          <div class="v2-eyebrow">Ambient Spatial Flow</div>
+          <h2 class="v2-headline">Every moment framed as living art.</h2>
+          <p class="status-meta">Autonomous color-extraction and fluid glass elevation designed for immersive browsing.</p>
+        </div>
+
+        <div class="v2-cards-flow">
+          <!-- Card 1 -->
+          <div class="v2-card" onmouseenter="setAmbientGlow('radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(0, 113, 227, 0.2) 50%, transparent 70%)')">
+            <div class="v2-card-hero">
+              <img src="./assets/clip_podcast_studio.jpg" alt="Podcast Studio">
+              <span class="v2-floating-badge">98% Viral Score</span>
+            </div>
+            <div class="v2-card-body">
+              <div class="v1-intel-tagline">Studio Conversation</div>
+              <h3 class="v2-card-title">The Exact Moment AI Stopped Being A Toy</h3>
+              <p class="v2-card-reason">Contrarian thesis delivered with high vocal clarity and immediate emotional hook.</p>
+            </div>
+            <div class="v2-card-actions">
+              <span class="status-meta">42s · 1080×1920</span>
+              <button class="btn-pill primary" onclick="openReviewTheater(0)">Review Clip</button>
+            </div>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="v2-card" onmouseenter="setAmbientGlow('radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(16, 185, 129, 0.2) 50%, transparent 70%)')">
+            <div class="v2-card-hero">
+              <img src="./assets/clip_ai_robotics.jpg" alt="Robotics">
+              <span class="v2-floating-badge">94% Viral Score</span>
+            </div>
+            <div class="v2-card-body">
+              <div class="v1-intel-tagline">Future Tech</div>
+              <h3 class="v2-card-title">Neural Actuators & The Speed Problem</h3>
+              <p class="v2-card-reason">High-velocity technical breakdown with dramatic tactile revelation.</p>
+            </div>
+            <div class="v2-card-actions">
+              <span class="status-meta">38s · 1080×1920</span>
+              <button class="btn-pill primary" onclick="openReviewTheater(1)">Review Clip</button>
+            </div>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="v2-card" onmouseenter="setAmbientGlow('radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, rgba(244, 63, 94, 0.25) 50%, transparent 70%)')">
+            <div class="v2-card-hero">
+              <img src="./assets/clip_cyber_esports.jpg" alt="Esports">
+              <span class="v2-floating-badge">91% Viral Score</span>
+            </div>
+            <div class="v2-card-body">
+              <div class="v1-intel-tagline">Esports Championship</div>
+              <h3 class="v2-card-title">Clutch 1v5 Defuse with 0.2s Remaining</h3>
+              <p class="v2-card-reason">Heart-rate spike moment with frantic commentary and crowd explosion.</p>
+            </div>
+            <div class="v2-card-actions">
+              <span class="status-meta">45s · 1080×1920</span>
+              <button class="btn-pill primary" onclick="openReviewTheater(2)">Review Clip</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VARIANT 3: SWISS EDITORIAL ARCHIVE (Typographic Precision)
+         ======================================================================= -->
+    <section class="variant-view" id="view-v3">
+      <div class="v3-wrapper">
+        <div class="v3-header-grid">
+          <div>
+            <div class="v1-intel-tagline">Vol. 04 — Curated Moments</div>
+            <h1 class="v3-big-title">Editorial Index</h1>
+          </div>
+          <div class="v3-meta-cell">
+            <span>SELECTION: 6 CLIPS</span>
+            <span>RANKING: STRICT STANDALONE</span>
+          </div>
+          <div class="v3-meta-cell">
+            <span>PIPELINE: PRO 4K / 60FPS</span>
+            <span>EXPORT: UNCOMPRESSED MP4</span>
+          </div>
+        </div>
+
+        <table class="v3-table">
+          <tbody>
+            <tr class="v3-row active" onclick="openReviewTheater(0)">
+              <td class="v3-cell v3-cell-index">01</td>
+              <td class="v3-cell v3-cell-thumb">
+                <img src="./assets/clip_podcast_studio.jpg" alt="Clip 1">
+              </td>
+              <td class="v3-cell">
+                <div class="v3-cell-headline">The Exact Moment AI Stopped Being A Toy</div>
+                <div class="v3-cell-sub">"The exact moment everything shifted was silent."</div>
+              </td>
+              <td class="v3-cell v3-cell-metric">
+                <div>00:42.18</div>
+                <span class="status-meta">VIRALITY 98</span>
+              </td>
+              <td class="v3-cell v3-cell-actions">
+                <button class="btn-pill">Review · ↵</button>
+              </td>
+            </tr>
+
+            <tr class="v3-row" onclick="openReviewTheater(1)">
+              <td class="v3-cell v3-cell-index">02</td>
+              <td class="v3-cell v3-cell-thumb">
+                <img src="./assets/clip_ai_robotics.jpg" alt="Clip 2">
+              </td>
+              <td class="v3-cell">
+                <div class="v3-cell-headline">Neural Actuators & The Speed Problem</div>
+                <div class="v3-cell-sub">"Hardware is not the bottleneck; latency is."</div>
+              </td>
+              <td class="v3-cell v3-cell-metric">
+                <div>00:38.05</div>
+                <span class="status-meta">VIRALITY 94</span>
+              </td>
+              <td class="v3-cell v3-cell-actions">
+                <button class="btn-pill">Review · ↵</button>
+              </td>
+            </tr>
+
+            <tr class="v3-row" onclick="openReviewTheater(2)">
+              <td class="v3-cell v3-cell-index">03</td>
+              <td class="v3-cell v3-cell-thumb">
+                <img src="./assets/clip_cyber_esports.jpg" alt="Clip 3">
+              </td>
+              <td class="v3-cell">
+                <div class="v3-cell-headline">Clutch 1v5 Defuse with 0.2s Remaining</div>
+                <div class="v3-cell-sub">"He didn't just win the round, he broke their mentality."</div>
+              </td>
+              <td class="v3-cell v3-cell-metric">
+                <div>00:45.30</div>
+                <span class="status-meta">VIRALITY 91</span>
+              </td>
+              <td class="v3-cell v3-cell-actions">
+                <button class="btn-pill">Review · ↵</button>
+              </td>
+            </tr>
+
+            <tr class="v3-row" onclick="openReviewTheater(3)">
+              <td class="v3-cell v3-cell-index">04</td>
+              <td class="v3-cell v3-cell-thumb">
+                <img src="./assets/clip_skate_street.jpg" alt="Clip 4">
+              </td>
+              <td class="v3-cell">
+                <div class="v3-cell-headline">Switch Hardflip Over The 12-Stair Gap</div>
+                <div class="v3-cell-sub">"Pure geometry and commitment in half a second."</div>
+              </td>
+              <td class="v3-cell v3-cell-metric">
+                <div>00:29.12</div>
+                <span class="status-meta">VIRALITY 89</span>
+              </td>
+              <td class="v3-cell v3-cell-actions">
+                <button class="btn-pill">Review · ↵</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VARIANT 4: LINEAR HIGH-VELOCITY (Keyboard-First Creator Triage)
+         ======================================================================= -->
+    <section class="variant-view" id="view-v4">
+      <div class="v4-wrapper">
+        <!-- Feed list -->
+        <div class="v4-command-feed">
+          <div class="v4-feed-header">
+            <span class="status-text">Triage Queue (6)</span>
+            <div class="v4-badge-stack">
+              <span class="v4-key-badge">J/K Navigate</span>
+              <span class="v4-key-badge">1 Keep</span>
+              <span class="v4-key-badge">2 Maybe</span>
+              <span class="v4-key-badge">3 Skip</span>
+            </div>
+          </div>
+
+          <div class="v4-ticket-card active" onclick="selectClip(0, 'v4')">
+            <div class="v4-ticket-top">
+              <span class="v1-score-pill">98 Virality</span>
+              <span class="brand-tag">0:42</span>
+            </div>
+            <div class="v4-ticket-title">The Exact Moment AI Stopped Being A Toy</div>
+            <div class="v4-ticket-footer">
+              <span>Podcast Master</span>
+              <span style="color:var(--accent-emerald);">● Ready to Publish</span>
+            </div>
+          </div>
+
+          <div class="v4-ticket-card" onclick="selectClip(1, 'v4')">
+            <div class="v4-ticket-top">
+              <span class="v1-score-pill">94 Virality</span>
+              <span class="brand-tag">0:38</span>
+            </div>
+            <div class="v4-ticket-title">Neural Actuators & The Speed Problem</div>
+            <div class="v4-ticket-footer">
+              <span>Tech Deepdive</span>
+              <span style="color:var(--accent-amber);">● Pending Review</span>
+            </div>
+          </div>
+
+          <div class="v4-ticket-card" onclick="selectClip(2, 'v4')">
+            <div class="v4-ticket-top">
+              <span class="v1-score-pill">91 Virality</span>
+              <span class="brand-tag">0:45</span>
+            </div>
+            <div class="v4-ticket-title">Clutch 1v5 Defuse with 0.2s Remaining</div>
+            <div class="v4-ticket-footer">
+              <span>Esports Grand Finals</span>
+              <span style="color:var(--accent-amber);">● Pending Review</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview & Instant Decision -->
+        <div class="v4-preview-pane">
+          <div style="display: flex; gap: 20px; align-items: center;">
+            <div style="width: 140px; height: 240px; border-radius: 8px; overflow: hidden; background: #000;">
+              <img id="v4-preview-img" src="./assets/clip_podcast_studio.jpg" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <span class="v1-intel-tagline">Quick Decision Mode</span>
+              <h3 id="v4-preview-title" style="font-family:var(--font-display); font-size:20px; color:#fff;">The Exact Moment AI Stopped Being A Toy</h3>
+              <p id="v4-preview-quote" style="font-size:13px; color:var(--ink-2); line-height:1.5;">"The exact moment everything shifted was silent."</p>
+            </div>
+          </div>
+
+          <div class="v4-triage-bar">
+            <button class="v4-triage-btn keep" onclick="triageDecision('Keep')">
+              <kbd>1</kbd> Keep & Publish
+            </button>
+            <button class="v4-triage-btn maybe" onclick="triageDecision('Maybe')">
+              <kbd>2</kbd> Mark Maybe
+            </button>
+            <button class="v4-triage-btn skip" onclick="triageDecision('Skip')">
+              <kbd>3</kbd> Skip Excerpt
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VARIANT 5: ZEN CINEMATIC THEATER (Distraction-Free Immersion)
+         ======================================================================= -->
+    <section class="variant-view" id="view-v5">
+      <div class="v5-theater-box">
+        <div class="v5-screen-wrapper">
+          <img src="./assets/clip_podcast_studio.jpg" alt="Zen Cinema">
+        </div>
+
+        <div class="v5-teleprompter">
+          <div class="v1-intel-tagline" style="margin-bottom:8px;">Clip 01 of 06 · Zen Focus</div>
+          <h2 class="v5-tele-headline">"The exact moment everything shifted was silent."</h2>
+          <p class="v5-tele-quote">A clean, high-tension excerpt where the speaker unpacks the realization that human workflow paradigms had changed forever.</p>
+        </div>
+
+        <div class="v5-floating-nav">
+          <button class="btn-pill" onclick="showToast('Navigated to previous clip')">← Prev</button>
+          <button class="btn-pill primary" onclick="togglePlaySimulation()">▶ Play Excerpt</button>
+          <button class="btn-pill" onclick="showToast('Navigated to next clip')">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VARIANT 6: BENTO WORKBENCH PRO (Multi-Angle Intelligence & Metadata)
+         ======================================================================= -->
+    <section class="variant-view" id="view-v6">
+      <div class="v6-bento-grid">
+        
+        <!-- Cell 1: Giant 9:16 Preview -->
+        <div class="bento-card bento-hero-cell">
+          <div class="bento-header-label">Master Video Frame</div>
+          <div class="bento-preview-frame">
+            <img src="./assets/clip_podcast_studio.jpg" alt="Bento Hero">
+          </div>
+          <button class="btn-pill primary" style="width:100%; justify-content:center;" onclick="openReviewTheater(0)">
+            ▶ Full Screen Review
+          </button>
+        </div>
+
+        <!-- Cell 2: AI Retention Curve & Virality Breakdown -->
+        <div class="bento-card">
+          <div class="bento-header-label">Predicted Hook & Retention Curve</div>
+          <div class="bento-metric-value">98.4<span style="font-size:16px; color:var(--accent-emerald);">/100</span></div>
+          <p class="status-meta" style="margin-top:4px;">Strong 0-3s hook with zero dead-air dropoff.</p>
+          <svg class="bento-curve-chart" viewBox="0 0 300 80">
+            <path d="M0,70 Q50,10 100,25 T200,15 T300,5" fill="none" stroke="#00f2fe" stroke-width="3"/>
+            <path d="M0,70 Q50,10 100,25 T200,15 T300,5 L300,80 L0,80 Z" fill="rgba(0, 242, 254, 0.1)"/>
+          </svg>
+        </div>
+
+        <!-- Cell 3: Audio Energy Radar -->
+        <div class="bento-card">
+          <div class="bento-header-label">Vocal Energy & Cadence</div>
+          <div class="bento-metric-value">148<span style="font-size:16px; color:var(--ink-2);"> WPM</span></div>
+          <p class="status-meta" style="margin-top:4px;">Optimal speech velocity for high-engagement Shorts/Reels.</p>
+          <div style="margin-top: 14px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+            <div style="width: 82%; height: 100%; background: linear-gradient(90deg, #10b981, #00f2fe);"></div>
+          </div>
+        </div>
+
+        <!-- Cell 4: Excerpt Transcript Quote -->
+        <div class="bento-card" style="grid-column: span 2;">
+          <div class="bento-header-label">Verified Transcript Quote</div>
+          <blockquote style="font-size:15px; color:#fff; line-height:1.6; font-style:italic;">
+            "We were looking for fireworks, but the biggest revolution arrived when the model stopped guessing and started reasoning step by step."
+          </blockquote>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+            <span class="status-meta">Speaker: Principal AI Researcher</span>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-pill" onclick="showToast('Transcript copied to clipboard')">📋 Copy Text</button>
+              <button class="btn-pill" onclick="showToast('SRT subtitles exported')">Export .SRT</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       INTERACTIVE REVIEW THEATER MODAL (Keyboard & Swipe Triage)
+       ========================================================================= -->
+  <div class="theater-modal" id="reviewTheater">
+    <div class="theater-stage">
+      <button class="theater-close-btn" onclick="closeReviewTheater()">
+        <span>✕ Close · Esc</span>
+      </button>
+
+      <div class="theater-video-frame">
+        <img id="theater-img" src="./assets/clip_podcast_studio.jpg" alt="Review Theater Frame">
+      </div>
+
+      <div class="theater-details">
+        <div class="theater-top-meta">
+          <span class="theater-counter" id="theater-counter">Clip 1 of 6</span>
+          <span class="brand-tag">Triage Theater</span>
+        </div>
+
+        <h2 class="theater-title" id="theater-title">The Exact Moment AI Stopped Being A Toy</h2>
+        
+        <div class="theater-quote" id="theater-quote">
+          "The exact moment everything shifted was silent. We were looking for fireworks, but the real shift came quietly."
+        </div>
+
+        <div class="theater-triage-actions">
+          <button class="triage-action-btn keep" onclick="theaterTriage('Keep')">
+            <kbd>1</kbd>
+            <span>Keep Clip</span>
+          </button>
+          <button class="triage-action-btn maybe" onclick="theaterTriage('Maybe')">
+            <kbd>2</kbd>
+            <span>Maybe</span>
+          </button>
+          <button class="triage-action-btn skip" onclick="theaterTriage('Skip')">
+            <kbd>3</kbd>
+            <span>Skip</span>
+          </button>
+        </div>
+
+        <div class="status-meta" style="text-align:center;">
+          Use keys <kbd>1</kbd>, <kbd>2</kbd>, <kbd>3</kbd> to triage and auto-advance · <kbd>Space</kbd> play · <kbd>Esc</kbd> exit
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Micro-interaction Toast -->
+  <div class="toast-msg" id="toast">Notification</div>
+
+  <!-- =========================================================================
+       INTERACTIVE SCRIPTS & AUDIO SYNTHESIS
+       ========================================================================= -->
+  <script>
+    const clips = [
+      {
+        title: "The Exact Moment AI Stopped Being A Toy",
+        quote: "We were looking for fireworks, but the biggest revolution arrived when the model stopped guessing and started reasoning step by step.",
+        img: "./assets/clip_podcast_studio.jpg",
+        timecode: "00:00:18:24",
+        score: "98 Hook",
+        duration: "42s",
+        glow: "radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(0, 113, 227, 0.2) 50%, transparent 70%)"
+      },
+      {
+        title: "Neural Actuators & The Speed Problem",
+        quote: "Hardware is not the bottleneck; latency is. When you can react in 4 milliseconds, physical momentum disappears.",
+        img: "./assets/clip_ai_robotics.jpg",
+        timecode: "00:00:22:10",
+        score: "94 Hook",
+        duration: "38s",
+        glow: "radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(16, 185, 129, 0.2) 50%, transparent 70%)"
+      },
+      {
+        title: "Clutch 1v5 Defuse with 0.2s Remaining",
+        quote: "He didn't just win the round, he broke their entire strategic rhythm for the rest of the tournament.",
+        img: "./assets/clip_cyber_esports.jpg",
+        timecode: "00:00:31:05",
+        score: "91 Hook",
+        duration: "45s",
+        glow: "radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, rgba(244, 63, 94, 0.25) 50%, transparent 70%)"
+      },
+      {
+        title: "Switch Hardflip Over The 12-Stair Gap",
+        quote: "Pure geometry and commitment in half a second. You either catch it bolts or you pay the price.",
+        img: "./assets/clip_skate_street.jpg",
+        timecode: "00:00:14:02",
+        score: "89 Hook",
+        duration: "29s",
+        glow: "radial-gradient(circle, rgba(59, 130, 246, 0.35) 0%, rgba(147, 51, 234, 0.2) 50%, transparent 70%)"
+      },
+      {
+        title: "Unreleased Bass Drop At Midnight",
+        quote: "The low end vibrated straight through the concrete floor. 40,000 people moving in absolute unison.",
+        img: "./assets/clip_dj_festival.jpg",
+        timecode: "00:00:44:18",
+        score: "88 Hook",
+        duration: "52s",
+        glow: "radial-gradient(circle, rgba(236, 72, 153, 0.35) 0%, rgba(168, 85, 247, 0.2) 50%, transparent 70%)"
+      }
+    ];
+
+    let currentClipIndex = 0;
+    let isSimulatingPlay = false;
+    let simInterval = null;
+
+    const variantTitles = {
+      v1: "Variant 01 — Apple Studio Master (Linear / Pro Resolve Style)",
+      v2: "Variant 02 — Spatial Fluid Stream (Dynamic Ambient Glass)",
+      v3: "Variant 03 — Swiss Editorial Archive (Typographic Grid)",
+      v4: "Variant 04 — Linear High-Velocity (Keyboard-First Triage)",
+      v5: "Variant 05 — Zen Cinematic Theater (Distraction-Free Focus)",
+      v6: "Variant 06 — Bento Workbench Pro (Multi-Angle Intelligence)"
+    };
+
+    // Variant Switching
+    function switchVariant(vId) {
+      document.querySelectorAll('.variant-view').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.variant-tab').forEach(btn => btn.classList.remove('active'));
+
+      const target = document.getElementById('view-' + vId);
+      if (target) target.classList.add('active');
+
+      const tab = document.getElementById('tab-' + vId);
+      if (tab) tab.classList.add('active');
+
+      document.getElementById('activeVariantLabel').textContent = variantTitles[vId] || vId;
+      playAcousticClick(750, 0.03);
+    }
+
+    // Toggle Consultation Drawer
+    function toggleConsultation() {
+      const panel = document.getElementById('consultationPanel');
+      panel.style.display = (panel.style.display === 'none') ? 'grid' : 'none';
+      playAcousticClick(800, 0.04);
+    }
+
+    // Select Clip in Variant 1 and others
+    function selectClip(index, variant) {
+      currentClipIndex = index;
+      const clip = clips[index];
+      if (!clip) return;
+
+      if (variant === 'v1') {
+        document.querySelectorAll('.v1-clip-item').forEach((el, idx) => {
+          el.classList.toggle('active', idx === index);
+        });
+        document.getElementById('v1-hero-img').src = clip.img;
+        document.getElementById('v1-active-title').textContent = clip.title;
+        document.getElementById('v1-active-quote').textContent = `"${clip.quote}"`;
+        document.getElementById('v1-timecode').textContent = clip.timecode;
+      } else if (variant === 'v4') {
+        document.querySelectorAll('.v4-ticket-card').forEach((el, idx) => {
+          el.classList.toggle('active', idx === index);
+        });
+        document.getElementById('v4-preview-img').src = clip.img;
+        document.getElementById('v4-preview-title').textContent = clip.title;
+        document.getElementById('v4-preview-quote').textContent = `"${clip.quote}"`;
+      }
+
+      playAcousticClick(600, 0.03);
+    }
+
+    // Set Ambient Glow in Variant 2
+    function setAmbientGlow(glowGradient) {
+      const glow = document.getElementById('v2-glow');
+      if (glow) glow.style.background = glowGradient;
+    }
+
+    // Caption Highlight Switcher
+    function setHighlightColor(hex, element) {
+      document.querySelectorAll('.v1-swatch').forEach(s => s.classList.remove('active'));
+      if (element) element.classList.add('active');
+      
+      const captionBox = document.getElementById('v1-caption-box');
+      if (captionBox) {
+        const highlightSpan = captionBox.querySelector('.highlight');
+        if (highlightSpan) {
+          highlightSpan.style.color = hex;
+          highlightSpan.style.background = hex + '26'; // 15% opacity
+        }
+      }
+      playAcousticClick(900, 0.03);
+      showToast(`Caption highlight set to ${hex}`);
+    }
+
+    // Play Simulation
+    function togglePlaySimulation() {
+      isSimulatingPlay = !isSimulatingPlay;
+      const btn = document.getElementById('v1-play-btn');
+      if (isSimulatingPlay) {
+        if (btn) btn.textContent = '⏸';
+        let frames = 24;
+        let sec = 18;
+        simInterval = setInterval(() => {
+          frames++;
+          if (frames >= 60) {
+            frames = 0;
+            sec++;
+          }
+          const tc = `00:00:${String(sec).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
+          const tcEl = document.getElementById('v1-timecode');
+          if (tcEl) tcEl.textContent = tc;
+        }, 1000 / 30);
+      } else {
+        if (btn) btn.textContent = '▶';
+        clearInterval(simInterval);
+      }
+      playAcousticClick(500, 0.04);
+    }
+
+    // Interactive Canvas Waveform
+    function initWaveform() {
+      const canvas = document.getElementById('v1-waveform');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = canvas.offsetWidth;
+      const h = canvas.offsetHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const bars = Math.floor(w / 4);
+      for (let i = 0; i < bars; i++) {
+        const x = i * 4;
+        const noise = Math.sin(i * 0.12) * Math.cos(i * 0.07) * 0.5 + 0.5;
+        const height = Math.max(4, noise * (h - 12));
+        const y = (h - height) / 2;
+
+        const isPlayed = i < bars * 0.42;
+        ctx.fillStyle = isPlayed ? '#0071e3' : 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(x, y, 2, height);
+      }
+    }
+    window.addEventListener('resize', initWaveform);
+    setTimeout(initWaveform, 200);
+
+    // Review Theater Modal Logic
+    function openReviewTheater(index) {
+      currentClipIndex = index;
+      const clip = clips[index];
+      if (!clip) return;
+
+      document.getElementById('theater-img').src = clip.img;
+      document.getElementById('theater-counter').textContent = `Clip ${index + 1} of ${clips.length}`;
+      document.getElementById('theater-title').textContent = clip.title;
+      document.getElementById('theater-quote').textContent = `"${clip.quote}"`;
+
+      document.getElementById('reviewTheater').classList.add('active');
+      playAcousticClick(880, 0.04);
+    }
+
+    function closeReviewTheater() {
+      document.getElementById('reviewTheater').classList.remove('active');
+      playAcousticClick(450, 0.04);
+    }
+
+    function theaterTriage(decision) {
+      showToast(`Marked as ${decision} · Auto-advancing`);
+      playAcousticClick(1000, 0.05);
+
+      currentClipIndex = (currentClipIndex + 1) % clips.length;
+      setTimeout(() => {
+        openReviewTheater(currentClipIndex);
+      }, 250);
+    }
+
+    function triageDecision(decision) {
+      showToast(`Marked clip as ${decision}`);
+      playAcousticClick(950, 0.04);
+    }
+
+    // Micro Toast Notification
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2400);
+    }
+
+    // Acoustic Sound Feedback via Web Audio API
+    let audioContext = null;
+    function playAcousticClick(freq = 700, duration = 0.03) {
+      try {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + duration);
+        gain.gain.setValueAtTime(0.04, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + duration);
+      } catch (e) {}
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('reviewTheater');
+      const isModalOpen = modal && modal.classList.contains('active');
+
+      if (e.key >= '1' && e.key <= '6' && !isModalOpen) {
+        switchVariant('v' + e.key);
+      } else if (isModalOpen) {
+        if (e.key === '1') theaterTriage('Keep');
+        else if (e.key === '2') theaterTriage('Maybe');
+        else if (e.key === '3') theaterTriage('Skip');
+        else if (e.key === 'Escape') closeReviewTheater();
+      } else if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlaySimulation();
+      }
+    });
+  </script>
+</body>
+</html>
