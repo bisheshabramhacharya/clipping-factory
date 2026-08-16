@@ -116,15 +116,15 @@ async fn run_astats_capture(
 /// [Parsed_ametadata_1 @ 0x…] lavfi.astats.Overall.RMS_level=-21.087600
 /// ```
 ///
-/// and the older `frame:N|key:…RMS_level|value:-24.53` pipe format. Missing or
-/// `-inf` values (digital silence) map to the quietest observed level; empty
-/// buckets stay at that floor.
+/// and the older `frame:N|key:…RMS_level|value:-24.53` pipe format. `-inf`
+/// values (digital silence) and empty buckets map to the quietest level in the
+/// WHOLE file — computed in a second pass so leading silence cannot masquerade
+/// as a loud peak (a one-pass "quietest so far" floor starts at 0 dBFS).
 pub fn parse_rms_lines(output: &str) -> Vec<f32> {
-    let mut samples: Vec<(f32, f32)> = Vec::new();
+    let mut samples: Vec<(f32, Option<f32>)> = Vec::new();
     let mut pending_sec: Option<f32> = None;
-    // Quietest finite level observed so far; starts at 0 dBFS (the loudest
-    // possible) and descends as real samples arrive.
-    let mut floor = 0.0f32;
+    // Quietest finite level anywhere in the file.
+    let mut floor = f32::INFINITY;
 
     for line in output.lines() {
         if let Some(sec) = line
@@ -142,25 +142,29 @@ pub fn parse_rms_lines(output: &str) -> Vec<f32> {
             .and_then(|s| s.trim().parse::<f32>().ok());
         if let Some(v) = value {
             if v.is_finite() {
-                if v < floor {
-                    floor = v;
-                }
-                samples.push((pending_sec.unwrap_or(samples.len() as f32), v));
+                floor = floor.min(v);
+                samples.push((pending_sec.unwrap_or(samples.len() as f32), Some(v)));
             } else {
-                // `-inf` (digital silence) -> quietest level observed so far.
-                samples.push((pending_sec.unwrap_or(samples.len() as f32), floor));
+                // `-inf` (digital silence) -> resolved to the file-wide floor
+                // in the second pass below.
+                samples.push((pending_sec.unwrap_or(samples.len() as f32), None));
             }
         }
     }
     if samples.is_empty() {
         return Vec::new();
     }
+    // All-silence (or unreadable) input: no finite reference; keep the loudest
+    // possible level so the flat-audio guard in `window_boost` still applies.
+    if !floor.is_finite() {
+        floor = 0.0;
+    }
 
     let buckets = samples.iter().map(|(s, _)| *s as usize).max().unwrap_or(0) + 1;
     let mut acc: Vec<(f32, u32)> = vec![(0.0, 0); buckets];
     for (sec, v) in samples {
         let (sum, count) = &mut acc[sec as usize];
-        *sum += v;
+        *sum += v.unwrap_or(floor);
         *count += 1;
     }
     acc.into_iter()
@@ -229,6 +233,43 @@ noise";
         );
         assert_eq!(out.len(), 2);
         assert!((out[1] + 20.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn leading_silence_maps_to_the_file_floor_not_to_max_loudness() {
+        // A recording that OPENS with digital silence must not look like a
+        // 0 dBFS climax (one-pass "quietest so far" started at 0.0).
+        let mut out = String::new();
+        for i in 0..6u32 {
+            let pts = i as f32 * 1.024;
+            out.push_str(&format!(
+                "[Parsed_ametadata_1 @ 0x0] frame:{i}    pts_time:{pts}\n"
+            ));
+            if i < 3 {
+                out.push_str("[Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-inf\n");
+            } else {
+                out.push_str(
+                    "[Parsed_ametadata_1 @ 0x0] lavfi.astats.Overall.RMS_level=-18.000000\n",
+                );
+            }
+        }
+        let out = parse_rms_lines(&out);
+        assert_eq!(out.len(), 6);
+        for v in &out {
+            assert!(
+                (v + 18.0).abs() < 1e-4,
+                "bucket should be the file floor -18, got {v}"
+            );
+        }
+        // The silent intro must NOT look loud relative to the file floor...
+        let profile = EnergyProfile { per_second_db: out };
+        assert_eq!(window_boost(&profile, 0, 3_000), 0.0);
+        // ...while a genuinely loud stretch still gets its boost.
+        let mut db = vec![-18.0f32; 6];
+        db[3] = -6.0;
+        db[4] = -6.0;
+        let profile = EnergyProfile { per_second_db: db };
+        assert!(window_boost(&profile, 3_000, 5_000) > 0.0);
     }
 
     #[test]
