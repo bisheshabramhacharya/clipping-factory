@@ -65,6 +65,22 @@ impl Store {
     pub fn manifest_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("render-manifest.json")
     }
+    pub fn decisions_path(&self, id: &str) -> PathBuf {
+        self.project_dir(id).join("decisions.json")
+    }
+
+    /// Missing file means no triage yet, which is a valid empty state.
+    pub async fn load_decisions(&self, id: &str) -> Result<ReviewDecisions> {
+        match tokio::fs::read(self.decisions_path(id)).await {
+            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ReviewDecisions::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub async fn save_decisions(&self, id: &str, d: &ReviewDecisions) -> Result<()> {
+        atomic_write_json(&self.decisions_path(id), d).await
+    }
     pub fn clips_dir(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("clips")
     }
@@ -304,6 +320,42 @@ mod tests {
         assert_eq!(loaded.status, JobState::Transcribing);
         assert_eq!(loaded.stages.len(), STAGES.len());
         assert_eq!(loaded.stage_mut("transcribing").progress, Some(0.42));
+
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn decisions_roundtrip_and_default_when_missing() {
+        let tmp = std::env::temp_dir().join(format!("cf-decisions-{}", crate::util::short_id()));
+        let store = Store::new(&tmp);
+        let id = "decisions01";
+        store.create_dirs(id).await.unwrap();
+
+        assert_eq!(store.load_decisions(id).await.unwrap().decisions.len(), 0);
+
+        let mut d = ReviewDecisions::default();
+        d.decisions.insert(
+            clip_decision_key(id, "c1"),
+            DecisionEntry {
+                verdict: ReviewVerdict::Kept,
+                updated_at: chrono::Utc::now(),
+            },
+        );
+        d.decisions.insert(
+            clip_decision_key(id, "c2"),
+            DecisionEntry {
+                verdict: ReviewVerdict::Skipped,
+                updated_at: chrono::Utc::now(),
+            },
+        );
+        store.save_decisions(id, &d).await.unwrap();
+
+        let loaded = store.load_decisions(id).await.unwrap();
+        assert_eq!(loaded.decisions.len(), 2);
+        assert_eq!(
+            loaded.decisions[&clip_decision_key(id, "c1")].verdict,
+            ReviewVerdict::Kept
+        );
 
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }

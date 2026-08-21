@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Ordered pipeline stages, matching PRD §14.2.
@@ -89,6 +90,49 @@ pub struct SourceInfo {
     pub video_codec: String,
     pub audio_codec: String,
     pub size_bytes: u64,
+}
+
+/// Operator triage verdict for one rendered clip, persisted server-side so
+/// review decisions survive the browser and can drive batch export.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum ReviewVerdict {
+    Kept,
+    Maybe,
+    Skipped,
+}
+
+impl ReviewVerdict {
+    /// Parse the comma-separated `verdicts` export filter. None on any
+    /// unknown token so bad queries fail at the boundary.
+    pub fn parse_list(spec: &str) -> Option<Vec<ReviewVerdict>> {
+        spec.split(',')
+            .map(|s| match s.trim() {
+                "kept" => Some(ReviewVerdict::Kept),
+                "maybe" => Some(ReviewVerdict::Maybe),
+                "skipped" => Some(ReviewVerdict::Skipped),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+/// Canonical decisions-map key for a clip: its inline-serving URL path.
+#[must_use]
+pub fn clip_decision_key(project_id: &str, clip_id: &str) -> String {
+    format!("/api/projects/{project_id}/clips/{clip_id}")
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DecisionEntry {
+    pub verdict: ReviewVerdict,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ReviewDecisions {
+    #[serde(default)]
+    pub decisions: HashMap<String, DecisionEntry>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

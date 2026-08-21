@@ -26,6 +26,7 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 rustface = "0.1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [profile.release]
 opt-level = 2
