@@ -1,5 +1,7 @@
 //! HTTP API (PRD §14.1) + the studio's static assets.
 //!
+//! GET    /api/projects               project library (most recent first)
+//! DELETE /api/projects/{id}          remove a project's local data
 //! POST   /api/settings/ai            set provider/model/key
 //! GET    /api/settings/ai            public status (never the key)
 //! POST   /api/settings/ai/test       verify connectivity
@@ -26,6 +28,7 @@ use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use chrono::{DateTime, Utc};
 use futures::stream::{self, Stream, StreamExt};
 use serde_json::json;
 use std::convert::Infallible;
@@ -46,9 +49,14 @@ pub fn router(state: AppState) -> Router {
         .route("/api/settings/ai/test", post(test_settings))
         .route(
             "/api/projects",
-            post(create_project).layer(DefaultBodyLimit::disable()),
+            get(list_projects)
+                .post(create_project)
+                .layer(DefaultBodyLimit::disable()),
         )
-        .route("/api/projects/{id}", get(get_project))
+        .route(
+            "/api/projects/{id}",
+            get(get_project).delete(delete_project),
+        )
         .route("/api/projects/{id}/events", get(project_events))
         .route("/api/projects/{id}/process", post(process_project))
         .route("/api/projects/{id}/cancel", post(cancel_project))
@@ -696,6 +704,95 @@ async fn retry_project(
 }
 
 // ---------------------------------------------------------------------------
+// Project library: reopen past work, remove finished projects
+// ---------------------------------------------------------------------------
+
+/// One row of the project library: enough to identify and reopen past work.
+#[derive(serde::Serialize)]
+struct LibraryEntry {
+    id: String,
+    created_at: DateTime<Utc>,
+    status: JobState,
+    source_filename: Option<String>,
+    width: Option<u32>,
+    height: Option<u32>,
+    duration_ms: Option<u64>,
+    clips_total: usize,
+    clips_ready: usize,
+    clips_failed: usize,
+}
+
+/// Scan the projects root into library rows. Corrupt or foreign directories
+/// are skipped (with a warning), never surfaced as errors — one bad project
+/// must not hide the rest of the archive.
+async fn library_entries(store: &crate::store::Store) -> Vec<LibraryEntry> {
+    let mut entries = Vec::new();
+    for id in store.project_ids().await {
+        let Ok(p) = store.load_project(&id).await else {
+            tracing::warn!(project = %id, "skipping unloadable project in library scan");
+            continue;
+        };
+        let manifest = store.load_manifest(&id).await.ok();
+        entries.push(LibraryEntry {
+            clips_total: manifest.as_ref().map(|m| m.clips.len()).unwrap_or(0),
+            clips_ready: manifest
+                .as_ref()
+                .map(|m| {
+                    m.clips
+                        .iter()
+                        .filter(|c| c.status == ClipStatus::Ready)
+                        .count()
+                })
+                .unwrap_or(0),
+            clips_failed: manifest
+                .as_ref()
+                .map(|m| {
+                    m.clips
+                        .iter()
+                        .filter(|c| c.status == ClipStatus::Failed)
+                        .count()
+                })
+                .unwrap_or(0),
+            id: p.id,
+            created_at: p.created_at,
+            status: p.status,
+            source_filename: p.source.as_ref().map(|s| s.filename.clone()),
+            width: p.source.as_ref().map(|s| s.width),
+            height: p.source.as_ref().map(|s| s.height),
+            duration_ms: p.source.as_ref().map(|s| s.duration_ms),
+        });
+    }
+    entries.sort_by_key(|e| std::cmp::Reverse(e.created_at));
+    entries.truncate(100);
+    entries
+}
+
+async fn list_projects(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(json!(library_entries(&state.store).await))
+}
+
+async fn delete_project(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if !state.store.exists(&id) {
+        return Err(not_found("Project not found."));
+    }
+    if state.handle(&id).is_running() {
+        return Err(ApiError(
+            StatusCode::CONFLICT,
+            "Processing is running for this project. Cancel it before deleting.".into(),
+        ));
+    }
+    // Only the working directory under data_dir is removed; rendered clips
+    // already copied to the user-facing output folder stay untouched.
+    tokio::fs::remove_dir_all(state.store.project_dir(&id))
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    Ok(Json(json!({ "deleted": true })))
+}
+
+// ---------------------------------------------------------------------------
 // SSE
 // ---------------------------------------------------------------------------
 
@@ -1167,6 +1264,59 @@ mod tests {
     use axum::extract::FromRequest;
     use axum::http::Request;
     use tower::ServiceExt;
+
+    fn temp_store(tag: &str) -> (PathBuf, crate::store::Store) {
+        let tmp = std::env::temp_dir().join(format!("cf-lib-{}-{}", tag, crate::util::short_id()));
+        let store = crate::store::Store::new(&tmp);
+        (tmp, store)
+    }
+
+    #[tokio::test]
+    async fn library_scan_of_an_empty_root_is_empty() {
+        let (tmp, store) = temp_store("empty");
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        assert!(library_entries(&store).await.is_empty());
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn library_scan_skips_corrupt_projects_and_sorts_newest_first() {
+        let (tmp, store) = temp_store("mixed");
+        // Newest project.
+        store.create_dirs("proj-new").await.unwrap();
+        let mut newer = Project::new("proj-new".into(), store.source_path("proj-new"));
+        newer.created_at = Utc::now();
+        store.save_project(&newer).await.unwrap();
+        // Older project, created a day earlier.
+        store.create_dirs("proj-old").await.unwrap();
+        let mut older = Project::new("proj-old".into(), store.source_path("proj-old"));
+        older.created_at = Utc::now() - chrono::Duration::days(1);
+        older.source = Some(SourceInfo {
+            filename: "episode.mp4".into(),
+            duration_ms: 60_000,
+            width: 1920,
+            height: 1080,
+            fps: 30.0,
+            video_codec: "h264".into(),
+            audio_codec: "aac".into(),
+            size_bytes: 1,
+        });
+        store.save_project(&older).await.unwrap();
+        // Corrupt entry must be skipped, not fatal.
+        store.create_dirs("proj-bad").await.unwrap();
+        tokio::fs::write(store.project_json("proj-bad"), b"{ not json")
+            .await
+            .unwrap();
+
+        let entries = library_entries(&store).await;
+
+        assert_eq!(entries.len(), 2, "corrupt project must be skipped");
+        assert_eq!(entries[0].id, "proj-new", "newest first");
+        assert_eq!(entries[1].id, "proj-old");
+        assert_eq!(entries[1].source_filename.as_deref(), Some("episode.mp4"));
+        assert_eq!(entries[1].clips_total, 0);
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
 
     #[test]
     fn byte_ranges_support_open_ended_and_suffix_requests() {
