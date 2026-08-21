@@ -302,6 +302,8 @@
     cancellationPending = false;
     retryPending = false;
     uploadCancelRequested = false;
+    applyAllState.draft = null;
+    for (const k of Object.keys(restyleState)) delete restyleState[k];
     localStorage.removeItem("cf-project");
     if (sse) { sse.close(); sse = null; }
     $("drop").classList.remove("hidden");
