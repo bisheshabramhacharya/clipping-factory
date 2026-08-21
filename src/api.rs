@@ -5,6 +5,7 @@
 //! POST   /api/settings/ai/test       verify connectivity
 //! GET    /api/setup                  first-run environment checks
 //! POST   /api/projects               multipart MP4 upload → project (auto-starts)
+//! POST   /api/sample                 synthesize + run the demo episode (auto-starts)
 //! GET    /api/projects/{id}          full project view
 //! GET    /api/projects/{id}/events   SSE progress stream
 //! POST   /api/projects/{id}/process  start/resume
@@ -45,6 +46,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/settings/ai", get(get_settings).post(set_settings))
         .route("/api/settings/ai/test", post(test_settings))
         .route("/api/projects", post(create_project))
+        .route("/api/sample", post(create_sample))
         .route("/api/projects/{id}", get(get_project))
         .route("/api/projects/{id}/events", get(project_events))
         .route("/api/projects/{id}/process", post(process_project))
@@ -431,26 +433,87 @@ async fn create_project(
     project.caption_style = fields.caption_style;
     project.accent_color = fields.accent_color;
     project.framing_mode = fields.framing_mode;
-    if let Err(error) = state.store.save_project(&project).await {
+    match finish_project_creation(&state, &id, project, fields.original_name.clone()).await {
+        Ok(()) => {
+            cleanup.disarm();
+            let view = project_view(&state, &id).await.map_err(ApiError::from)?;
+            Ok(Json(view))
+        }
+        Err(error) => {
+            cleanup_upload(&state, &id).await;
+            cleanup.disarm();
+            Err(error)
+        }
+    }
+}
+
+/// Persist the project record + source sidecar, then auto-start the pipeline
+/// (PRD §7.2). Shared by upload and the sample endpoint so both ride the
+/// exact same creation path.
+async fn finish_project_creation(
+    state: &AppState,
+    id: &str,
+    project: Project,
+    original_name: String,
+) -> Result<(), ApiError> {
+    state
+        .store
+        .save_project(&project)
+        .await
+        .map_err(ApiError::from)?;
+    // The original filename lives in a sidecar file; the inspect stage and
+    // output-folder naming read it from there.
+    tokio::fs::write(
+        state.store.project_dir(id).join("original-name.txt"),
+        original_name,
+    )
+    .await
+    .ok();
+    pipeline::start(state.clone(), id.to_string()).await.ok();
+    Ok(())
+}
+
+async fn create_sample(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
+    let id = crate::util::short_id();
+    let mut cleanup = UploadCleanupGuard::new(state.store.project_dir(&id));
+
+    let source = match crate::sample::ensure_sample(&state.cfg.data_dir, &state.cfg.ffmpeg).await {
+        Ok(path) => path,
+        Err(error) => {
+            cleanup.disarm();
+            return Err(ApiError::from(anyhow::anyhow!(
+                "Could not synthesize the sample episode: {error:#}"
+            )));
+        }
+    };
+
+    if let Err(error) = state.store.create_dirs(&id).await {
         cleanup_upload(&state, &id).await;
         cleanup.disarm();
         return Err(ApiError::from(error));
     }
-    cleanup.disarm();
-    // The original filename lives in a sidecar file; the inspect stage and
-    // output-folder naming read it from there.
-    tokio::fs::write(
-        state.store.project_dir(&id).join("original-name.txt"),
-        &fields.original_name,
-    )
-    .await
-    .ok();
+    let dest = state.store.source_path(&id);
+    if let Err(error) = tokio::fs::copy(&source, &dest).await {
+        cleanup_upload(&state, &id).await;
+        cleanup.disarm();
+        return Err(ApiError::from(anyhow::anyhow!(
+            "Could not copy the sample into the project: {error}"
+        )));
+    }
 
-    // Processing begins automatically (PRD §7.2).
-    pipeline::start(state.clone(), id.clone()).await.ok();
-
-    let view = project_view(&state, &id).await.map_err(ApiError::from)?;
-    Ok(Json(view))
+    let project = Project::new(id.clone(), dest);
+    match finish_project_creation(&state, &id, project, "Sample Episode.mp4".to_string()).await {
+        Ok(()) => {
+            cleanup.disarm();
+            let view = project_view(&state, &id).await.map_err(ApiError::from)?;
+            Ok(Json(view))
+        }
+        Err(error) => {
+            cleanup_upload(&state, &id).await;
+            cleanup.disarm();
+            Err(error)
+        }
+    }
 }
 
 async fn get_project(
@@ -1292,6 +1355,45 @@ mod tests {
             verdict,
             updated_at: chrono::Utc::now(),
         }
+    }
+
+    #[tokio::test]
+    async fn create_sample_rides_the_standard_creation_path() {
+        let tmp = std::env::temp_dir().join(format!("cf-sample-api-{}", crate::util::short_id()));
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        let state = AppState::new(cfg);
+
+        let response = match create_sample(State(state.clone())).await {
+            Ok(Json(v)) => v,
+            Err(e) => panic!("sample creation should succeed: {:?}", e.0),
+        };
+        let id = response["project"]["id"]
+            .as_str()
+            .expect("project id")
+            .to_string();
+
+        let project = state.store.load_project(&id).await.unwrap();
+        assert_eq!(project.source_path, state.store.source_path(&id));
+        assert!(
+            state.store.source_path(&id).is_file(),
+            "source must be copied into the project"
+        );
+        let sidecar = state.store.project_dir(&id).join("original-name.txt");
+        assert_eq!(
+            tokio::fs::read_to_string(sidecar).await.unwrap(),
+            "Sample Episode.mp4"
+        );
+        assert!(
+            crate::sample::sample_path(&state.cfg.data_dir).is_file(),
+            "sample must be cached in the data dir"
+        );
+
+        tokio::fs::remove_dir_all(tmp).await.ok();
+        tokio::fs::remove_dir_all(state.store.project_dir(&id))
+            .await
+            .ok();
     }
 
     async fn export_fixture_state(tag: &str) -> (AppState, String) {
