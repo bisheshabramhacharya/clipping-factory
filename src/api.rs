@@ -782,6 +782,7 @@ async fn restyle_clip(
             &clip.layout,
             clip.start_ms,
             clip.end_ms,
+            None,
             &base_temp,
             &cancel,
             |_| {},

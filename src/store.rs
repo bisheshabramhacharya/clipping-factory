@@ -334,6 +334,7 @@ mod tests {
                 accent_color: Some("#FFDD00".into()),
                 caption_font: Some("Inter".into()),
                 caption_text: None,
+                audio_qc: None,
             }],
             output_dir: Some("/tmp/out".into()),
         };
@@ -371,6 +372,7 @@ mod tests {
             caption_text: None,
             accent_color: None,
             caption_font: None,
+            audio_qc: None,
         };
         store
             .save_manifest(
@@ -456,6 +458,7 @@ mod tests {
                         caption_text: None,
                         accent_color: None,
                         caption_font: None,
+                        audio_qc: None,
                     }],
                     output_dir: None,
                 },
