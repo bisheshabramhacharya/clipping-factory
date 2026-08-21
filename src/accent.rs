@@ -148,7 +148,9 @@ pub async fn optimized_accent_for_video(
         pixels.extend(
             output
                 .stdout
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .map(|rgb| [rgb[0], rgb[1], rgb[2]]),
         );
     }

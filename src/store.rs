@@ -90,6 +90,21 @@ impl Store {
         self.project_json(id).is_file()
     }
 
+    /// Directory names under the projects root. Callers decide which entries
+    /// are loadable projects; corrupt or foreign directories are not an error.
+    pub async fn project_ids(&self) -> Vec<String> {
+        let mut ids = Vec::new();
+        let Ok(mut entries) = tokio::fs::read_dir(&self.root).await else {
+            return ids;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if entry.metadata().await.map(|m| m.is_dir()).unwrap_or(false) {
+                ids.push(entry.file_name().to_string_lossy().into_owned());
+            }
+        }
+        ids
+    }
+
     pub async fn create_dirs(&self, id: &str) -> Result<()> {
         tokio::fs::create_dir_all(self.base_dir(id)).await?;
         Ok(())
