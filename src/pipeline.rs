@@ -876,6 +876,13 @@ async fn run(
         p.status = JobState::Complete;
         p.error = None;
         store.save_project(&p).await?;
+        // Best-effort provenance sidecar next to the delivered clips. Must
+        // never fail the render: all errors are logged inside.
+        let selection = store.load_selection(&id).await;
+        let prov =
+            crate::provenance::gather(cfg, store, &p, Some(&manifest), selection.as_ref().ok())
+                .await;
+        crate::provenance::write_sidecar(&prov, &output_dir).await;
         ctx.handle
             .emit(json!({"type": "done", "status": "complete"}));
     } else {
