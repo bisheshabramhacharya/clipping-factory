@@ -14,6 +14,9 @@
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
 //! POST   /api/projects/{id}/clips/{clipId}/restyle   re-burn captions (style/color)
 //! POST   /api/projects/{id}/open-output-folder
+//! GET    /api/projects/{id}/export/clips/{clipId}/captions.srt
+//! GET    /api/projects/{id}/export/transcript.json
+//! GET    /api/projects/{id}/export/manifest.json
 
 use crate::domain::*;
 use crate::pipeline;
@@ -59,6 +62,18 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/projects/{id}/open-output-folder",
             post(open_output_folder),
+        )
+        .route(
+            "/api/projects/{id}/export/clips/{clip}/captions.srt",
+            get(export_clip_srt),
+        )
+        .route(
+            "/api/projects/{id}/export/transcript.json",
+            get(export_transcript_json),
+        )
+        .route(
+            "/api/projects/{id}/export/manifest.json",
+            get(export_manifest_json),
         )
         .layer(DefaultBodyLimit::disable())
         .with_state(state)
@@ -1036,6 +1051,91 @@ async fn open_output_folder(
     };
     let opened = std::process::Command::new(opener).arg(&dir).spawn().is_ok();
     Ok(Json(json!({ "opened": opened, "path": dir })))
+}
+
+// ---------------------------------------------------------------------------
+// Text-artifact exports (SRT, transcript JSON, edit-decision manifest)
+// ---------------------------------------------------------------------------
+
+fn attachment_response(content_type: &'static str, name: String, body: String) -> Response {
+    (
+        [
+            (header::CONTENT_TYPE, content_type),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", name).as_str(),
+            ),
+        ],
+        body,
+    )
+        .into_response()
+}
+
+async fn export_clip_srt(
+    State(state): State<AppState>,
+    AxPath((id, clip_id)): AxPath<(String, String)>,
+) -> Result<Response, ApiError> {
+    let manifest = state
+        .store
+        .load_manifest(&id)
+        .await
+        .map_err(|_| not_found("Project not found."))?;
+    let clip = manifest
+        .clips
+        .iter()
+        .find(|c| c.id == clip_id)
+        .cloned()
+        .ok_or_else(|| not_found("Clip not found."))?;
+    let transcript = state
+        .store
+        .load_transcript(&id)
+        .await
+        .map_err(|_| not_found("Transcript is not available yet."))?;
+    let words = crate::captions::words_in_interval(&transcript.words, clip.start_ms, clip.end_ms);
+    let srt = crate::export::clip_srt(&words, clip.start_ms, clip.end_ms);
+    let name = clip.filename.trim_end_matches(".mp4").to_owned() + ".srt";
+    Ok(attachment_response(
+        "application/x-subrip; charset=utf-8",
+        name,
+        srt,
+    ))
+}
+
+async fn export_transcript_json(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+) -> Result<Response, ApiError> {
+    let transcript = state
+        .store
+        .load_transcript(&id)
+        .await
+        .map_err(|_| not_found("Transcript is not available yet."))?;
+    Ok(attachment_response(
+        "application/json; charset=utf-8",
+        "transcript.json".to_string(),
+        crate::export::transcript_json(&transcript),
+    ))
+}
+
+async fn export_manifest_json(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+) -> Result<Response, ApiError> {
+    let p = state
+        .store
+        .load_project(&id)
+        .await
+        .map_err(|_| not_found("Project not found."))?;
+    let manifest = state
+        .store
+        .load_manifest(&id)
+        .await
+        .map_err(|_| not_found("No render manifest yet."))?;
+    Ok(attachment_response(
+        "application/json; charset=utf-8",
+        "manifest.json".to_string(),
+        crate::export::edl_manifest(&p, &manifest),
+    ))
 }
 
 #[cfg(test)]
