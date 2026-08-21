@@ -10,6 +10,7 @@
 //! POST   /api/projects/{id}/process  start/resume
 //! POST   /api/projects/{id}/cancel   stop subprocesses, keep finished clips
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
+//! GET    /api/projects/{id}/provenance.json  provenance & QC report (attachment)
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
 //! POST   /api/projects/{id}/clips/{clipId}/restyle   re-burn captions (style/color)
@@ -17,6 +18,7 @@
 
 use crate::domain::*;
 use crate::pipeline;
+use crate::provenance;
 use crate::settings::AiSettings;
 use crate::state::AppState;
 use axum::extract::{DefaultBodyLimit, Multipart, Path as AxPath, State};
@@ -56,6 +58,7 @@ pub fn router(state: AppState) -> Router {
             "/api/projects/{id}/clips/{clip}/restyle",
             post(restyle_clip),
         )
+        .route("/api/projects/{id}/provenance.json", get(provenance_report))
         .route(
             "/api/projects/{id}/open-output-folder",
             post(open_output_folder),
@@ -579,6 +582,35 @@ async fn retry_project(
 // ---------------------------------------------------------------------------
 // SSE
 // ---------------------------------------------------------------------------
+
+async fn provenance_report(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+) -> Result<Response, ApiError> {
+    if !state.store.exists(&id) {
+        return Err(not_found("Project not found."));
+    }
+    let project = state.store.load_project(&id).await?;
+    let manifest = state.store.load_manifest(&id).await.ok();
+    let selection = state.store.load_selection(&id).await.ok();
+    let report = provenance::gather(
+        &state.cfg,
+        &state.store,
+        &project,
+        manifest.as_ref(),
+        selection.as_ref(),
+    )
+    .await;
+    let body = serde_json::to_vec_pretty(&report).map_err(anyhow::Error::from)?;
+    Ok(Response::builder()
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"provenance-{id}.json\""),
+        )
+        .body(axum::body::Body::from(body))
+        .map_err(anyhow::Error::from)?)
+}
 
 async fn project_events(
     State(state): State<AppState>,

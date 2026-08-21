@@ -12,6 +12,7 @@ mod energy;
 mod frame;
 mod media;
 mod pipeline;
+mod provenance;
 mod render;
 mod select;
 mod settings;
