@@ -13,13 +13,16 @@
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
 //! POST   /api/projects/{id}/clips/{clipId}/restyle   re-burn captions (style/color)
+//! GET    /api/projects/{id}/decisions                review triage map
+//! PUT    /api/projects/{id}/decisions                replace the triage map
+//! GET    /api/projects/{id}/export?verdicts=kept     ZIP of clips matching verdicts
 //! POST   /api/projects/{id}/open-output-folder
 
 use crate::domain::*;
 use crate::pipeline;
 use crate::settings::AiSettings;
 use crate::state::AppState;
-use axum::extract::{DefaultBodyLimit, Multipart, Path as AxPath, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path as AxPath, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Response};
@@ -56,6 +59,11 @@ pub fn router(state: AppState) -> Router {
             "/api/projects/{id}/clips/{clip}/restyle",
             post(restyle_clip),
         )
+        .route(
+            "/api/projects/{id}/decisions",
+            get(get_decisions).put(put_decisions),
+        )
+        .route("/api/projects/{id}/export", get(export_clips))
         .route(
             "/api/projects/{id}/open-output-folder",
             post(open_output_folder),
@@ -870,6 +878,145 @@ async fn restyle_clip(
 }
 
 // ---------------------------------------------------------------------------
+// Review decisions + batch export
+// ---------------------------------------------------------------------------
+
+async fn require_project(state: &AppState, id: &str) -> Result<(), ApiError> {
+    if state.store.exists(id) {
+        Ok(())
+    } else {
+        Err(not_found("Project not found."))
+    }
+}
+
+async fn get_decisions(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+) -> Result<Json<ReviewDecisions>, ApiError> {
+    require_project(&state, &id).await?;
+    Ok(Json(state.store.load_decisions(&id).await?))
+}
+
+/// Full-map replace. Keys must be this project's canonical clip paths; the
+/// verdict enum is enforced by deserialization, so unknown verdicts never
+/// reach this handler.
+async fn put_decisions(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    Json(body): Json<ReviewDecisions>,
+) -> Result<Json<ReviewDecisions>, ApiError> {
+    require_project(&state, &id).await?;
+    let prefix = format!("/api/projects/{id}/clips/");
+    if let Some(key) = body.decisions.keys().find(|k| !k.starts_with(&prefix)) {
+        return Err(bad_request(format!(
+            "decision key `{key}` does not belong to project {id}"
+        )));
+    }
+    state.store.save_decisions(&id, &body).await?;
+    Ok(Json(body))
+}
+
+#[derive(serde::Deserialize)]
+struct ExportQuery {
+    verdicts: Option<String>,
+}
+
+fn build_zip(zip_path: &std::path::Path, entries: &[(String, PathBuf)]) -> anyhow::Result<()> {
+    let file = std::fs::File::create(zip_path)?;
+    let mut zip = zip::ZipWriter::new(file);
+    let opts = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    for (name, path) in entries {
+        zip.start_file(name.as_str(), opts)?;
+        std::io::copy(&mut std::fs::File::open(path)?, &mut zip)?;
+    }
+    zip.finish()?;
+    Ok(())
+}
+
+async fn export_clips(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    Query(query): Query<ExportQuery>,
+) -> Result<Response, ApiError> {
+    let filter = match &query.verdicts {
+        None => vec![ReviewVerdict::Kept],
+        Some(spec) => ReviewVerdict::parse_list(spec).ok_or_else(|| {
+            bad_request("verdicts must be a comma-separated list of kept|maybe|skipped")
+        })?,
+    };
+    require_project(&state, &id).await?;
+    let manifest = state
+        .store
+        .load_manifest(&id)
+        .await
+        .map_err(|_| not_found("No rendered clips for this project yet."))?;
+    let decisions = state.store.load_decisions(&id).await?;
+
+    let mut selected: Vec<(String, PathBuf)> = Vec::new();
+    for clip in &manifest.clips {
+        if clip.status != ClipStatus::Ready {
+            continue;
+        }
+        let path = state.store.clips_dir(&id).join(&clip.filename);
+        let on_disk = tokio::fs::metadata(&path)
+            .await
+            .map(|m| m.is_file() && m.len() > 0)
+            .unwrap_or(false);
+        if !on_disk {
+            continue;
+        }
+        let Some(entry) = decisions.decisions.get(&clip_decision_key(&id, &clip.id)) else {
+            continue;
+        };
+        if filter.contains(&entry.verdict) {
+            selected.push((clip.filename.clone(), path));
+        }
+    }
+    if selected.is_empty() {
+        return Err(not_found("No clips match this verdict filter."));
+    }
+
+    let tag = filter
+        .iter()
+        .map(|v| format!("{v:?}").to_lowercase())
+        .collect::<Vec<_>>()
+        .join("-");
+    let zip_path = state
+        .store
+        .project_dir(&id)
+        .join(format!(".export-{tag}.zip"));
+    tokio::task::spawn_blocking(move || build_zip(&zip_path, &selected))
+        .await
+        .map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))??;
+
+    let file = tokio::fs::File::open(
+        state
+            .store
+            .project_dir(&id)
+            .join(format!(".export-{tag}.zip")),
+    )
+    .await
+    .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+    let len = file
+        .metadata()
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::from(e)))?
+        .len();
+    Response::builder()
+        .header(header::CONTENT_TYPE, "application/zip")
+        .header(header::CONTENT_LENGTH, len.to_string())
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"clips-{tag}.zip\""),
+        )
+        .body(axum::body::Body::from_stream(
+            tokio_util::io::ReaderStream::new(file),
+        ))
+        .map_err(|e| ApiError::from(anyhow::Error::from(e)))
+}
+
+// ---------------------------------------------------------------------------
 // Clip serving (Range-aware so <video> scrubbing works, esp. Safari)
 // ---------------------------------------------------------------------------
 
@@ -1128,6 +1275,175 @@ mod tests {
             .is_err());
         let mut projects = tokio::fs::read_dir(projects_dir).await.unwrap();
         assert!(projects.next_entry().await.unwrap().is_none());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[test]
+    fn verdict_filters_parse_strictly() {
+        assert_eq!(
+            ReviewVerdict::parse_list("kept, maybe"),
+            Some(vec![ReviewVerdict::Kept, ReviewVerdict::Maybe])
+        );
+        assert_eq!(ReviewVerdict::parse_list("kept,bogus"), None);
+    }
+
+    fn decision(verdict: ReviewVerdict) -> DecisionEntry {
+        DecisionEntry {
+            verdict,
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    async fn export_fixture_state(tag: &str) -> (AppState, String) {
+        let tmp = std::env::temp_dir().join(format!("cf-export-{tag}-{}", crate::util::short_id()));
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        let state = AppState::new(cfg);
+        let id = "exportproj1";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_project(&Project::new(id.to_string(), state.store.source_path(id)))
+            .await
+            .unwrap();
+
+        let clip = |cid: &str, name: &str| ClipRecord {
+            id: cid.into(),
+            rank: 1,
+            headline: "H".into(),
+            filename: name.into(),
+            start_ms: 0,
+            end_ms: 20_000,
+            duration_ms: 20_000,
+            selection_reason: "test".into(),
+            scores: Scores::default(),
+            layout: LayoutPlan::BlurPad,
+            status: ClipStatus::Ready,
+            error: None,
+            low_confidence: false,
+            caption_style: None,
+            caption_text: None,
+            accent_color: None,
+            caption_font: None,
+        };
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![clip("keepme", "01-keep.mp4"), clip("skipme", "02-skip.mp4")],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        tokio::fs::write(state.store.clips_dir(id).join("01-keep.mp4"), b"kept-bytes")
+            .await
+            .unwrap();
+        tokio::fs::write(
+            state.store.clips_dir(id).join("02-skip.mp4"),
+            b"skipped-bytes",
+        )
+        .await
+        .unwrap();
+        let mut d = ReviewDecisions::default();
+        d.decisions.insert(
+            clip_decision_key(id, "keepme"),
+            decision(ReviewVerdict::Kept),
+        );
+        d.decisions.insert(
+            clip_decision_key(id, "skipme"),
+            decision(ReviewVerdict::Skipped),
+        );
+        state.store.save_decisions(id, &d).await.unwrap();
+        (state, tmp.to_string_lossy().into_owned())
+    }
+
+    #[tokio::test]
+    async fn decisions_roundtrip_rejects_foreign_keys_and_unknown_projects() {
+        let (state, tmp) = export_fixture_state("api-decisions").await;
+        let id = "exportproj1";
+
+        let got = match get_decisions(State(state.clone()), AxPath(id.to_string())).await {
+            Ok(got) => got,
+            Err(e) => panic!("decisions should load: {:?}", e.0),
+        };
+        assert_eq!(got.decisions.len(), 2);
+
+        let mut foreign = ReviewDecisions::default();
+        foreign.decisions.insert(
+            "/api/projects/other/clips/c1".into(),
+            decision(ReviewVerdict::Kept),
+        );
+        let err = match put_decisions(State(state.clone()), AxPath(id.to_string()), Json(foreign))
+            .await
+        {
+            Err(e) => e,
+            Ok(_) => panic!("foreign decision key should be rejected"),
+        };
+        assert_eq!(err.0, StatusCode::BAD_REQUEST);
+
+        let missing = match get_decisions(State(state.clone()), AxPath("nope".into())).await {
+            Err(e) => e,
+            Ok(_) => panic!("unknown project should 404"),
+        };
+        assert_eq!(missing.0, StatusCode::NOT_FOUND);
+
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn export_zips_only_clips_matching_the_verdict_filter() {
+        let (state, tmp) = export_fixture_state("api-export").await;
+        let id = "exportproj1";
+
+        let response = match export_clips(
+            State(state.clone()),
+            AxPath(id.to_string()),
+            Query(ExportQuery { verdicts: None }),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err(e) => panic!("kept export should succeed: {:?}", e.0),
+        };
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/zip");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let reader = zip::ZipArchive::new(std::io::Cursor::new(&body[..])).unwrap();
+        assert_eq!(reader.file_names().collect::<Vec<_>>(), vec!["01-keep.mp4"]);
+
+        let empty = match export_clips(
+            State(state.clone()),
+            AxPath(id.to_string()),
+            Query(ExportQuery {
+                verdicts: Some("maybe".into()),
+            }),
+        )
+        .await
+        {
+            Err(e) => e,
+            Ok(_) => panic!("empty filter result should 404"),
+        };
+        assert_eq!(empty.0, StatusCode::NOT_FOUND);
+
+        let bad = match export_clips(
+            State(state.clone()),
+            AxPath(id.to_string()),
+            Query(ExportQuery {
+                verdicts: Some("nope".into()),
+            }),
+        )
+        .await
+        {
+            Err(e) => e,
+            Ok(_) => panic!("invalid verdict token should be rejected"),
+        };
+        assert_eq!(bad.0, StatusCode::BAD_REQUEST);
+
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 }
