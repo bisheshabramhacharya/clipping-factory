@@ -209,6 +209,8 @@ header {
   margin: 30px 0 16px; gap: 12px;
 }
 .results-actions { display: flex; gap: 8px; }
+.apply-all-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.apply-all-group[hidden] { display: none; }
 
 .clip {
   display: grid; grid-template-columns: 132px minmax(0, 1fr) auto;
@@ -329,6 +331,7 @@ body.modal-open { overflow: hidden; }
   .step strong { white-space: normal; }
   .results-actions { width: 100%; }
   .results-actions button { flex: 1; min-width: 140px; padding-inline: 8px; }
+  .apply-all-group { width: 100%; }
   .clip { grid-template-columns: 1fr; gap: 14px; padding: 16px; }
   .preview { width: min(180px, 100%); }
   .actions { grid-column: auto; }
