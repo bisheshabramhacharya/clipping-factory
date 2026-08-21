@@ -626,6 +626,7 @@ async fn run(
                         c.start_ms,
                         c.end_ms,
                     ))),
+                    audio_qc: None,
                 });
             }
             match result {
@@ -721,6 +722,32 @@ async fn run(
         let base_temp = unique_temp_path(&base_path);
         let out_temp = unique_temp_path(&out_path);
         let base_ready = store.base_is_ready(&id, &clip.id).await?;
+        // Measure the source segment first so the base render can apply a
+        // linear two-pass loudnorm correction. Advisory: a failed measurement
+        // renders unnormalized rather than failing the clip.
+        let loudness = if base_ready {
+            None
+        } else {
+            match crate::audio::measure(
+                cfg,
+                &src,
+                Some(clip.start_ms),
+                Some(clip.end_ms - clip.start_ms),
+                &ctx.cancel,
+            )
+            .await
+            {
+                Ok(m) => Some(m),
+                // Advisory: a failed measurement renders unnormalized rather
+                // than failing the clip. Cancellation is caught by the check
+                // at the top of the next loop iteration.
+                Err(e) => {
+                    tracing::warn!("loudness measurement failed, rendering unnormalized: {e:#}");
+                    None
+                }
+            }
+        };
+        let audio_filter = loudness.as_ref().map(crate::audio::loudnorm_filter);
 
         let render_result: anyhow::Result<()> = async {
             // Pass 1 — framed, uncaptioned base. Kept on disk so captions can
@@ -736,6 +763,7 @@ async fn run(
                     &clip.layout,
                     clip.start_ms,
                     clip.end_ms,
+                    audio_filter.as_deref(),
                     &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),
@@ -783,6 +811,20 @@ async fn run(
             }
             promote_atomic(&out_temp, &out_path).await?;
             store.mark_final_ready(&id, &clip.id).await?;
+            // QC: measure what actually shipped. Never fails the clip.
+            if let Ok(final_qc) =
+                crate::audio::measure(cfg, &out_path, None, None, &ctx.cancel).await
+            {
+                if let Some(source_qc) = &loudness {
+                    manifest.clips[i].audio_qc = Some(AudioQc {
+                        target_i: crate::audio::TARGET_I,
+                        source_i: source_qc.input_i,
+                        source_tp: source_qc.input_tp,
+                        output_i: final_qc.input_i,
+                        output_tp: final_qc.input_tp,
+                    });
+                }
+            }
             Ok(())
         }
         .await;

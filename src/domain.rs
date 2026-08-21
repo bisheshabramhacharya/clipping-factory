@@ -315,6 +315,22 @@ pub struct ClipRecord {
     /// Editable caption wording. Word timings are preserved when possible.
     #[serde(default)]
     pub caption_text: Option<String>,
+    /// Loudness QC for the rendered file, when normalization ran and the
+    /// output could be measured. Absent on older manifests.
+    #[serde(default)]
+    pub audio_qc: Option<AudioQc>,
+}
+
+/// EBU R128 loudness QC numbers for a finished clip: what the source segment
+/// measured, what target the two-pass linear normalization aimed at, and what
+/// the rendered file actually measures.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AudioQc {
+    pub target_i: f64,
+    pub source_i: f64,
+    pub source_tp: f64,
+    pub output_i: f64,
+    pub output_tp: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

@@ -5,6 +5,7 @@
 
 mod accent;
 mod api;
+mod audio;
 mod captions;
 mod config;
 mod domain;

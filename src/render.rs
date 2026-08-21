@@ -33,6 +33,7 @@ pub async fn render_base_clip<F>(
     layout: &LayoutPlan,
     start_ms: u64,
     end_ms: u64,
+    audio_filter: Option<&str>,
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -41,7 +42,7 @@ where
     F: FnMut(f32),
 {
     let dur_s = (end_ms.saturating_sub(start_ms)) as f64 / 1000.0;
-    let graph = build_graph(source, layout, None);
+    let graph = build_graph(source, layout, None, audio_filter);
 
     let mut args: Vec<String> = vec![
         "-y".into(),
@@ -240,9 +241,16 @@ pub fn subtitles_filter(fonts_dir: Option<&Path>, ass_path: &Path) -> String {
     format!("ass='{}'{}", ass, fonts)
 }
 
-fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> String {
+fn build_graph(
+    source: &SourceInfo,
+    layout: &LayoutPlan,
+    subs: Option<&str>,
+    audio_filter: Option<&str>,
+) -> String {
     // Trailing subtitle step when burning in one pass; empty for base renders.
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
+    // Optional audio processing step (loudness normalization).
+    let audio_step = audio_filter.map(|f| format!(",{f}")).unwrap_or_default();
     match layout {
         LayoutPlan::BlurPad => format!(
             "[0:v]setpts=PTS-STARTPTS,split=2[bga][fga];\
@@ -250,10 +258,11 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
              [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v];\
-             [0:a]asetpts=PTS-STARTPTS[a]",
+             [0:a]asetpts=PTS-STARTPTS{audio}[a]",
             w = OUT_W,
             h = OUT_H,
-            subs = subs_step
+            subs = subs_step,
+            audio = audio_step
         ),
         LayoutPlan::FaceCrop { keyframes } => {
             // Scale so height fills 1920, then crop a 1080-wide window whose
@@ -264,17 +273,18 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
             };
             if scaled_w < OUT_W as u64 {
                 // Shouldn't happen (frame.rs guards portrait), but stay safe.
-                return build_graph(source, &LayoutPlan::BlurPad, subs);
+                return build_graph(source, &LayoutPlan::BlurPad, subs, audio_filter);
             }
             let expr = crop_x_expr(keyframes, scaled_w);
             format!(
                 "[0:v]setpts=PTS-STARTPTS,scale=-2:{h}:force_divisible_by=2,\
                  crop={w}:{h}:x='{expr}':y=0,{subs}format=yuv420p[v];\
-                 [0:a]asetpts=PTS-STARTPTS[a]",
+                 [0:a]asetpts=PTS-STARTPTS{audio}[a]",
                 w = OUT_W,
                 h = OUT_H,
                 expr = expr,
-                subs = subs_step
+                subs = subs_step,
+                audio = audio_step
             )
         }
     }
@@ -396,7 +406,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
         ] {
-            let g = build_graph(&source(1920, 1080), &layout, None);
+            let g = build_graph(&source(1920, 1080), &layout, None, None);
             assert!(
                 !g.contains("ass="),
                 "base graph must not burn captions: {g}"
@@ -407,7 +417,7 @@ mod tests {
 
     #[test]
     fn base_graph_resets_audio_and_video_to_the_same_zero_origin() {
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None);
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, None);
         assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
         assert!(g.contains("[0:a]asetpts=PTS-STARTPTS[a]"));
     }
@@ -415,8 +425,21 @@ mod tests {
     #[test]
     fn captioned_graph_includes_subtitle_filter() {
         let subs = subtitles_filter(None, Path::new("/tmp/c.ass"));
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, Some(&subs));
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, Some(&subs), None);
         assert!(g.contains("ass='/tmp/c.ass'"));
+    }
+
+    #[test]
+    fn audio_filter_lands_on_the_audio_branch_only() {
+        for layout in [
+            LayoutPlan::BlurPad,
+            LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+            },
+        ] {
+            let g = build_graph(&source(1920, 1080), &layout, None, Some("loudnorm"));
+            assert!(g.contains("asetpts=PTS-STARTPTS,loudnorm[a]"));
+        }
     }
 
     #[test]
@@ -433,6 +456,7 @@ mod tests {
             &LayoutPlan::FaceCrop {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
+            None,
             None,
         );
         assert!(
