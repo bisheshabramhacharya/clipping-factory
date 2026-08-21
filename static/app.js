@@ -121,10 +121,8 @@
   async function loadSettings() {
     try {
       const s = await requestJson("/api/settings/ai", {}, "Couldn't reconnect to the local server.");
-      const dot = $("ai-dot");
-      dot.className = "dot";
-      if (s.provider === "offline") { dot.classList.add("offline"); $("ai-label").textContent = "Local ranking"; }
-      else if (s.connected) { dot.classList.add("on"); $("ai-label").textContent = `${s.provider} · ${s.model}`; }
+      if (s.provider === "offline") { $("ai-label").textContent = "Local ranking"; }
+      else if (s.connected) { $("ai-label").textContent = `${s.provider} · ${s.model}`; }
       else { $("ai-label").textContent = "AI connection"; }
       $("provider").value = s.provider || "openai";
       $("model").value = s.model || "";
@@ -258,7 +256,7 @@
   function setUploadPhase(label, percent) {
     $("upload-label").textContent = label;
     if (percent != null) {
-      $("upload-bar").style.width = `${percent}%`;
+      $("upload-bar").style.transform = "scaleX(" + (percent / 100) + ")";
       $("upload-bar").parentElement.setAttribute("aria-valuenow", String(percent));
     }
   }
@@ -283,7 +281,7 @@
     if (sse) { sse.close(); sse = null; }
     $("drop").classList.remove("hidden");
     $("upload-progress").classList.add("hidden");
-    $("upload-bar").style.width = "0%";
+    $("upload-bar").style.transform = "scaleX(0)";
     $("upload-bar").parentElement.setAttribute("aria-valuenow", "0");
     $("file-input").value = "";
     render();
@@ -348,7 +346,7 @@
   function render() {
     const p = view && view.project;
     $("upload-state").classList.toggle("hidden", !!p);
-    $("processing-state").classList.toggle("hidden", !p);
+    $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
     if (!isProcessing(p.status)) {
       if (cancellationPending) {
@@ -412,7 +410,8 @@
     if (!liveProgress && view && view.live) liveProgress = view.live;
     if (!liveProgress) return;
     const step = document.querySelector(`.step[data-stage="${liveProgress.stage}"] .mini-fill`);
-    if (step) step.style.width = `${Math.round((liveProgress.progress || 0) * 100)}%`;
+    const percent = Math.round((liveProgress.progress || 0) * 100);
+    if (step) step.style.transform = "scaleX(" + (percent / 100) + ")";
     const status = document.querySelector(`.step[data-stage="${liveProgress.stage}"] .status`);
     if (status && liveProgress.detail) {
       status.textContent = liveProgress.detail;
@@ -533,7 +532,7 @@
         const d = document.createElement("div");
         d.className = "rejected-item";
         d.innerHTML = `<div></div><div class="reasons"></div>`;
-        d.children[0].textContent = `“${r.headline || "(untitled)"}” — ${fmtMs(r.start_ms)}–${fmtMs(r.end_ms)}`;
+        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}`;
         d.children[1].textContent = (r.reasons || []).join("; ");
         list.appendChild(d);
       }
@@ -1022,7 +1021,7 @@
         }, "Could not save AI settings.");
         const out = $("test-result");
         out.textContent = saved.provider === "offline"
-          ? "Local ranking is ready — no API key needed."
+          ? "Local ranking is ready. No API key needed."
           : `${saved.provider === "anthropic" ? "Anthropic" : "OpenAI"} connection verified. Using model ${saved.model}.`;
         out.className = "small ok";
         out.classList.remove("hidden");

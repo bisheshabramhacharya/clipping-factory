@@ -9,129 +9,129 @@
 <body>
   <div class="shell">
     <header>
-      <div>
+      <div class="brand">
         <h1>Clipping Factory</h1>
         <p class="muted tagline">One podcast in. A few faithful clips out.</p>
       </div>
       <button id="ai-btn" type="button">
-        <span id="ai-dot" class="dot"></span>
         <span id="ai-label">AI connection</span>
       </button>
     </header>
 
-    <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive"></div>
-    <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
-    <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
+    <div class="banners">
+      <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive"></div>
+      <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
+      <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
+    </div>
 
-    <!-- Empty / import state -->
-    <section id="upload-state" aria-labelledby="upload-title">
-      <h2 id="upload-title" class="sr-only">Create clips</h2>
-      <div id="drop" class="upload">
-        <strong>Drop one podcast MP4 here</strong>
-        <p class="muted">The original stays on this computer. Clips keep the original conversation intact — one continuous excerpt each, no invented speech.</p>
-        <button id="choose-btn" class="primary" type="button">Choose MP4</button>
-        <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
-        <fieldset class="framing-choice">
-          <legend>Output framing</legend>
-          <label>
-            <input type="radio" name="framing-mode" value="fill" checked>
-            <span><strong>Fill 9:16</strong><small>Vertical crop, face-following when available</small></span>
-          </label>
-          <label>
-            <input type="radio" name="framing-mode" value="background">
-            <span><strong>Fit with background</strong><small>Keep the full frame over blur</small></span>
-          </label>
-        </fieldset>
-        <fieldset class="accent-choice">
-          <legend>Caption highlight</legend>
-          <div class="accent-option accent-palette">
+    <main id="stage">
+      <!-- Empty / import state -->
+      <section id="upload-state" aria-labelledby="upload-title">
+        <h2 id="upload-title" class="sr-only">Create clips</h2>
+        <div id="drop" class="upload">
+          <strong>Drop one podcast MP4 here</strong>
+          <p class="muted">The original stays on this computer. Clips keep the original conversation intact. Each clip is one continuous excerpt with no invented speech.</p>
+          <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+          <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
+          <fieldset class="framing-choice">
+            <legend>Output framing</legend>
+            <label>
+              <input type="radio" name="framing-mode" value="fill" checked>
+              <span><strong>Fill 9:16</strong><small>Vertical crop, face-following when available</small></span>
+            </label>
+            <label>
+              <input type="radio" name="framing-mode" value="background">
+              <span><strong>Fit with background</strong><small>Keep the full frame over blur</small></span>
+            </label>
+          </fieldset>
+          <fieldset class="accent-choice">
+            <legend>Caption highlight</legend>
+            <div class="accent-option accent-palette">
               <input type="radio" name="accent-mode" value="manual" aria-label="Choose a caption highlight color" checked>
-            <div>
-              <strong>Choose a color</strong>
-              <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Caption highlight colors"></div>
-              <small id="upload-accent-hex">#FFDD00 selected</small>
-              <input id="upload-accent-color" type="hidden" value="#FFDD00">
+              <div>
+                <strong>Choose a color</strong>
+                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Caption highlight colors"></div>
+                <small id="upload-accent-hex">#FFDD00 selected</small>
+                <input id="upload-accent-color" type="hidden" value="#FFDD00">
+              </div>
             </div>
+            <label class="accent-option">
+              <input type="radio" name="accent-mode" value="random">
+              <span><strong>Random</strong><small>A fresh readable color</small></span>
+            </label>
+            <label class="accent-option">
+              <input type="radio" name="accent-mode" value="optimized">
+              <span><strong>Optimized</strong><small>Matches the video palette</small></span>
+            </label>
+          </fieldset>
+          <p class="muted small">MP4 with an audio stream, up to 4 hours long. Captions, highlight color, and font stay editable on each finished clip.</p>
+        </div>
+        <div id="upload-progress" class="hidden" aria-live="polite">
+          <div class="upload-progress-head">
+            <p id="upload-label" role="status">Uploading…</p>
+            <button id="cancel-upload-btn" type="button">Cancel upload</button>
           </div>
-          <label class="accent-option">
-            <input type="radio" name="accent-mode" value="random">
-            <span class="accent-icon random">✦</span>
-            <span><strong>Random</strong><small>A fresh readable color</small></span>
-          </label>
-          <label class="accent-option">
-            <input type="radio" name="accent-mode" value="optimized">
-            <span class="accent-icon optimized">◐</span>
-            <span><strong>Optimized</strong><small>Matches the video palette</small></span>
-          </label>
-        </fieldset>
-        <p class="muted small">Supported input: MP4 with at least one audio stream, up to 4 hours. Videos under 20 seconds are captioned in full.<br>
-        You can still change captions, color, and font on each finished clip.</p>
-      </div>
-      <div id="upload-progress" class="hidden" aria-live="polite">
-        <div class="upload-progress-head">
-          <p id="upload-label" role="status">Uploading…</p>
-          <button id="cancel-upload-btn" type="button">Cancel upload</button>
+          <div class="bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="upload-bar" class="bar-fill"></div>
+          </div>
         </div>
-        <div class="bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <div id="upload-bar" class="bar-fill"></div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Processing state -->
-    <section id="processing-state" class="hidden" aria-labelledby="processing-title">
-      <h2 id="processing-title" class="sr-only">Processing</h2>
-      <div class="source-line">
-        <div>
-          <span id="source-name" class="source-name"></span>
-          <span id="source-meta" class="muted"></span>
+      <!-- Processing state -->
+      <section id="processing-state" class="hidden" aria-labelledby="processing-title">
+        <h2 id="processing-title" class="sr-only">Processing</h2>
+        <div class="source-line">
+          <div>
+            <span id="source-name" class="source-name"></span>
+            <span id="source-meta" class="muted"></span>
+          </div>
+          <button id="cancel-btn" type="button">Cancel</button>
         </div>
-        <button id="cancel-btn" type="button">Cancel</button>
-      </div>
-      <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
-      <div id="current-op" class="current-op hidden">
-        <span class="spinner"></span>
-        <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>
-        <span id="elapsed" class="muted" aria-hidden="true"></span>
-      </div>
-      <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
-        <div>
-          <strong id="error-stage"></strong>
-          <p id="error-text"></p>
+        <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
+        <div id="current-op" class="current-op hidden">
+          <span class="spinner"></span>
+          <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>
+          <span id="elapsed" class="muted" aria-hidden="true"></span>
         </div>
-        <div class="error-actions">
-          <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
-          <button id="retry-btn" class="primary" type="button">Retry stage</button>
+        <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
+          <div>
+            <strong id="error-stage"></strong>
+            <p id="error-text"></p>
+          </div>
+          <div class="error-actions">
+            <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
+            <button id="retry-btn" class="primary" type="button">Retry stage</button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Results state -->
-    <section id="results-state" class="hidden" aria-labelledby="results-title">
-      <div class="results-head">
-        <div>
-          <h2 id="results-title" aria-live="polite"></h2>
-          <p class="muted" id="results-sub">Ranked by self-contained opening, tension, payoff, and clarity.</p>
+      <!-- Results state -->
+      <section id="results-state" class="hidden" aria-labelledby="results-title">
+        <div class="results-head">
+          <div>
+            <h2 id="results-title" aria-live="polite"></h2>
+            <p class="muted" id="results-sub">Ranked by self-contained opening, tension, payoff, and clarity.</p>
+          </div>
+          <div class="results-actions">
+            <button id="review-clips-btn" type="button" hidden>Review clips</button>
+            <button id="open-folder-btn" type="button">Open output folder</button>
+            <button id="new-project-btn" type="button">New project</button>
+          </div>
         </div>
-        <div class="results-actions">
-          <button id="review-clips-btn" type="button" hidden>Review clips</button>
-          <button id="open-folder-btn" type="button">Open output folder</button>
-          <button id="new-project-btn" type="button">New project</button>
+        <div id="clips"></div>
+        <div id="empty-results" class="empty-results hidden">
+          <strong>No excerpt passed the quality bar.</strong>
+          <p class="muted">This source didn’t contain a moment that stands alone at the required quality. Clipping Factory returns fewer clips rather than bad ones. Try a longer or more speech-led recording.</p>
         </div>
-      </div>
-      <div id="clips"></div>
-      <div id="empty-results" class="empty-results hidden">
-        <strong>No excerpt passed the quality bar.</strong>
-        <p class="muted">This source didn't contain a moment that stands alone at the required quality. Clipping Factory returns fewer clips rather than bad ones. Try a longer or more speech-led recording.</p>
-      </div>
-      <details id="rejected-details" class="rejected hidden">
-        <summary>What was considered and rejected</summary>
-        <div id="rejected-list"></div>
-      </details>
-    </section>
+        <details id="rejected-details" class="rejected hidden">
+          <summary>What was considered and rejected</summary>
+          <div id="rejected-list"></div>
+        </details>
+      </section>
+    </main>
 
     <footer class="muted small">
-      Processing happens locally. Only transcript text is sent to your AI provider — never the video.
+      Processing happens locally. Only transcript text ever reaches your AI provider. The video never leaves this machine.
     </footer>
   </div>
 
@@ -166,10 +166,10 @@
   <div id="review-theater" class="review-theater" role="dialog" aria-modal="true" aria-label="Clip review theater" hidden>
     <div class="review-top">
       <div>
-        <strong id="review-progress" aria-live="polite">1 / 1</strong>
+        <strong id="review-progress" aria-live="polite"></strong>
         <span id="review-counts" class="review-counts"></span>
       </div>
-      <button id="review-close" class="review-close" type="button">Close · Esc</button>
+      <button id="review-close" class="review-close" type="button">Close (Esc)</button>
     </div>
     <div class="review-stage">
       <video id="review-video" controls playsinline></video>
@@ -177,9 +177,7 @@
         <h2 id="review-title"></h2>
         <p id="review-reason"></p>
         <div class="review-kbd">
-          <kbd>←</kbd><kbd>→</kbd> navigate ·
-          <kbd>Space</kbd> play / pause ·
-          <kbd>1</kbd> Keep · <kbd>2</kbd> Maybe · <kbd>3</kbd> Skip
+          <kbd>←→</kbd> navigate, <kbd>Space</kbd> play/pause, <kbd>1</kbd> Keep, <kbd>2</kbd> Maybe, <kbd>3</kbd> Skip
         </div>
       </div>
     </div>
