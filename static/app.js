@@ -41,6 +41,7 @@
   ];
   const clipRev = {}; // clip id → cache-busting token after a restyle
   const restyleState = {}; // clip id → {busy, kind, message, draft}
+  const applyAllState = { busy: false, draft: null }; // batch caption restyle: one choice applied to every ready clip
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
 
@@ -503,7 +504,7 @@
       : "Open the folder containing the ready clips";
     const newProject = $("new-project-btn");
     const active = isProcessing(p.status);
-    const restyleBusy = Object.values(restyleState).some((state) => state.busy);
+    const restyleBusy = applyAllState.busy || Object.values(restyleState).some((state) => state.busy);
     newProject.disabled = cancellationPending || restyleBusy;
     newProject.textContent = restyleBusy
       ? "Applying captions…"
@@ -513,6 +514,7 @@
     newProject.title = active
       ? "Cancel processing first. Completed clips will stay available."
       : "Leave this project and choose another MP4";
+    syncApplyAll(p, ready);
 
     // Empty (quality bar) state
     $("empty-results").classList.toggle("hidden", !(p.status === "complete" && total === 0));
@@ -855,6 +857,196 @@
     return box;
   }
 
+  // Batch caption restyle: one style/color/font choice applied to every ready
+  // clip by driving the same per-clip endpoint the individual Apply buttons use.
+  let applyAllEls = null;
+  function syncApplyAll(p, ready) {
+    const group = $("apply-all-group");
+    if (!group) return;
+    const show = view.caption_only !== true && ready.length >= 2 && p.status === "complete";
+    group.hidden = !show;
+    if (!show) return;
+    if (!applyAllState.draft) {
+      applyAllState.draft = { style: captionStyle, color: accentColor, font: captionDefaultFont };
+    }
+    if (group.childElementCount === 0) buildApplyAllControls(group);
+    syncApplyAllControls();
+  }
+
+  function buildApplyAllControls(group) {
+    const seg = document.createElement("div");
+    seg.className = "seg";
+    seg.setAttribute("role", "group");
+    seg.setAttribute("aria-label", "Caption style for all clips");
+    const styleBtns = ["impact", "clean"].map((s) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "seg-btn";
+      b.textContent = s === "impact" ? "Impact" : "Clean";
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", () => {
+        applyAllState.draft.style = s;
+        syncApplyAllControls();
+      });
+      seg.appendChild(b);
+      return [s, b];
+    });
+
+    const swatches = document.createElement("div");
+    swatches.className = "swatches";
+    swatches.setAttribute("role", "group");
+    swatches.setAttribute("aria-label", "Caption highlight color for all clips");
+    const swatchBtns = ACCENT_PRESETS.map(({ name, color }) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "swatch";
+      b.style.background = color;
+      b.setAttribute("aria-label", `Use ${name} caption highlight, ${color}`);
+      b.setAttribute("aria-pressed", "false");
+      b.title = `${name} (${color})`;
+      b.addEventListener("click", () => {
+        applyAllState.draft.color = color;
+        syncApplyAllControls();
+      });
+      swatches.appendChild(b);
+      return [color, b];
+    });
+    const customPicker = document.createElement("label");
+    customPicker.className = "custom-color-picker";
+    const customLabel = document.createElement("span");
+    customLabel.textContent = "Custom";
+    const custom = document.createElement("input");
+    custom.type = "color";
+    custom.className = "custom-color";
+    custom.setAttribute("aria-label", "Custom caption highlight color");
+    custom.title = "Custom caption highlight color";
+    custom.addEventListener("input", (e) => {
+      applyAllState.draft.color = e.target.value.toUpperCase();
+      syncApplyAllControls();
+    });
+    customPicker.appendChild(customLabel);
+    customPicker.appendChild(custom);
+    swatches.appendChild(customPicker);
+
+    const fontPicker = document.createElement("label");
+    fontPicker.className = "font-picker";
+    const fontLabel = document.createElement("span");
+    fontLabel.textContent = "Font";
+    const font = document.createElement("select");
+    font.className = "font-select";
+    font.setAttribute("aria-label", "Caption font for all clips");
+    font.title = "Caption font for all clips";
+    font.addEventListener("change", () => {
+      applyAllState.draft.font = font.value;
+      syncApplyAllControls();
+    });
+    fontPicker.appendChild(fontLabel);
+    fontPicker.appendChild(font);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Apply to all";
+    btn.addEventListener("click", applyToAll);
+
+    group.appendChild(seg);
+    group.appendChild(swatches);
+    group.appendChild(fontPicker);
+    group.appendChild(btn);
+    applyAllEls = { styleBtns, swatchBtns, custom, font, btn };
+  }
+
+  function syncApplyAllControls() {
+    if (!applyAllEls || !applyAllState.draft) return;
+    const { styleBtns, swatchBtns, custom, font, btn } = applyAllEls;
+    const draft = applyAllState.draft;
+    for (const [s, b] of styleBtns) {
+      const selected = s === draft.style;
+      b.classList.toggle("active", selected);
+      b.setAttribute("aria-pressed", String(selected));
+    }
+    for (const [color, b] of swatchBtns) {
+      const selected = color === draft.color;
+      b.classList.toggle("active", selected);
+      b.setAttribute("aria-pressed", String(selected));
+    }
+    const customSelected = !ACCENT_PRESETS.some((entry) => entry.color === draft.color);
+    custom.classList.toggle("active", customSelected);
+    custom.setAttribute("aria-pressed", String(customSelected));
+    custom.value = draft.color;
+    font.innerHTML = "";
+    const availableFonts = captionFonts.includes(draft.font)
+      ? captionFonts
+      : [draft.font, ...captionFonts];
+    for (const name of availableFonts) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      option.selected = name === draft.font;
+      font.appendChild(option);
+    }
+    btn.disabled = applyAllState.busy;
+    btn.textContent = applyAllState.busy ? "Applying…" : "Apply to all";
+  }
+
+  async function applyToAll() {
+    if (applyAllState.busy || !projectId || !view) return;
+    const ready = (view.clips || []).filter((c) => c.status === "ready");
+    if (ready.length === 0) return;
+    applyAllState.busy = true;
+    const draft = { ...applyAllState.draft };
+    let appliedCount = 0;
+    const failed = [];
+    for (const c of ready) {
+      const state = restyleState[c.id] || {};
+      state.busy = true;
+      state.kind = "busy";
+      state.message = "Applying captions…";
+      restyleState[c.id] = state;
+      render();
+      try {
+        const updated = await requestJson(`/api/projects/${projectId}/clips/${c.id}/restyle`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ style: draft.style, accent_color: draft.color, font: draft.font }),
+        }, "Captions could not be updated.");
+        captionStyle = draft.style;
+        accentColor = draft.color;
+        localStorage.setItem("cf-caption-style", captionStyle);
+        localStorage.setItem("cf-accent-color", accentColor);
+        clipRev[c.id] = Date.now();
+        const i = (view.clips || []).findIndex((x) => x.id === c.id);
+        if (i >= 0) view.clips[i] = updated;
+        const st = restyleState[c.id];
+        st.busy = false;
+        st.dirty = false;
+        st.awaitingPreview = true;
+        st.kind = "busy";
+        st.message = "Captions saved. Refreshing preview…";
+        st.draft = {
+          style: updated.caption_style || draft.style,
+          color: (updated.accent_color || draft.color).toUpperCase(),
+          font: updated.caption_font || draft.font,
+        };
+        appliedCount++;
+      } catch (err) {
+        const st = restyleState[c.id];
+        st.busy = false;
+        st.dirty = true;
+        st.kind = "status-error";
+        st.message = err.message;
+        failed.push(c.headline || c.id);
+      }
+      render();
+    }
+    applyAllState.busy = false;
+    render();
+    if (failed.length) {
+      showActionMessage(`Applied to ${appliedCount} clip${appliedCount === 1 ? "" : "s"}; failed: ${failed.join(", ")}`);
+    } else {
+      showActionMessage(`Captions applied to all ${appliedCount} clips.`);
+    }
+  }
+
   // ------------------------------------------------------------------ elapsed
   function startElapsed(p) {
     stopElapsed();
@@ -939,7 +1131,7 @@
       }
       return;
     }
-    if (Object.values(restyleState).some((state) => state.busy)) {
+    if (applyAllState.busy || Object.values(restyleState).some((state) => state.busy)) {
       showActionMessage("Wait for the caption update to finish before starting another project.", "notice");
       return;
     }
