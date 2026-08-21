@@ -61,7 +61,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.en.bin \
 cargo run --release
 ```
 
-The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts. No episode handy? **Run the sample** on the empty state synthesizes a short demo episode in your data directory (macOS speech narration over a generated video pattern, or a sine tone where speech synthesis is unavailable) and runs it through the same pipeline. The sample is procedurally generated at runtime — the repository ships no media, and nothing copyrighted is involved.
 
 ### Linux
 

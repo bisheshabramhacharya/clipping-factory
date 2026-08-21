@@ -141,6 +141,7 @@
   function wireUpload() {
     const drop = $("drop");
     $("choose-btn").addEventListener("click", () => $("file-input").click());
+    $("sample-btn").addEventListener("click", runSample);
     $("file-input").addEventListener("change", (e) => {
       if (e.target.files[0]) uploadFile(e.target.files[0]);
     });
@@ -254,6 +255,27 @@
       resetToEmpty({ message: "Upload failed. Check that the local server is still running." });
     };
     xhr.send(form);
+  }
+
+  async function runSample() {
+    if (uploadXhr) return;
+    $("drop").classList.add("hidden");
+    $("upload-progress").classList.remove("hidden");
+    $("cancel-upload-btn").disabled = true;
+    setUploadPhase("Preparing sample episode…", null);
+    try {
+      const res = await fetch("/api/sample", { method: "POST" });
+      const v = await res.json();
+      if (!res.ok) throw new Error(v.error || "The sample could not be created.");
+      projectId = v.project.id;
+      localStorage.setItem("cf-project", projectId);
+      view = v;
+      clearActionMessage();
+      connectSse();
+      render();
+    } catch (err) {
+      resetToEmpty({ message: err.message || "The sample could not be created." });
+    }
   }
 
   function setUploadPhase(label, percent) {

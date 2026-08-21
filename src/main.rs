@@ -13,6 +13,7 @@ mod frame;
 mod media;
 mod pipeline;
 mod render;
+mod sample;
 mod select;
 mod settings;
 mod state;
