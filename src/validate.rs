@@ -63,6 +63,12 @@ pub fn validate(
         if s.self_contained < 4 {
             reasons.push(format!("self_contained {} is below 4", s.self_contained));
         }
+        if s.opening_strength < 4 {
+            reasons.push(format!(
+                "opening_strength {} is below 4",
+                s.opening_strength
+            ));
+        }
         if s.payoff < 3 {
             reasons.push(format!("payoff {} is below 3", s.payoff));
         }
@@ -352,6 +358,7 @@ mod tests {
         let t = transcript(1500, 400);
         for (field, value) in [
             ("self_contained", 3u8),
+            ("opening_strength", 3),
             ("payoff", 2),
             ("clarity", 3),
             ("context_dependency", 3),
@@ -360,6 +367,7 @@ mod tests {
             let mut s = good_scores();
             match field {
                 "self_contained" => s.self_contained = value,
+                "opening_strength" => s.opening_strength = value,
                 "payoff" => s.payoff = value,
                 "clarity" => s.clarity = value,
                 "context_dependency" => s.context_dependency = value,
@@ -492,8 +500,8 @@ mod tests {
         let t = transcript(1500, 400);
         let strong = cand(&t, 10_000, 70_000, good_scores());
         let mut weaker_scores = good_scores();
-        weaker_scores.opening_strength = 3; // lower composite
-                                            // 40s candidate overlapping 30s with `strong` → 75% overlap → rejected.
+        weaker_scores.tension_or_novelty = 3;
+        // 40s candidate overlapping 30s with `strong` → 75% overlap → rejected.
         let overlapping = cand(&t, 40_000, 80_000, weaker_scores);
         // Distant candidate survives.
         let distant = cand(&t, 200_000, 250_000, weaker_scores);
@@ -535,7 +543,7 @@ mod tests {
         let (containing_start, containing_end) = interval("lower_ranked");
         let strong = cand(&t, strong_start, strong_end, good_scores());
         let mut weaker_scores = good_scores();
-        weaker_scores.opening_strength = 3;
+        weaker_scores.tension_or_novelty = 3;
         let containing = cand(&t, containing_start, containing_end, weaker_scores);
         let r = validate(vec![strong, containing], &t, SRC, "t".into());
         assert_eq!(r.accepted.len(), 1);
@@ -548,7 +556,7 @@ mod tests {
         let t = transcript(1500, 400);
         let strong = cand(&t, 10_000, 30_000, good_scores());
         let mut weaker_scores = good_scores();
-        weaker_scores.opening_strength = 3;
+        weaker_scores.tension_or_novelty = 3;
         let mostly_distinct = cand(&t, 23_000, 113_000, weaker_scores);
         let r = validate(vec![strong, mostly_distinct], &t, SRC, "t".into());
         assert_eq!(r.accepted.len(), 2, "reasons: {:?}", r.rejected);

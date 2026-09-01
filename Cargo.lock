@@ -189,11 +189,10 @@ dependencies = [
  "rustface",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
- "tower-http",
+ "tower",
  "tracing",
  "tracing-subscriber",
  "uuid",
@@ -1630,7 +1629,6 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
- "tracing",
  "url",
 ]
 

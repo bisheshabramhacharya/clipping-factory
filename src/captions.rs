@@ -8,6 +8,7 @@
 //!   in the lower safe area, one accent color on the active word.
 
 use crate::domain::Word;
+use crate::render::{OUT_H, OUT_W};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CaptionStyle {
@@ -327,12 +328,13 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
         top = BLOCK_BOTTOM_MAX - total_h;
     }
     let mut cursor = top;
+    let cx = OUT_W as f32 / 2.0;
     for (li, line) in lines.iter_mut().enumerate() {
         let lh = line.fs * LINE_PITCH;
         line.y = cursor + lh / 2.0;
         cursor += lh;
         line.x = if line.emphasis {
-            540.0
+            cx
         } else {
             // Mild raggedness that always stays on-canvas.
             let chars: usize = line
@@ -342,13 +344,13 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
                 .sum::<usize>()
                 + line.word_idx.len().saturating_sub(1);
             let w = chars as f32 * CHAR_EM_LOWER * line.fs;
-            let max_dx = ((1080.0 - w) / 2.0 - 50.0).max(0.0);
+            let max_dx = ((OUT_W as f32 - w) / 2.0 - 50.0).max(0.0);
             let dx: f32 = if (li + page_no).is_multiple_of(2) {
                 -34.0
             } else {
                 34.0
             };
-            540.0 + dx.clamp(-max_dx, max_dx)
+            cx + dx.clamp(-max_dx, max_dx)
         };
     }
     lines
@@ -464,8 +466,8 @@ fn impact_header(font: &str) -> String {
         "[Script Info]\n\
          Title: Clipping Factory captions (impact)\n\
          ScriptType: v4.00+\n\
-         PlayResX: 1080\n\
-         PlayResY: 1920\n\
+         PlayResX: {OUT_W}\n\
+         PlayResY: {OUT_H}\n\
          WrapStyle: 2\n\
          ScaledBorderAndShadow: yes\n\
          \n\
@@ -609,8 +611,8 @@ fn clean_header(font: &str) -> String {
         "[Script Info]\n\
          Title: Clipping Factory captions (clean)\n\
          ScriptType: v4.00+\n\
-         PlayResX: 1080\n\
-         PlayResY: 1920\n\
+         PlayResX: {OUT_W}\n\
+         PlayResY: {OUT_H}\n\
          WrapStyle: 2\n\
          ScaledBorderAndShadow: yes\n\
          \n\
@@ -699,9 +701,20 @@ fn ass_time(ms: u64) -> String {
     format!("{}:{:02}:{:02}.{:02}", h, m, s, cs)
 }
 
-/// ASS treats `{}` as override blocks and `\` as escapes — neutralize them.
+/// Keep user/model text inside one ASS event line. ASS treats `{}` as
+/// override blocks and `\` as escapes; CR/LF and other controls can inject or
+/// corrupt event records.
 fn escape(s: &str) -> String {
-    s.replace('{', "(").replace('}', ")").replace('\\', "/")
+    s.chars()
+        .map(|ch| match ch {
+            '{' => '(',
+            '}' => ')',
+            '\\' => '/',
+            '\r' | '\n' => ' ',
+            ch if ch.is_control() => ' ',
+            ch => ch,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -783,7 +796,31 @@ mod tests {
 
     #[test]
     fn escapes_ass_control_characters() {
-        assert_eq!(escape(r"a{b}c\d"), "a(b)c/d");
+        assert_eq!(escape("a{b}c\\d\r\ne\u{0007}f"), "a(b)c/d  e f");
+    }
+
+    #[test]
+    fn multiline_headline_and_caption_text_cannot_inject_ass_events() {
+        let words = vec![Word {
+            text: "first\nDialogue: 9,0:00:00.00,bad\rline".into(),
+            start_ms: 0,
+            end_ms: 1000,
+            p: 0.9,
+        }];
+        let ass = build_ass(
+            &CaptionInput {
+                words: &words,
+                clip_start_ms: 0,
+                clip_end_ms: 1000,
+                headline: "headline\r\nDialogue: injected",
+                font: "Inter",
+                accent_bgr: accent_bgr_for(CaptionStyle::Clean, None),
+            },
+            CaptionStyle::Clean,
+        );
+        assert!(!ass.contains("\nDialogue: injected"), "{ass}");
+        assert!(!ass.contains("\nDialogue: 9"), "{ass}");
+        assert!(ass.lines().all(|line| !line.contains('\r')));
     }
 
     // ---- Impact style ----
@@ -1009,6 +1046,16 @@ mod tests {
         let ass = build_ass(&inp, CaptionStyle::Impact);
         assert!(ass.contains("4FFF7C"), "custom green accent present");
         assert!(!ass.contains("00DDFF"), "default yellow fully replaced");
+    }
+
+    /// Both caption styles must be authored against the exact render canvas,
+    /// so libass scales coordinates the way the renderer crops them.
+    #[test]
+    fn ass_headers_pin_the_output_canvas() {
+        for ass in [impact_header("Inter"), clean_header("Inter")] {
+            assert!(ass.contains("PlayResX: 1080\n"), "{ass}");
+            assert!(ass.contains("PlayResY: 1920\n"), "{ass}");
+        }
     }
 
     #[test]

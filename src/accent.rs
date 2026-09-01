@@ -1,6 +1,10 @@
 use anyhow::{bail, Context, Result};
 use std::path::Path;
+use std::process::Output;
+use std::time::Duration;
 use tokio::process::Command;
+
+const VIDEO_TOOL_TIMEOUT: Duration = Duration::from_secs(15);
 
 pub const ACCENT_PALETTE: [&str; 6] = [
     "#FFDD00", "#7CFF4F", "#FF4F4F", "#4FB5FF", "#C77DFF", "#FF9F1C",
@@ -91,22 +95,30 @@ fn relative_luminance(rgb: [f64; 3]) -> f64 {
     0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2])
 }
 
+async fn bounded_output(mut command: Command, timeout: Duration) -> Result<Output> {
+    command.kill_on_drop(true);
+    tokio::time::timeout(timeout, command.output())
+        .await
+        .map_err(|_| anyhow::anyhow!("video color analysis timed out"))?
+        .context("could not run video color analysis")
+}
+
 pub async fn optimized_accent_for_video(
     ffmpeg: &str,
     ffprobe: &str,
     source: &Path,
 ) -> Result<&'static str> {
-    let probe = Command::new(ffprobe)
-        .args([
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            &source.to_string_lossy(),
-        ])
-        .output()
+    let mut probe_command = Command::new(ffprobe);
+    probe_command.args([
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        &source.to_string_lossy(),
+    ]);
+    let probe = bounded_output(probe_command, VIDEO_TOOL_TIMEOUT)
         .await
         .context("could not inspect video duration")?;
     if !probe.status.success() {
@@ -120,26 +132,26 @@ pub async fn optimized_accent_for_video(
     let mut pixels = Vec::with_capacity(16 * 16 * 4);
     for fraction in [0.1, 0.35, 0.65, 0.9] {
         let timestamp = (duration * fraction).max(0.0).to_string();
-        let output = Command::new(ffmpeg)
-            .args([
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-ss",
-                &timestamp,
-                "-i",
-                &source.to_string_lossy(),
-                "-vf",
-                "scale=16:16",
-                "-frames:v",
-                "1",
-                "-f",
-                "rawvideo",
-                "-pix_fmt",
-                "rgb24",
-                "pipe:1",
-            ])
-            .output()
+        let mut sample_command = Command::new(ffmpeg);
+        sample_command.args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            &timestamp,
+            "-i",
+            &source.to_string_lossy(),
+            "-vf",
+            "scale=16:16",
+            "-frames:v",
+            "1",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "pipe:1",
+        ]);
+        let output = bounded_output(sample_command, VIDEO_TOOL_TIMEOUT)
             .await
             .context("could not sample video colors")?;
         if !output.status.success() {
@@ -148,7 +160,9 @@ pub async fn optimized_accent_for_video(
         pixels.extend(
             output
                 .stdout
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .map(|rgb| [rgb[0], rgb[1], rgb[2]]),
         );
     }
@@ -176,6 +190,20 @@ mod tests {
         for _ in 0..32 {
             assert!(ACCENT_PALETTE.contains(&random_accent()));
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn bounded_output_times_out_a_sleeping_child_quickly() {
+        let started = std::time::Instant::now();
+        let command = Command::new("/bin/sleep");
+        let mut command = command;
+        command.arg("5");
+        let error = bounded_output(command, Duration::from_millis(50))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 
     #[test]

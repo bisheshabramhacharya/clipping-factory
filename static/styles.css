@@ -141,13 +141,11 @@ a:hover { text-decoration: underline; }
 .banner.action.notice { border-left-color: var(--accent); }
 
 /* ---- Stage ---- */
-#stage { min-height: 0; }
+#stage { min-height: 0; overflow-y: auto; }
 #stage > section {
-  height: 100%;
+  min-height: 100%;
   display: flex; flex-direction: column;
-  min-height: 0;
   padding-block: 20px;
-  overflow-y: auto;
 }
 
 /* ---- Upload ---- */
@@ -633,8 +631,13 @@ body.modal-open { overflow: hidden; }
   .results-actions button { flex: 1; min-width: 0; padding-inline: 8px; }
   .error { flex-direction: column; align-items: stretch; }
   .error-actions button { flex: 1; }
-  .restyle .seg, .restyle .swatches, .restyle .font-picker, .restyle .apply-captions { width: 100%; }
+  .restyle {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .restyle .seg, .restyle .swatches, .restyle .font-picker, .restyle .apply-captions { width: 100%; min-width: 0; }
   .restyle .seg-btn { flex: 1; }
+  .restyle .swatches { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {

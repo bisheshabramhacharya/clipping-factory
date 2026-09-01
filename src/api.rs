@@ -19,8 +19,9 @@ use crate::domain::*;
 use crate::pipeline;
 use crate::settings::AiSettings;
 use crate::state::AppState;
-use axum::extract::{DefaultBodyLimit, Multipart, Path as AxPath, State};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::extract::{multipart::Field, DefaultBodyLimit, Multipart, Path as AxPath, State};
+use axum::http::{header, HeaderMap, Method, Request, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
@@ -32,6 +33,8 @@ use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use tokio_stream::wrappers::BroadcastStream;
 
+const API_BODY_LIMIT: usize = 1024 * 1024;
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index_html))
@@ -41,7 +44,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/setup", get(setup_status))
         .route("/api/settings/ai", get(get_settings).post(set_settings))
         .route("/api/settings/ai/test", post(test_settings))
-        .route("/api/projects", post(create_project))
+        .route(
+            "/api/projects",
+            post(create_project).layer(DefaultBodyLimit::disable()),
+        )
         .route("/api/projects/{id}", get(get_project))
         .route("/api/projects/{id}/events", get(project_events))
         .route("/api/projects/{id}/process", post(process_project))
@@ -60,14 +66,79 @@ pub fn router(state: AppState) -> Router {
             "/api/projects/{id}/open-output-folder",
             post(open_output_folder),
         )
-        .layer(DefaultBodyLimit::disable())
+        .layer(middleware::from_fn(local_mutation_guard))
+        .layer(DefaultBodyLimit::max(API_BODY_LIMIT))
         .with_state(state)
+}
+
+fn is_mutating(method: &Method) -> bool {
+    !matches!(
+        *method,
+        Method::GET | Method::HEAD | Method::OPTIONS | Method::TRACE
+    )
+}
+
+fn loopback_host(host: &str) -> bool {
+    let Ok(authority) = host.parse::<axum::http::uri::Authority>() else {
+        return false;
+    };
+    let hostname = authority.host();
+    hostname.eq_ignore_ascii_case("localhost")
+        || hostname
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+}
+
+async fn local_mutation_guard(request: Request<axum::body::Body>, next: Next) -> Response {
+    if !is_mutating(request.method()) {
+        return next.run(request).await;
+    }
+    let headers = request.headers();
+    let Some(host) = headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return ApiError(
+            StatusCode::FORBIDDEN,
+            "Mutating requests require a local Host.".into(),
+        )
+        .into_response();
+    };
+    if !loopback_host(host) {
+        return ApiError(
+            StatusCode::FORBIDDEN,
+            "Mutating requests require a loopback Host.".into(),
+        )
+        .into_response();
+    }
+    if headers
+        .get("sec-fetch-site")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.eq_ignore_ascii_case("cross-site"))
+    {
+        return ApiError(
+            StatusCode::FORBIDDEN,
+            "Cross-site mutations are not allowed.".into(),
+        )
+        .into_response();
+    }
+    if let Some(origin) = headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+    {
+        if origin != format!("http://{host}") {
+            return ApiError(StatusCode::FORBIDDEN, "Origin does not match Host.".into())
+                .into_response();
+        }
+    }
+    next.run(request).await
 }
 
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 
+#[derive(Debug)]
 pub struct ApiError(StatusCode, String);
 
 impl IntoResponse for ApiError {
@@ -174,7 +245,8 @@ async fn set_settings(
     State(state): State<AppState>,
     Json(body): Json<SettingsIn>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    if !["openai", "anthropic", "offline"].contains(&body.provider.as_str()) {
+    let _update = state.settings_update.lock().await;
+    if crate::settings::Provider::parse(&body.provider).is_none() {
         return Err(bad_request(
             "provider must be openai, anthropic, or offline",
         ));
@@ -218,6 +290,7 @@ async fn test_settings(State(state): State<AppState>) -> Json<serde_json::Value>
 // Projects
 // ---------------------------------------------------------------------------
 
+#[derive(Debug)]
 struct UploadFields {
     original_name: String,
     caption_style: Option<String>,
@@ -226,18 +299,65 @@ struct UploadFields {
 }
 
 const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
+/// Absolute fallback when `df` is unavailable. This keeps a failed disk probe
+/// from turning the upload endpoint into an unlimited byte sink.
+const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+const MAX_MULTIPART_TEXT_BYTES: usize = 16 * 1024;
 
-fn upload_capacity_bytes(free_gb: Option<f64>) -> Option<u64> {
-    free_gb.map(|gb| {
+fn upload_capacity_bytes(free_gb: Option<f64>) -> u64 {
+    let disk_capacity = free_gb.map(|gb| {
         let free_bytes = (gb.max(0.0) * 1024.0 * 1024.0 * 1024.0) as u64;
         free_bytes.saturating_sub(UPLOAD_DISK_RESERVE_BYTES)
-    })
+    });
+    disk_capacity
+        .unwrap_or(MAX_SOURCE_BYTES)
+        .min(MAX_SOURCE_BYTES)
+}
+
+async fn read_multipart_text(mut field: Field<'_>) -> Result<String, ApiError> {
+    let mut bytes = Vec::new();
+    while let Some(chunk) = field
+        .chunk()
+        .await
+        .map_err(|error| bad_request(format!("upload metadata error: {error}")))?
+    {
+        if bytes.len().saturating_add(chunk.len()) > MAX_MULTIPART_TEXT_BYTES {
+            return Err(bad_request("Upload metadata field is too large."));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8(bytes).map_err(|_| bad_request("Upload metadata must be UTF-8."))
 }
 
 async fn cleanup_upload(state: &AppState, id: &str) {
     tokio::fs::remove_dir_all(state.store.project_dir(id))
         .await
         .ok();
+}
+
+struct UploadReservationGuard {
+    state: AppState,
+    bytes: u64,
+}
+
+impl UploadReservationGuard {
+    fn new(state: AppState) -> Self {
+        Self { state, bytes: 0 }
+    }
+
+    fn reserve(&mut self, bytes: u64, capacity: u64) -> bool {
+        if !self.state.reserve_upload_bytes(bytes, capacity) {
+            return false;
+        }
+        self.bytes = self.bytes.saturating_add(bytes);
+        true
+    }
+}
+
+impl Drop for UploadReservationGuard {
+    fn drop(&mut self) {
+        self.state.release_upload_bytes(self.bytes);
+    }
 }
 
 struct UploadCleanupGuard {
@@ -278,6 +398,7 @@ async fn receive_upload(
     let dest = state.store.source_path(id);
     let upload_capacity =
         upload_capacity_bytes(crate::util::disk_free_gb(&state.cfg.data_dir).await);
+    let mut reservation = UploadReservationGuard::new(state.clone());
 
     let mut original_name = String::new();
     let mut wrote_bytes: u64 = 0;
@@ -285,6 +406,7 @@ async fn receive_upload(
     let mut accent_color: Option<String> = None;
     let mut accent_mode = crate::accent::AccentMode::default();
     let mut framing_mode = FramingMode::default();
+    let mut saw_file = false;
 
     while let Some(mut field) = multipart
         .next_field()
@@ -292,47 +414,44 @@ async fn receive_upload(
         .map_err(|e| bad_request(format!("upload error: {e}")))?
     {
         if field.name() == Some("caption_style") {
-            if let Ok(v) = field.text().await {
-                let v = v.trim().to_lowercase();
-                if v == "impact" || v == "clean" {
-                    caption_style = Some(v);
-                }
+            let v = read_multipart_text(field).await?.trim().to_lowercase();
+            if crate::captions::CaptionStyle::parse_strict(&v).is_some() {
+                caption_style = Some(v);
             }
             continue;
         }
         if field.name() == Some("accent_color") {
-            if let Ok(v) = field.text().await {
-                let v = v.trim().to_string();
-                if crate::captions::hex_to_ass_bgr(&v).is_some() {
-                    accent_color = Some(if v.starts_with('#') {
-                        v
-                    } else {
-                        format!("#{v}")
-                    });
-                }
+            let v = read_multipart_text(field).await?.trim().to_string();
+            if crate::captions::hex_to_ass_bgr(&v).is_some() {
+                accent_color = Some(if v.starts_with('#') {
+                    v
+                } else {
+                    format!("#{v}")
+                });
             }
             continue;
         }
         if field.name() == Some("accent_mode") {
-            if let Ok(v) = field.text().await {
-                accent_mode = crate::accent::AccentMode::parse(&v).ok_or_else(|| {
-                    bad_request("accent_mode must be manual, random, or optimized")
-                })?;
-            }
+            let v = read_multipart_text(field).await?;
+            accent_mode = crate::accent::AccentMode::parse(&v)
+                .ok_or_else(|| bad_request("accent_mode must be manual, random, or optimized"))?;
             continue;
         }
         if field.name() == Some("framing_mode") {
-            if let Ok(v) = field.text().await {
-                framing_mode = match v.trim() {
-                    "background" => FramingMode::Background,
-                    _ => FramingMode::Fill,
-                };
-            }
+            let v = read_multipart_text(field).await?;
+            framing_mode = match v.trim() {
+                "background" => FramingMode::Background,
+                _ => FramingMode::Fill,
+            };
             continue;
         }
         if field.name() != Some("file") {
             continue;
         }
+        if saw_file {
+            return Err(bad_request("Attach exactly one MP4 file."));
+        }
+        saw_file = true;
         original_name = field.file_name().unwrap_or("source.mp4").to_string();
         let lower = original_name.to_lowercase();
         if !(lower.ends_with(".mp4") || lower.ends_with(".m4v")) {
@@ -351,9 +470,9 @@ async fn receive_upload(
             .map_err(|e| bad_request(format!("upload interrupted: {e}")))?
         {
             let next_size = wrote_bytes.saturating_add(chunk.len() as u64);
-            if upload_capacity.is_some_and(|capacity| next_size > capacity) {
+            if !reservation.reserve(chunk.len() as u64, upload_capacity) {
                 return Err(bad_request(
-                    "Not enough free disk space for this video. Free up space and try again.",
+                    "Video exceeds the upload limit or available disk space. Free up space and try again.",
                 ));
             }
             wrote_bytes = next_size;
@@ -1025,6 +1144,9 @@ async fn open_output_folder(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    if !state.store.exists(&id) {
+        return Err(not_found("Project not found."));
+    }
     let manifest = state.store.load_manifest(&id).await.ok();
     let dir = manifest
         .and_then(|m| m.output_dir)
@@ -1044,6 +1166,7 @@ mod tests {
     use axum::body::{Body, Bytes};
     use axum::extract::FromRequest;
     use axum::http::Request;
+    use tower::ServiceExt;
 
     #[test]
     fn byte_ranges_support_open_ended_and_suffix_requests() {
@@ -1063,12 +1186,138 @@ mod tests {
 
     #[test]
     fn upload_capacity_keeps_one_gibibyte_free() {
+        assert_eq!(upload_capacity_bytes(Some(3.0)), 2 * 1024 * 1024 * 1024);
+        assert_eq!(upload_capacity_bytes(Some(0.5)), 0);
+        assert_eq!(upload_capacity_bytes(None), MAX_SOURCE_BYTES);
+        assert_eq!(upload_capacity_bytes(Some(1000.0)), MAX_SOURCE_BYTES);
+    }
+
+    fn test_state() -> (AppState, PathBuf) {
+        let tmp = std::env::temp_dir().join(format!("cf-api-{}", crate::util::short_id()));
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        (AppState::new(cfg), tmp)
+    }
+
+    #[tokio::test]
+    async fn router_rejects_cross_site_and_non_loopback_mutations_but_allows_local_cli() {
+        let (state, tmp) = test_state();
+        let app = router(state);
+        let request =
+            |host: &'static str, origin: Option<&'static str>, fetch_site: Option<&'static str>| {
+                let mut builder =
+                    Request::post("/api/projects/missing/process").header(header::HOST, host);
+                if let Some(origin) = origin {
+                    builder = builder.header(header::ORIGIN, origin);
+                }
+                if let Some(fetch_site) = fetch_site {
+                    builder = builder.header("sec-fetch-site", fetch_site);
+                }
+                builder.body(Body::empty()).unwrap()
+            };
+
         assert_eq!(
-            upload_capacity_bytes(Some(3.0)),
-            Some(2 * 1024 * 1024 * 1024)
+            app.clone()
+                .oneshot(request("example.com", None, None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
         );
-        assert_eq!(upload_capacity_bytes(Some(0.5)), Some(0));
-        assert_eq!(upload_capacity_bytes(None), None);
+        assert_eq!(
+            app.clone()
+                .oneshot(request("localhost:4571", Some("http://evil.test"), None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(request("127.0.0.1:4571", None, Some("cross-site")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            app.oneshot(request("127.0.0.1:4571", None, None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn router_keeps_json_limit_on_api_routes() {
+        let (state, tmp) = test_state();
+        let body = format!(
+            r#"{{"provider":"offline","model":"{}"}}"#,
+            "x".repeat(API_BODY_LIMIT)
+        );
+        let response = router(state)
+            .oneshot(
+                Request::post("/api/settings/ai")
+                    .header(header::HOST, "localhost:4571")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn multipart_metadata_is_capped_while_large_file_streams() {
+        let (state, tmp) = test_state();
+        let id = crate::util::short_id();
+        let boundary = "cf-large-upload";
+        let file_bytes = vec![b'x'; API_BODY_LIMIT + 1024];
+        let mut body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"caption_style\"\r\n\r\nimpact\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\n"
+        ).into_bytes();
+        body.extend_from_slice(&file_bytes);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        let request = Request::builder()
+            .header(
+                header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(Body::from(body))
+            .unwrap();
+        let multipart = Multipart::from_request(request, &()).await.unwrap();
+        receive_upload(&state, &id, multipart).await.unwrap();
+        assert_eq!(
+            tokio::fs::metadata(state.store.source_path(&id))
+                .await
+                .unwrap()
+                .len(),
+            file_bytes.len() as u64
+        );
+
+        let oversized_id = crate::util::short_id();
+        let oversized = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"caption_style\"\r\n\r\n{}\r\n--{boundary}--\r\n",
+            "x".repeat(MAX_MULTIPART_TEXT_BYTES + 1)
+        );
+        let request = Request::builder()
+            .header(
+                header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(Body::from(oversized))
+            .unwrap();
+        let multipart = Multipart::from_request(request, &()).await.unwrap();
+        let error = receive_upload(&state, &oversized_id, multipart)
+            .await
+            .unwrap_err();
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        tokio::fs::remove_dir_all(tmp).await.ok();
     }
 
     #[tokio::test]
@@ -1091,6 +1340,17 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), 6).await.unwrap();
         assert_eq!(&body[..], b"456789");
 
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn open_output_folder_returns_not_found_for_unknown_project() {
+        let (state, tmp) = test_state();
+        let error = match open_output_folder(State(state), AxPath("missing".into())).await {
+            Ok(_) => panic!("unknown project must not reach the opener"),
+            Err(error) => error,
+        };
+        assert_eq!(error.0, StatusCode::NOT_FOUND);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

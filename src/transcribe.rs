@@ -270,12 +270,22 @@ fn parse_words(v: &serde_json::Value) -> Vec<Word> {
         } else {
             0.5
         };
-        words.push(Word {
-            text,
-            start_ms: from,
-            end_ms: to.max(from),
-            p,
-        });
+        let lexical_words = text
+            .split_whitespace()
+            .filter(|word| word.chars().any(char::is_alphanumeric))
+            .collect::<Vec<_>>();
+        let end = to.max(from);
+        let duration = end.saturating_sub(from);
+        let count = lexical_words.len() as u64;
+        for (index, word) in lexical_words.into_iter().enumerate() {
+            let index = index as u64;
+            words.push(Word {
+                text: word.to_string(),
+                start_ms: from.saturating_add(duration.saturating_mul(index) / count),
+                end_ms: from.saturating_add(duration.saturating_mul(index + 1) / count),
+                p,
+            });
+        }
     }
     words
 }
@@ -378,6 +388,34 @@ mod tests {
                 ("Fast", 100, 180),
                 ("slowly", 400, 900),
                 ("now.", 950, 1050),
+            ]
+        );
+    }
+
+    #[test]
+    fn segment_timing_is_distributed_when_tokens_have_no_usable_offsets() {
+        let parsed = serde_json::json!({
+            "transcription": [{
+                "offsets": {"from": 1000, "to": 2200},
+                "text": "Three lexical words.",
+                "tokens": [
+                    {"text": " Three", "p": 0.9},
+                    {"text": " lexical", "p": 0.8},
+                    {"text": " words.", "p": 0.7}
+                ]
+            }]
+        });
+
+        let words = parse_words(&parsed);
+        assert_eq!(
+            words
+                .iter()
+                .map(|word| (word.text.as_str(), word.start_ms, word.end_ms))
+                .collect::<Vec<_>>(),
+            vec![
+                ("Three", 1000, 1400),
+                ("lexical", 1400, 1800),
+                ("words.", 1800, 2200),
             ]
         );
     }

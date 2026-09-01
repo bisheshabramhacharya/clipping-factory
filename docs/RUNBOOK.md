@@ -113,10 +113,10 @@ common local locations.
 Security note: the studio has **no authentication** because it is designed for
 localhost. API keys for the optional AI providers are stored in
 `~/.clipping-factory/settings.json` with user-only `0600` permissions and are never
-logged. The README's configuration table still lists `CF_BIND_ALL=1`, but that
-option is **disabled in the current release**: the server is loopback-only and
-always binds `127.0.0.1`. Do not expect it to listen on other interfaces, and do
-not expose the studio to an untrusted network.
+logged. The server is loopback-only and always binds `127.0.0.1`; there is no
+supported setting to listen on other interfaces. Do not expose the studio through
+a reverse proxy or port forward without adding authentication and a deliberate
+network security model.
 
 ## Keeping it alive (launchd)
 

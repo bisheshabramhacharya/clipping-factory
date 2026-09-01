@@ -123,6 +123,11 @@ pub struct AppState {
     handles: Arc<Mutex<HashMap<String, Arc<ProjectHandle>>>>,
     /// `project-id/clip-id` keys with a caption restyle currently running.
     restyling: Arc<Mutex<HashSet<String>>>,
+    /// Serializes settings validation and persistence so concurrent updates
+    /// cannot overwrite a newer value with an older request.
+    pub settings_update: Arc<AsyncMutex<()>>,
+    /// Bytes currently reserved by uploads that have not finished or failed.
+    upload_bytes: Arc<Mutex<u64>>,
 }
 
 impl AppState {
@@ -135,6 +140,8 @@ impl AppState {
             settings: Arc::new(RwLock::new(settings)),
             handles: Arc::new(Mutex::new(HashMap::new())),
             restyling: Arc::new(Mutex::new(HashSet::new())),
+            settings_update: Arc::new(AsyncMutex::new(())),
+            upload_bytes: Arc::new(Mutex::new(0)),
         }
     }
 
@@ -154,6 +161,31 @@ impl AppState {
     pub fn end_restyle(&self, key: &str) {
         self.restyling.lock().unwrap().remove(key);
     }
+
+    /// Reserve additional bytes against a capacity snapshot. The shared
+    /// counter prevents concurrent uploads from each spending the same free
+    /// disk space reported by `df`.
+    pub fn reserve_upload_bytes(&self, additional: u64, capacity: u64) -> bool {
+        let mut reserved = self.upload_bytes.lock().unwrap();
+        let Some(total) = reserved.checked_add(additional) else {
+            return false;
+        };
+        if total > capacity {
+            return false;
+        }
+        *reserved = total;
+        true
+    }
+
+    pub fn release_upload_bytes(&self, bytes: u64) {
+        let mut reserved = self.upload_bytes.lock().unwrap();
+        *reserved = reserved.saturating_sub(bytes);
+    }
+
+    #[cfg(test)]
+    fn reserved_upload_bytes(&self) -> u64 {
+        *self.upload_bytes.lock().unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -169,6 +201,17 @@ mod tests {
         let lease = handle.try_start().expect("run should start");
         assert!(!lease.token.is_cancelled());
         handle.finish(lease.generation);
+    }
+
+    #[test]
+    fn upload_reservations_share_one_capacity_budget() {
+        let state = AppState::new(Config::resolve());
+        assert!(state.reserve_upload_bytes(60, 100));
+        assert!(!state.reserve_upload_bytes(50, 100));
+        assert_eq!(state.reserved_upload_bytes(), 60);
+        state.release_upload_bytes(60);
+        assert!(state.reserve_upload_bytes(50, 100));
+        state.release_upload_bytes(50);
     }
 
     #[test]

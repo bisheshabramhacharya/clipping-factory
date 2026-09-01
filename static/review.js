@@ -13,6 +13,8 @@
   const counts = document.getElementById("review-counts");
   const buttons = [...theater.querySelectorAll("[data-review-decision]")];
   const closeBtn = document.getElementById("review-close");
+  const shell = document.querySelector(".shell");
+  const aiBackdrop = document.getElementById("modal-backdrop");
   let items = [], index = 0, decisions = load(), lastFocused = null;
 
   function load() {
@@ -72,16 +74,23 @@
     reason.textContent = item.reason;
     progress.textContent = `${index + 1} / ${items.length}`;
     updateCounts();
-    for (const b of buttons) b.classList.toggle("active", b.dataset.reviewDecision === decisions[item.key]);
+    for (const b of buttons) {
+      const selected = b.dataset.reviewDecision === decisions[item.key];
+      b.classList.toggle("active", selected);
+      b.setAttribute("aria-pressed", String(selected));
+    }
     if (autoplay) video.play().catch(() => {});
   }
   function openReview() {
+    if (!aiBackdrop.classList.contains("hidden")) return;
     collect();
     if (!items.length) return;
     lastFocused = document.activeElement;
     const first = items.findIndex((i) => !decisions[i.key]);
     index = first < 0 ? 0 : first;
     theater.hidden = false;
+    shell.inert = true;
+    aiBackdrop.inert = true;
     document.body.style.overflow = "hidden";
     closeBtn.focus();
     show(true);
@@ -89,6 +98,8 @@
   function closeReview() {
     video.pause();
     theater.hidden = true;
+    shell.inert = false;
+    aiBackdrop.inert = false;
     document.body.style.overflow = "";
     paint();
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
@@ -106,6 +117,10 @@
     const next = Math.max(0, Math.min(items.length - 1, index + delta));
     if (next !== index) { index = next; show(true); }
   }
+  function focusables() {
+    return [...theater.querySelectorAll("button, video, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+      .filter((element) => !element.disabled && element.getClientRects().length > 0);
+  }
   function typing(target) {
     return target instanceof Element && (target.matches("input,select,textarea") || target.isContentEditable);
   }
@@ -115,14 +130,26 @@
   for (const b of buttons) b.addEventListener("click", () => decide(b.dataset.reviewDecision));
 
   document.addEventListener("keydown", (event) => {
-    if (typing(event.target)) return;
     if (theater.hidden) {
-      if ((event.key === "r" || event.key === "R") && !results.classList.contains("hidden") && items.length) {
+      if (typing(event.target)) return;
+      if ((event.key === "r" || event.key === "R") && aiBackdrop.classList.contains("hidden") && !results.classList.contains("hidden") && items.length) {
         event.preventDefault();
         openReview();
       }
       return;
     }
+    if (event.key === "Tab") {
+      const elements = focusables();
+      if (!elements.length) return;
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+      return;
+    }
+    if (typing(event.target)) return;
     if (event.key === "Escape") closeReview();
     else if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); }
     else if (event.key === "ArrowRight") { event.preventDefault(); move(1); }

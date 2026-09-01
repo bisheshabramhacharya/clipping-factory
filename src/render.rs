@@ -20,8 +20,10 @@ use anyhow::{anyhow, Result};
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
-const OUT_W: u32 = 1080;
-const OUT_H: u32 = 1920;
+/// Output canvas size. `captions.rs` builds its ASS headers against this
+/// same canvas, so a resolution change lands here and nowhere else.
+pub const OUT_W: u32 = 1080;
+pub const OUT_H: u32 = 1920;
 
 /// Render the framed, uncaptioned base clip from the source video.
 /// (The argument list mirrors the render inputs one-to-one on purpose.)

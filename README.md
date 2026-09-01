@@ -6,11 +6,11 @@
 
 A local-first podcast clipping studio with full-transcript ranking, face-aware reframing, and word-accurate captions. Built entirely in Rust.
 
-[![CI](https://github.com/codingwithb/clipping-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/codingwithb/clipping-factory/actions/workflows/ci.yml)
+[![CI](https://github.com/bisheshabramhacharya/clipping-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/bisheshabramhacharya/clipping-factory/actions/workflows/ci.yml)
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
 ![Local first](https://img.shields.io/badge/processing-local--first-1f6feb)
 ![Output](https://img.shields.io/badge/output-1080%C3%971920-7c3aed)
-![Tests](https://img.shields.io/badge/tests-100%20passing-238636)
+![Tests](https://img.shields.io/badge/tests-123%20passing-238636)
 
 </div>
 
@@ -189,9 +189,8 @@ The original product decisions live in the [PRD](docs/PRD.md). Current prioritie
 | `CF_THREADS` | Transcription thread count |
 | `CF_CAPTION_STYLE` | Default style: `impact` or `clean` |
 | `CF_NO_OPEN=1` | Do not open the browser on startup |
-| `CF_BIND_ALL=1` | Listen on every network interface |
 
-The studio has no authentication because it is designed for localhost. Do not use `CF_BIND_ALL=1` on an untrusted or public network.
+The studio has no authentication because it is designed for localhost. The server always binds to `127.0.0.1`; there is no supported setting to expose it on other interfaces.
 
 For build, run, keep-alive (launchd), and troubleshooting details, see the [runbook](docs/RUNBOOK.md).
 
@@ -200,9 +199,9 @@ For build, run, keep-alive (launchd), and troubleshooting details, see the [runb
 ```bash
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
-cargo test   # 100 tests: every validator rule, caption pagination, crop math,
-             # face-track smoothing & pan clamping, layout decisions, restyle
-             # plumbing, selector parsing, state recovery
+cargo test --locked   # 123 tests: every validator rule, caption pagination, crop math,
+                       # face-track smoothing & pan clamping, layout decisions, restyle
+                       # plumbing, selector parsing, state recovery
 ```
 
 Unit tests cover validation rules, selector parsing, caption timing and pagination, framing decisions, crop smoothing, rendering filters, restyling, persistence, and recovery.
@@ -219,6 +218,6 @@ For security reports, follow [SECURITY.md](SECURITY.md) instead of opening a pub
 
 Clipping Factory uses [FFmpeg](https://ffmpeg.org), [whisper.cpp](https://github.com/ggml-org/whisper.cpp), [rustface](https://github.com/atomashpolskiy/rustface), and the [Inter](https://rsms.me/inter/) typeface.
 
-The source code is available under the [MIT License](LICENSE). Bundled fonts, models, tools, and user-provided media remain subject to their own licenses.
+The source code is available under the [MIT License](LICENSE). Bundled fonts and models are covered by the notices in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); tools and user-provided media remain subject to their own licenses.
 
 Only process media you own or have permission to use.

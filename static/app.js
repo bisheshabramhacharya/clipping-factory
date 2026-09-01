@@ -14,7 +14,10 @@
   };
   const STAGE_ORDER = Object.keys(STAGE_LABELS);
 
-  let projectId = localStorage.getItem("cf-project") || null;
+  const PROJECT_ID_RE = /^[0-9a-f]{10}$/;
+  const restoredProjectId = localStorage.getItem("cf-project");
+  let projectId = restoredProjectId && PROJECT_ID_RE.test(restoredProjectId) ? restoredProjectId : null;
+  if (restoredProjectId && !projectId) localStorage.removeItem("cf-project");
   let view = null;
   let sse = null;
   let refetchTimer = null;
@@ -43,6 +46,7 @@
   const restyleState = {}; // clip id → {busy, kind, message, draft}
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
+  function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
 
   function formatApiError(payload, status, fallback) {
     const message = payload && (payload.error || payload.message);
@@ -224,6 +228,7 @@
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const v = JSON.parse(xhr.responseText);
+          if (!v.project || !PROJECT_ID_RE.test(v.project.id)) throw new Error("invalid project id");
           projectId = v.project.id;
           localStorage.setItem("cf-project", projectId);
           view = v;
@@ -278,7 +283,15 @@
     retryPending = false;
     uploadCancelRequested = false;
     localStorage.removeItem("cf-project");
+    clearTimeout(refetchTimer);
+    refetchTimer = null;
     if (sse) { sse.close(); sse = null; }
+    for (const key of Object.keys(restyleState)) delete restyleState[key];
+    for (const key of Object.keys(clipRev)) delete clipRev[key];
+    const warning = $("warning-banner");
+    warning.textContent = "";
+    warning.classList.add("hidden");
+    clearActionMessage();
     $("drop").classList.remove("hidden");
     $("upload-progress").classList.add("hidden");
     $("upload-bar").style.transform = "scaleX(0)";
@@ -291,8 +304,10 @@
   // ------------------------------------------------------------------ data
   async function refetch() {
     if (!projectId) return;
+    const requestProjectId = projectId;
     try {
-      const res = await fetch(`/api/projects/${projectId}`);
+      const res = await fetch(apiPath("projects", requestProjectId));
+      if (projectId !== requestProjectId) return;
       if (res.status === 404) {
         resetToEmpty({ message: "This project is no longer available. Choose another MP4." });
         return;
@@ -300,6 +315,7 @@
       let payload = null;
       try { payload = await res.json(); } catch { throw new Error("The server returned an invalid project response."); }
       if (!res.ok) throw new Error(formatApiError(payload, res.status, "Couldn't refresh project status."));
+      if (projectId !== requestProjectId) return;
       view = payload;
       if (!isProcessing(view.project.status)) {
         if (cancellationPending) {
@@ -310,6 +326,7 @@
       clearActionMessage("reconnect");
       render();
     } catch (err) {
+      if (projectId !== requestProjectId) return;
       showActionMessage(`${err.message} Live progress will retry.`, "reconnect");
     }
   }
@@ -322,8 +339,11 @@
   function connectSse() {
     if (sse) sse.close();
     if (!projectId) return;
-    sse = new EventSource(`/api/projects/${projectId}/events`);
-    sse.onmessage = (e) => {
+    const sourceProjectId = projectId;
+    const source = new EventSource(apiPath("projects", sourceProjectId, "events"));
+    sse = source;
+    source.onmessage = (e) => {
+      if (sse !== source || projectId !== sourceProjectId) return;
       let msg = {};
       try { msg = JSON.parse(e.data); } catch { return; }
       if (msg.type === "snapshot" && msg.view) { view = msg.view; clearActionMessage("reconnect"); render(); return; }
@@ -337,7 +357,8 @@
       liveProgress = null;
       scheduleRefetch();
     };
-    sse.onerror = () => {
+    source.onerror = () => {
+      if (sse !== source || projectId !== sourceProjectId) return;
       showActionMessage("Live progress disconnected. Reconnecting…", "reconnect");
     };
   }
@@ -551,7 +572,7 @@
       v.preload = "metadata";
       v.playsInline = true;
       v.setAttribute("aria-label", `Preview clip ${c.rank}: ${c.headline}`);
-      v.src = `/api/projects/${projectId}/clips/${c.id}` +
+      v.src = apiPath("projects", projectId, "clips", c.id) +
         (clipRev[c.id] ? `?rev=${clipRev[c.id]}` : "");
       const pendingPreview = restyleState[c.id];
       if (pendingPreview && pendingPreview.awaitingPreview) {
@@ -621,7 +642,7 @@
     if (c.status === "ready") {
       const a = document.createElement("a");
       a.className = "primary action-button";
-      a.href = `/api/projects/${projectId}/clips/${c.id}/download`;
+      a.href = apiPath("projects", projectId, "clips", c.id, "download");
       a.download = c.filename;
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
       a.textContent = "Download MP4";
@@ -651,6 +672,8 @@
       style: c.caption_style || captionStyle,
       color: (c.accent_color || accentColor).toUpperCase(),
       font: c.caption_font || captionDefaultFont,
+      text: c.caption_text ?? "",
+      textPresent: c.caption_text !== null && c.caption_text !== undefined,
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -659,9 +682,16 @@
     const captionText = document.createElement("textarea");
     captionText.className = "caption-text";
     captionText.rows = 3;
-    captionText.value = c.caption_text || "";
+    captionText.value = state.draft.text;
     captionText.placeholder = "Edit caption text";
     captionText.setAttribute("aria-label", "Caption text");
+    captionText.addEventListener("input", () => {
+      state.draft.text = captionText.value;
+      state.draft.textPresent = true;
+      state.kind = "dirty";
+      state.message = "Unsaved caption changes";
+      sync();
+    });
 
     const label = document.createElement("span");
     label.className = "muted small restyle-label";
@@ -768,7 +798,9 @@
       state.dirty = (
         state.draft.style !== applied.style ||
         state.draft.color !== applied.color ||
-        state.draft.font !== applied.font
+        state.draft.font !== applied.font ||
+        state.draft.textPresent !== applied.textPresent ||
+        (state.draft.textPresent && state.draft.text !== applied.text)
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -789,6 +821,7 @@
       custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = state.draft.color;
       font.value = state.draft.font;
+      if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
       status.className = `small restyle-status ${state.kind || ""}`;
@@ -808,8 +841,8 @@
           accent_color: state.draft.color,
           font: state.draft.font,
         };
-        if (view.caption_only === true) payload.caption_text = captionText.value;
-        const updated = await requestJson(`/api/projects/${projectId}/clips/${c.id}/restyle`, {
+        if (state.draft.textPresent) payload.caption_text = state.draft.text;
+        const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -831,6 +864,8 @@
           style: updated.caption_style || state.draft.style,
           color: (updated.accent_color || state.draft.color).toUpperCase(),
           font: updated.caption_font || state.draft.font,
+          text: updated.caption_text ?? "",
+          textPresent: updated.caption_text !== null && updated.caption_text !== undefined,
         };
         render();
       } catch (err) {
@@ -844,7 +879,7 @@
     });
 
     box.appendChild(label);
-    if (view.caption_only === true) box.appendChild(captionText);
+    box.appendChild(captionText);
     box.appendChild(seg);
     box.appendChild(swatches);
     box.appendChild(fontPicker);
@@ -870,20 +905,23 @@
   // ------------------------------------------------------------------ actions
   async function cancel() {
     if (!projectId || cancellationPending || !isProcessing(view && view.project && view.project.status)) return false;
+    const requestProjectId = projectId;
     cancellationPending = true;
     render();
     showActionMessage("Cancellation requested. Waiting for the active stage to stop…", "cancel");
     try {
       const result = await requestJson(
-        `/api/projects/${projectId}/cancel`,
+        apiPath("projects", requestProjectId, "cancel"),
         { method: "POST" },
         "Couldn't cancel processing."
       );
+      if (projectId !== requestProjectId) return false;
       if (result.cancelled) showActionMessage("Processing cancelled. Finished clips were kept.", "notice");
       else showActionMessage("Processing had already stopped. Refreshing its status…", "notice");
       scheduleRefetch();
       return true;
     } catch (err) {
+      if (projectId !== requestProjectId) return false;
       cancellationPending = false;
       render();
       showActionMessage(err.message);
@@ -893,15 +931,18 @@
 
   async function retry() {
     if (!projectId || retryPending) return;
+    const requestProjectId = projectId;
     retryPending = true;
     render();
     try {
-      await requestJson(`/api/projects/${projectId}/retry`, { method: "POST" }, "Couldn't retry processing.");
+      await requestJson(apiPath("projects", requestProjectId, "retry"), { method: "POST" }, "Couldn't retry processing.");
+      if (projectId !== requestProjectId) return;
       showActionMessage("Retry started. Completed work will be kept.", "notice");
       await refetch();
       retryPending = false;
       render();
     } catch (err) {
+      if (projectId !== requestProjectId) return;
       retryPending = false;
       render();
       showActionMessage(err.message);
@@ -914,15 +955,18 @@
       showActionMessage("The output folder becomes available after a clip is ready and saved.");
       return;
     }
+    const requestProjectId = projectId;
     try {
       const result = await requestJson(
-        `/api/projects/${projectId}/open-output-folder`,
+        apiPath("projects", requestProjectId, "open-output-folder"),
         { method: "POST" },
         "Couldn't open the output folder."
       );
+      if (projectId !== requestProjectId) return;
       if (result.opened) clearActionMessage();
       else showActionMessage(result.path ? `Open the clips manually at ${result.path}.` : "The output folder could not be opened.", "notice");
     } catch (err) {
+      if (projectId !== requestProjectId) return;
       showActionMessage(err.message);
     }
   }

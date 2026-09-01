@@ -14,5 +14,11 @@
 /promo-videos/node_modules/
 /promo-videos/output/
 
+# Design workbench: drafts, one-off explorations, stale redesign copies — never product
+/labs/
+
+# Agent audit scratch
+/.audit/
+
 # Python bytecode
 __pycache__/

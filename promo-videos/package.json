@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "studio": "remotion studio src/index.ts --no-open",
     "music": "node scripts/generate-music.mjs",
     "render": "npm run render:editorial && npm run render:momentum && npm run render:quiet",

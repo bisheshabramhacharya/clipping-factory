@@ -12,7 +12,7 @@ pub mod heuristic;
 pub mod openai;
 
 use crate::domain::{fmt_ms, Candidate, Scores, SourceInfo, Transcript};
-use crate::settings::{AiSettings, PROVIDER_ANTHROPIC, PROVIDER_OFFLINE, PROVIDER_OPENAI};
+use crate::settings::{AiSettings, Provider};
 use anyhow::{anyhow, Result};
 
 /// Planning targets from PRD §9.1.
@@ -42,14 +42,16 @@ pub async fn propose(
 ) -> Result<SelectionOutcome> {
     let (target, proposals) = plan_counts(source.duration_ms);
 
+    // An unconnected setup always ranks locally, whatever its stored provider says.
     let provider = if settings.connected() {
-        settings.provider.as_str()
+        Provider::parse(&settings.provider)
+            .ok_or_else(|| anyhow!("Unknown AI provider `{}`.", settings.provider))?
     } else {
-        PROVIDER_OFFLINE
+        Provider::Offline
     };
 
     match provider {
-        PROVIDER_OFFLINE => Ok(SelectionOutcome {
+        Provider::Offline => Ok(SelectionOutcome {
             candidates: heuristic::propose(
                 transcript,
                 source.duration_ms,
@@ -58,7 +60,7 @@ pub async fn propose(
             ),
             selector: "local ranking".into(),
         }),
-        PROVIDER_OPENAI | PROVIDER_ANTHROPIC => {
+        Provider::OpenAi | Provider::Anthropic => {
             let key = settings
                 .api_key
                 .clone()
@@ -71,7 +73,7 @@ pub async fn propose(
             for win in &windows {
                 let user_prompt = window_prompt(win, source, target, per_window.max(2));
                 let raw = match provider {
-                    PROVIDER_ANTHROPIC => {
+                    Provider::Anthropic => {
                         anthropic::complete(&key, &model, SYSTEM_PROMPT, &user_prompt).await?
                     }
                     _ => openai::complete(&key, &model, SYSTEM_PROMPT, &user_prompt).await?,
@@ -84,18 +86,19 @@ pub async fn propose(
             }
             Ok(SelectionOutcome {
                 candidates: all,
-                selector: format!("{} · {}", provider, model),
+                selector: format!("{} · {}", provider.as_str(), model),
             })
         }
-        other => Err(anyhow!("Unknown AI provider `{}`.", other)),
     }
 }
 
 /// Test connectivity for the configured provider (PRD §14.1 `/api/settings/ai/test`).
 pub async fn test_connection(settings: &AiSettings) -> Result<String> {
-    match settings.provider.as_str() {
-        PROVIDER_OFFLINE => Ok("Local ranking is ready — no API key needed.".into()),
-        PROVIDER_OPENAI => {
+    let provider = Provider::parse(&settings.provider)
+        .ok_or_else(|| anyhow!("Unknown provider `{}`.", settings.provider))?;
+    match provider {
+        Provider::Offline => Ok("Local ranking is ready — no API key needed.".into()),
+        Provider::OpenAi => {
             let key = settings
                 .api_key
                 .as_deref()
@@ -107,7 +110,7 @@ pub async fn test_connection(settings: &AiSettings) -> Result<String> {
                 settings.effective_model()
             ))
         }
-        PROVIDER_ANTHROPIC => {
+        Provider::Anthropic => {
             let key = settings
                 .api_key
                 .as_deref()
@@ -119,7 +122,6 @@ pub async fn test_connection(settings: &AiSettings) -> Result<String> {
                 settings.effective_model()
             ))
         }
-        other => Err(anyhow!("Unknown provider `{}`.", other)),
     }
 }
 

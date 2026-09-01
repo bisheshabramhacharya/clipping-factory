@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "A local clipping studio: one podcast MP4 in, several faithful vertical clips out."
 license = "MIT"
-repository = "https://github.com/codingwithb/clipping-factory"
+repository = "https://github.com/bisheshabramhacharya/clipping-factory"
 readme = "README.md"
 
 [dependencies]
@@ -12,12 +12,10 @@ axum = { version = "0.8", features = ["multipart"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io", "rt"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
-tower-http = { version = "0.6", features = ["trace", "cors"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 anyhow = "1"
-thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
@@ -26,6 +24,9 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 rustface = "0.1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
 
 [profile.release]
 opt-level = 2
