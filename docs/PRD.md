@@ -191,8 +191,6 @@ The UI must never appear frozen. If exact percentage is unavailable, show the cu
 - **Open output folder** button.
 - A clear empty result when no moment passes the rubric.
 
-The reference wireframe is [WIREFRAME.html](./WIREFRAME.html).
-
 ## 9. Editorial Selection Engine
 
 ### 9.1 Candidate generation

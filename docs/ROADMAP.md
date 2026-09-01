@@ -1,49 +1,27 @@
 # Roadmap
 
-How this project improves without regressing: guardrails → measurement →
-thin vertical slices. One PR = one user-visible change or one refactor,
-never both. Tests land with the change.
+`main` is the product. One branch per change, merged or deleted. Tests land
+with the change. Zero clips is a valid output; never lower the validator bar
+to inflate counts.
 
 ## Done
 
-- [x] **CI guardrails** — `cargo fmt --check`, `clippy -D warnings`, and
-      `cargo test` run on every push to `main` and on every pull request.
-- [x] **Two-pass rendering** — framed, uncaptioned base intermediates are kept
-      per clip; captions burn in a fast second pass.
-- [x] **Post-render caption restyling** — style + accent color are chosen on
-      each finished clip, not up front. Restyles re-burn from the base in
-      seconds (`POST /api/projects/{id}/clips/{clipId}/restyle`).
-- [x] **Steadier face tracking** — median outlier rejection, true per-frame
-      means, and a pan-speed clamp so the crop never whips.
-- [x] **Async hardening** — no blocking fs/process calls on the runtime,
-      single-quote-safe FFmpeg filter escaping, stuck-`rendering` recovery
-      after hard interruptions, `Cache-Control: no-store` on clip serving.
-- [x] **Eval harness scaffold** — `evals/` golden-set workflow and rubric.
+- CI runs fmt, clippy, tests, and eval fixture tests on every push and PR.
+- Two-pass rendering with post-render caption restyling.
+- Face tracking with outlier rejection and pan-speed clamp.
+- Loopback-only API with Host/Origin checks, bounded uploads, atomic state.
+- Eval harness (`evals/`) with fail-closed baseline comparison.
 
-## Next (ranked by impact on the core loop: drop MP4 → great clips, fast)
+## Next
 
-1. **Golden-set evals with real episodes** — assemble 5–10 diverse sources
-   (interview, solo, panel, noisy audio, accents), score with `evals/rubric.csv`,
-   and record baselines. Every selection-ranking change gets measured against
-   them before merging. This is the quality ratchet.
-2. **Selection quality iteration** — tune the local ranker against eval scores
-   (hook strength, payoff detection, dedup thresholds). The validator already
-   gates slop; the ranker decides what reaches it.
-3. **Live caption preview** — overlay word-timed captions on the base render in
-   the browser (HTML/CSS) so style/color changes preview instantly before the
-   burn. The restyle API stays the source of truth for output files.
-4. **Speaker-aware framing for two-person podcasts** — active-speaker detection
-   (audio energy + face position) so two-face sources can face-crop instead of
-   always falling back to blur-pad.
-5. **Packaging** — Tauri desktop shell around the existing binary (the $5
-   product). The axum surface is already the app's API.
-6. **Hosted "Pro" selection relay** — optional paid tier: managed API key
-   behind a rate-limited relay, using the existing `src/select/` provider seam.
-   Local ranking stays free forever; BYO-key stays free forever.
+1. Commit one real-media eval baseline from one owned episode (#3).
+2. Review candidates before rendering; render only the kept ones (#5).
+3. Caption restyle must not block the server.
+4. Ctrl+C must not leave a project stuck in `rendering`.
+5. List and delete past projects.
 
-## Working agreements
+## Not doing
 
-- Search before building. Test before shipping. Ship the complete thing.
-- Media pipelines regress silently — never merge a ranking/caption/framing
-  change without running the golden set.
-- Zero clips is a valid output; never lower the validator bar to inflate counts.
+Transcript editing, manual framing, presets, batch queues, search, hosted
+selection, desktop packaging. Reopen only after the five items above are on
+`main`.
