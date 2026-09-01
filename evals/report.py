@@ -132,7 +132,7 @@ def load_rubric(path: Path) -> dict[str, Any]:
                     valid = False
                     break
                 parsed[field] = value
-            if not valid or not parsed:
+            if not valid or set(parsed) != set(SCORES):
                 invalid_rows.append(row_number)
                 continue
             reviewed += 1
@@ -189,22 +189,54 @@ def compare(current: dict[str, Any], baseline: dict[str, Any], thresholds: dict[
     policy = DEFAULTS | (thresholds or {})
     reasons: list[str] = []
     warnings: list[str] = []
+    baseline_sources = {s["source_id"]: s for s in baseline["sources"]}
+    current_sources = {s["source_id"]: s for s in current["sources"]}
+    missing_from_baseline = sorted(set(current_sources) - set(baseline_sources))
+    if missing_from_baseline:
+        reasons.append(f"sources missing from baseline: {', '.join(missing_from_baseline)}")
+    missing_from_current = sorted(set(baseline_sources) - set(current_sources))
+    if missing_from_current:
+        reasons.append(f"baseline sources missing from current run: {', '.join(missing_from_current)}")
+    newly_non_complete = sorted(
+        source_id
+        for source_id, source in current_sources.items()
+        if source["status"] != "complete"
+        and baseline_sources.get(source_id, {}).get("status") == "complete"
+    )
+    if newly_non_complete:
+        reasons.append(f"newly non-complete sources: {', '.join(newly_non_complete)}")
     baseline_failed = {s["source_id"] for s in baseline["sources"] if s["status"] == "failed"}
     current_failed = {s["source_id"] for s in current["sources"] if s["status"] == "failed"}
     new_failed_ids = sorted(current_failed - baseline_failed)
     if len(new_failed_ids) > int(policy["max_new_source_failures"]):
         reasons.append(f"new source failures: {', '.join(new_failed_ids)}")
+    current_failed_clips = int(current["operational"].get("failed_clips") or 0)
+    baseline_failed_clips = int(baseline["operational"].get("failed_clips") or 0)
+    if current_failed_clips > baseline_failed_clips:
+        reasons.append(f"failed clips increased from {baseline_failed_clips} to {current_failed_clips}")
     cr, br = current["human_review"], baseline["human_review"]
+    if cr["invalid_rows"]:
+        reasons.append(f"invalid or partial rubric rows: {', '.join(map(str, cr['invalid_rows']))}")
+    if br["invalid_rows"]:
+        reasons.append("baseline contains invalid or partial rubric rows")
+    current_ready = int(current["operational"].get("ready_clips") or 0)
+    baseline_ready = int(baseline["operational"].get("ready_clips") or 0)
+    if cr["clips_reviewed"] < current_ready:
+        reasons.append(f"incomplete review coverage: {cr['clips_reviewed']} of {current_ready} ready clips reviewed")
+    if br["clips_reviewed"] < baseline_ready:
+        reasons.append("baseline review coverage is incomplete")
     if cr["would_post_rate"] is not None and br["would_post_rate"] is not None:
         drop = round(float(br["would_post_rate"]) - float(cr["would_post_rate"]), 3)
         if drop > float(policy["max_would_post_rate_drop"]):
             reasons.append(f"would-post rate dropped by {drop:.3f}")
+    elif br["would_post_rate"] is not None:
+        reasons.append("baseline would-post metric is unavailable in current evidence")
     else:
-        warnings.append("would-post comparison unavailable until both runs are reviewed")
+        warnings.append("would-post comparison unavailable because the baseline has no metric")
     for field, baseline_value in br["score_averages"].items():
         current_value = cr["score_averages"].get(field)
         if current_value is None:
-            warnings.append(f"{field} comparison unavailable")
+            reasons.append(f"baseline metric {field} is unavailable in current evidence")
             continue
         drop = round(float(baseline_value) - float(current_value), 3)
         if drop > float(policy["max_average_score_drop"]):
@@ -258,6 +290,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-csv", type=Path)
     parser.add_argument("--enforce", action="store_true")
     args = parser.parse_args(argv)
+    if args.enforce and not args.baseline:
+        print("eval report error: --enforce requires --baseline", file=sys.stderr)
+        return 1
     try:
         report = aggregate(args.run_dir.resolve())
         if args.baseline:
