@@ -197,13 +197,22 @@ fn video_encode_args(cfg: &Config) -> Vec<String> {
     });
 
     if has_vt == Some(true) {
-        // VideoToolbox quality scale is 1–100 (lower = better); 60 sits close
-        // to libx264 crf 19 visually while encoding much faster.
+        // Bitrate mode, not -q:v: VT's quality scale is 1–100 higher-is-better
+        // (the old comment had it backwards, so 60 was middling quality), and
+        // constant-quality mode is only supported on Apple Silicon. A 6 Mb/s
+        // target with an 8 Mb/s cap fits 1080×1920 social delivery.
+        // allow_sw keeps the render working when the hardware encoder is busy.
         vec![
             "-c:v".into(),
             "h264_videotoolbox".into(),
-            "-q:v".into(),
-            "60".into(),
+            "-b:v".into(),
+            "6M".into(),
+            "-maxrate".into(),
+            "8M".into(),
+            "-bufsize".into(),
+            "16M".into(),
+            "-allow_sw".into(),
+            "1".into(),
             "-pix_fmt".into(),
             "yuv420p".into(),
         ]
@@ -252,7 +261,7 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
              [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v];\
-             [0:a]asetpts=PTS-STARTPTS[a]",
+             [0:a:0]asetpts=PTS-STARTPTS,loudnorm=I=-16:TP=-1.5:LRA=7,aresample=48000:first_pts=0[a]",
             w = OUT_W,
             h = OUT_H,
             subs = subs_step
@@ -272,7 +281,7 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
             format!(
                 "[0:v]setpts=PTS-STARTPTS,scale=-2:{h}:force_divisible_by=2,\
                  crop={w}:{h}:x='{expr}':y=0,{subs}format=yuv420p[v];\
-                 [0:a]asetpts=PTS-STARTPTS[a]",
+                 [0:a:0]asetpts=PTS-STARTPTS,loudnorm=I=-16:TP=-1.5:LRA=7,aresample=48000:first_pts=0[a]",
                 w = OUT_W,
                 h = OUT_H,
                 expr = expr,
@@ -411,7 +420,7 @@ mod tests {
     fn base_graph_resets_audio_and_video_to_the_same_zero_origin() {
         let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None);
         assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
-        assert!(g.contains("[0:a]asetpts=PTS-STARTPTS[a]"));
+        assert!(g.contains("[0:a:0]asetpts=PTS-STARTPTS,loudnorm=I=-16:TP=-1.5:LRA=7,aresample=48000:first_pts=0[a]"));
     }
 
     #[test]
