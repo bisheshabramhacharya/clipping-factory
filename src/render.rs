@@ -10,8 +10,9 @@
 //!
 //! Two layouts (house style, §11.2/11.3):
 //! - BlurPad:  source centered over a blurred, darkened copy of itself.
-//! - FaceCrop: smoothed vertical crop following one persistent face,
-//!   expressed as a piecewise-linear x(t) crop expression.
+//! - FaceCrop: vertical crop locked on the dominant face — a constant x.
+//!   Manifests written before ADR-0001 may carry several keyframes; those
+//!   still render as a piecewise-linear x(t) crop expression.
 
 use crate::config::Config;
 use crate::domain::{CropKey, LayoutPlan, SourceInfo};
@@ -229,7 +230,7 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
         ),
         LayoutPlan::FaceCrop { keyframes } => {
             // Scale so height fills 1920, then crop a 1080-wide window whose
-            // x follows the smoothed face track.
+            // x is locked on the dominant face.
             let scaled_w = {
                 let w = (source.width as f64) * (OUT_H as f64) / (source.height as f64);
                 (w / 2.0).round() as u64 * 2
@@ -253,6 +254,7 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
 }
 
 /// Piecewise-linear x(t) between keyframes, clamped to the scaled frame.
+/// A single keyframe (the locked crop, ADR-0001) compiles to a constant.
 /// `t` in the crop filter is the output timestamp in seconds (0 at clip start).
 pub fn crop_x_expr(keyframes: &[CropKey], scaled_w: u64) -> String {
     let max_x = (scaled_w - OUT_W as u64) as f64;
