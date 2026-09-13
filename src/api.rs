@@ -959,6 +959,12 @@ async fn restyle_clip(
         .base_is_ready(&id, &clip.id)
         .await
         .map_err(ApiError::from)?;
+    // Captions are authored against the base clip's real size. Manifests from
+    // before downscale-only output carry no dims; their bases are 1080×1920.
+    let mut out_dims = (
+        clip.width.unwrap_or(crate::render::OUT_W),
+        clip.height.unwrap_or(crate::render::OUT_H),
+    );
     if !base_ready
         && tokio::fs::metadata(&base_path)
             .await
@@ -1012,6 +1018,8 @@ async fn restyle_clip(
             .mark_base_ready(&id, &clip.id)
             .await
             .map_err(ApiError::from)?;
+        // A base rebuilt today renders at the downscale-only size.
+        out_dims = crate::render::output_size(&source, &clip.layout);
     }
 
     // Build the new captions and burn them onto the base.
@@ -1027,6 +1035,8 @@ async fn restyle_clip(
             headline: &clip.headline,
             font: &caption_font,
             accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
+            out_w: out_dims.0,
+            out_h: out_dims.1,
         },
         style,
     );
@@ -1074,6 +1084,8 @@ async fn restyle_clip(
     manifest.clips[idx].accent_color = Some(accent_hex);
     manifest.clips[idx].caption_font = Some(caption_font);
     manifest.clips[idx].caption_text = caption_text;
+    manifest.clips[idx].width = Some(out_dims.0);
+    manifest.clips[idx].height = Some(out_dims.1);
     state
         .store
         .save_manifest(&id, &manifest)

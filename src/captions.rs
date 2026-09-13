@@ -131,6 +131,11 @@ pub struct CaptionInput<'a> {
     pub font: &'a str,
     /// Accent color in ASS BGR order (see `accent_bgr_for`).
     pub accent_bgr: String,
+    /// The clip's rendered output size the captions burn onto (ADR-0002).
+    /// ASS PlayRes and all geometry derive from this — the constants below
+    /// are authored against the OUT_W×OUT_H reference canvas and scaled.
+    pub out_w: u32,
+    pub out_h: u32,
 }
 
 /// Resolve the accent color: a user-picked #RRGGBB wins, otherwise each style
@@ -268,7 +273,11 @@ pub struct LockupLine {
 
 /// Lay out a page as a 1–3 line lockup: pre-words small, emphasis word huge,
 /// post-words small — with mild alternating offsets and safe-band clamping.
-pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
+/// `(out_w, out_h)` is the clip's real output size; all metrics scale from
+/// the OUT_W×OUT_H reference canvas (ADR-0002).
+pub fn layout_lockup(words: &[Word], page_no: usize, out_w: u32, out_h: u32) -> Vec<LockupLine> {
+    let sx = out_w as f32 / OUT_W as f32;
+    let sy = out_h as f32 / OUT_H as f32;
     let e = pick_emphasis(words);
     let mut lines: Vec<LockupLine> = Vec::new();
 
@@ -278,9 +287,9 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
         }
         let chars: usize =
             idxs.iter().map(|&i| words[i].text.len()).sum::<usize>() + idxs.len().saturating_sub(1);
-        let mut fs = SMALL_FS;
-        if chars as f32 * CHAR_EM_LOWER * fs > MAX_LINE_W {
-            fs = (MAX_LINE_W / (chars as f32 * CHAR_EM_LOWER)).max(46.0);
+        let mut fs = SMALL_FS * sy;
+        if chars as f32 * CHAR_EM_LOWER * fs > MAX_LINE_W * sx {
+            fs = (MAX_LINE_W * sx / (chars as f32 * CHAR_EM_LOWER)).max(46.0 * sy);
         }
         Some((idxs, fs))
     };
@@ -296,9 +305,9 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
     }
     {
         let chars = words[e].text.len();
-        let mut fs = EMPH_FS;
-        if chars as f32 * CHAR_EM_UPPER * fs > MAX_LINE_W {
-            fs = (MAX_LINE_W / (chars as f32 * CHAR_EM_UPPER)).max(EMPH_FS_FLOOR);
+        let mut fs = EMPH_FS * sy;
+        if chars as f32 * CHAR_EM_UPPER * fs > MAX_LINE_W * sx {
+            fs = (MAX_LINE_W * sx / (chars as f32 * CHAR_EM_UPPER)).max(EMPH_FS_FLOOR * sy);
         }
         lines.push(LockupLine {
             word_idx: vec![e],
@@ -320,15 +329,15 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
 
     // Vertical stack centered on the anchor, clamped to the safe band.
     let total_h: f32 = lines.iter().map(|l| l.fs * LINE_PITCH).sum();
-    let mut top = BLOCK_ANCHOR_Y - total_h / 2.0;
-    if top < BLOCK_TOP_MIN {
-        top = BLOCK_TOP_MIN;
+    let mut top = BLOCK_ANCHOR_Y * sy - total_h / 2.0;
+    if top < BLOCK_TOP_MIN * sy {
+        top = BLOCK_TOP_MIN * sy;
     }
-    if top + total_h > BLOCK_BOTTOM_MAX {
-        top = BLOCK_BOTTOM_MAX - total_h;
+    if top + total_h > BLOCK_BOTTOM_MAX * sy {
+        top = BLOCK_BOTTOM_MAX * sy - total_h;
     }
     let mut cursor = top;
-    let cx = OUT_W as f32 / 2.0;
+    let cx = out_w as f32 / 2.0;
     for (li, line) in lines.iter_mut().enumerate() {
         let lh = line.fs * LINE_PITCH;
         line.y = cursor + lh / 2.0;
@@ -344,11 +353,11 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
                 .sum::<usize>()
                 + line.word_idx.len().saturating_sub(1);
             let w = chars as f32 * CHAR_EM_LOWER * line.fs;
-            let max_dx = ((OUT_W as f32 - w) / 2.0 - 50.0).max(0.0);
+            let max_dx = ((out_w as f32 - w) / 2.0 - 50.0 * sx).max(0.0);
             let dx: f32 = if (li + page_no).is_multiple_of(2) {
-                -34.0
+                -34.0 * sx
             } else {
-                34.0
+                34.0 * sx
             };
             cx + dx.clamp(-max_dx, max_dx)
         };
@@ -358,8 +367,9 @@ pub fn layout_lockup(words: &[Word], page_no: usize) -> Vec<LockupLine> {
 
 fn build_impact(input: &CaptionInput) -> String {
     let (rel, clip_len) = relative_words(input);
+    let blur = 0.6 * input.out_h as f32 / OUT_H as f32;
     let mut ass = String::new();
-    ass.push_str(&impact_header(input.font));
+    ass.push_str(&impact_header(input.font, input.out_w, input.out_h));
 
     let pages = paginate_impact(&rel);
     for (page_no, page) in pages.iter().enumerate() {
@@ -377,7 +387,7 @@ fn build_impact(input: &CaptionInput) -> String {
             .min(next_start)
             .min(clip_len.max(last.end_ms));
 
-        let lines = layout_lockup(page, page_no);
+        let lines = layout_lockup(page, page_no, input.out_w, input.out_h);
 
         for (k, word) in page.iter().enumerate() {
             let start = word.start_ms;
@@ -398,8 +408,8 @@ fn build_impact(input: &CaptionInput) -> String {
                     String::new()
                 };
                 let mut text = format!(
-                    "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur0.6{}}}",
-                    line.x, line.y, line.fs, pop
+                    "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur{:.1}{}}}",
+                    line.x, line.y, line.fs, blur, pop
                 );
                 for (j, &wi) in line.word_idx.iter().enumerate() {
                     if j > 0 {
@@ -428,8 +438,8 @@ fn build_impact(input: &CaptionInput) -> String {
                 ));
                 if gap_end > end {
                     let mut neutral = format!(
-                        "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur0.6}}",
-                        line.x, line.y, line.fs
+                        "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur{:.1}}}",
+                        line.x, line.y, line.fs, blur
                     );
                     for (j, &wi) in line.word_idx.iter().enumerate() {
                         if j > 0 {
@@ -456,28 +466,37 @@ fn build_impact(input: &CaptionInput) -> String {
     ass
 }
 
-fn impact_header(font: &str) -> String {
+fn impact_header(font: &str, out_w: u32, out_h: u32) -> String {
     let face = if font == "Inter" {
         "Inter ExtraBold".to_string()
     } else {
         font.to_string()
     };
+    let s = out_h as f32 / OUT_H as f32;
     format!(
         "[Script Info]\n\
          Title: Clipping Factory captions (impact)\n\
          ScriptType: v4.00+\n\
-         PlayResX: {OUT_W}\n\
-         PlayResY: {OUT_H}\n\
+         PlayResX: {out_w}\n\
+         PlayResY: {out_h}\n\
          WrapStyle: 2\n\
          ScaledBorderAndShadow: yes\n\
          \n\
          [V4+ Styles]\n\
          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Impact,{face},84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H9C000000,-1,0,0,0,100,100,1,0,1,3.2,3.6,5,60,60,60,1\n\
+         Style: Impact,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H00000000,&H9C000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n\
          \n\
          [Events]\n\
          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
-        face = face
+        face = face,
+        out_w = out_w,
+        out_h = out_h,
+        fs = 84.0 * s,
+        outline = 3.2 * s,
+        shadow = 3.6 * s,
+        ml = 60.0 * s,
+        mr = 60.0 * s,
+        mv = 60.0 * s,
     )
 }
 
@@ -536,7 +555,7 @@ fn build_clean(input: &CaptionInput) -> String {
     let (rel, clip_len) = relative_words(input);
 
     let mut ass = String::new();
-    ass.push_str(&clean_header(input.font));
+    ass.push_str(&clean_header(input.font, input.out_w, input.out_h));
 
     // Headline: only when it adds context beyond the opening caption.
     if show_headline(input.headline, &rel) {
@@ -606,24 +625,39 @@ fn build_clean(input: &CaptionInput) -> String {
     ass
 }
 
-fn clean_header(font: &str) -> String {
+fn clean_header(font: &str, out_w: u32, out_h: u32) -> String {
+    let s = out_h as f32 / OUT_H as f32;
     format!(
         "[Script Info]\n\
          Title: Clipping Factory captions (clean)\n\
          ScriptType: v4.00+\n\
-         PlayResX: {OUT_W}\n\
-         PlayResY: {OUT_H}\n\
+         PlayResX: {out_w}\n\
+         PlayResY: {out_h}\n\
          WrapStyle: 2\n\
          ScaledBorderAndShadow: yes\n\
          \n\
          [V4+ Styles]\n\
          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Caption,{font},66,&H00FFFFFF,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,3.4,1.2,2,90,90,400,1\n\
-         Style: Headline,{font},42,&H00F2F2F2,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,2.6,1,8,110,110,110,1\n\
+         Style: Caption,{font},{cfs:.1},&H00FFFFFF,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,{co:.1},{cs:.1},2,{cml:.0},{cmr:.0},{cmv:.0},1\n\
+         Style: Headline,{font},{hfs:.1},&H00F2F2F2,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,{ho:.1},{hs:.1},8,{hml:.0},{hmr:.0},{hmv:.0},1\n\
          \n\
          [Events]\n\
          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
-        font = font
+        font = font,
+        out_w = out_w,
+        out_h = out_h,
+        cfs = 66.0 * s,
+        co = 3.4 * s,
+        cs = 1.2 * s,
+        cml = 90.0 * s,
+        cmr = 90.0 * s,
+        cmv = 400.0 * s,
+        hfs = 42.0 * s,
+        ho = 2.6 * s,
+        hs = 1.0 * s,
+        hml = 110.0 * s,
+        hmr = 110.0 * s,
+        hmv = 110.0 * s,
     )
 }
 
@@ -789,6 +823,8 @@ mod tests {
             headline: "",
             font: "Inter",
             accent_bgr: accent_bgr_for(CaptionStyle::Clean, None),
+            out_w: OUT_W,
+            out_h: OUT_H,
         };
         let ass = build_ass(&input, CaptionStyle::Clean);
         assert_eq!(parse_accent_events(&ass, CLEAN_ACCENT_BGR).len(), 5);
@@ -815,6 +851,8 @@ mod tests {
                 headline: "headline\r\nDialogue: injected",
                 font: "Inter",
                 accent_bgr: accent_bgr_for(CaptionStyle::Clean, None),
+                out_w: OUT_W,
+                out_h: OUT_H,
             },
             CaptionStyle::Clean,
         );
@@ -840,6 +878,8 @@ mod tests {
             headline: "",
             font: "Inter",
             accent_bgr: accent_bgr_for(CaptionStyle::Impact, None),
+            out_w: OUT_W,
+            out_h: OUT_H,
         }
     }
 
@@ -907,7 +947,7 @@ mod tests {
     #[test]
     fn lockup_has_a_dominant_emphasis_line_in_the_safe_band() {
         let words = words_from("when silence feels like strength");
-        let lines = layout_lockup(&words, 0);
+        let lines = layout_lockup(&words, 0, OUT_W, OUT_H);
         // Every word appears in exactly one line.
         let mut covered: Vec<usize> = lines.iter().flat_map(|l| l.word_idx.clone()).collect();
         covered.sort();
@@ -937,7 +977,7 @@ mod tests {
     #[test]
     fn long_emphasis_words_clamp_to_frame() {
         let words = words_from("this is counterintuitive");
-        let lines = layout_lockup(&words, 0);
+        let lines = layout_lockup(&words, 0, OUT_W, OUT_H);
         let emph = lines.iter().find(|l| l.emphasis).unwrap();
         let w = "counterintuitive".len() as f32 * CHAR_EM_UPPER * emph.fs;
         assert!(w <= MAX_LINE_W + 1.0, "emphasis width {} exceeds frame", w);
@@ -1052,9 +1092,48 @@ mod tests {
     /// so libass scales coordinates the way the renderer crops them.
     #[test]
     fn ass_headers_pin_the_output_canvas() {
-        for ass in [impact_header("Inter"), clean_header("Inter")] {
+        for ass in [
+            impact_header("Inter", OUT_W, OUT_H),
+            clean_header("Inter", OUT_W, OUT_H),
+        ] {
             assert!(ass.contains("PlayResX: 1080\n"), "{ass}");
             assert!(ass.contains("PlayResY: 1920\n"), "{ass}");
+        }
+    }
+
+    /// ADR-0002: PlayRes and font sizes derive from the clip's actual output
+    /// size, not the 1080×1920 ceiling — a 608×1080 clip gets a 608×1080 ASS
+    /// canvas and proportionally smaller fonts.
+    #[test]
+    fn ass_headers_track_the_clip_output_size() {
+        let (w, h) = (608, 1080);
+        for ass in [impact_header("Inter", w, h), clean_header("Inter", w, h)] {
+            assert!(ass.contains("PlayResX: 608\n"), "{ass}");
+            assert!(ass.contains("PlayResY: 1080\n"), "{ass}");
+        }
+        let s = h as f32 / OUT_H as f32;
+        let clean = clean_header("Inter", w, h);
+        assert!(
+            clean.contains(&format!("Style: Caption,Inter,{:.1}", 66.0 * s)),
+            "{clean}"
+        );
+        let impact = impact_header("Inter", w, h);
+        assert!(
+            impact.contains(&format!("Style: Impact,Inter ExtraBold,{:.1}", 84.0 * s)),
+            "{impact}"
+        );
+    }
+
+    #[test]
+    fn lockup_geometry_scales_with_output_size() {
+        let words = words_from("when silence feels like strength");
+        let full = layout_lockup(&words, 0, OUT_W, OUT_H);
+        let half = layout_lockup(&words, 0, OUT_W / 2, OUT_H / 2);
+        assert_eq!(full.len(), half.len());
+        for (a, b) in full.iter().zip(half.iter()) {
+            assert!((b.fs - a.fs * 0.5).abs() < 0.01, "fs scales");
+            assert!((b.y - a.y * 0.5).abs() < 0.5, "y scales");
+            assert!((b.x - a.x * 0.5).abs() < 0.5, "x scales");
         }
     }
 

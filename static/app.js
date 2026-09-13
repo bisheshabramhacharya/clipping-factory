@@ -618,6 +618,7 @@
     const badges = [];
     if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">face-tracked crop</span>`);
     else badges.push(`<span class="badge">blur-pad layout</span>`);
+    if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">low transcription confidence</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     body.innerHTML = `
