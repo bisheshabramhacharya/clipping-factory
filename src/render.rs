@@ -63,7 +63,7 @@ where
         "-map".into(),
         "[a]".into(),
     ];
-    args.extend(video_encode_args(cfg));
+    args.extend(video_encode_args());
     args.extend([
         "-c:a".into(),
         "aac".into(),
@@ -121,7 +121,7 @@ where
         "-vf".into(),
         subs,
     ];
-    args.extend(video_encode_args(cfg));
+    args.extend(video_encode_args());
     args.extend([
         "-c:a".into(),
         "copy".into(),
@@ -174,51 +174,21 @@ where
     .await
 }
 
-/// Shared output settings for both passes (PRD §11.1). On macOS, use the
-/// VideoToolbox hardware encoder when the ffmpeg build ships it — same H.264
-/// output, roughly 3–5× faster encodes on Apple Silicon — and fall back to
-/// libx264 otherwise. Probed once per process.
-fn video_encode_args(cfg: &Config) -> Vec<String> {
-    static HAS_VIDEOTOOLBOX: std::sync::OnceLock<Option<bool>> = std::sync::OnceLock::new();
-    let has_vt = *HAS_VIDEOTOOLBOX.get_or_init(|| {
-        if !cfg!(target_os = "macos") {
-            return Some(false);
-        }
-        match std::process::Command::new(&cfg.ffmpeg)
-            .args(["-hide_banner", "-encoders"])
-            .output()
-        {
-            Ok(out) => {
-                let listing = String::from_utf8_lossy(&out.stdout);
-                Some(listing.contains("h264_videotoolbox"))
-            }
-            Err(_) => Some(false),
-        }
-    });
-
-    if has_vt == Some(true) {
-        // VideoToolbox quality scale is 1–100 (lower = better); 60 sits close
-        // to libx264 crf 19 visually while encoding much faster.
-        vec![
-            "-c:v".into(),
-            "h264_videotoolbox".into(),
-            "-q:v".into(),
-            "60".into(),
-            "-pix_fmt".into(),
-            "yuv420p".into(),
-        ]
-    } else {
-        vec![
-            "-c:v".into(),
-            "libx264".into(),
-            "-preset".into(),
-            "veryfast".into(),
-            "-crf".into(),
-            "19".into(),
-            "-pix_fmt".into(),
-            "yuv420p".into(),
-        ]
-    }
+/// Shared output settings for both passes (PRD §11.1): always libx264 at
+/// high quality, on every platform (ADR-0003). The VideoToolbox hardware
+/// encoder is faster but its quality slider doesn't track CRF semantics, and
+/// clips visibly degraded at -q:v 60.
+fn video_encode_args() -> Vec<String> {
+    vec![
+        "-c:v".into(),
+        "libx264".into(),
+        "-crf".into(),
+        "17".into(),
+        "-preset".into(),
+        "fast".into(),
+        "-pix_fmt".into(),
+        "yuv420p".into(),
+    ]
 }
 
 /// The output must exist and be non-trivial.
@@ -377,6 +347,20 @@ mod tests {
         );
         assert!(e.starts_with("if(lt(t\\,2.000)"));
         assert!(e.contains("if(lt(t\\,4.000)"));
+    }
+
+    #[test]
+    fn encode_args_are_libx264_crf17_preset_fast() {
+        let args = video_encode_args();
+        let s = args.join(" ");
+        assert!(s.contains("libx264"), "args: {s}");
+        assert!(s.contains("-crf 17"), "args: {s}");
+        assert!(s.contains("-preset fast"), "args: {s}");
+        assert!(s.contains("-pix_fmt yuv420p"), "args: {s}");
+        assert!(
+            !s.to_lowercase().contains("videotoolbox"),
+            "args must never select VideoToolbox: {s}"
+        );
     }
 
     #[test]
