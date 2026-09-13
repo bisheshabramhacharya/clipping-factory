@@ -602,6 +602,7 @@ async fn run(
                     }
                 };
                 let layout = p.framing_mode.apply(analyzed_layout);
+                let (out_w, out_h) = crate::render::output_size(&source, &layout);
                 let c = &vc.candidate;
                 clips.push(ClipRecord {
                     id: crate::util::short_id(),
@@ -614,6 +615,8 @@ async fn run(
                     selection_reason: c.selection_reason.clone(),
                     scores: c.scores,
                     layout,
+                    width: Some(out_w),
+                    height: Some(out_h),
                     status: ClipStatus::Pending,
                     error: None,
                     low_confidence: interval_confidence(&transcript, c.start_ms, c.end_ms)
@@ -721,6 +724,17 @@ async fn run(
         let base_temp = unique_temp_path(&base_path);
         let out_temp = unique_temp_path(&out_path);
         let base_ready = store.base_is_ready(&id, &clip.id).await?;
+        // Captions are authored against the base clip's real size: a fresh
+        // base renders at output_size, while a pre-ADR-0002 base already on
+        // disk is fixed 1080×1920 (manifests then carry no dims).
+        let (out_w, out_h) = if base_ready {
+            (
+                clip.width.unwrap_or(crate::render::OUT_W),
+                clip.height.unwrap_or(crate::render::OUT_H),
+            )
+        } else {
+            crate::render::output_size(&source, &clip.layout)
+        };
 
         let render_result: anyhow::Result<()> = async {
             // Pass 1 — framed, uncaptioned base. Kept on disk so captions can
@@ -760,6 +774,8 @@ async fn run(
                     headline: &clip.headline,
                     font: &cfg.caption_font,
                     accent_bgr: accent_bgr.clone(),
+                    out_w,
+                    out_h,
                 },
                 caption_style,
             );
@@ -798,6 +814,8 @@ async fn run(
                 manifest.clips[i].caption_style = Some(caption_style.label().to_string());
                 manifest.clips[i].accent_color = Some(accent_hex.clone());
                 manifest.clips[i].caption_font = Some(cfg.caption_font.clone());
+                manifest.clips[i].width = Some(out_w);
+                manifest.clips[i].height = Some(out_h);
                 // Copy into the user-facing output folder (best-effort).
                 if tokio::fs::create_dir_all(&output_dir).await.is_ok() {
                     let dest = output_dir.join(&clip.filename);

@@ -315,6 +315,13 @@ pub struct ClipRecord {
     /// Editable caption wording. Word timings are preserved when possible.
     #[serde(default)]
     pub caption_text: Option<String>,
+    /// Rendered output size of this clip (ADR-0002). `None` on manifests
+    /// written before downscale-only output — those bases are fixed
+    /// 1080×1920, which is what the render and restyle paths assume for them.
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -387,5 +394,7 @@ mod tests {
         assert_eq!(m.clips[0].caption_style, None);
         assert_eq!(m.clips[0].accent_color, None);
         assert_eq!(m.clips[0].caption_font, None);
+        assert_eq!(m.clips[0].width, None);
+        assert_eq!(m.clips[0].height, None);
     }
 }
