@@ -10,6 +10,11 @@
 //! outliers, a centered moving average removes jitter, and a pan-speed clamp
 //! guarantees the crop window never whips across the frame.
 //!
+//! An opening face gate runs before any of that: if the chosen face cluster
+//! has no detection within the clip's first ~2 sampled seconds, the clip is
+//! treated as BlurPad instead of a FaceCrop aimed at the face's future
+//! position (which would open on an empty room or b-roll).
+//!
 //! Face detection uses rustface (SeetaFace, pure Rust). If the model file is
 //! missing or detection fails, we degrade gracefully to BlurPad — never crash
 //! a render over framing.
@@ -36,6 +41,11 @@ const CLUSTER_EPS: f32 = 0.18;
 const MAX_PAN_PER_S: f32 = 0.10;
 /// Ignore keyframe-to-keyframe movements smaller than this (dead band).
 const MIN_KEY_DELTA: f32 = 0.012;
+/// Opening face gate: the dominant face must have a detection within this
+/// many leading sampled frames (~2s at SAMPLE_FPS = samples at t≈0 and
+/// t≈1). A first detection later than that means the clip opens on an
+/// empty room, and the safe full-frame BlurPad is the honest framing.
+const OPENING_FACE_GATE_FRAMES: usize = 2;
 
 pub async fn analyze_layout(
     cfg: &Config,
@@ -192,6 +202,12 @@ pub fn decide_layout(detections: &[Vec<f32>], n_frames: usize) -> LayoutPlan {
     match persistent.len() {
         1 => {
             let cluster = persistent[0];
+            // Opening face gate: if the face is not in frame within the
+            // clip's first ~2 sampled seconds, a FaceCrop would open on an
+            // empty room aimed at the face's future position — pad instead.
+            if !opens_on_face(cluster) {
+                return LayoutPlan::BlurPad;
+            }
             // Per-frame center: true mean when a frame has several in-cluster
             // detections, then forward-filled for frames without one.
             let mut sums: Vec<(f32, u32)> = vec![(0.0, 0); n_frames];
@@ -215,6 +231,18 @@ pub fn decide_layout(detections: &[Vec<f32>], n_frames: usize) -> LayoutPlan {
         // 0 → no reliable face; ≥2 → don't guess the active speaker (MVP).
         _ => LayoutPlan::BlurPad,
     }
+}
+
+/// Opening face gate: does the chosen cluster already appear within the
+/// clip's first `OPENING_FACE_GATE_FRAMES` sampled frames? If not, the clip
+/// opens on an empty room or b-roll and BlurPad is the honest framing.
+fn opens_on_face(cluster: &[(usize, f32)]) -> bool {
+    cluster
+        .iter()
+        .map(|(fi, _)| *fi)
+        .min()
+        .map(|first| first < OPENING_FACE_GATE_FRAMES)
+        .unwrap_or(false)
 }
 
 /// Stabilize a raw per-frame center track: a median-of-three filter rejects
@@ -370,6 +398,56 @@ mod tests {
             }
             other => panic!("expected FaceCrop, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn dominant_face_present_at_open_face_crops() {
+        // Dominant face detected at t≈0, then briefly missed by the
+        // sampler: the gate only asks for a detection within the clip's
+        // first ~2 sampled seconds, so this still face-crops.
+        let det: Vec<Vec<f32>> = (0..30)
+            .map(|i| {
+                if (1..4).contains(&i) {
+                    vec![]
+                } else {
+                    vec![0.5]
+                }
+            })
+            .collect();
+        match decide_layout(&det, 30) {
+            LayoutPlan::FaceCrop { keyframes } => assert!(!keyframes.is_empty()),
+            other => panic!("expected FaceCrop, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn dominant_face_arriving_late_means_blur_pad() {
+        // Dominant face absent for the first 3 sampled seconds, then
+        // persistent: a locked crop would open on an empty room aimed at
+        // the face's future position → BlurPad.
+        let det: Vec<Vec<f32>> = (0..30)
+            .map(|i| if i < 3 { vec![] } else { vec![0.5] })
+            .collect();
+        assert_eq!(decide_layout(&det, 30), LayoutPlan::BlurPad);
+    }
+
+    #[test]
+    fn opening_face_gate_edge() {
+        // Detection at the last sample inside the gate window (t≈1s)
+        // still face-crops.
+        let inside: Vec<Vec<f32>> = (0..30)
+            .map(|i| if i == 0 { vec![] } else { vec![0.5] })
+            .collect();
+        match decide_layout(&inside, 30) {
+            LayoutPlan::FaceCrop { .. } => {}
+            other => panic!("expected FaceCrop, got {:?}", other),
+        }
+        // First detection exactly at the gate edge (t≈2s — two full
+        // sampled seconds without the face) falls back to BlurPad.
+        let edge: Vec<Vec<f32>> = (0..30)
+            .map(|i| if i < 2 { vec![] } else { vec![0.5] })
+            .collect();
+        assert_eq!(decide_layout(&edge, 30), LayoutPlan::BlurPad);
     }
 
     #[test]
