@@ -32,6 +32,10 @@ const SAMPLE_WIDTH: u32 = 480;
 const PERSISTENCE: f64 = 0.5;
 /// Cluster width as a fraction of frame width.
 const CLUSTER_EPS: f32 = 0.18;
+/// Opening face gate: the dominant face must appear within this many
+/// leading sampled frames (~2s at SAMPLE_FPS = 1). Otherwise the clip
+/// opens on an empty room and BlurPad is the honest framing.
+const OPENING_FACE_GATE_FRAMES: usize = 2;
 
 /// One face detection in a sampled frame.
 #[derive(Clone, Copy, Debug)]
@@ -214,6 +218,14 @@ pub fn decide_layout(detections: &[Vec<FaceDet>], n_frames: usize) -> LayoutPlan
     }) else {
         return LayoutPlan::BlurPad;
     };
+
+    // Opening face gate: if the dominant face isn't in frame within the
+    // clip's first ~2 sampled seconds (frames 0 and 1 at SAMPLE_FPS = 1),
+    // a locked crop would open on an empty room aimed at the face's future
+    // position — pad instead.
+    if first_frame(dominant) >= OPENING_FACE_GATE_FRAMES {
+        return LayoutPlan::BlurPad;
+    }
 
     LayoutPlan::FaceCrop {
         keyframes: vec![CropKey {
