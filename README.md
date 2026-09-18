@@ -85,10 +85,22 @@ Local ranking is the default and needs no API key. If you want model-assisted se
 | Provider | Default model | Notes |
 |---|---|---|
 | Local ranking | — | Scans the full transcript locally. No key required. |
+| Local endpoint | — | Ollama, llama.cpp, or LM Studio. Model-assisted, fully offline. |
 | OpenAI | `gpt-4o-mini` | Accepts another chat-completions model name. |
 | Anthropic | `claude-sonnet-4-5` | Optional alternative provider. |
 
 When a provider is enabled, only transcript text is sent to it. The source video stays on your machine.
+
+### Local endpoint
+
+Point the studio at any OpenAI-compatible server on your machine: pick **Local endpoint** in the AI connection control, enter the base URL and a model the server already has, and test & save. Ollama is the shortest path:
+
+```sh
+ollama pull qwen2.5:7b   # any 7–8B instruct GGUF works
+# base URL: http://localhost:11434/v1 (the default)
+```
+
+LM Studio serves at `http://localhost:1234/v1`, llama.cpp's `llama-server` at `http://localhost:8080/v1`. No API key is needed. If the endpoint is down or misbehaves during a run, selection falls back to local ranking with a warning — the pipeline never stalls on it.
 
 API keys are stored in `~/.clipping-factory/settings.json` with user-only `0600` permissions. Keys are never logged or returned by the settings API.
 
@@ -150,7 +162,7 @@ Clipping Factory is a browser-based studio backed by one Rust binary. There is n
 | Web server and API | axum, tokio, server-sent events, streaming multipart uploads |
 | Media inspection and rendering | FFmpeg and FFprobe subprocesses |
 | Transcription | whisper.cpp with word timestamps |
-| Editorial selection | Local ranker, optional OpenAI, optional Anthropic |
+| Editorial selection | Local ranker, optional local endpoint (Ollama/llama.cpp/LM Studio), optional OpenAI, optional Anthropic |
 | Quality gate | Pure Rust deterministic validator |
 | Framing | rustface detections with smoothing and crop clamping |
 | Captions | Generated ASS subtitles burned by libass |

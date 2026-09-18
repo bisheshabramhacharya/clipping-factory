@@ -246,6 +246,8 @@ struct SettingsIn {
     #[serde(default)]
     model: String,
     #[serde(default)]
+    base_url: String,
+    #[serde(default)]
     api_key: String,
 }
 
@@ -256,13 +258,14 @@ async fn set_settings(
     let _update = state.settings_update.lock().await;
     if crate::settings::Provider::parse(&body.provider).is_none() {
         return Err(bad_request(
-            "provider must be openai, anthropic, or offline",
+            "provider must be openai, anthropic, local, or offline",
         ));
     }
     let updated = {
         let mut candidate = state.settings.read().unwrap().clone();
         candidate.provider = body.provider;
         candidate.model = body.model;
+        candidate.base_url = body.base_url;
         // Empty key = keep the existing one (lets users switch model without retyping).
         if !body.api_key.trim().is_empty() {
             candidate.api_key = Some(body.api_key.trim().to_string());
@@ -1410,6 +1413,76 @@ mod tests {
                 .status(),
             StatusCode::NOT_FOUND
         );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn local_provider_saves_and_tests_against_the_endpoint() {
+        let (state, tmp) = test_state();
+        let base_url =
+            crate::select::local::test_server::spawn(vec!["qwen2.5:7b".into()], "{}".into()).await;
+        let app = router(state);
+
+        let save = app
+            .clone()
+            .oneshot(
+                Request::post("/api/settings/ai")
+                    .header(header::HOST, "localhost:4571")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(
+                        r#"{{"provider":"local","model":"qwen2.5:7b","base_url":"{base_url}"}}"#
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(save.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(save.into_body(), 8 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["provider"], "local");
+        assert_eq!(v["base_url"], base_url);
+        assert_eq!(v["connected"], true);
+
+        let test = app
+            .oneshot(
+                Request::post("/api/settings/ai/test")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(test.into_body(), 8 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["ok"], true);
+
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn local_provider_rejects_an_endpoint_without_the_model() {
+        let (state, tmp) = test_state();
+        // The stub serves `other-model`, not the requested one.
+        let base_url =
+            crate::select::local::test_server::spawn(vec!["other-model".into()], "{}".into()).await;
+        let app = router(state);
+        let save = app
+            .oneshot(
+                Request::post("/api/settings/ai")
+                    .header(header::HOST, "localhost:4571")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(
+                        r#"{{"provider":"local","model":"qwen2.5:7b","base_url":"{base_url}"}}"#
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(save.status(), StatusCode::BAD_REQUEST);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

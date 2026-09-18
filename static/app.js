@@ -130,6 +130,7 @@
       else { $("ai-label").textContent = "AI connection"; }
       $("provider").value = s.provider || "openai";
       $("model").value = s.model || "";
+      $("base-url").value = s.base_url || "";
       syncModalRows();
       clearActionMessage("reconnect");
     } catch {
@@ -992,11 +993,15 @@
 
   // ------------------------------------------------------------------ modal
   function syncModalRows() {
-    const offline = $("provider").value === "offline";
-    $("key-row").classList.toggle("hidden", offline);
+    const provider = $("provider").value;
+    const offline = provider === "offline";
+    const local = provider === "local";
+    $("key-row").classList.toggle("hidden", offline || local);
     $("model-row").classList.toggle("hidden", offline);
+    $("base-url-row").classList.toggle("hidden", !local);
     $("offline-note").classList.toggle("hidden", !offline);
-    $("model").placeholder = $("provider").value === "anthropic" ? "claude-sonnet-4-5" : "gpt-4o-mini";
+    $("local-note").classList.toggle("hidden", !local);
+    $("model").placeholder = provider === "anthropic" ? "claude-sonnet-4-5" : local ? "qwen2.5:7b" : "gpt-4o-mini";
   }
 
   function modalFocusables() {
@@ -1061,13 +1066,16 @@
           body: JSON.stringify({
             provider: $("provider").value,
             model: $("model").value.trim(),
+            base_url: $("base-url").value.trim(),
             api_key: $("api-key").value.trim(),
           }),
         }, "Could not save AI settings.");
         const out = $("test-result");
         out.textContent = saved.provider === "offline"
           ? "Local ranking is ready. No API key needed."
-          : `${saved.provider === "anthropic" ? "Anthropic" : "OpenAI"} connection verified. Using model ${saved.model}.`;
+          : saved.provider === "local"
+            ? `Local endpoint verified. Using model ${saved.model}.`
+            : `${saved.provider === "anthropic" ? "Anthropic" : "OpenAI"} connection verified. Using model ${saved.model}.`;
         out.className = "small ok";
         out.classList.remove("hidden");
         $("api-key").value = "";
