@@ -8,6 +8,8 @@
 /evals/manifest.json
 /evals/sources/
 /evals/results/
+/evals/fixtures/*.mp4
+/evals/fixtures/*.truth.json
 /.pi/
 
 # Promo video generator (Remotion) — generated artifacts

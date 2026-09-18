@@ -37,13 +37,16 @@ jobs:
         run: cargo test --locked
 
       - name: Eval runner syntax
-        run: bash -n evals/run.sh
+        run: bash -n evals/run.sh evals/verify_clip_quality.sh evals/bless_baseline.sh
 
       - name: Eval report syntax
-        run: python3 -m py_compile evals/report.py evals/replay_opening_gate.py
+        run: python3 -m py_compile evals/report.py evals/replay_opening_gate.py evals/clip_checks.py evals/make_fixture.py
 
       - name: Eval fixture tests
         run: python3 -m unittest discover -s evals/tests -v
+
+      - name: Synthetic fixture generates
+        run: python3 evals/make_fixture.py --out evals/fixtures/synthetic-episode.mp4 --seconds 30 --scene-seconds 10
 
   promo:
     name: promo typecheck
