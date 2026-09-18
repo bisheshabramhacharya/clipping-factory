@@ -449,9 +449,17 @@ async fn run(
             .await?;
     } else {
         let wav = store.audio_path(&id);
+        let language = p.language.clone();
         let mut prog = ctx.progress_fn("transcribing");
         stage!("transcribing", {
-            match crate::transcribe::transcribe(cfg, &wav, &ctx.cancel, |pct| prog(pct, None)).await
+            match crate::transcribe::transcribe(
+                cfg,
+                &wav,
+                language.as_deref(),
+                &ctx.cancel,
+                |pct| prog(pct, None),
+            )
+            .await
             {
                 Ok(t) => {
                     store.save_transcript(&id, &t).await?;
@@ -468,9 +476,12 @@ async fn run(
                             t.avg_confidence * 100.0
                         ));
                     }
+                    let lang = crate::transcribe::language_name(&t.language)
+                        .unwrap_or(t.language.as_str());
                     Ok(format!(
-                        "{} words · avg confidence {:.0}%",
+                        "{} words · {} · avg confidence {:.0}%",
                         t.words.len(),
+                        lang,
                         t.avg_confidence * 100.0
                     ))
                 }

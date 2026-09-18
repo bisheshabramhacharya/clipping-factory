@@ -30,6 +30,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 | **Faithful excerpts** | Never rewrites, reorders, splices, or invents speech. |
 | **Feed-ready video** | Produces H.264/AAC MP4s at 1080×1920. |
 | **Word-accurate captions** | Offers Impact and Clean styles with per-clip restyling. |
+| **~99 languages** | Whisper transcription auto-detects the language, or you pick it per project. |
 | **Private by default** | Keeps video, audio, transcripts, project state, and rendering on your machine. |
 
 <p align="center">
@@ -52,10 +53,10 @@ brew install ffmpeg-full whisper-cpp
 # Rust toolchain — skip this if Rust is already installed
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Download the base English transcription model once
+# Download the base transcription model once (multilingual)
 mkdir -p ~/.clipping-factory/models
-curl -L -o ~/.clipping-factory/models/ggml-base.en.bin \
-  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+curl -L -o ~/.clipping-factory/models/ggml-base.bin \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
 
 # Run from the repository root
 cargo run --release
@@ -76,7 +77,9 @@ Set `CF_WHISPER_BIN` to the resulting `whisper-cli` path if it is not already on
 
 ### Better transcription
 
-`ggml-base.en` is the fast default. For tougher audio, put `ggml-small.en.bin` in `~/.clipping-factory/models/` or set `CF_WHISPER_MODEL` to another compatible ggml model.
+`ggml-base` is the fast default and covers ~99 languages. For tougher audio, put `ggml-small.bin` in `~/.clipping-factory/models/` or set `CF_WHISPER_MODEL` to another compatible ggml model. English-only weights (`ggml-*.en.bin`) are also supported and slightly stronger on English — but then only English (and no auto-detection) is available.
+
+Language is chosen per project at upload: **Auto-detect** is the default, or pick a specific language to skip detection. Non-English sources need a multilingual model.
 
 ## Local by default. AI optional.
 

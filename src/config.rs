@@ -44,12 +44,58 @@ fn first_existing(cands: Vec<PathBuf>) -> Option<PathBuf> {
 }
 
 fn find_whisper_model(data_dir: &Path, cwd: &Path) -> Option<PathBuf> {
+    // English-only weights stay preferred: they are measurably stronger on
+    // English than the multilingual equivalent at the same size. Multilingual
+    // names come after so an install with only e.g. ggml-base.bin still works.
     first_existing(vec![
         data_dir.join("models/ggml-small.en.bin"),
         data_dir.join("models/ggml-base.en.bin"),
         cwd.join("models/ggml-base.en.bin"),
         cwd.join("../models/ggml-base.en.bin"),
     ])
+    .or_else(|| find_multilingual_model(&model_search_dirs(data_dir, cwd)))
+}
+
+/// Multilingual ggml model names, best first (same quality ordering as the
+/// `.en` list: bigger models win). whisper.cpp English-only weights end in
+/// `.en.bin`; everything else covers the ~99 supported languages.
+pub const MULTILINGUAL_MODELS: &[&str] = &[
+    "ggml-large-v3-turbo.bin",
+    "ggml-large-v3.bin",
+    "ggml-medium.bin",
+    "ggml-small.bin",
+    "ggml-base.bin",
+];
+
+/// Directories whisper models are discovered in, in priority order.
+pub fn model_search_dirs(data_dir: &Path, cwd: &Path) -> Vec<PathBuf> {
+    vec![
+        data_dir.join("models"),
+        cwd.join("models"),
+        cwd.join("../models"),
+    ]
+}
+
+/// First multilingual ggml model in the given search dirs — the fallback the
+/// transcribe stage switches to when a project needs more than English.
+pub fn find_multilingual_model(dirs: &[PathBuf]) -> Option<PathBuf> {
+    for dir in dirs {
+        for name in MULTILINGUAL_MODELS {
+            let path = dir.join(name);
+            if path.is_file() {
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+/// whisper.cpp ships English-only weights as `ggml-*.en.bin`.
+pub fn model_is_multilingual(model: &Path) -> bool {
+    model
+        .file_name()
+        .map(|name| !name.to_string_lossy().ends_with(".en.bin"))
+        .unwrap_or(true)
 }
 
 impl Config {
@@ -186,6 +232,36 @@ mod tests {
         std::fs::write(&small, b"small").unwrap();
 
         assert_eq!(find_whisper_model(&root, &root), Some(small));
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn en_only_names_detect_english_only_models() {
+        assert!(!model_is_multilingual(Path::new("models/ggml-base.en.bin")));
+        assert!(model_is_multilingual(Path::new("models/ggml-base.bin")));
+        assert!(model_is_multilingual(Path::new("models/ggml-large-v3.bin")));
+    }
+
+    #[test]
+    fn multilingual_models_fill_in_when_no_en_model_exists() {
+        let root = std::env::temp_dir().join(format!("cf-config-test-{}", uuid::Uuid::new_v4()));
+        let models = root.join("models");
+        std::fs::create_dir_all(&models).unwrap();
+        let base_multi = models.join("ggml-base.bin");
+        std::fs::write(&base_multi, b"multi").unwrap();
+
+        assert_eq!(find_whisper_model(&root, &root), Some(base_multi.clone()));
+        assert_eq!(
+            find_multilingual_model(&model_search_dirs(&root, &root)),
+            Some(base_multi)
+        );
+
+        // An English-only model still wins discovery when both are present;
+        // the transcribe stage falls back to the multilingual one on demand.
+        let en = models.join("ggml-base.en.bin");
+        std::fs::write(&en, b"en").unwrap();
+        assert_eq!(find_whisper_model(&root, &root), Some(en));
 
         std::fs::remove_dir_all(root).unwrap();
     }

@@ -221,6 +221,11 @@ async fn setup_status(State(state): State<AppState>) -> Json<serde_json::Value> 
         .as_ref()
         .and_then(|p| std::fs::metadata(p).ok())
         .map(|m| m.len() / 1_000_000);
+    let model_multilingual = cfg
+        .whisper_model
+        .as_deref()
+        .map(crate::config::model_is_multilingual)
+        .unwrap_or(false);
     let disk = crate::util::disk_free_gb(&cfg.data_dir).await;
     Json(json!({
         "ffmpeg": ffmpeg_ok,
@@ -230,6 +235,11 @@ async fn setup_status(State(state): State<AppState>) -> Json<serde_json::Value> 
         "whisper_ok": cfg.whisper_bin.is_some(),
         "model_ok": cfg.whisper_model.is_some(),
         "model_mb": model_size,
+        "model_multilingual": model_multilingual,
+        "whisper_languages": crate::transcribe::WHISPER_LANGUAGES
+            .iter()
+            .map(|(code, name)| json!({ "code": code, "name": name }))
+            .collect::<Vec<_>>(),
         "face_model_ok": cfg.face_model.is_some(),
         "caption_font": cfg.caption_font,
         "caption_fonts": crate::captions::CAPTION_FONTS,
@@ -314,6 +324,7 @@ struct UploadFields {
     accent_color: Option<String>,
     emoji_overlay: Option<bool>,
     framing_mode: FramingMode,
+    language: Option<String>,
 }
 
 const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -425,6 +436,7 @@ async fn receive_upload(
     let mut emoji_overlay: Option<bool> = None;
     let mut accent_mode = crate::accent::AccentMode::default();
     let mut framing_mode = FramingMode::default();
+    let mut language: Option<String> = None;
     let mut saw_file = false;
 
     while let Some(mut field) = multipart
@@ -467,6 +479,20 @@ async fn receive_upload(
                 "background" => FramingMode::Background,
                 _ => FramingMode::Fill,
             };
+            continue;
+        }
+        if field.name() == Some("language") {
+            let v = read_multipart_text(field).await?;
+            let v = v.trim().to_lowercase();
+            if v.is_empty() || v == "auto" {
+                continue;
+            }
+            if crate::transcribe::language_name(&v).is_none() {
+                return Err(bad_request(
+                    "language must be auto or a supported whisper language code",
+                ));
+            }
+            language = Some(v);
             continue;
         }
         if field.name() != Some("file") {
@@ -545,6 +571,7 @@ async fn receive_upload(
         accent_color,
         emoji_overlay,
         framing_mode,
+        language,
     })
 }
 
@@ -568,6 +595,7 @@ async fn create_project(
     project.accent_color = fields.accent_color;
     project.emoji_overlay = fields.emoji_overlay;
     project.framing_mode = fields.framing_mode;
+    project.language = fields.language;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
         cleanup.disarm();

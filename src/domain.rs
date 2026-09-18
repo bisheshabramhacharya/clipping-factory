@@ -123,6 +123,9 @@ pub struct Project {
     /// Output composition selected before upload.
     #[serde(default)]
     pub framing_mode: FramingMode,
+    /// Whisper language code picked at upload (`None`/`"auto"` = auto-detect).
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 impl Project {
@@ -141,6 +144,7 @@ impl Project {
             accent_color: None,
             emoji_overlay: None,
             framing_mode: FramingMode::default(),
+            language: None,
         }
     }
 
