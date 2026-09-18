@@ -141,7 +141,7 @@ pub fn validate(
             let first = &words[fi];
             let last = &words[li];
             if let Some(reason) = cold_open_reason(&words[fi..]) {
-                reasons.push(reason.into());
+                reasons.push(reason);
             }
             if !crate::transcribe::terminal_word(&last.text) {
                 let continues = words
