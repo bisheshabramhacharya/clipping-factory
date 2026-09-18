@@ -169,6 +169,8 @@ a:hover { text-decoration: underline; }
   color: var(--ink); letter-spacing: 0.01em;
 }
 #choose-btn { margin-top: 18px; }
+#sample-btn { margin-top: 10px; font-size: 13px; opacity: .85; }
+#sample-btn:hover { opacity: 1; }
 .upload .small { max-width: 52ch; margin: 18px auto 0; }
 
 #upload-progress {

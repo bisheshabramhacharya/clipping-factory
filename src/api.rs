@@ -54,6 +54,7 @@ pub fn router(state: AppState) -> Router {
                 .post(create_project)
                 .layer(DefaultBodyLimit::disable()),
         )
+        .route("/api/projects/sample", post(create_sample_project))
         .route(
             "/api/projects/{id}",
             get(get_project).delete(delete_project),
@@ -623,6 +624,50 @@ async fn create_project(
     // Processing begins automatically (PRD §7.2).
     pipeline::start(state.clone(), id.clone()).await.ok();
 
+    let view = project_view(&state, &id).await.map_err(ApiError::from)?;
+    Ok(Json(view))
+}
+
+/// POST /api/projects/sample — the zero-input first run: make a project from
+/// the bundled sample episode and start the pipeline immediately.
+async fn create_sample_project(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let sample = state
+        .cfg
+        .sample_episode
+        .clone()
+        .ok_or_else(|| bad_request("No bundled sample episode on this install."))?;
+
+    let id = crate::util::short_id();
+    let mut cleanup = UploadCleanupGuard::new(state.store.project_dir(&id));
+    if let Err(error) = state.store.create_dirs(&id).await {
+        cleanup.disarm();
+        return Err(ApiError::from(error));
+    }
+    if let Err(error) = tokio::fs::copy(&sample, state.store.source_path(&id)).await {
+        cleanup_upload(&state, &id).await;
+        cleanup.disarm();
+        return Err(ApiError::from(anyhow::Error::from(error)));
+    }
+
+    let mut project = Project::new(id.clone(), state.store.source_path(&id));
+    // The sample's speech is synthesized English — skip auto-detect.
+    project.language = Some("en".into());
+    if let Err(error) = state.store.save_project(&project).await {
+        cleanup_upload(&state, &id).await;
+        cleanup.disarm();
+        return Err(ApiError::from(error));
+    }
+    cleanup.disarm();
+    tokio::fs::write(
+        state.store.project_dir(&id).join("original-name.txt"),
+        "sample-episode.mp4",
+    )
+    .await
+    .ok();
+
+    pipeline::start(state.clone(), id.clone()).await.ok();
     let view = project_view(&state, &id).await.map_err(ApiError::from)?;
     Ok(Json(view))
 }
@@ -1637,6 +1682,42 @@ mod tests {
                 .status(),
             StatusCode::NOT_FOUND
         );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn sample_project_copies_the_bundled_episode_and_starts() {
+        let (state, tmp) = {
+            let tmp = std::env::temp_dir().join(format!("cf-api-{}", crate::util::short_id()));
+            std::fs::create_dir_all(&tmp).unwrap();
+            let mut cfg = crate::config::Config::resolve();
+            cfg.data_dir = tmp.join("data");
+            cfg.output_root = tmp.join("output");
+            let sample = tmp.join("sample-episode.mp4");
+            std::fs::write(&sample, b"fake mp4 bytes").unwrap();
+            cfg.sample_episode = Some(sample);
+            (AppState::new(cfg), tmp)
+        };
+        let app = router(state);
+        let res = app
+            .oneshot(
+                Request::post("/api/projects/sample")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let id = v["project"]["id"].as_str().unwrap();
+        let store = crate::store::Store::new(&tmp.join("data"));
+        let project = store.load_project(id).await.unwrap();
+        assert_eq!(project.language.as_deref(), Some("en"));
+        assert!(tokio::fs::metadata(store.source_path(id)).await.is_ok());
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

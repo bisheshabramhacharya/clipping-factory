@@ -188,6 +188,34 @@
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (f) uploadFile(f);
     });
+    $("sample-btn").addEventListener("click", startSample);
+  }
+
+  // Zero-input first run: the bundled sample episode becomes the project's
+  // source server-side, then the normal progress flow takes over.
+  async function startSample() {
+    if (uploadXhr) return;
+    $("drop").classList.add("hidden");
+    $("upload-progress").classList.remove("hidden");
+    $("cancel-upload-btn").disabled = true;
+    setUploadPhase("Preparing the sample episode…", null);
+    try {
+      const res = await fetch("/api/projects/sample", { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Could not start the sample episode.");
+      }
+      const v = await res.json();
+      if (!v.project || !PROJECT_ID_RE.test(v.project.id)) throw new Error("invalid project id");
+      projectId = v.project.id;
+      localStorage.setItem("cf-project", projectId);
+      view = v;
+      clearActionMessage();
+      connectSse();
+      render();
+    } catch (e) {
+      resetToEmpty({ message: e.message || "Could not start the sample episode." });
+    }
   }
 
   function wireUploadOptions() {
