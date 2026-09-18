@@ -675,6 +675,7 @@
       font: c.caption_font || captionDefaultFont,
       text: c.caption_text ?? "",
       textPresent: c.caption_text !== null && c.caption_text !== undefined,
+      autoCut: Boolean(c.auto_cut),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -786,6 +787,26 @@
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
 
+    // Opt-in auto-cut: removes silence gaps and filler words at render.
+    // Default off — a clip is otherwise one continuous faithful excerpt.
+    const autoCut = document.createElement("label");
+    autoCut.className = "auto-cut-toggle";
+    autoCut.title = "Remove silence gaps and filler words (um, uh) — re-renders this clip";
+    const autoCutBox = document.createElement("input");
+    autoCutBox.type = "checkbox";
+    autoCutBox.checked = state.draft.autoCut;
+    autoCutBox.setAttribute("aria-label", `Auto-cut silences and filler words for ${c.headline}`);
+    autoCutBox.addEventListener("change", () => {
+      state.draft.autoCut = autoCutBox.checked;
+      state.kind = "dirty";
+      state.message = "Auto-cut change re-renders this clip";
+      sync();
+    });
+    const autoCutText = document.createElement("span");
+    autoCutText.textContent = "Auto-cut";
+    autoCut.appendChild(autoCutBox);
+    autoCut.appendChild(autoCutText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -801,7 +822,8 @@
         state.draft.color !== applied.color ||
         state.draft.font !== applied.font ||
         state.draft.textPresent !== applied.textPresent ||
-        (state.draft.textPresent && state.draft.text !== applied.text)
+        (state.draft.textPresent && state.draft.text !== applied.text) ||
+        state.draft.autoCut !== applied.autoCut
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -822,6 +844,7 @@
       custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = state.draft.color;
       font.value = state.draft.font;
+      autoCutBox.checked = Boolean(state.draft.autoCut);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -843,6 +866,7 @@
           font: state.draft.font,
         };
         if (state.draft.textPresent) payload.caption_text = state.draft.text;
+        if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -867,6 +891,7 @@
           font: updated.caption_font || state.draft.font,
           text: updated.caption_text ?? "",
           textPresent: updated.caption_text !== null && updated.caption_text !== undefined,
+          autoCut: Boolean(updated.auto_cut),
         };
         render();
       } catch (err) {
@@ -884,6 +909,7 @@
     box.appendChild(seg);
     box.appendChild(swatches);
     box.appendChild(fontPicker);
+    box.appendChild(autoCut);
     box.appendChild(apply);
     box.appendChild(status);
     sync();

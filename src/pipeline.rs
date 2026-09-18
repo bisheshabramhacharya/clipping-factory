@@ -629,6 +629,8 @@ async fn run(
                         c.start_ms,
                         c.end_ms,
                     ))),
+                    auto_cut: false,
+                    cut_spans: None,
                 });
             }
             match result {
@@ -702,13 +704,53 @@ async fn run(
             ctx.mark_cancelled(&mut p, "rendering").await?;
             return Ok(());
         }
-        let clip = manifest.clips[i].clone();
+        let mut clip = manifest.clips[i].clone();
         let out_path = store.clips_dir(&id).join(&clip.filename);
         if clip.status == ClipStatus::Ready
             && store.final_is_ready(&id, &clip.id, &clip.filename).await?
         {
             continue;
         }
+
+        // Auto-cut (opt-in): compute the cut list once and persist it on the
+        // clip so restyle/retry reproduce the identical cut without
+        // re-running silence detection.
+        if clip.auto_cut && clip.cut_spans.is_none() {
+            let energy = store.load_energy(&id).await;
+            match crate::autocut::plan_for_clip(
+                cfg,
+                &src,
+                &transcript.words,
+                clip.start_ms,
+                clip.end_ms,
+                energy.as_ref(),
+                &ctx.cancel,
+            )
+            .await
+            {
+                Ok(removals) => {
+                    clip.cut_spans = Some(removals);
+                    manifest.clips[i].cut_spans = clip.cut_spans.clone();
+                    store.save_manifest(&id, &manifest).await?;
+                }
+                Err(e) if is_cancelled(&e, &ctx.cancel) => {
+                    ctx.mark_cancelled(&mut p, "rendering").await?;
+                    return Ok(());
+                }
+                Err(e) => {
+                    manifest.clips[i].status = ClipStatus::Failed;
+                    manifest.clips[i].error = Some(e.to_string());
+                    store.save_manifest(&id, &manifest).await?;
+                    ctx.handle
+                        .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
+                    continue;
+                }
+            }
+        }
+        let removals = clip.effective_removals();
+        let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
+        let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+        let base_key = clip.base_key();
 
         manifest.clips[i].status = ClipStatus::Rendering;
         store.save_manifest(&id, &manifest).await?;
@@ -718,12 +760,12 @@ async fn run(
 
         let done_label = format!("Rendering clip {} of {}", i + 1, total);
         let caption_label = format!("Burning captions for clip {} of {}", i + 1, total);
-        let base_path = store.base_clip_path(&id, &clip.id);
+        let base_path = store.base_clip_path(&id, &base_key);
         let ass_path: PathBuf =
             unique_temp_path(&store.clips_dir(&id).join(format!("{}.ass", clip.id)));
         let base_temp = unique_temp_path(&base_path);
         let out_temp = unique_temp_path(&out_path);
-        let base_ready = store.base_is_ready(&id, &clip.id).await?;
+        let base_ready = store.base_is_ready(&id, &base_key).await?;
         // Captions are authored against the base clip's real size: a fresh
         // base renders at output_size, while a pre-ADR-0002 base already on
         // disk is fixed 1080×1920 (manifests then carry no dims).
@@ -742,7 +784,7 @@ async fn run(
             // (and reused as-is when retrying a failed caption burn).
             if !base_ready {
                 tokio::fs::remove_file(&base_path).await.ok();
-                store.clear_base_ready(&id, &clip.id).await;
+                store.clear_base_ready(&id, &base_key).await;
                 crate::render::render_base_clip(
                     cfg,
                     &src,
@@ -750,6 +792,7 @@ async fn run(
                     &clip.layout,
                     clip.start_ms,
                     clip.end_ms,
+                    &keeps,
                     &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),
@@ -759,18 +802,28 @@ async fn run(
                     return Err(anyhow::anyhow!("cancelled"));
                 }
                 promote_atomic(&base_temp, &base_path).await?;
-                store.mark_base_ready(&id, &clip.id).await?;
+                store.mark_base_ready(&id, &base_key).await?;
             }
-            // Pass 2 — word-accurate captions burned onto the base.
-            let words = crate::captions::with_caption_text(
-                &crate::captions::words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
-                clip.caption_text.as_deref(),
+            // Pass 2 — word-accurate captions burned onto the base. With
+            // auto-cut the words move onto the output timeline (dropped
+            // fillers vanish from captions too); with it off this is the
+            // same interval text as before.
+            let words = crate::autocut::retime_words(
+                &crate::captions::with_caption_text(
+                    &crate::captions::words_in_interval(
+                        &transcript.words,
+                        clip.start_ms,
+                        clip.end_ms,
+                    ),
+                    clip.caption_text.as_deref(),
+                ),
+                clip.effective_removals(),
             );
             let ass = build_ass(
                 &CaptionInput {
                     words: &words,
                     clip_start_ms: clip.start_ms,
-                    clip_end_ms: clip.end_ms,
+                    clip_end_ms: clip.start_ms + out_dur_ms,
                     headline: &clip.headline,
                     font: &cfg.caption_font,
                     accent_bgr: accent_bgr.clone(),
@@ -788,7 +841,7 @@ async fn run(
                 &base_path,
                 &ass_path,
                 &out_temp,
-                clip.end_ms.saturating_sub(clip.start_ms),
+                out_dur_ms,
                 &ctx.cancel,
                 |pct| prog(0.85 + pct * 0.15, Some(caption_label.clone())),
             )
@@ -816,6 +869,9 @@ async fn run(
                 manifest.clips[i].caption_font = Some(cfg.caption_font.clone());
                 manifest.clips[i].width = Some(out_w);
                 manifest.clips[i].height = Some(out_h);
+                // Auto-cut shortens the clip — the manifest reports the
+                // rendered length, not the source interval.
+                manifest.clips[i].duration_ms = out_dur_ms;
                 // Copy into the user-facing output folder (best-effort).
                 if tokio::fs::create_dir_all(&output_dir).await.is_ok() {
                     let dest = output_dir.join(&clip.filename);
@@ -836,7 +892,7 @@ async fn run(
                 store.clear_final_ready(&id, &clip.id).await;
                 if !base_ready {
                     tokio::fs::remove_file(&base_path).await.ok();
-                    store.clear_base_ready(&id, &clip.id).await;
+                    store.clear_base_ready(&id, &base_key).await;
                 }
                 manifest.clips[i].status = ClipStatus::Pending;
                 store.save_manifest(&id, &manifest).await?;
@@ -849,7 +905,7 @@ async fn run(
                 // truncated base from a crash would poison every re-burn.
                 if !base_ready {
                     tokio::fs::remove_file(&base_path).await.ok();
-                    store.clear_base_ready(&id, &clip.id).await;
+                    store.clear_base_ready(&id, &base_key).await;
                 }
                 tokio::fs::remove_file(&out_path).await.ok();
                 store.clear_final_ready(&id, &clip.id).await;

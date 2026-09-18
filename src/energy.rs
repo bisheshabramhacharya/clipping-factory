@@ -14,11 +14,9 @@
 //! 80% and upgrades in place later.
 
 use crate::config::Config;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::Stdio;
-use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 /// Roughly one `astats` window per second at 16 kHz mono (frame = 1024
@@ -54,7 +52,9 @@ pub async fn measure(
         "null".into(),
         "-".into(),
     ];
-    let out = run_astats_capture(&cfg.ffmpeg, &args, cancel).await?;
+    // `ametadata=print` writes to stderr on this ffmpeg build — the shared
+    // helper captures both streams while keeping cancellation control.
+    let out = crate::util::run_capture_cancellable_all(&cfg.ffmpeg, &args, cancel).await?;
     let per_second_db = parse_rms_lines(&out);
     if per_second_db.len() < 2 {
         return Err(anyhow!(
@@ -69,49 +69,6 @@ pub async fn measure(
 /// reference; `-inf` resolves to the quieter of this and the file-wide floor,
 /// keeping a contrast signal in silence-dominated files.
 const SILENCE_REFERENCE_DB: f32 = -60.0;
-
-/// Run ffmpeg capturing BOTH streams — `ametadata=print` writes to stderr on
-/// this ffmpeg build — while keeping cancellation control over the child.
-async fn run_astats_capture(
-    bin: &str,
-    args: &[String],
-    cancel: &CancellationToken,
-) -> Result<String> {
-    let bin = bin.to_string();
-    let args = args.to_vec();
-    let mut task = tokio::spawn(async move {
-        let out = Command::new(&bin)
-            .args(&args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .output()
-            .await
-            .with_context(|| format!("failed to start `{}`", bin))?;
-        let mut all = String::from_utf8_lossy(&out.stderr).into_owned();
-        all.push_str(&String::from_utf8_lossy(&out.stdout));
-        if !out.status.success() {
-            bail!(
-                "`{}` exited with {} — {}",
-                bin,
-                out.status.code().unwrap_or(-1),
-                all.lines().last().unwrap_or("").trim()
-            );
-        }
-        Ok(all)
-    });
-
-    tokio::select! {
-        biased;
-        _ = cancel.cancelled() => {
-            task.abort();
-            let _ = task.await;
-            bail!("cancelled");
-        }
-        result = &mut task => Ok(result.context("astats capture failed")??),
-    }
-}
 
 /// Parse the per-window RMS lines emitted by `ametadata=print`, bucketed by
 /// whole second using the frame's `pts_time`. Handles both observed formats:

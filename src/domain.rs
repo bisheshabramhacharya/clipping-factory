@@ -286,6 +286,21 @@ pub enum ClipStatus {
     Failed,
 }
 
+/// One removed source interval, absolute milliseconds. Auto-cut stores the
+/// spans it actually removed so restyle/retry can reproduce the same cut
+/// without re-detecting silence.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CutSpan {
+    pub start_ms: u64,
+    pub end_ms: u64,
+}
+
+impl CutSpan {
+    pub fn len_ms(&self) -> u64 {
+        self.end_ms.saturating_sub(self.start_ms)
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClipRecord {
     pub id: String,
@@ -322,6 +337,39 @@ pub struct ClipRecord {
     pub width: Option<u32>,
     #[serde(default)]
     pub height: Option<u32>,
+    /// Opt-in auto-cut: remove silence gaps and filler words at render time.
+    /// Default off — a Clip is otherwise one continuous faithful excerpt.
+    #[serde(default)]
+    pub auto_cut: bool,
+    /// The removed spans the current base was rendered with. `None` while
+    /// auto-cut is on but the cut list has not been computed yet; `Some([])`
+    /// means detection ran and found nothing to remove.
+    #[serde(default)]
+    pub cut_spans: Option<Vec<CutSpan>>,
+}
+
+impl ClipRecord {
+    /// The removals that apply to the current render: the stored cut list
+    /// when auto-cut is on, otherwise nothing.
+    pub fn effective_removals(&self) -> &[CutSpan] {
+        if self.auto_cut {
+            self.cut_spans.as_deref().unwrap_or(&[])
+        } else {
+            &[]
+        }
+    }
+
+    /// The base-intermediate key for this clip's current render state. A cut
+    /// render gets its own base (`<id>.cut`) so toggling auto-cut never
+    /// destroys the uncut base — and a cut that removed nothing shares the
+    /// uncut base, since the frames are identical.
+    pub fn base_key(&self) -> String {
+        if self.effective_removals().is_empty() {
+            self.id.clone()
+        } else {
+            format!("{}.cut", self.id)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -396,5 +444,9 @@ mod tests {
         assert_eq!(m.clips[0].caption_font, None);
         assert_eq!(m.clips[0].width, None);
         assert_eq!(m.clips[0].height, None);
+        // Auto-cut defaults off for manifests written before it existed.
+        assert!(!m.clips[0].auto_cut);
+        assert_eq!(m.clips[0].cut_spans, None);
+        assert_eq!(m.clips[0].base_key(), "c1");
     }
 }

@@ -351,6 +351,8 @@ mod tests {
                 caption_text: None,
                 width: Some(608),
                 height: Some(1080),
+                auto_cut: false,
+                cut_spans: None,
             }],
             output_dir: Some("/tmp/out".into()),
         };
@@ -390,6 +392,8 @@ mod tests {
             caption_font: None,
             width: None,
             height: None,
+            auto_cut: false,
+            cut_spans: None,
         };
         store
             .save_manifest(
@@ -477,6 +481,8 @@ mod tests {
                         caption_font: None,
                         width: None,
                         height: None,
+                        auto_cut: false,
+                        cut_spans: None,
                     }],
                     output_dir: None,
                 },
