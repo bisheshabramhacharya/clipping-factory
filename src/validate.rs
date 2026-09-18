@@ -58,6 +58,47 @@ const GREETING_OPENERS: &[&str] = &[
 ];
 const NON_LEXICAL_OPENERS: &[&str] = &["um", "uh", "er", "ah", "hmm", "mhm"];
 
+/// Outro-bait closers — a clip ending on a channel CTA reads as an ad for the
+/// source, not a standalone moment. Normalized forms (no apostrophes).
+const CTA_CLOSERS: &[&str] = &[
+    "like and subscribe",
+    "like comment and subscribe",
+    "smash that like",
+    "hit the bell",
+    "hit that subscribe",
+    "hit subscribe",
+    "link in the description",
+    "links in the description",
+    "comment below",
+    "let me know in the comments",
+    "follow for more",
+    "subscribe for more",
+    "see you next time",
+    "until next time",
+    "thanks for watching",
+    "thanks for tuning in",
+    "thank you for watching",
+    "dont forget to subscribe",
+    "don t forget to subscribe",
+    "dont forget to like",
+    "don t forget to like",
+];
+
+/// Returns a reason when the clip's last words are an outro CTA.
+fn cta_close_reason(last_words: &[crate::domain::Word]) -> Option<String> {
+    let tail: Vec<&str> = last_words
+        .iter()
+        .rev()
+        .take(10)
+        .map(|w| w.text.as_str())
+        .collect();
+    let joined = normalize(&tail.into_iter().rev().collect::<Vec<_>>().join(" "));
+    CTA_CLOSERS
+        .iter()
+        .find(|c| joined.ends_with(*c))
+        .map(|c| format!("closes on outro/CTA '{c}'"))
+}
+
 fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
     let joined = normalize(
         &first_words
@@ -144,6 +185,9 @@ pub fn validate(
             let first = &words[fi];
             let last = &words[li];
             if let Some(reason) = cold_open_reason(&words[fi..]) {
+                reasons.push(reason);
+            }
+            if let Some(reason) = cta_close_reason(&words[..li + 1]) {
                 reasons.push(reason);
             }
             if !crate::transcribe::terminal_word(&last.text) {
@@ -924,6 +968,42 @@ mod tests {
         // "So" reads as mid-thought, not housekeeping — the intended opener.
         t.words[25].text = "so".into();
         t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+    }
+
+    #[test]
+    fn rejects_a_clip_closing_on_outro_cta() {
+        let mut t = transcript(1500, 400);
+        let outro = [
+            "if",
+            "you",
+            "enjoyed",
+            "this",
+            "make",
+            "sure",
+            "to",
+            "like",
+            "and",
+            "subscribe.",
+        ];
+        for (i, text) in outro.iter().enumerate() {
+            t.words[114 + i].text = (*text).into(); // word 123 ("subscribe.") at 49.2s
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 49_600, good_scores()); // ends on the CTA word
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("outro/CTA")));
+    }
+
+    #[test]
+    fn a_content_word_close_is_allowed() {
+        let t = transcript(1500, 400);
         let c = cand(&t, 10_000, 50_000, good_scores());
         let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
