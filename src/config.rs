@@ -9,6 +9,7 @@
 //! - `CF_WHISPER_MODEL`   — ggml model path
 //! - `CF_FONTS_DIR`       — directory containing caption fonts
 //! - `CF_FACE_MODEL`      — rustface seeta model path
+//! - `CF_SPEAKER_MODEL`   — ONNX speaker-embedding model path
 //! - `CF_THREADS`         — transcription threads (default = physical cores)
 //! - `CF_NO_OPEN=1`       — don't try to open the browser on start
 
@@ -32,6 +33,10 @@ pub struct Config {
     /// Default caption style when a project doesn't specify one: "impact" | "clean".
     pub caption_style: String,
     pub face_model: Option<PathBuf>,
+    /// Optional ONNX speaker-embedding model (16 kHz mono waveform input,
+    /// e.g. a SpeechBrain ECAPA-TDNN export). Missing = no diarization;
+    /// two-face layouts still degrade to split-screen, captions unlabeled.
+    pub speaker_model: Option<PathBuf>,
     pub threads: usize,
 }
 
@@ -193,6 +198,16 @@ impl Config {
                 ])
             });
 
+        let speaker_model = env_path("CF_SPEAKER_MODEL")
+            .filter(|p| p.is_file())
+            .or_else(|| {
+                first_existing(vec![
+                    data_dir.join("models/speaker-embedding.onnx"),
+                    cwd.join("models/speaker-embedding.onnx"),
+                    cwd.join("assets/models/speaker-embedding.onnx"),
+                ])
+            });
+
         let threads = std::env::var("CF_THREADS")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -221,6 +236,7 @@ impl Config {
             caption_font,
             caption_style: std::env::var("CF_CAPTION_STYLE").unwrap_or_else(|_| "impact".into()),
             face_model,
+            speaker_model,
             threads,
         }
     }

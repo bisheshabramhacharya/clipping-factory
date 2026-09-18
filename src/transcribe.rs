@@ -685,6 +685,7 @@ mod tests {
             emoji_overlay: false,
             out_w: crate::render::OUT_W,
             out_h: crate::render::OUT_H,
+            diarization: None,
         };
         let impact = crate::captions::build_ass(&input, crate::captions::CaptionStyle::Impact);
         assert!(impact.contains("NIÑOS"), "{impact}");

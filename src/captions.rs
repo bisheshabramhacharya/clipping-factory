@@ -11,7 +11,7 @@
 //! - **Cinema**: a minimal lower-third line — the whole page fades in
 //!   letterspaced lowercase; only the keyword carries the accent color.
 
-use crate::domain::Word;
+use crate::domain::{Diarization, Word};
 use crate::render::{OUT_H, OUT_W};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -159,6 +159,44 @@ pub struct CaptionInput<'a> {
     /// are authored against the OUT_W×OUT_H reference canvas and scaled.
     pub out_w: u32,
     pub out_h: u32,
+    /// Speaker turns on the SAME timeline as `words` (post-auto-cut output
+    /// timeline — callers pass `autocut::retime_turns` output). Captions
+    /// get an "S1:"/"S2:" tag only when the clip genuinely holds two
+    /// voices; a monologue never shows one.
+    pub diarization: Option<&'a Diarization>,
+}
+
+/// The clip's per-word speaker ids (parallel to `input.words`), or None
+/// when fewer than two voices appear — labels only exist to tell people
+/// apart.
+fn speaker_ids(input: &CaptionInput) -> Option<Vec<Option<u8>>> {
+    let d = input.diarization?;
+    let ids: Vec<Option<u8>> = input.words.iter().map(|w| d.word_speaker(w)).collect();
+    let distinct: std::collections::HashSet<u8> = ids.iter().flatten().copied().collect();
+    (distinct.len() >= 2).then_some(ids)
+}
+
+/// The speaker label for a page of clip-relative words, using the first
+/// word that lands inside a turn. `ids` parallels `rel` — the relative
+/// words are shifted by `clip_start_ms`, so an id lookup indexes into the
+/// absolute list by position, not time.
+fn page_tag(
+    input: &CaptionInput,
+    ids: &Option<Vec<Option<u8>>>,
+    abs_index: usize,
+) -> Option<String> {
+    let ids = ids.as_ref()?;
+    let spk = ids.get(abs_index).copied().flatten()?;
+    let label = input
+        .diarization?
+        .labels
+        .get(spk as usize)
+        .cloned()
+        .unwrap_or_else(|| format!("S{}", spk + 1));
+    Some(format!(
+        "{{\\c&H{}&}}{}:{{\\c&H{}&}} ",
+        input.accent_bgr, label, WHITE_BGR
+    ))
 }
 
 /// Resolve the accent color: a user-picked #RRGGBB wins, otherwise each style
@@ -412,11 +450,15 @@ fn build_impact(input: &CaptionInput) -> String {
         input.emoji_overlay,
     ));
 
+    let ids = speaker_ids(input);
     let pages = paginate_impact(&rel);
+    let mut abs_idx = 0usize; // pages consume `rel` in order
     for (page_no, page) in pages.iter().enumerate() {
         if page.is_empty() {
             continue;
         }
+        let tag = page_tag(input, &ids, abs_idx).unwrap_or_default();
+        abs_idx += page.len();
         // Hard ceiling: never outlive the next page's first word.
         let next_start = pages
             .get(page_no + 1)
@@ -449,7 +491,7 @@ fn build_impact(input: &CaptionInput) -> String {
             if end <= start {
                 continue;
             }
-            for line in &lines {
+            for (li, line) in lines.iter().enumerate() {
                 let pop = if k == 0 {
                     let from = if line.emphasis { 85 } else { 90 };
                     format!("\\fscx{f}\\fscy{f}\\t(0,110,\\fscx100\\fscy100)", f = from)
@@ -457,8 +499,13 @@ fn build_impact(input: &CaptionInput) -> String {
                     String::new()
                 };
                 let mut text = format!(
-                    "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur{:.1}{}}}",
-                    line.x, line.y, line.fs, blur, pop
+                    "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur{:.1}{}}}{}",
+                    line.x,
+                    line.y,
+                    line.fs,
+                    blur,
+                    pop,
+                    if li == 0 { tag.as_str() } else { "" }
                 );
                 for (j, &wi) in line.word_idx.iter().enumerate() {
                     if j > 0 {
@@ -487,8 +534,12 @@ fn build_impact(input: &CaptionInput) -> String {
                 ));
                 if gap_end > end {
                     let mut neutral = format!(
-                        "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur{:.1}}}",
-                        line.x, line.y, line.fs, blur
+                        "{{\\an5\\pos({:.0},{:.0})\\fs{:.0}\\blur{:.1}}}{}",
+                        line.x,
+                        line.y,
+                        line.fs,
+                        blur,
+                        if li == 0 { tag.as_str() } else { "" }
                     );
                     for (j, &wi) in line.word_idx.iter().enumerate() {
                         if j > 0 {
@@ -636,7 +687,9 @@ fn build_clean(input: &CaptionInput) -> String {
         ));
     }
 
+    let ids = speaker_ids(input);
     let pages = paginate(&rel);
+    let mut abs_idx = 0usize;
     for (page_no, page) in pages.iter().enumerate() {
         if page.is_empty() {
             continue;
@@ -645,6 +698,8 @@ fn build_clean(input: &CaptionInput) -> String {
         if let Some(emoji) = emoji_event(input, &page[keyword], Some(input.out_h as f32 * 0.62)) {
             ass.push_str(&emoji);
         }
+        let tag = page_tag(input, &ids, abs_idx).unwrap_or_default();
+        abs_idx += page.len();
         let next_start = pages
             .get(page_no + 1)
             .and_then(|p| p.first())
@@ -661,7 +716,7 @@ fn build_clean(input: &CaptionInput) -> String {
             if end <= start {
                 continue;
             }
-            let mut line = String::new();
+            let mut line = tag.clone();
             for (j, w) in page.iter().enumerate() {
                 if j > 0 {
                     line.push(' ');
@@ -684,7 +739,7 @@ fn build_clean(input: &CaptionInput) -> String {
                 line
             ));
             if gap_end > end {
-                let mut neutral = String::new();
+                let mut neutral = tag.clone();
                 for (j, word) in page.iter().enumerate() {
                     if j > 0 {
                         neutral.push(' ');
@@ -783,6 +838,58 @@ pub fn paginate(words: &[Word]) -> Vec<Vec<Word>> {
         pages.push(page);
     }
     pages
+}
+
+/// Plain-text export sidecar (`<clip>.srt`): one cue per caption page —
+/// the same words and timing the burned captions show, tagged with the
+/// speaker when the clip holds two voices. Style-agnostic: SRT viewers
+/// reflow text anyway, so cues use the restrained pagination.
+pub fn build_srt(input: &CaptionInput) -> String {
+    let (rel, clip_len) = relative_words(input);
+    let ids = speaker_ids(input);
+    let mut abs_idx = 0usize;
+    let mut out = String::new();
+    let mut cue = 0usize;
+    for page in paginate(&rel) {
+        if page.is_empty() {
+            continue;
+        }
+        let start = page[0].start_ms;
+        let end = (page.last().unwrap().end_ms + 160).min(clip_len.max(start + 10));
+        // Speaker name in plain text — SRT has no styling to borrow.
+        let tag = ids
+            .as_ref()
+            .and_then(|ids| ids.get(abs_idx).copied().flatten())
+            .and_then(|spk| {
+                input
+                    .diarization
+                    .and_then(|d| d.labels.get(spk as usize))
+                    .cloned()
+            })
+            .map(|name| format!("{name}: "))
+            .unwrap_or_default();
+        abs_idx += page.len();
+        cue += 1;
+        let text = page
+            .iter()
+            .map(|w| w.text.replace('\n', " "))
+            .collect::<Vec<_>>()
+            .join(" ");
+        out.push_str(&format!(
+            "{cue}\n{} --> {}\n{tag}{text}\n\n",
+            srt_time(start),
+            srt_time(end)
+        ));
+    }
+    out
+}
+
+/// `HH:MM:SS,mmm` — the SRT timestamp shape.
+fn srt_time(ms: u64) -> String {
+    let (h, rem) = (ms / 3_600_000, ms % 3_600_000);
+    let (m, rem) = (rem / 60_000, rem % 60_000);
+    let (s, frac) = (rem / 1000, rem % 1000);
+    format!("{h:02}:{m:02}:{s:02},{frac:03}")
 }
 
 /// Skip the headline overlay when it (nearly) duplicates the opening words.
@@ -1222,6 +1329,7 @@ mod tests {
             emoji_overlay: false,
             out_w: OUT_W,
             out_h: OUT_H,
+            diarization: None,
         };
         let ass = build_ass(&input, CaptionStyle::Clean);
         // Every spoken word gets an accent window; the page keyword also keeps
@@ -1260,6 +1368,7 @@ mod tests {
                 emoji_overlay: false,
                 out_w: OUT_W,
                 out_h: OUT_H,
+                diarization: None,
             },
             CaptionStyle::Clean,
         );
@@ -1288,7 +1397,71 @@ mod tests {
             emoji_overlay: false,
             out_w: OUT_W,
             out_h: OUT_H,
+            diarization: None,
         }
+    }
+
+    // ---- Speaker labels ----
+
+    fn two_speaker_diar() -> Diarization {
+        Diarization {
+            labels: vec!["S1".into(), "S2".into()],
+            turns: vec![
+                crate::domain::SpeakerTurn {
+                    start_ms: 0,
+                    end_ms: 2_000,
+                    speaker: 0,
+                },
+                crate::domain::SpeakerTurn {
+                    start_ms: 2_000,
+                    end_ms: 10_000,
+                    speaker: 1,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn clean_captions_tag_pages_with_the_speaker() {
+        // S1 words, then S2 words (each cluster pages separately on the gap).
+        let d = two_speaker_diar();
+        let mut words: Vec<Word> = (0..4).map(|i| w("alpha", i * 300)).collect();
+        words.extend((0..4).map(|i| w("beta", 3_000 + i * 300)));
+        let mut inp = input(&words, 6_000);
+        inp.diarization = Some(&d);
+        let ass = build_ass(&inp, CaptionStyle::Clean);
+        assert!(ass.contains("S1:"), "first page tagged S1: {ass}");
+        assert!(ass.contains("S2:"), "second page tagged S2: {ass}");
+    }
+
+    #[test]
+    fn monologue_never_gets_speaker_tags() {
+        let d = Diarization {
+            labels: vec!["S1".into()],
+            turns: vec![crate::domain::SpeakerTurn {
+                start_ms: 0,
+                end_ms: 10_000,
+                speaker: 0,
+            }],
+        };
+        let words: Vec<Word> = (0..6).map(|i| w("alpha", i * 300)).collect();
+        let mut inp = input(&words, 6_000);
+        inp.diarization = Some(&d);
+        let ass = build_ass(&inp, CaptionStyle::Clean);
+        assert!(!ass.contains("S1:"), "one voice → no labels: {ass}");
+    }
+
+    #[test]
+    fn srt_export_carries_speaker_names() {
+        let d = two_speaker_diar();
+        let mut words: Vec<Word> = (0..3).map(|i| w("alpha", i * 300)).collect();
+        words.extend((0..3).map(|i| w("beta", 3_000 + i * 300)));
+        let mut inp = input(&words, 6_000);
+        inp.diarization = Some(&d);
+        let srt = build_srt(&inp);
+        assert!(srt.contains("S1: alpha alpha alpha"), "{srt}");
+        assert!(srt.contains("S2: beta beta beta"), "{srt}");
+        assert!(srt.contains("00:00:00,000 -->"), "{srt}");
     }
 
     /// Parse "Dialogue: 0,H:MM:SS.CS,H:MM:SS.CS,..." start/end back to ms.

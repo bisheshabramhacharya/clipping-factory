@@ -232,6 +232,31 @@ pub fn retime_words(words: &[Word], removals: &[CutSpan]) -> Vec<Word> {
         .collect()
 }
 
+/// Shift speaker turns onto the output timeline — the same map as
+/// [`retime_words`], so a caption's speaker label and a speaker-crop's cut
+/// always agree about who is on screen. Turns fully inside a removal
+/// collapse and drop out.
+pub fn retime_turns(
+    turns: &[crate::domain::SpeakerTurn],
+    removals: &[CutSpan],
+) -> Vec<crate::domain::SpeakerTurn> {
+    if removals.is_empty() {
+        return turns.to_vec();
+    }
+    turns
+        .iter()
+        .filter_map(|t| {
+            let start_ms = map_to_output(t.start_ms, removals);
+            let end_ms = map_to_output(t.end_ms, removals);
+            (end_ms > start_ms).then_some(crate::domain::SpeakerTurn {
+                start_ms,
+                end_ms,
+                speaker: t.speaker,
+            })
+        })
+        .collect()
+}
+
 /// ffmpeg `silencedetect` over the clip's audio span → absolute-ms spans.
 /// `-ss`/`-t` bound the read so detection is clip-scoped, not file-wide.
 async fn detect_silences(
@@ -570,5 +595,36 @@ mod tests {
         let profile = EnergyProfile { per_second_db: db };
         let spans = energy_silences(&profile, 30_000, 50_000);
         assert_eq!(spans, vec![span(30_000, 50_000)]);
+    }
+
+    #[test]
+    fn retime_turns_shift_and_drop_with_removals() {
+        use crate::domain::SpeakerTurn;
+        let turns = vec![
+            SpeakerTurn {
+                start_ms: 10_000,
+                end_ms: 20_000,
+                speaker: 0,
+            },
+            SpeakerTurn {
+                start_ms: 21_000,
+                end_ms: 23_000,
+                speaker: 1,
+            },
+            SpeakerTurn {
+                start_ms: 25_000,
+                end_ms: 30_000,
+                speaker: 0,
+            },
+        ];
+        let removals = vec![span(20_000, 24_000)];
+        let out = retime_turns(&turns, &removals);
+        // Turn 1 lands inside the removal → dropped; turn 3 shifts back 4 s.
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[1].start_ms, 21_000);
+        assert_eq!(out[1].end_ms, 26_000);
+        assert_eq!(out[1].speaker, 0);
+        // No removals → identical copy.
+        assert_eq!(retime_turns(&turns, &[]), turns);
     }
 }

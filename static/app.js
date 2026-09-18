@@ -690,6 +690,8 @@
     const badges = [];
     if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
     if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">face-tracked crop</span>`);
+    else if (c.layout && c.layout.mode === "speaker_crop") badges.push(`<span class="badge">speaker-switched crop</span>`);
+    else if (c.layout && c.layout.mode === "split") badges.push(`<span class="badge">two-speaker split</span>`);
     else badges.push(`<span class="badge">blur-pad layout</span>`);
     if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">low transcription confidence</span>`);
