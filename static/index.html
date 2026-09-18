@@ -107,6 +107,15 @@
           <button id="cancel-btn" type="button">Cancel</button>
         </div>
         <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
+        <div id="overall" class="overall hidden">
+          <div class="overall-head">
+            <strong>Overall</strong>
+            <span id="overall-text" class="muted" role="status" aria-live="polite"></span>
+          </div>
+          <div class="bar overall-bar" role="progressbar" aria-label="Overall progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="overall-bar" class="bar-fill"></div>
+          </div>
+        </div>
         <div id="current-op" class="current-op hidden">
           <span class="spinner"></span>
           <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>

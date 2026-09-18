@@ -28,7 +28,9 @@
   let retryPending = false;
   let actionMessageKind = null;
   let modalReturnFocus = null;
-  let liveProgress = null; // {stage, progress, detail}
+  let liveProgress = null; // LiveStage + receivedAt (client receipt time)
+  // Progress samples for the active stage — the ETA's rolling-rate window.
+  let liveSamples = { stage: null, pts: [] };
   // Last style/color the user applied — the starting point for new restyles.
   let captionStyle = localStorage.getItem("cf-caption-style") || "impact";
   let accentColor = localStorage.getItem("cf-accent-color") || "#FFDD00";
@@ -344,6 +346,7 @@
     projectId = null;
     view = null;
     liveProgress = null;
+    liveSamples = { stage: null, pts: [] };
     cancellationPending = false;
     retryPending = false;
     uploadCancelRequested = false;
@@ -413,13 +416,26 @@
       try { msg = JSON.parse(e.data); } catch { return; }
       if (msg.type === "snapshot" && msg.view) { view = msg.view; clearActionMessage("reconnect"); render(); return; }
       if (msg.type === "progress") {
-        liveProgress = { stage: msg.stage, progress: msg.progress, detail: msg.detail };
+        liveProgress = {
+          stage: msg.stage,
+          progress: msg.progress,
+          detail: msg.detail,
+          elapsed_ms: msg.elapsed_ms,
+          stage_estimate_ms: msg.stage_estimate_ms,
+          overall_progress: msg.overall_progress,
+          pending_ms: msg.pending_ms,
+          receivedAt: Date.now(),
+        };
+        if (liveSamples.stage !== msg.stage) liveSamples = { stage: msg.stage, pts: [] };
+        liveSamples.pts.push({ t: Date.now(), p: msg.progress || 0 });
+        if (liveSamples.pts.length > 600) liveSamples.pts.splice(0, liveSamples.pts.length - 600);
         clearActionMessage("reconnect");
         renderLive();
         return;
       }
       // stage / clip / done → authoritative refetch
       liveProgress = null;
+      liveSamples = { stage: null, pts: [] };
       scheduleRefetch();
     };
     source.onerror = () => {
@@ -485,7 +501,9 @@
         st === "done" ? (rec.detail || "Done") :
         st === "active" ? (rec.detail || "Working…") : "";
       div.innerHTML = `<strong>${STAGE_LABELS[name]}</strong><span class="status"></span>` +
-        (st === "active" ? `<div class="mini-bar"><div class="mini-fill"></div></div>` : "");
+        (st === "active"
+          ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
+          : "");
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
       wrap.appendChild(div);
@@ -493,21 +511,99 @@
     renderLive();
   }
 
-  function renderLive() {
-    if (!liveProgress && view && view.live) liveProgress = view.live;
-    if (!liveProgress) return;
-    const step = document.querySelector(`.step[data-stage="${liveProgress.stage}"] .mini-fill`);
-    const percent = Math.round((liveProgress.progress || 0) * 100);
-    if (step) step.style.transform = "scaleX(" + (percent / 100) + ")";
-    const status = document.querySelector(`.step[data-stage="${liveProgress.stage}"] .status`);
-    if (status && liveProgress.detail) {
-      status.textContent = liveProgress.detail;
-      status.parentElement.setAttribute("aria-label", `${STAGE_LABELS[liveProgress.stage] || liveProgress.stage}: ${liveProgress.detail}`);
+  // "~45s" / "~3m" / "~1h 04m" — compact ETA text for a millisecond count.
+  function fmtEta(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    if (s < 90) return `${s}s`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m}m`;
+    return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+  }
+
+  // Rolling rate: the slope of progress across the last ~60s of samples,
+  // measured against *now* — so a stage that stalls drags its own rate
+  // toward zero and its ETA visibly grows instead of freezing.
+  function recentRate() {
+    const pts = liveSamples.pts;
+    if (!liveProgress || !pts.length) return 0;
+    const cutoff = Date.now() - 60_000;
+    let first = pts[0];
+    for (const s of pts) {
+      if (s.t >= cutoff) break;
+      first = s;
     }
-    if (liveProgress.detail) $("current-op-text").textContent = liveProgress.detail;
-    else if (liveProgress.progress != null)
+    const dt = Date.now() - first.t;
+    const dp = Math.max(0, (liveProgress.progress || 0) - first.p);
+    return dt > 0 ? dp / dt : 0;
+  }
+
+  // Estimated ms left in the active stage. Elapsed time is aged past the
+  // last SSE event; while almost nothing is measured, the backend's
+  // calibrated stage estimate is the honest figure.
+  function liveEtaMs() {
+    if (!liveProgress) return null;
+    const p = Math.min(Math.max(liveProgress.progress || 0, 0), 0.995);
+    const elapsed =
+      (liveProgress.elapsed_ms || 0) + (Date.now() - (liveProgress.receivedAt || Date.now()));
+    if ((p < 0.005 || elapsed < 3_000) && liveProgress.stage_estimate_ms != null) {
+      return liveProgress.stage_estimate_ms;
+    }
+    if (p <= 0 || elapsed <= 0) return null;
+    const rate = recentRate() || p / elapsed;
+    if (rate <= 0) return null;
+    return (1 - p) / rate;
+  }
+
+  function renderOverall(live, etaMs) {
+    const box = $("overall");
+    if (!box) return;
+    const show = !!(live && live.overall_progress != null);
+    box.classList.toggle("hidden", !show);
+    if (!show) return;
+    const pct = Math.min(100, Math.round(live.overall_progress * 100));
+    $("overall-bar").style.transform = `scaleX(${pct / 100})`;
+    $("overall-bar").parentElement.setAttribute("aria-valuenow", String(pct));
+    const left =
+      etaMs != null && live.pending_ms != null
+        ? ` · ~${fmtEta(etaMs + live.pending_ms)} left`
+        : "";
+    $("overall-text").textContent = `${pct}%${left}`;
+  }
+
+  function renderLive() {
+    if (!liveProgress && view && view.live) {
+      liveProgress = { ...view.live, receivedAt: Date.now() };
+      if (liveSamples.stage !== liveProgress.stage) {
+        liveSamples = { stage: liveProgress.stage, pts: [] };
+      }
+    }
+    if (!liveProgress) { renderOverall(null); return; }
+    const stage = liveProgress.stage;
+    const percent = Math.round((liveProgress.progress || 0) * 100);
+    const etaMs = liveEtaMs();
+    const etaText = etaMs != null ? ` · ~${fmtEta(etaMs)}` : "";
+    const step = document.querySelector(`.step[data-stage="${stage}"]`);
+    if (step) {
+      const fill = step.querySelector(".mini-fill");
+      if (fill) fill.style.transform = `scaleX(${percent / 100})`;
+      const meta = step.querySelector(".step-meta");
+      if (meta) meta.textContent = `${percent}%${etaText ? `${etaText} left` : ""}`;
+      const status = step.querySelector(".status");
+      if (status && liveProgress.detail) {
+        status.textContent = liveProgress.detail;
+        step.setAttribute(
+          "aria-label",
+          `${STAGE_LABELS[stage] || stage}: ${liveProgress.detail} · ${percent}%`
+        );
+      }
+    }
+    if (!cancellationPending) {
+      const label =
+        liveProgress.detail || `${STAGE_LABELS[stage] || stage}`;
       $("current-op-text").textContent =
-        `${STAGE_LABELS[liveProgress.stage] || liveProgress.stage} · ${Math.round(liveProgress.progress * 100)}%`;
+        `${label} · ${percent}%${etaText ? `${etaText} remaining` : ""}`;
+    }
+    renderOverall(liveProgress, etaMs);
   }
 
   function renderCurrentOp(p) {
@@ -517,10 +613,14 @@
     $("cancel-btn").disabled = cancellationPending;
     $("cancel-btn").textContent = cancellationPending ? "Cancelling…" : "Cancel";
     if (active) {
-      const label = STAGE_LABELS[p.status] || p.status;
-      $("current-op-text").textContent = cancellationPending
-        ? "Cancelling…"
-        : label.replace(/^\d+\.\s*/, "") + "…";
+      // A live progress report already carries percent + ETA — don't
+      // clobber it with the generic stage label between SSE events.
+      const liveCovers = liveProgress && liveProgress.stage === p.status;
+      if (cancellationPending) $("current-op-text").textContent = "Cancelling…";
+      else if (!liveCovers) {
+        const label = STAGE_LABELS[p.status] || p.status;
+        $("current-op-text").textContent = label.replace(/^\d+\.\s*/, "") + "…";
+      }
     }
   }
 
@@ -1090,6 +1190,9 @@
     elapsedTimer = setInterval(() => {
       const s = Math.max(0, Math.floor((Date.now() - started) / 1000));
       $("elapsed").textContent = `· ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} elapsed`;
+      // Ages the displayed ETA between SSE events — a stalled stage's
+      // remaining estimate keeps growing instead of freezing.
+      renderLive();
     }, 1000);
   }
   function stopElapsed() { clearInterval(elapsedTimer); }

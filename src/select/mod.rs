@@ -50,6 +50,7 @@ pub async fn propose(
     source: &SourceInfo,
     energy: Option<&crate::energy::EnergyProfile>,
     focus: Option<&str>,
+    mut on_progress: impl FnMut(f32),
 ) -> Result<SelectionOutcome> {
     let (target, proposals) = plan_counts(source.duration_ms);
     let focus = focus.map(str::trim).filter(|f| !f.is_empty());
@@ -82,7 +83,9 @@ pub async fn propose(
             let mut all: Vec<Candidate> = Vec::new();
             let mut failure = None;
 
-            for win in &windows {
+            // One provider request per window — the loop count is the work.
+            for (i, win) in windows.iter().enumerate() {
+                on_progress(i as f32 / windows.len() as f32);
                 let user_prompt = window_prompt(win, source, target, per_window.max(2), focus);
                 match local::complete(&base_url, &model, SYSTEM_PROMPT, &user_prompt)
                     .await
@@ -134,7 +137,9 @@ pub async fn propose(
             let mut all: Vec<Candidate> = Vec::new();
             let per_window = ((proposals as f64) / (windows.len() as f64)).ceil() as usize;
 
-            for win in &windows {
+            // One provider request per window — the loop count is the work.
+            for (i, win) in windows.iter().enumerate() {
+                on_progress(i as f32 / windows.len() as f32);
                 let user_prompt = window_prompt(win, source, target, per_window.max(2), focus);
                 let raw = match provider {
                     Provider::Anthropic => {
@@ -544,7 +549,9 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, None).await.unwrap();
+        let outcome = propose(&settings, &t, &src, None, None, |_| {})
+            .await
+            .unwrap();
         assert_eq!(outcome.selector, "local · qwen2.5:7b");
         assert!(outcome.warning.is_none());
         assert_eq!(outcome.candidates.len(), 1);
@@ -566,7 +573,9 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, None).await.unwrap();
+        let outcome = propose(&settings, &t, &src, None, None, |_| {})
+            .await
+            .unwrap();
         assert_eq!(outcome.selector, "local ranking (local endpoint failed)");
         assert!(outcome.warning.is_some());
     }
@@ -598,9 +607,16 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, Some("clips about pricing"))
-            .await
-            .unwrap();
+        let outcome = propose(
+            &settings,
+            &t,
+            &src,
+            None,
+            Some("clips about pricing"),
+            |_| {},
+        )
+        .await
+        .unwrap();
         assert_eq!(outcome.selector, "local · qwen2.5:7b");
         let sent = requests.lock().await;
         assert!(
