@@ -737,6 +737,7 @@
       textPresent: c.caption_text !== null && c.caption_text !== undefined,
       emoji: Boolean(c.emoji_overlay),
       autoCut: Boolean(c.auto_cut),
+      zoomCuts: Boolean(c.zoom_cuts),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -886,6 +887,26 @@
     autoCut.appendChild(autoCutBox);
     autoCut.appendChild(autoCutText);
 
+    // Opt-in zoom cuts: subtle punch-in/out on emphasis beats inside the
+    // locked crop. Default off — the crop otherwise never moves.
+    const zoomCuts = document.createElement("label");
+    zoomCuts.className = "auto-cut-toggle";
+    zoomCuts.title = "Punch in slightly on loud moments and stressed words — re-renders this clip";
+    const zoomCutsBox = document.createElement("input");
+    zoomCutsBox.type = "checkbox";
+    zoomCutsBox.checked = state.draft.zoomCuts;
+    zoomCutsBox.setAttribute("aria-label", `Zoom cuts on emphasis beats for ${c.headline}`);
+    zoomCutsBox.addEventListener("change", () => {
+      state.draft.zoomCuts = zoomCutsBox.checked;
+      state.kind = "dirty";
+      state.message = "Zoom cuts change re-renders this clip";
+      sync();
+    });
+    const zoomCutsText = document.createElement("span");
+    zoomCutsText.textContent = "Zoom cuts";
+    zoomCuts.appendChild(zoomCutsBox);
+    zoomCuts.appendChild(zoomCutsText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -902,9 +923,9 @@
         state.draft.font !== applied.font ||
         state.draft.textPresent !== applied.textPresent ||
         (state.draft.textPresent && state.draft.text !== applied.text) ||
-        Boolean(state.draft.emoji) !== applied.emoji
-        (state.draft.textPresent && state.draft.text !== applied.text) ||
-        state.draft.autoCut !== applied.autoCut
+        Boolean(state.draft.emoji) !== applied.emoji ||
+        state.draft.autoCut !== applied.autoCut ||
+        state.draft.zoomCuts !== applied.zoomCuts
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -927,6 +948,7 @@
       font.value = state.draft.font;
       emojiBox.checked = Boolean(state.draft.emoji);
       autoCutBox.checked = Boolean(state.draft.autoCut);
+      zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -950,6 +972,7 @@
         };
         if (state.draft.textPresent) payload.caption_text = state.draft.text;
         if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
+        if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -976,6 +999,7 @@
           textPresent: updated.caption_text !== null && updated.caption_text !== undefined,
           emoji: Boolean(updated.emoji_overlay),
           autoCut: Boolean(updated.auto_cut),
+          zoomCuts: Boolean(updated.zoom_cuts),
         };
         render();
       } catch (err) {
@@ -995,6 +1019,7 @@
     box.appendChild(fontPicker);
     box.appendChild(emojiToggle);
     box.appendChild(autoCut);
+    box.appendChild(zoomCuts);
     box.appendChild(apply);
     box.appendChild(status);
     sync();

@@ -191,7 +191,7 @@ fn is_filler(text: &str) -> bool {
 /// Map a source timestamp onto the output timeline: subtract everything
 /// removed before `t`. A point inside a removal maps to the removal's start —
 /// both edges of a removed span collapse to the same output instant.
-fn map_to_output(t: u64, removals: &[CutSpan]) -> u64 {
+pub(crate) fn map_to_output(t: u64, removals: &[CutSpan]) -> u64 {
     let mut removed = 0u64;
     for r in removals {
         if r.end_ms <= t {

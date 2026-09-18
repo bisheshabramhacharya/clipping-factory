@@ -675,6 +675,8 @@ async fn run(
                     ))),
                     auto_cut: false,
                     cut_spans: None,
+                    zoom_cuts: false,
+                    zoom_keys: None,
                 });
             }
             match result {
@@ -817,6 +819,28 @@ async fn run(
         let removals = clip.effective_removals();
         let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
         let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+        // Zoom cuts (opt-in): plan the keyframes once and persist them on
+        // the clip so restyle/retry reproduce the identical zoom without
+        // re-running beat detection. Beats land on the post-cut timeline,
+        // so this runs after auto-cut's removals are known.
+        if clip.zoom_cuts && clip.zoom_keys.is_none() {
+            let energy = store.load_energy(&id).await;
+            let words = crate::captions::with_caption_text(
+                &crate::captions::words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+                clip.caption_text.as_deref(),
+            );
+            let keys = crate::zoom::plan(
+                clip.start_ms,
+                clip.end_ms,
+                &words,
+                energy.as_ref(),
+                removals,
+                out_dur_ms,
+            );
+            clip.zoom_keys = Some(keys);
+            manifest.clips[i].zoom_keys = clip.zoom_keys.clone();
+            store.save_manifest(&id, &manifest).await?;
+        }
         let base_key = clip.base_key();
 
         manifest.clips[i].status = ClipStatus::Rendering;
@@ -860,6 +884,7 @@ async fn run(
                     clip.start_ms,
                     clip.end_ms,
                     &keeps,
+                    clip.effective_zoom_keys(),
                     &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),

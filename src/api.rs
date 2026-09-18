@@ -899,6 +899,10 @@ struct RestyleIn {
     /// Omitted = keep the clip's current setting.
     #[serde(default)]
     auto_cut: Option<bool>,
+    /// Zoom cuts toggle: subtle punch-in/out on emphasis beats inside the
+    /// Locked crop. Omitted = keep the clip's current setting.
+    #[serde(default)]
+    zoom_cuts: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -975,6 +979,15 @@ async fn restyle_clip(
             clip.cut_spans = None;
         }
     }
+    // Zoom cuts toggle: flipping it drops the stored key list so the new
+    // render plans fresh — and the other variant's base stays on disk, so
+    // toggling back reuses it without re-rendering.
+    if let Some(on) = body.zoom_cuts {
+        if on != clip.zoom_cuts {
+            clip.zoom_cuts = on;
+            clip.zoom_keys = None;
+        }
+    }
 
     let cfg = &state.cfg;
 
@@ -1047,6 +1060,25 @@ async fn restyle_clip(
     let removals = clip.effective_removals();
     let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
     let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+    // Zoom cuts: the key list is planned once and stored on the clip, so a
+    // later restyle reproduces the identical zoom. Beats land on the
+    // post-cut timeline, so this runs after the removals above are known.
+    if clip.zoom_cuts && clip.zoom_keys.is_none() {
+        let energy = state.store.load_energy(&id).await;
+        let caption_words = with_caption_text(
+            &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+            caption_text.as_deref(),
+        );
+        let keys = crate::zoom::plan(
+            clip.start_ms,
+            clip.end_ms,
+            &caption_words,
+            energy.as_ref(),
+            removals,
+            out_dur_ms,
+        );
+        clip.zoom_keys = Some(keys);
+    }
     let base_key = clip.base_key();
 
     // Ensure the framed, uncaptioned base exists (projects rendered before
@@ -1103,6 +1135,7 @@ async fn restyle_clip(
             clip.start_ms,
             clip.end_ms,
             &keeps,
+            clip.effective_zoom_keys(),
             &base_temp,
             &cancel,
             |_| {},
@@ -1234,6 +1267,8 @@ async fn restyle_clip(
     manifest.clips[idx].height = Some(out_dims.1);
     manifest.clips[idx].auto_cut = clip.auto_cut;
     manifest.clips[idx].cut_spans = clip.cut_spans.clone();
+    manifest.clips[idx].zoom_cuts = clip.zoom_cuts;
+    manifest.clips[idx].zoom_keys = clip.zoom_keys.clone();
     // Auto-cut shortens the clip — report the rendered length.
     manifest.clips[idx].duration_ms = out_dur_ms;
     state

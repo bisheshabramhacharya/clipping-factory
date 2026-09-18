@@ -320,6 +320,15 @@ impl CutSpan {
     }
 }
 
+/// One zoom keyframe: magnification `z` at `t_ms` on the clip's output
+/// (post-cut) timeline. `z` is 1.0 at rest; a beat bumps it to a small peak
+/// and returns to 1.0, so there is never net motion between beats.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct ZoomKey {
+    pub t_ms: u64,
+    pub z: f32,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClipRecord {
     pub id: String,
@@ -375,6 +384,16 @@ pub struct ClipRecord {
     /// means detection ran and found nothing to remove.
     #[serde(default)]
     pub cut_spans: Option<Vec<CutSpan>>,
+    /// Opt-in zoom cuts: subtle punch-in/out on emphasis beats at render
+    /// time. Default off — the Locked crop never moves on its own.
+    #[serde(default)]
+    pub zoom_cuts: bool,
+    /// The zoom keyframes the current base was rendered with, on the
+    /// post-cut output timeline. `None` while zoom cuts are on but the key
+    /// list has not been planned yet; `Some([])` means planning ran and
+    /// found no beats.
+    #[serde(default)]
+    pub zoom_keys: Option<Vec<ZoomKey>>,
 }
 
 impl ClipRecord {
@@ -388,16 +407,29 @@ impl ClipRecord {
         }
     }
 
-    /// The base-intermediate key for this clip's current render state. A cut
-    /// render gets its own base (`<id>.cut`) so toggling auto-cut never
-    /// destroys the uncut base — and a cut that removed nothing shares the
-    /// uncut base, since the frames are identical.
-    pub fn base_key(&self) -> String {
-        if self.effective_removals().is_empty() {
-            self.id.clone()
+    /// The zoom keyframes that apply to the current render: the stored
+    /// key list when zoom cuts are on, otherwise nothing.
+    pub fn effective_zoom_keys(&self) -> &[ZoomKey] {
+        if self.zoom_cuts {
+            self.zoom_keys.as_deref().unwrap_or(&[])
         } else {
-            format!("{}.cut", self.id)
+            &[]
         }
+    }
+
+    /// The base-intermediate key for this clip's current render state. Each
+    /// render-affecting variant gets its own base (`<id>.cut`, `<id>.zoom`)
+    /// so toggling never destroys the plain base — and a feature that
+    /// planned nothing shares it, since the frames are identical.
+    pub fn base_key(&self) -> String {
+        let mut key = self.id.clone();
+        if !self.effective_removals().is_empty() {
+            key.push_str(".cut");
+        }
+        if !self.effective_zoom_keys().is_empty() {
+            key.push_str(".zoom");
+        }
+        key
     }
 }
 
@@ -476,9 +508,12 @@ mod tests {
         assert_eq!(m.clips[0].emoji_overlay, None);
         assert_eq!(m.clips[0].width, None);
         assert_eq!(m.clips[0].height, None);
-        // Auto-cut defaults off for manifests written before it existed.
+        // Auto-cut and zoom cuts default off for manifests written before
+        // they existed.
         assert!(!m.clips[0].auto_cut);
         assert_eq!(m.clips[0].cut_spans, None);
+        assert!(!m.clips[0].zoom_cuts);
+        assert_eq!(m.clips[0].zoom_keys, None);
         assert_eq!(m.clips[0].base_key(), "c1");
     }
 }
