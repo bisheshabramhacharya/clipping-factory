@@ -1758,8 +1758,12 @@ mod tests {
                         accent_color: None,
                         caption_font: None,
                         caption_text: None,
+                        emoji_overlay: None,
                         width: Some(608),
                         height: Some(1080),
+                        auto_cut: false,
+                        cut_spans: None,
+                        score: None,
                     }],
                     output_dir: None,
                 },
@@ -1907,8 +1911,11 @@ mod tests {
             accent_color: None,
             caption_font: None,
             caption_text: None,
+            emoji_overlay: None,
             width: None,
             height: None,
+            auto_cut: false,
+            cut_spans: None,
         }
     }
 
@@ -1964,6 +1971,7 @@ mod tests {
             &transcript,
             600_000,
             "test".into(),
+            &[],
         );
         assert_eq!(report.accepted.len(), 2, "reasons: {:?}", report.rejected);
         assert_eq!(report.rejected.len(), 1);

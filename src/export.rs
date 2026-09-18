@@ -353,6 +353,14 @@ async fn ai_copy(
                 r = crate::select::anthropic::complete(key, &model, META_SYSTEM, &prompt) => r,
             }
         }
+        Provider::Local => {
+            let base = settings.effective_base_url();
+            tokio::select! {
+                biased;
+                _ = cancel.cancelled() => return None,
+                r = crate::select::local::complete(&base, &model, META_SYSTEM, &prompt) => r,
+            }
+        }
         Provider::Offline => return None,
     };
     let parsed = raw
@@ -665,8 +673,12 @@ mod tests {
             accent_color: None,
             caption_font: None,
             caption_text: None,
+            emoji_overlay: None,
             width: Some(608),
             height: Some(1080),
+            auto_cut: false,
+            cut_spans: None,
+            score: None,
         }
     }
 
@@ -680,6 +692,7 @@ mod tests {
             video_codec: "h264".into(),
             audio_codec: "aac".into(),
             size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
         }
     }
 
@@ -752,6 +765,7 @@ mod tests {
             provider: PROVIDER_OFFLINE.into(),
             model: String::new(),
             api_key: None,
+            base_url: String::new(),
         }
     }
 
@@ -795,6 +809,7 @@ mod tests {
             provider: "openai".into(),
             model: String::new(),
             api_key: None, // configured provider, no key — not connected
+            base_url: String::new(),
         };
         let clip = clip();
         let source = source();

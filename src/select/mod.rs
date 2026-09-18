@@ -503,6 +503,7 @@ mod tests {
                 fps: 30.0,
                 video_codec: "h264".into(),
                 audio_codec: "aac".into(),
+                scene_boundaries_ms: Vec::new(),
                 size_bytes: 1,
             },
         )
