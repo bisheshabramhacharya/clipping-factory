@@ -381,6 +381,18 @@ a:hover { text-decoration: underline; }
 }
 .actions button, .actions .action-button { flex: 1; }
 
+/* Export pack sidecars next to a rendered clip */
+.export-links {
+  display: flex; align-items: center; gap: 6px;
+  flex: 0 0 auto;
+}
+.export-link {
+  font-size: 12px; padding: 5px 10px;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill);
+  color: var(--ink-2); text-decoration: none;
+}
+.export-link:hover { background: var(--surface-2); text-decoration: none; }
+
 /* Per-clip caption restyle */
 .restyle {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;

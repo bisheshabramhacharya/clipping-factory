@@ -223,7 +223,7 @@ const STOPWORDS: &[&str] = &[
     "now", "well",
 ];
 
-fn is_stopword(w: &str) -> bool {
+pub(crate) fn is_stopword(w: &str) -> bool {
     let clean: String = w
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '\'')

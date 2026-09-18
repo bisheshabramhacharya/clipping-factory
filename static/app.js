@@ -648,6 +648,21 @@
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
       a.textContent = "Download MP4";
       actions.appendChild(a);
+      // Export pack: the .srt/.vtt/.meta.json sidecars next to every MP4.
+      const stem = (c.filename || "clip").replace(/\.mp4$/i, "");
+      const pack = document.createElement("div");
+      pack.className = "export-links";
+      pack.setAttribute("aria-label", "Export pack files");
+      for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta JSON", "meta", "meta.json"]]) {
+        const link = document.createElement("a");
+        link.className = "export-link";
+        link.href = apiPath("projects", projectId, "clips", c.id, "export", kind);
+        link.download = `${stem}.${ext}`;
+        link.title = `Download ${stem}.${ext}`;
+        link.textContent = label;
+        pack.appendChild(link);
+      }
+      actions.appendChild(pack);
     } else if (c.status === "failed") {
       const b = document.createElement("button");
       b.textContent = retryPending ? "Retrying…" : "Retry failed clips";

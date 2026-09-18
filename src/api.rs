@@ -14,6 +14,7 @@
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
+//! GET    /api/projects/{id}/clips/{clipId}/export/{kind}  export pack sidecar (srt|vtt|meta)
 //! POST   /api/projects/{id}/clips/{clipId}/restyle   re-burn captions (style/color)
 //! POST   /api/projects/{id}/open-output-folder
 
@@ -65,6 +66,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/projects/{id}/clips/{clip}/download",
             get(serve_clip_download),
+        )
+        .route(
+            "/api/projects/{id}/clips/{clip}/export/{kind}",
+            get(serve_clip_export),
         )
         .route(
             "/api/projects/{id}/clips/{clip}/restyle",
@@ -1074,10 +1079,51 @@ async fn restyle_clip(
         .mark_final_ready(&id, &clip.id)
         .await
         .map_err(ApiError::from)?;
+
+    // The export pack follows the burned captions: .srt/.vtt regenerate from
+    // the new wording, and meta.json is written when missing (clips rendered
+    // before export packs existed). Sidecar failures never undo a restyle.
+    if let Err(e) = crate::export::write_caption_files(
+        &clips_dir,
+        &clip.filename,
+        &words,
+        clip.start_ms,
+        clip.end_ms,
+    )
+    .await
+    {
+        tracing::warn!(clip = %clip.id, "caption sidecar rewrite failed: {e:#}");
+    }
+    if !crate::export::meta_path(&clips_dir, &clip.filename).is_file() {
+        if let Some(source) = p.source.as_ref() {
+            let settings = state.settings.read().unwrap().clone();
+            let input = crate::export::MetaInput {
+                clip: &clip,
+                source,
+                words: &words,
+                project_id: &id,
+                selector: p.selector.as_deref(),
+                caption_style: Some(style.label()),
+            };
+            if let Err(e) =
+                crate::export::write_meta_file(&clips_dir, &input, &settings, &cancel).await
+            {
+                tracing::warn!(clip = %clip.id, "meta sidecar write failed: {e:#}");
+            }
+        }
+    }
     if let Some(dir) = manifest.output_dir.clone() {
-        tokio::fs::copy(&final_path, std::path::Path::new(&dir).join(&clip.filename))
-            .await
-            .ok();
+        let dir = std::path::Path::new(&dir);
+        for name in [
+            clip.filename.clone(),
+            crate::export::srt_name(&clip.filename),
+            crate::export::vtt_name(&clip.filename),
+            crate::export::meta_name(&clip.filename),
+        ] {
+            tokio::fs::copy(clips_dir.join(&name), dir.join(&name))
+                .await
+                .ok();
+        }
     }
 
     manifest.clips[idx].caption_style = Some(style.label().to_string());
@@ -1142,6 +1188,47 @@ async fn serve_clip_download(
 ) -> Result<Response, ApiError> {
     let (clip, path) = find_clip(&state, &id, &clip_id).await?;
     serve_video(&path, &headers, Some(clip.filename)).await
+}
+
+/// One export-pack sidecar for a rendered clip: `srt`, `vtt`, or `meta`
+/// (also `meta.json`). Always an attachment — these are carry-out files.
+async fn serve_clip_export(
+    State(state): State<AppState>,
+    AxPath((id, clip_id, kind)): AxPath<(String, String, String)>,
+) -> Result<Response, ApiError> {
+    let (clip, _mp4) = find_clip(&state, &id, &clip_id).await?;
+    let (filename, content_type) = match kind.as_str() {
+        "srt" => (
+            crate::export::srt_name(&clip.filename),
+            "application/x-subrip; charset=utf-8",
+        ),
+        "vtt" => (
+            crate::export::vtt_name(&clip.filename),
+            "text/vtt; charset=utf-8",
+        ),
+        "meta" | "meta.json" => (
+            crate::export::meta_name(&clip.filename),
+            "application/json; charset=utf-8",
+        ),
+        _ => return Err(not_found("Unknown export kind. Use srt, vtt, or meta.")),
+    };
+    let path = state.store.clips_dir(&id).join(&filename);
+    if !path.is_file() {
+        return Err(not_found("That export file is not on disk for this clip."));
+    }
+    let body = tokio::fs::read(&path)
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+    Response::builder()
+        .header(header::CONTENT_TYPE, content_type)
+        // Sidecars rewrite in place when captions are restyled.
+        .header(header::CACHE_CONTROL, "no-store")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(axum::body::Body::from(body))
+        .map_err(|e| ApiError::from(anyhow::Error::from(e)))
 }
 
 async fn serve_video(
@@ -1502,6 +1589,138 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), 6).await.unwrap();
         assert_eq!(&body[..], b"456789");
 
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn clip_export_serves_sidecars_as_attachments() {
+        let (state, tmp) = test_state();
+        let id = "exportproj";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![ClipRecord {
+                        id: "clip1".into(),
+                        rank: 1,
+                        headline: "A test".into(),
+                        filename: "01-a-test.mp4".into(),
+                        start_ms: 1000,
+                        end_ms: 31000,
+                        duration_ms: 30000,
+                        selection_reason: "why".into(),
+                        scores: Scores::default(),
+                        layout: LayoutPlan::BlurPad,
+                        status: ClipStatus::Ready,
+                        error: None,
+                        low_confidence: false,
+                        caption_style: Some("impact".into()),
+                        accent_color: None,
+                        caption_font: None,
+                        caption_text: None,
+                        width: Some(608),
+                        height: Some(1080),
+                    }],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let clips = state.store.clips_dir(id);
+        tokio::fs::write(clips.join("01-a-test.mp4"), b"fake-mp4")
+            .await
+            .unwrap();
+        tokio::fs::write(
+            clips.join("01-a-test.srt"),
+            b"1\n00:00:00,000 --> 00:00:01,000\nhello\n\n",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            clips.join("01-a-test.vtt"),
+            b"WEBVTT\n\n00:00.000 --> 00:01.000\nhello\n",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            clips.join("01-a-test.meta.json"),
+            br##"{"title":"T","description":"D","hashtags":["#a"]}"##,
+        )
+        .await
+        .unwrap();
+
+        let app = router(state);
+        let get = |path: &str| {
+            Request::get(path)
+                .header(header::HOST, "localhost:4571")
+                .body(Body::empty())
+                .unwrap()
+        };
+
+        let resp = app
+            .clone()
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/srt"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "application/x-subrip; charset=utf-8"
+        );
+        assert_eq!(
+            resp.headers()[header::CONTENT_DISPOSITION],
+            "attachment; filename=\"01-a-test.srt\""
+        );
+        let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("-->"));
+
+        let resp = app
+            .clone()
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/vtt"))
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "text/vtt; charset=utf-8"
+        );
+
+        let resp = app
+            .clone()
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/meta"))
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "application/json; charset=utf-8"
+        );
+        let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let meta: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(meta["title"], "T");
+
+        // Unknown kinds, unknown clips, and missing sidecars all 404.
+        for path in [
+            "/api/projects/exportproj/clips/clip1/export/pdf",
+            "/api/projects/exportproj/clips/nope/export/srt",
+            "/api/projects/missing/clips/clip1/export/srt",
+        ] {
+            let resp = app.clone().oneshot(get(path)).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{path}");
+        }
+        // A clip whose sidecar never got written reports missing, not empty.
+        tokio::fs::remove_file(clips.join("01-a-test.srt"))
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/srt"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

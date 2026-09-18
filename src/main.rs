@@ -9,6 +9,7 @@ mod captions;
 mod config;
 mod domain;
 mod energy;
+mod export;
 mod frame;
 mod media;
 mod pipeline;

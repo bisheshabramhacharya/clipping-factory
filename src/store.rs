@@ -175,6 +175,12 @@ impl Store {
                 }
             }
         }
+        // A clip's export sidecars share its MP4 stem, so the sweep below
+        // keeps or drops the whole pack as one unit.
+        let ready_stems: HashSet<String> = ready_names
+            .iter()
+            .filter_map(|n| crate::export::pack_stem(n).map(str::to_string))
+            .collect();
 
         let mut root = tokio::fs::read_dir(&project_dir).await?;
         while let Some(entry) = root.next_entry().await? {
@@ -205,11 +211,12 @@ impl Store {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if name.ends_with(".ass")
-                    || name.contains(".part-")
-                    || (name.ends_with(".mp4") && !ready_names.contains(&name))
-                {
+                if name.ends_with(".ass") || name.contains(".part-") {
                     tokio::fs::remove_file(path).await.ok();
+                } else if let Some(stem) = crate::export::pack_stem(&name) {
+                    if !ready_stems.contains(stem) {
+                        tokio::fs::remove_file(path).await.ok();
+                    }
                 } else if let Some(clip_id) = name.strip_suffix(".ready") {
                     if !ready_ids.contains(clip_id) {
                         tokio::fs::remove_file(path).await.ok();
@@ -421,6 +428,18 @@ mod tests {
         tokio::fs::write(store.clips_dir(id).join("ready1.ass"), b"partial")
             .await
             .unwrap();
+        // Export pack sidecars follow their MP4's fate: a ready clip keeps
+        // its pack, a stale clip's pack is dropped.
+        for name in ["01-ready.srt", "01-ready.vtt", "01-ready.meta.json"] {
+            tokio::fs::write(store.clips_dir(id).join(name), b"sidecar")
+                .await
+                .unwrap();
+        }
+        for name in ["02-stale.srt", "02-stale.vtt", "02-stale.meta.json"] {
+            tokio::fs::write(store.clips_dir(id).join(name), b"stale")
+                .await
+                .unwrap();
+        }
         tokio::fs::write(store.base_clip_path(id, "ready1"), b"complete")
             .await
             .unwrap();
@@ -441,6 +460,12 @@ mod tests {
         assert!(!store.project_dir(id).join(".whisper-old.json").is_file());
         assert!(!store.clips_dir(id).join("02-stale.mp4").is_file());
         assert!(!store.clips_dir(id).join("ready1.ass").is_file());
+        for name in ["01-ready.srt", "01-ready.vtt", "01-ready.meta.json"] {
+            assert!(store.clips_dir(id).join(name).is_file(), "{name} kept");
+        }
+        for name in ["02-stale.srt", "02-stale.vtt", "02-stale.meta.json"] {
+            assert!(!store.clips_dir(id).join(name).is_file(), "{name} dropped");
+        }
         assert!(!store.base_clip_path(id, "stale1").is_file());
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
