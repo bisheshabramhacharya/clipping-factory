@@ -729,6 +729,7 @@ async fn run(
         .cfg
         .output_root
         .join(slugify(source.filename.trim_end_matches(".mp4"), 60));
+    let settings = state.settings.read().unwrap().clone();
     let total = manifest.clips.len();
     tokio::fs::create_dir_all(store.base_dir(&id)).await?;
 
@@ -742,6 +743,27 @@ async fn run(
         if clip.status == ClipStatus::Ready
             && store.final_is_ready(&id, &clip.id, &clip.filename).await?
         {
+            // Clips rendered before export packs existed get their sidecars
+            // backfilled on resume — no re-render needed.
+            let words = crate::export::caption_words(&transcript, &clip);
+            let input = crate::export::MetaInput {
+                clip: &clip,
+                source: &source,
+                words: &words,
+                project_id: &id,
+                selector: p.selector.as_deref(),
+                caption_style: clip.caption_style.as_deref(),
+            };
+            if let Err(e) = crate::export::ensure_export_pack(
+                &store.clips_dir(&id),
+                &input,
+                &settings,
+                &ctx.cancel,
+            )
+            .await
+            {
+                tracing::warn!(clip = %clip.id, "export pack backfill failed: {e:#}");
+            }
             continue;
         }
 
@@ -842,14 +864,7 @@ async fn run(
             // fillers vanish from captions too); with it off this is the
             // same interval text as before.
             let words = crate::autocut::retime_words(
-                &crate::captions::with_caption_text(
-                    &crate::captions::words_in_interval(
-                        &transcript.words,
-                        clip.start_ms,
-                        clip.end_ms,
-                    ),
-                    clip.caption_text.as_deref(),
-                ),
+                &crate::export::caption_words(&transcript, &clip),
                 clip.effective_removals(),
             );
             let ass = build_ass(
@@ -884,6 +899,22 @@ async fn run(
             if ctx.cancel.is_cancelled() {
                 return Err(anyhow::anyhow!("cancelled"));
             }
+            // The export pack lands before the clip is marked ready — a
+            // Ready clip always carries its .srt/.vtt/.meta.json sidecars.
+            crate::export::write_export_pack(
+                &store.clips_dir(&id),
+                &crate::export::MetaInput {
+                    clip: &clip,
+                    source: &source,
+                    words: &words,
+                    project_id: &id,
+                    selector: p.selector.as_deref(),
+                    caption_style: Some(caption_style.label()),
+                },
+                &settings,
+                &ctx.cancel,
+            )
+            .await?;
             promote_atomic(&out_temp, &out_path).await?;
             store.mark_final_ready(&id, &clip.id).await?;
             Ok(())
@@ -912,6 +943,15 @@ async fn run(
                     let dest = output_dir.join(&clip.filename);
                     if tokio::fs::copy(&out_path, &dest).await.is_ok() {
                         manifest.output_dir = Some(output_dir.to_string_lossy().into_owned());
+                    }
+                    // The export pack travels with the MP4 — same best-effort copy.
+                    for name in [
+                        crate::export::srt_name(&clip.filename),
+                        crate::export::vtt_name(&clip.filename),
+                        crate::export::meta_name(&clip.filename),
+                    ] {
+                        let sidecar = store.clips_dir(&id).join(&name);
+                        tokio::fs::copy(&sidecar, output_dir.join(&name)).await.ok();
                     }
                 }
                 store.save_manifest(&id, &manifest).await?;
