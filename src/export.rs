@@ -37,6 +37,11 @@ pub fn vtt_name(clip_filename: &str) -> String {
 pub fn meta_name(clip_filename: &str) -> String {
     format!("{}.meta.json", stem(clip_filename))
 }
+
+/// A shareable still — the clip's strongest early frame as JPEG.
+pub fn poster_name(clip_filename: &str) -> String {
+    format!("{}.jpg", stem(clip_filename))
+}
 pub fn meta_path(dir: &Path, clip_filename: &str) -> PathBuf {
     dir.join(meta_name(clip_filename))
 }
@@ -48,6 +53,7 @@ pub fn pack_stem(name: &str) -> Option<&str> {
         .or_else(|| name.strip_suffix(".srt"))
         .or_else(|| name.strip_suffix(".vtt"))
         .or_else(|| name.strip_suffix(".meta.json"))
+        .or_else(|| name.strip_suffix(".jpg"))
 }
 
 // ---------------------------------------------------------------------------

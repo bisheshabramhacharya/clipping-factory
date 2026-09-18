@@ -788,7 +788,7 @@
       const pack = document.createElement("div");
       pack.className = "export-links";
       pack.setAttribute("aria-label", "Export pack files");
-      for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta JSON", "meta", "meta.json"]]) {
+      for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta JSON", "meta", "meta.json"], ["Poster", "poster", "jpg"]]) {
         const link = document.createElement("a");
         link.className = "export-link";
         link.href = apiPath("projects", projectId, "clips", c.id, "export", kind);

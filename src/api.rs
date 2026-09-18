@@ -1378,6 +1378,7 @@ async fn restyle_clip(
             crate::export::srt_name(&clip.filename),
             crate::export::vtt_name(&clip.filename),
             crate::export::meta_name(&clip.filename),
+            crate::export::poster_name(&clip.filename),
         ] {
             tokio::fs::copy(clips_dir.join(&name), dir.join(&name))
                 .await
@@ -1478,7 +1479,12 @@ async fn serve_clip_export(
             crate::export::meta_name(&clip.filename),
             "application/json; charset=utf-8",
         ),
-        _ => return Err(not_found("Unknown export kind. Use srt, vtt, or meta.")),
+        "poster" | "jpg" => (crate::export::poster_name(&clip.filename), "image/jpeg"),
+        _ => {
+            return Err(not_found(
+                "Unknown export kind. Use srt, vtt, meta, or poster.",
+            ))
+        }
     };
     let path = state.store.clips_dir(&id).join(&filename);
     if !path.is_file() {

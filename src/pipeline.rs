@@ -1057,6 +1057,30 @@ async fn run(
             )
             .await?;
             promote_atomic(&out_temp, &out_path).await?;
+            // Poster frame beside the export pack: a shareable still pulled
+            // ~1s in so it carries the hook title when that's on. Best-effort —
+            // a poster failure never un-marks a rendered clip.
+            let poster = store
+                .clips_dir(&id)
+                .join(crate::export::poster_name(&clip.filename));
+            let _ = crate::util::run_streaming(
+                &cfg.ffmpeg,
+                &[
+                    "-y".into(),
+                    "-ss".into(),
+                    "0.9".into(),
+                    "-i".into(),
+                    out_path.to_string_lossy().into_owned(),
+                    "-frames:v".into(),
+                    "1".into(),
+                    "-q:v".into(),
+                    "3".into(),
+                    poster.to_string_lossy().into_owned(),
+                ],
+                &ctx.cancel,
+                |_, _| {},
+            )
+            .await;
             store.mark_final_ready(&id, &clip.id).await?;
             Ok(())
         }
@@ -1094,6 +1118,7 @@ async fn run(
                         crate::export::srt_name(&clip.filename),
                         crate::export::vtt_name(&clip.filename),
                         crate::export::meta_name(&clip.filename),
+                        crate::export::poster_name(&clip.filename),
                     ] {
                         let sidecar = store.clips_dir(&id).join(&name);
                         tokio::fs::copy(&sidecar, output_dir.join(&name)).await.ok();
