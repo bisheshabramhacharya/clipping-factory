@@ -75,6 +75,11 @@
             </select>
             <small id="upload-language-note">Auto-detect identifies the spoken language. Picking a language skips detection.</small>
           </fieldset>
+          <label class="focus-field" for="focus-prompt">
+            <span class="focus-label">Focus <small>optional</small></span>
+            <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
+              placeholder="e.g. clips about pricing, or where they argue">
+          </label>
           <p class="muted small">MP4 with an audio stream, up to 4 hours long. Captions, highlight color, and font stay editable on each finished clip.</p>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
@@ -95,6 +100,7 @@
           <div>
             <span id="source-name" class="source-name"></span>
             <span id="source-meta" class="muted"></span>
+            <span id="source-focus" class="muted"></span>
           </div>
           <button id="cancel-btn" type="button">Cancel</button>
         </div>

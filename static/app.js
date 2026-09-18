@@ -244,6 +244,8 @@
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
     if ($("upload-emoji").checked) form.append("emoji_overlay", "1");
     form.append("language", $("upload-language").value || "auto");
+    const focusPrompt = $("focus-prompt").value.trim();
+    if (focusPrompt) form.append("focus_prompt", focusPrompt);
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
@@ -418,6 +420,7 @@
     $("source-meta").textContent = src
       ? `${src.width}×${src.height} · ${fmtMs(src.duration_ms)} · ${src.video_codec}/${src.audio_codec}`
       : "";
+    $("source-focus").textContent = p.focus_prompt ? ` · focus: "${p.focus_prompt}"` : "";
 
     // Warning banner
     const warn = $("warning-banner");

@@ -126,6 +126,10 @@ pub struct Project {
     /// Whisper language code picked at upload (`None`/`"auto"` = auto-detect).
     #[serde(default)]
     pub language: Option<String>,
+    /// Free-text focus from project setup ("clips about pricing"). Steers
+    /// candidate selection toward the topic; `None` keeps generic ranking.
+    #[serde(default)]
+    pub focus_prompt: Option<String>,
 }
 
 impl Project {
@@ -145,6 +149,7 @@ impl Project {
             emoji_overlay: None,
             framing_mode: FramingMode::default(),
             language: None,
+            focus_prompt: None,
         }
     }
 

@@ -325,6 +325,7 @@ struct UploadFields {
     emoji_overlay: Option<bool>,
     framing_mode: FramingMode,
     language: Option<String>,
+    focus_prompt: Option<String>,
 }
 
 const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -437,6 +438,7 @@ async fn receive_upload(
     let mut accent_mode = crate::accent::AccentMode::default();
     let mut framing_mode = FramingMode::default();
     let mut language: Option<String> = None;
+    let mut focus_prompt: Option<String> = None;
     let mut saw_file = false;
 
     while let Some(mut field) = multipart
@@ -493,6 +495,11 @@ async fn receive_upload(
                 ));
             }
             language = Some(v);
+            continue;
+        }
+        if field.name() == Some("focus_prompt") {
+            let v = read_multipart_text(field).await?;
+            focus_prompt = Some(v.trim().to_string()).filter(|s| !s.is_empty());
             continue;
         }
         if field.name() != Some("file") {
@@ -572,6 +579,7 @@ async fn receive_upload(
         emoji_overlay,
         framing_mode,
         language,
+        focus_prompt,
     })
 }
 
@@ -596,6 +604,7 @@ async fn create_project(
     project.emoji_overlay = fields.emoji_overlay;
     project.framing_mode = fields.framing_mode;
     project.language = fields.language;
+    project.focus_prompt = fields.focus_prompt;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
         cleanup.disarm();
@@ -1732,6 +1741,36 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn upload_accepts_an_optional_focus_prompt() {
+        let (state, tmp) = test_state();
+        let boundary = "cf-focus-upload";
+        let build = |focus: &str| {
+            Request::builder()
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(format!(
+                    "--{boundary}\r\nContent-Disposition: form-data; name=\"focus_prompt\"\r\n\r\n{focus}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\nx\r\n--{boundary}--\r\n"
+                )))
+                .unwrap()
+        };
+
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("clips about pricing"), &())
+            .await
+            .unwrap();
+        let fields = receive_upload(&state, &id, multipart).await.unwrap();
+        assert_eq!(fields.focus_prompt.as_deref(), Some("clips about pricing"));
+
+        let blank_id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("   "), &()).await.unwrap();
+        let fields = receive_upload(&state, &blank_id, multipart).await.unwrap();
+        assert_eq!(fields.focus_prompt, None);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 
