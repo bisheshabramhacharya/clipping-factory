@@ -29,6 +29,51 @@ const TAIL_PAD_MS: u64 = 250;
 /// neighbor's first/last samples would be worse than cutting tight.
 const PAD_MARGIN_MS: u64 = 20;
 
+/// Cold-open defense: a clip may not open on greetings, housekeeping, or a
+/// non-lexical filler run — the canonical "AI clip" tells that announce the
+/// cut wasn't editorial. Openers already mid-thought (connectives like
+/// "so", "and") stay fine; only the tells get rejected.
+const GREETING_OPENERS: &[&str] = &[
+    "welcome to",
+    "welcome back",
+    "hey everybody",
+    "hey everyone",
+    "hey guys",
+    "hello everyone",
+    "hello everybody",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "today we are going to",
+    "today we re going to",
+    "in this video",
+    "in this episode",
+    "before we get started",
+    "thanks for tuning in",
+    "thanks for watching",
+    "thanks for joining",
+];
+const NON_LEXICAL_OPENERS: &[&str] = &["um", "uh", "er", "ah", "hmm", "mhm"];
+
+fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
+    let joined = normalize(
+        &first_words
+            .iter()
+            .take(8)
+            .map(|w| w.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
+    if let Some(g) = GREETING_OPENERS.iter().find(|g| joined.starts_with(*g)) {
+        return Some(format!("opens on greeting/housekeeping '{g}'"));
+    }
+    let first_norm = normalize(&first_words.first()?.text);
+    if NON_LEXICAL_OPENERS.contains(&first_norm.as_str()) {
+        return Some(format!("opens on filler word '{first_norm}'"));
+    }
+    None
+}
+
 pub fn validate(
     candidates: Vec<Candidate>,
     transcript: &Transcript,
@@ -95,6 +140,9 @@ pub fn validate(
         if let (Some(fi), Some(li)) = (fi, li) {
             let first = &words[fi];
             let last = &words[li];
+            if let Some(reason) = cold_open_reason(&words[fi..]) {
+                reasons.push(reason.into());
+            }
             if !crate::transcribe::terminal_word(&last.text) {
                 let continues = words
                     .get(li + 1)
@@ -810,6 +858,48 @@ mod tests {
             .reasons
             .iter()
             .any(|reason| reason.contains("mid-sentence")));
+    }
+
+    #[test]
+    fn rejects_a_clip_opening_on_a_greeting() {
+        let mut t = transcript(1500, 400);
+        let greeting = ["welcome", "back", "to", "the", "show", "everybody."];
+        for (i, text) in greeting.iter().enumerate() {
+            t.words[25 + i].text = (*text).into();
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("greeting")));
+    }
+
+    #[test]
+    fn rejects_a_clip_opening_on_filler() {
+        let mut t = transcript(1500, 400);
+        t.words[25].text = "um".into();
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("filler")));
+    }
+
+    #[test]
+    fn a_mid_thought_connective_opener_is_allowed() {
+        let mut t = transcript(1500, 400);
+        // "So" reads as mid-thought, not housekeeping — the intended opener.
+        t.words[25].text = "so".into();
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
     #[test]
