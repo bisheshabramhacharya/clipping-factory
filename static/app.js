@@ -33,6 +33,7 @@
   let captionStyle = localStorage.getItem("cf-caption-style") || "impact";
   let accentColor = localStorage.getItem("cf-accent-color") || "#FFDD00";
   let captionFonts = [];
+  let captionStyles = [];
   let captionDefaultFont = "Inter";
   const ACCENT_PRESETS = [
     { name: "Sun yellow", color: "#FFDD00" },
@@ -109,6 +110,7 @@
       const banner = $("setup-banner");
       captionDefaultFont = s.caption_font || captionDefaultFont;
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
+      if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       if (problems.length) {
         banner.textContent = problems.join("\n");
         banner.classList.remove("hidden");
@@ -210,6 +212,7 @@
     form.append("framing_mode", framingMode);
     form.append("accent_mode", accentMode);
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
+    if ($("upload-emoji").checked) form.append("emoji_overlay", "1");
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
@@ -683,6 +686,7 @@
       font: c.caption_font || captionDefaultFont,
       text: c.caption_text ?? "",
       textPresent: c.caption_text !== null && c.caption_text !== undefined,
+      emoji: Boolean(c.emoji_overlay),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -710,11 +714,12 @@
     seg.className = "seg";
     seg.setAttribute("role", "group");
     seg.setAttribute("aria-label", "Caption style");
-    const styleBtns = ["impact", "clean"].map((s) => {
+    const STYLE_LABELS = { impact: "Impact", clean: "Clean", pop: "Pop", cinema: "Cinema" };
+    const styleBtns = (captionStyles.length ? captionStyles : Object.keys(STYLE_LABELS)).map((s) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "seg-btn";
-      b.textContent = s === "impact" ? "Impact" : "Clean";
+      b.textContent = STYLE_LABELS[s] || s;
       b.setAttribute("aria-pressed", "false");
       b.addEventListener("click", () => {
         state.draft.style = s;
@@ -794,6 +799,23 @@
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
 
+    const emojiToggle = document.createElement("label");
+    emojiToggle.className = "emoji-toggle";
+    const emojiBox = document.createElement("input");
+    emojiBox.type = "checkbox";
+    emojiBox.checked = state.draft.emoji;
+    emojiBox.setAttribute("aria-label", "Flash an emoji accent over caption keywords");
+    emojiBox.addEventListener("change", () => {
+      state.draft.emoji = emojiBox.checked;
+      state.kind = "dirty";
+      state.message = "Unsaved caption changes";
+      sync();
+    });
+    const emojiText = document.createElement("span");
+    emojiText.textContent = "Emoji accents";
+    emojiToggle.appendChild(emojiBox);
+    emojiToggle.appendChild(emojiText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -809,7 +831,8 @@
         state.draft.color !== applied.color ||
         state.draft.font !== applied.font ||
         state.draft.textPresent !== applied.textPresent ||
-        (state.draft.textPresent && state.draft.text !== applied.text)
+        (state.draft.textPresent && state.draft.text !== applied.text) ||
+        Boolean(state.draft.emoji) !== applied.emoji
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -830,6 +853,7 @@
       custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = state.draft.color;
       font.value = state.draft.font;
+      emojiBox.checked = Boolean(state.draft.emoji);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -849,6 +873,7 @@
           style: state.draft.style,
           accent_color: state.draft.color,
           font: state.draft.font,
+          emoji_overlay: Boolean(state.draft.emoji),
         };
         if (state.draft.textPresent) payload.caption_text = state.draft.text;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
@@ -875,6 +900,7 @@
           font: updated.caption_font || state.draft.font,
           text: updated.caption_text ?? "",
           textPresent: updated.caption_text !== null && updated.caption_text !== undefined,
+          emoji: Boolean(updated.emoji_overlay),
         };
         render();
       } catch (err) {
@@ -892,6 +918,7 @@
     box.appendChild(seg);
     box.appendChild(swatches);
     box.appendChild(fontPicker);
+    box.appendChild(emojiToggle);
     box.appendChild(apply);
     box.appendChild(status);
     sync();

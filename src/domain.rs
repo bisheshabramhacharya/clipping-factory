@@ -110,12 +110,16 @@ pub struct Project {
     pub selector: Option<String>,
     /// Non-fatal warning surfaced in the UI (e.g. low transcription confidence).
     pub warning: Option<String>,
-    /// Caption style for this project: "impact" (default) or "clean".
+    /// Caption style for this project: "impact" (default), "clean", "pop",
+    /// or "cinema".
     #[serde(default)]
     pub caption_style: Option<String>,
     /// Accent color for the active caption word, as #RRGGBB.
     #[serde(default)]
     pub accent_color: Option<String>,
+    /// Opt-in emoji accents flashed above the caption block.
+    #[serde(default)]
+    pub emoji_overlay: Option<bool>,
     /// Output composition selected before upload.
     #[serde(default)]
     pub framing_mode: FramingMode,
@@ -135,6 +139,7 @@ impl Project {
             warning: None,
             caption_style: None,
             accent_color: None,
+            emoji_overlay: None,
             framing_mode: FramingMode::default(),
         }
     }
@@ -312,8 +317,9 @@ pub struct ClipRecord {
     pub error: Option<String>,
     /// True when transcription confidence inside this interval was low (PRD §10).
     pub low_confidence: bool,
-    /// Caption style burned into the current render: "impact" or "clean".
-    /// `None` on manifests written before post-render restyling existed.
+    /// Caption style burned into the current render: "impact", "clean",
+    /// "pop", or "cinema". `None` on manifests written before post-render
+    /// restyling existed.
     #[serde(default)]
     pub caption_style: Option<String>,
     /// Accent color burned into the current render, as `#RRGGBB`.
@@ -325,6 +331,10 @@ pub struct ClipRecord {
     /// Editable caption wording. Word timings are preserved when possible.
     #[serde(default)]
     pub caption_text: Option<String>,
+    /// Whether the emoji accent overlay was burned into the current render.
+    /// `None` on manifests written before the overlay existed.
+    #[serde(default)]
+    pub emoji_overlay: Option<bool>,
     /// Rendered output size of this clip (ADR-0002). `None` on manifests
     /// written before downscale-only output — those bases are fixed
     /// 1080×1920, which is what the render and restyle paths assume for them.
@@ -405,6 +415,8 @@ mod tests {
         assert_eq!(m.clips[0].caption_style, None);
         assert_eq!(m.clips[0].accent_color, None);
         assert_eq!(m.clips[0].caption_font, None);
+        assert_eq!(m.clips[0].caption_text, None);
+        assert_eq!(m.clips[0].emoji_overlay, None);
         assert_eq!(m.clips[0].width, None);
         assert_eq!(m.clips[0].height, None);
     }

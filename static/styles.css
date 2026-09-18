@@ -200,7 +200,7 @@ a:hover { text-decoration: underline; }
   padding: 0; margin-bottom: 8px;
   font-size: 12px; color: var(--ink-2); text-align: left;
 }
-.framing-choice label, .accent-option {
+.framing-choice label, .accent-option, .emoji-option {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 14px;
   background: var(--surface);
@@ -210,14 +210,14 @@ a:hover { text-decoration: underline; }
   transition: border-color var(--t-fast) ease-out, background-color var(--t-fast) ease-out,
     transform var(--t-fast) var(--ease);
 }
-.framing-choice label:active, .accent-option:active { transform: scale(.98); }
-.framing-choice label:has(input:checked), .accent-option:has(input:checked) {
+.framing-choice label:active, .accent-option:active, .emoji-option:active { transform: scale(.98); }
+.framing-choice label:has(input:checked), .accent-option:has(input:checked), .emoji-option:has(input:checked) {
   border-color: var(--ink);
   box-shadow: inset 0 0 0 .5px var(--ink);
 }
-.framing-choice input, .accent-option > input { margin: 3px 0 0; }
-.framing-choice strong, .accent-option strong { display: block; font-size: 14px; font-weight: 600; }
-.framing-choice small, .accent-option small {
+.framing-choice input, .accent-option > input, .emoji-option > input { margin: 3px 0 0; }
+.framing-choice strong, .accent-option strong, .emoji-option strong { display: block; font-size: 14px; font-weight: 600; }
+.framing-choice small, .accent-option small, .emoji-option small {
   display: block; margin-top: 2px;
   color: var(--ink-2); font-size: 12px;
 }
@@ -428,6 +428,13 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--hairline); border-radius: var(--r-pill);
 }
 .font-picker > span { font-size: 12px; color: var(--ink-2); }
+.emoji-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px; font-size: 13px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  cursor: pointer; user-select: none;
+}
+.emoji-toggle input { margin: 0; }
 .font-select {
   min-height: 0; padding: 4px 4px 4px 0;
   border: 0; border-radius: var(--r-sm); background: transparent;

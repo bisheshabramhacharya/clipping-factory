@@ -228,6 +228,7 @@ async fn setup_status(State(state): State<AppState>) -> Json<serde_json::Value> 
         "face_model_ok": cfg.face_model.is_some(),
         "caption_font": cfg.caption_font,
         "caption_fonts": crate::captions::CAPTION_FONTS,
+        "caption_styles": crate::captions::CAPTION_STYLES,
         "accent_palette": crate::accent::ACCENT_PALETTE,
         "disk_free_gb": disk,
         "data_dir": cfg.data_dir.to_string_lossy(),
@@ -306,6 +307,7 @@ struct UploadFields {
     original_name: String,
     caption_style: Option<String>,
     accent_color: Option<String>,
+    emoji_overlay: Option<bool>,
     framing_mode: FramingMode,
 }
 
@@ -415,6 +417,7 @@ async fn receive_upload(
     let mut wrote_bytes: u64 = 0;
     let mut caption_style: Option<String> = None;
     let mut accent_color: Option<String> = None;
+    let mut emoji_overlay: Option<bool> = None;
     let mut accent_mode = crate::accent::AccentMode::default();
     let mut framing_mode = FramingMode::default();
     let mut saw_file = false;
@@ -429,6 +432,11 @@ async fn receive_upload(
             if crate::captions::CaptionStyle::parse_strict(&v).is_some() {
                 caption_style = Some(v);
             }
+            continue;
+        }
+        if field.name() == Some("emoji_overlay") {
+            let v = read_multipart_text(field).await?.trim().to_lowercase();
+            emoji_overlay = Some(matches!(v.as_str(), "1" | "true" | "on" | "yes"));
             continue;
         }
         if field.name() == Some("accent_color") {
@@ -530,6 +538,7 @@ async fn receive_upload(
         original_name,
         caption_style,
         accent_color,
+        emoji_overlay,
         framing_mode,
     })
 }
@@ -552,6 +561,7 @@ async fn create_project(
     let mut project = Project::new(id.clone(), state.store.source_path(&id));
     project.caption_style = fields.caption_style;
     project.accent_color = fields.accent_color;
+    project.emoji_overlay = fields.emoji_overlay;
     project.framing_mode = fields.framing_mode;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
@@ -827,7 +837,8 @@ async fn project_events(
 
 #[derive(serde::Deserialize)]
 struct RestyleIn {
-    /// "impact" | "clean". Omitted = keep the clip's current style.
+    /// "impact" | "clean" | "pop" | "cinema". Omitted = keep the clip's
+    /// current style.
     #[serde(default)]
     style: Option<String>,
     /// `#RRGGBB`. Omitted = keep the clip's current accent.
@@ -839,6 +850,9 @@ struct RestyleIn {
     /// Replacement caption wording. Omitted = keep the current text.
     #[serde(default)]
     caption_text: Option<String>,
+    /// Emoji accent overlay on/off. Omitted = keep the clip's current setting.
+    #[serde(default)]
+    emoji_overlay: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -909,8 +923,9 @@ async fn restyle_clip(
     let cfg = &state.cfg;
 
     let style = match body.style.as_deref() {
-        Some(s) => CaptionStyle::parse_strict(s)
-            .ok_or_else(|| bad_request("style must be \"impact\" or \"clean\""))?,
+        Some(s) => CaptionStyle::parse_strict(s).ok_or_else(|| {
+            bad_request("style must be one of \"impact\", \"clean\", \"pop\", \"cinema\"")
+        })?,
         None => CaptionStyle::from_str(clip.caption_style.as_deref().unwrap_or("impact")),
     };
     let accent_hex = match body.accent_color.as_deref() {
@@ -941,6 +956,7 @@ async fn restyle_clip(
         .caption_text
         .map(|text| text.trim().to_string())
         .or_else(|| clip.caption_text.clone());
+    let emoji_overlay = body.emoji_overlay.or(clip.emoji_overlay).unwrap_or(false);
 
     let p = state
         .store
@@ -1039,6 +1055,7 @@ async fn restyle_clip(
             headline: &clip.headline,
             font: &caption_font,
             accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
+            emoji_overlay,
             out_w: out_dims.0,
             out_h: out_dims.1,
         },
@@ -1088,6 +1105,7 @@ async fn restyle_clip(
     manifest.clips[idx].accent_color = Some(accent_hex);
     manifest.clips[idx].caption_font = Some(caption_font);
     manifest.clips[idx].caption_text = caption_text;
+    manifest.clips[idx].emoji_overlay = Some(emoji_overlay);
     manifest.clips[idx].width = Some(out_dims.0);
     manifest.clips[idx].height = Some(out_dims.1);
     state
