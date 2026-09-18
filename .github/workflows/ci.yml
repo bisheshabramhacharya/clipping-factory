@@ -46,7 +46,10 @@ jobs:
         run: python3 -m unittest discover -s evals/tests -v
 
       - name: Synthetic fixture generates
-        run: python3 evals/make_fixture.py --out evals/fixtures/synthetic-episode.mp4 --seconds 30 --scene-seconds 10
+        run: |
+          sudo apt-get install -y ffmpeg
+          python3 evals/make_fixture.py --out evals/fixtures/synthetic-episode.mp4 --seconds 30 --scene-seconds 10
+          ffprobe -v error -show_entries format=duration -of csv=p=0 evals/fixtures/synthetic-episode.mp4
 
   promo:
     name: promo typecheck

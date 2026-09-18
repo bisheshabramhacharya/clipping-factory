@@ -66,7 +66,11 @@ def main() -> int:
         out = os.path.join(here, "fixtures", "synthetic-episode.mp4")
     import os
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        print("error: ffmpeg not found on PATH (needed to render the fixture)",
+              file=sys.stderr)
+        return 1
     speech = have_flite(ffmpeg)
     if not speech:
         print("note: ffmpeg lacks the flite filter; generating tone audio "
