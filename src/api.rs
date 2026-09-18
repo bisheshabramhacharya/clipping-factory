@@ -46,6 +46,7 @@ pub fn router(state: AppState) -> Router {
         .route("/app.js", get(app_js))
         .route("/review.js", get(review_js))
         .route("/api/setup", get(setup_status))
+        .route("/api/stats", get(get_stats))
         .route("/api/settings/ai", get(get_settings).post(set_settings))
         .route("/api/settings/ai/test", post(test_settings))
         .route(
@@ -670,6 +671,57 @@ async fn create_sample_project(
     pipeline::start(state.clone(), id.clone()).await.ok();
     let view = project_view(&state, &id).await.map_err(ApiError::from)?;
     Ok(Json(view))
+}
+
+/// GET /api/stats — build-in-public numbers computed from saved project
+/// state: hours processed, clips rendered, validator accept/reject counts.
+async fn get_stats(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let mut projects = 0u64;
+    let mut processed_ms: u64 = 0;
+    let mut clips_rendered = 0u64;
+    let mut accepted = 0u64;
+    let mut rejected = 0u64;
+
+    for id in state.store.project_ids().await {
+        let Ok(project) = state.store.load_project(&id).await else {
+            continue;
+        };
+        projects += 1;
+        if let Some(source) = &project.source {
+            processed_ms += source.duration_ms;
+        }
+        if let Ok(manifest) = state.store.load_manifest(&id).await {
+            clips_rendered += manifest
+                .clips
+                .iter()
+                .filter(|c| c.status == ClipStatus::Ready)
+                .count() as u64;
+        }
+        if let Ok(raw) = tokio::fs::read(state.store.candidates_path(&id)).await {
+            if let Ok(report) = serde_json::from_slice::<SelectionReport>(&raw) {
+                accepted += report.accepted.len() as u64;
+                rejected += report.rejected.len() as u64;
+            }
+        }
+    }
+
+    let evaluated = accepted + rejected;
+    Json(json!({
+        "projects": projects,
+        "hours_processed": (processed_ms as f64 / 36_000.0).round() / 100.0,
+        "clips_rendered": clips_rendered,
+        "validator": {
+            "accepted": accepted,
+            "rejected": rejected,
+            // Share of candidates that failed the bar — null until the first
+            // selection run exists.
+            "rejection_rate_pct": if evaluated > 0 {
+                Some((rejected as f64 / evaluated as f64 * 1000.0).round() / 10.0)
+            } else {
+                None
+            },
+        },
+    }))
 }
 
 async fn get_project(
@@ -1682,6 +1734,115 @@ mod tests {
                 .status(),
             StatusCode::NOT_FOUND
         );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn stats_endpoint_aggregates_projects_clips_and_validator_counts() {
+        let (state, tmp) = test_state();
+        let store = &state.store;
+        // One project with a probed source, one ready clip, and a selection
+        // report that rejected half its candidates.
+        store.create_dirs("stats-p").await.unwrap();
+        let mut p = Project::new("stats-p".into(), store.source_path("stats-p"));
+        p.source = Some(SourceInfo {
+            filename: "ep.mp4".into(),
+            duration_ms: 3_600_000,
+            width: 1280,
+            height: 720,
+            fps: 30.0,
+            video_codec: "h264".into(),
+            audio_codec: "aac".into(),
+            size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
+        });
+        store.save_project(&p).await.unwrap();
+        store
+            .save_manifest(
+                "stats-p",
+                &RenderManifest {
+                    clips: vec![ClipRecord {
+                        id: "c1".into(),
+                        rank: 1,
+                        headline: "h".into(),
+                        filename: "c1.mp4".into(),
+                        start_ms: 0,
+                        end_ms: 30_000,
+                        duration_ms: 30_000,
+                        selection_reason: "r".into(),
+                        scores: Scores {
+                            self_contained: 5,
+                            opening_strength: 5,
+                            specificity: 5,
+                            tension_or_novelty: 5,
+                            payoff: 5,
+                            clarity: 5,
+                            context_dependency: 0,
+                            slop_risk: 0,
+                        },
+                        score: Some(20.0),
+                        layout: LayoutPlan::BlurPad,
+                        status: ClipStatus::Ready,
+                        error: None,
+                        low_confidence: false,
+                        caption_style: None,
+                        accent_color: None,
+                        caption_font: None,
+                        caption_text: None,
+                        emoji_overlay: None,
+                        width: None,
+                        height: None,
+                        auto_cut: false,
+                        cut_spans: None,
+                        zoom_cuts: false,
+                        zoom_keys: None,
+                    }],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let cand = || {
+            serde_json::json!({
+                "start_ms": 0, "end_ms": 30_000, "headline": "h",
+                "opening_quote": "a", "closing_quote": "b",
+                "selection_reason": "r",
+                "scores": { "self_contained": 5, "opening_strength": 5,
+                            "specificity": 5, "tension_or_novelty": 5,
+                            "payoff": 5, "clarity": 5,
+                            "context_dependency": 0, "slop_risk": 0 },
+            })
+        };
+        let report = serde_json::json!({
+            "selector": "test",
+            "accepted": [{ "rank": 1, "candidate": cand(), "composite": 1.0, "duration_exception": false }],
+            "rejected": [{ "candidate": cand(), "reasons": ["x"] }],
+        });
+        tokio::fs::write(store.candidates_path("stats-p"), report.to_string())
+            .await
+            .unwrap();
+
+        let app = router(state);
+        let res = app
+            .oneshot(
+                Request::get("/api/stats")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["projects"].as_u64().unwrap(), 1);
+        assert_eq!(v["hours_processed"].as_f64().unwrap(), 1.0);
+        assert_eq!(v["clips_rendered"].as_u64().unwrap(), 1);
+        assert_eq!(v["validator"]["accepted"].as_u64().unwrap(), 1);
+        assert_eq!(v["validator"]["rejected"].as_u64().unwrap(), 1);
+        assert_eq!(v["validator"]["rejection_rate_pct"].as_f64().unwrap(), 50.0);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 
