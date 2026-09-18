@@ -539,7 +539,12 @@
 
     const wrap = $("clips");
     wrap.innerHTML = "";
-    for (const c of clips) {
+    // Highest validator score first; scoreless rows (caption-only, old
+    // manifests) keep their manifest order at the end.
+    const ranked = clips.slice().sort((a, b) =>
+      (typeof b.score === "number" ? b.score : -Infinity) -
+      (typeof a.score === "number" ? a.score : -Infinity));
+    for (const c of ranked) {
       wrap.appendChild(clipRow(c));
     }
 
@@ -553,7 +558,8 @@
         const d = document.createElement("div");
         d.className = "rejected-item";
         d.innerHTML = `<div></div><div class="reasons"></div>`;
-        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}`;
+        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}` +
+          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}` : "");
         d.children[1].textContent = (r.reasons || []).join("; ");
         list.appendChild(d);
       }
@@ -616,6 +622,7 @@
       ? "Full video"
       : (c.rank === 1 ? "Best candidate" : `Candidate ${c.rank}`);
     const badges = [];
+    if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
     if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">face-tracked crop</span>`);
     else badges.push(`<span class="badge">blur-pad layout</span>`);
     if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);

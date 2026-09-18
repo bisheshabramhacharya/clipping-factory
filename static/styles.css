@@ -371,6 +371,7 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--hairline); border-radius: var(--r-pill);
   padding: 1px 8px;
 }
+.badge.score { color: var(--ink); border-color: var(--hairline-strong); font-weight: 600; }
 .badge.warn { color: var(--accent-text); border-color: var(--accent); }
 .badge.bad { color: var(--bad); border-color: var(--bad); }
 .actions {

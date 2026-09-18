@@ -614,6 +614,9 @@ async fn run(
                     duration_ms: c.end_ms - c.start_ms,
                     selection_reason: c.selection_reason.clone(),
                     scores: c.scores,
+                    // Caption-only jobs run no ranking, so their synthetic
+                    // composite (0.0) is not a score worth showing.
+                    score: (!is_caption_only(source.duration_ms)).then_some(vc.composite),
                     layout,
                     width: Some(out_w),
                     height: Some(out_h),

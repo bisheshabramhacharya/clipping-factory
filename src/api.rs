@@ -632,6 +632,7 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
                         "start_ms": r.candidate.start_ms,
                         "end_ms": r.candidate.end_ms,
                         "reasons": r.reasons,
+                        "score": crate::validate::composite_score(&r.candidate.scores),
                     })
                 })
                 .collect()
@@ -1513,6 +1514,151 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(error.0, StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    fn scored_candidate(t: &Transcript, start: u64, end: u64, scores: Scores) -> Candidate {
+        let excerpt = crate::validate::excerpt_text(t, start, end);
+        let words: Vec<&str> = excerpt.split_whitespace().collect();
+        Candidate {
+            start_ms: start,
+            end_ms: end,
+            headline: format!("moment at {}", fmt_ms(start)),
+            opening_quote: words[..5].join(" "),
+            closing_quote: words[words.len() - 5..].join(" "),
+            selection_reason: "stands alone with a payoff".into(),
+            scores,
+        }
+    }
+
+    fn clip_from_validated(vc: &ValidatedCandidate) -> ClipRecord {
+        ClipRecord {
+            id: format!("clip{}", vc.rank),
+            rank: vc.rank,
+            headline: vc.candidate.headline.clone(),
+            filename: format!("{:02}-clip.mp4", vc.rank),
+            start_ms: vc.candidate.start_ms,
+            end_ms: vc.candidate.end_ms,
+            duration_ms: vc.candidate.end_ms - vc.candidate.start_ms,
+            selection_reason: vc.candidate.selection_reason.clone(),
+            scores: vc.candidate.scores,
+            score: Some(vc.composite),
+            layout: LayoutPlan::BlurPad,
+            status: ClipStatus::Ready,
+            error: None,
+            low_confidence: false,
+            caption_style: None,
+            accent_color: None,
+            caption_font: None,
+            caption_text: None,
+            width: None,
+            height: None,
+        }
+    }
+
+    /// The validator's composite score must reach the project view: a numeric
+    /// `score` plus `selection_reason` per clip, in ranked order, and each
+    /// rejected candidate's score alongside the reasons it failed.
+    #[tokio::test]
+    async fn project_view_returns_candidate_scores_and_rejection_reasons() {
+        let (state, tmp) = test_state();
+        let id = "scoreview1";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_project(&Project::new(id.into(), state.store.source_path(id)))
+            .await
+            .unwrap();
+
+        let mut words = Vec::new();
+        for i in 0..1500u64 {
+            words.push(Word {
+                text: format!("w{i}"),
+                start_ms: i * 400,
+                end_ms: i * 400 + 350,
+                p: 0.9,
+            });
+        }
+        let transcript = Transcript {
+            language: "en".into(),
+            sentences: crate::transcribe::build_sentences(&words),
+            words,
+            avg_confidence: 0.9,
+        };
+        let strong = Scores {
+            self_contained: 5,
+            opening_strength: 4,
+            specificity: 4,
+            tension_or_novelty: 4,
+            payoff: 5,
+            clarity: 5,
+            context_dependency: 1,
+            slop_risk: 1,
+        };
+        let mut weaker = strong;
+        weaker.tension_or_novelty = 3;
+        let mut sloppy = strong;
+        sloppy.slop_risk = 5;
+        let report = crate::validate::validate(
+            vec![
+                scored_candidate(&transcript, 10_000, 50_000, strong),
+                scored_candidate(&transcript, 300_000, 340_000, weaker),
+                scored_candidate(&transcript, 200_000, 240_000, sloppy),
+            ],
+            &transcript,
+            600_000,
+            "test".into(),
+        );
+        assert_eq!(report.accepted.len(), 2, "reasons: {:?}", report.rejected);
+        assert_eq!(report.rejected.len(), 1);
+        state.store.save_selection(id, &report).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: report.accepted.iter().map(clip_from_validated).collect(),
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        let response = router(state.clone())
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        let clips = view["clips"].as_array().unwrap();
+        assert_eq!(clips.len(), 2);
+        let first = clips[0]["score"].as_f64().unwrap() as f32;
+        let second = clips[1]["score"].as_f64().unwrap() as f32;
+        assert_eq!(first, report.accepted[0].composite);
+        assert_eq!(second, report.accepted[1].composite);
+        assert!(first > second, "clips arrive in ranked order");
+        assert!(clips.iter().all(|c| c["selection_reason"]
+            .as_str()
+            .unwrap()
+            .contains("stands alone")));
+
+        let rejected = &view["rejected_summary"][0];
+        assert!(rejected["score"].is_number());
+        assert!(rejected["reasons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("slop_risk")));
+
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

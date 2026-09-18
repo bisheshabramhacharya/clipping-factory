@@ -35,6 +35,7 @@
         key: key(player.src),
         title: (card.querySelector("h3") || {}).textContent || "Untitled clip",
         reason: (card.querySelector(".why") || {}).textContent || "",
+        score: (card.querySelector(".badge.score") || {}).textContent || "",
       }] : [];
     });
     openBtn.hidden = !items.length;
@@ -72,7 +73,7 @@
     if (video.src !== item.player.src) video.src = item.player.src;
     title.textContent = item.title;
     reason.textContent = item.reason;
-    progress.textContent = `${index + 1} / ${items.length}`;
+    progress.textContent = `${index + 1} / ${items.length}` + (item.score ? ` · ${item.score}` : "");
     updateCounts();
     for (const b of buttons) {
       const selected = b.dataset.reviewDecision === decisions[item.key];
