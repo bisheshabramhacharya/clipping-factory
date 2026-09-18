@@ -56,9 +56,12 @@ impl CaptionStyle {
 
 /// Curated for caption legibility. Keep this list strict: every option is a
 /// sturdy display, sans-serif, or highly readable serif face available on the
-/// target desktop rather than a decorative/script font.
-pub const CAPTION_FONTS: [&str; 6] = [
+/// target desktop rather than a decorative/script font. Inter and Anton ship
+/// in `assets/fonts/` (OFL) so the heavy-condensed look never depends on what
+/// the user's machine has installed.
+pub const CAPTION_FONTS: [&str; 7] = [
     "Inter",
+    "Anton",
     "Arial",
     "Helvetica Neue",
     "Avenir Next",
@@ -227,6 +230,11 @@ const EMPH_FS_FLOOR: f32 = 92.0;
 const CHAR_EM_UPPER: f32 = 0.62;
 const CHAR_EM_LOWER: f32 = 0.55;
 const MAX_LINE_W: f32 = 940.0;
+/// Stroke/drop-shadow references at the 1080×1920 canvas — the punchy looks
+/// sit inside the ~8–12px pro short-form band; `border_scale` shrinks them
+/// with the clip's real output size.
+const PRO_OUTLINE: f32 = 10.0;
+const PRO_SHADOW: f32 = 4.0;
 /// Vertical center of the lockup and its allowed band.
 const BLOCK_ANCHOR_Y: f32 = 1270.0;
 const BLOCK_TOP_MIN: f32 = 920.0;
@@ -521,6 +529,7 @@ fn impact_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         font.to_string()
     };
     let s = out_h as f32 / OUT_H as f32;
+    let b = border_scale(out_w, out_h);
     format!(
         "[Script Info]\n\
          Title: Clipping Factory captions (impact)\n\
@@ -540,8 +549,8 @@ fn impact_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         out_w = out_w,
         out_h = out_h,
         fs = 84.0 * s,
-        outline = 3.2 * s,
-        shadow = 3.6 * s,
+        outline = PRO_OUTLINE * b,
+        shadow = PRO_SHADOW * b,
         ml = 60.0 * s,
         mr = 60.0 * s,
         mv = 60.0 * s,
@@ -552,7 +561,10 @@ fn impact_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
 /// Character budget for a page (keeps the small tier comfortably wide).
 const PAGE_CHAR_BUDGET: usize = 20;
 
-/// Impact pages: 1–5 words with a look-ahead break so no page overflows.
+/// Punchy karaoke cadence: never more than four words on a page.
+const IMPACT_MAX_WORDS: usize = 4;
+
+/// Impact pages: 1–4 words with a look-ahead break so no page overflows.
 pub fn paginate_impact(words: &[Word]) -> Vec<Vec<Word>> {
     let mut pages: Vec<Vec<Word>> = Vec::new();
     let mut page: Vec<Word> = Vec::new();
@@ -576,7 +588,7 @@ pub fn paginate_impact(words: &[Word]) -> Vec<Vec<Word>> {
             .map(|n| n.start_ms.saturating_sub(w.end_ms))
             .unwrap_or(u64::MAX);
 
-        let full = page.len() >= 5;
+        let full = page.len() >= IMPACT_MAX_WORDS;
         let punct = terminal && page.len() >= 2;
         let pause = gap >= 600;
 
@@ -599,6 +611,9 @@ const MAX_WORDS_PER_PAGE: usize = 7;
 const MIN_WORDS_BEFORE_PUNCT_BREAK: usize = 3;
 const MAX_CHARS_PER_PAGE: usize = 30;
 const PAGE_GAP_MS: u64 = 700;
+/// Platform UIs overlay roughly the bottom fifth of the frame; Clean's lower
+/// margin (25% of the reference height) keeps the caption baseline above it.
+const CLEAN_BOTTOM_SAFE: f32 = 480.0;
 
 fn build_clean(input: &CaptionInput) -> String {
     let (rel, clip_len) = relative_words(input);
@@ -699,6 +714,7 @@ fn build_clean(input: &CaptionInput) -> String {
 
 fn clean_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
     let s = out_h as f32 / OUT_H as f32;
+    let b = border_scale(out_w, out_h);
     format!(
         "[Script Info]\n\
          Title: Clipping Factory captions (clean)\n\
@@ -719,14 +735,14 @@ fn clean_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         out_w = out_w,
         out_h = out_h,
         cfs = 66.0 * s,
-        co = 3.4 * s,
-        cs = 1.2 * s,
+        co = 6.4 * b,
+        cs = 1.8 * b,
         cml = 90.0 * s,
         cmr = 90.0 * s,
-        cmv = 400.0 * s,
+        cmv = CLEAN_BOTTOM_SAFE * s,
         hfs = 42.0 * s,
-        ho = 2.6 * s,
-        hs = 1.0 * s,
+        ho = 3.4 * b,
+        hs = 1.2 * b,
         hml = 110.0 * s,
         hmr = 110.0 * s,
         hmv = 110.0 * s,
@@ -881,6 +897,7 @@ fn pop_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         font.to_string()
     };
     let s = out_h as f32 / OUT_H as f32;
+    let b = border_scale(out_w, out_h);
     format!(
         "[Script Info]\n\
          Title: Clipping Factory captions (pop)\n\
@@ -900,8 +917,8 @@ fn pop_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         out_w = out_w,
         out_h = out_h,
         fs = POP_FS * s,
-        outline = 3.2 * s,
-        shadow = 3.6 * s,
+        outline = PRO_OUTLINE * b,
+        shadow = PRO_SHADOW * b,
         ml = 60.0 * s,
         mr = 60.0 * s,
         mv = 60.0 * s,
@@ -970,6 +987,7 @@ fn build_cinema(input: &CaptionInput) -> String {
 
 fn cinema_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
     let s = out_h as f32 / OUT_H as f32;
+    let b = border_scale(out_w, out_h);
     format!(
         "[Script Info]\n\
          Title: Clipping Factory captions (cinema)\n\
@@ -989,8 +1007,8 @@ fn cinema_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         out_w = out_w,
         out_h = out_h,
         fs = CINEMA_FS * s,
-        outline = 2.4 * s,
-        shadow = 1.2 * s,
+        outline = 3.2 * b,
+        shadow = 1.4 * b,
         ml = 90.0 * s,
         mr = 90.0 * s,
         mv = 60.0 * s,
@@ -1096,6 +1114,13 @@ fn emoji_style_line(font: &str, s: f32, enabled: bool) -> String {
 // ===========================================================================
 // Shared plumbing
 // ===========================================================================
+
+/// Border scale for ASS Outline/Shadow: borders follow the clip's output
+/// geometry (the smaller axis wins) so a 608×1080 render keeps the same
+/// visual stroke weight as the 1080×1920 reference canvas.
+fn border_scale(out_w: u32, out_h: u32) -> f32 {
+    (out_w as f32 / OUT_W as f32).min(out_h as f32 / OUT_H as f32)
+}
 
 /// ASS timestamp: `H:MM:SS.CS` (centiseconds).
 fn ass_time(ms: u64) -> String {
@@ -1378,7 +1403,11 @@ mod tests {
         );
         let pages = paginate_impact(&words);
         for p in &pages {
-            assert!(p.len() <= 5, "impact page too long: {}", p.len());
+            assert!(
+                p.len() <= IMPACT_MAX_WORDS,
+                "impact page too long: {}",
+                p.len()
+            );
             if p.len() > 1 {
                 let chars: usize = p.iter().map(|w| w.text.len()).sum::<usize>() + p.len() - 1;
                 assert!(chars <= PAGE_CHAR_BUDGET, "page over budget: {}", chars);
@@ -1473,6 +1502,82 @@ mod tests {
         assert!(!ass.contains("00DDFF"), "default yellow fully replaced");
     }
 
+    /// Positions of the ASS `Style:` fields this module emits (per the
+    /// `Format:` row in each header).
+    const ASS_OUTLINE_FIELD: usize = 16;
+    const ASS_SHADOW_FIELD: usize = 17;
+    const ASS_MARGINV_FIELD: usize = 21;
+
+    /// A numeric field from a `Style: <name>,...` row in a generated header.
+    fn style_field(ass: &str, style: &str, index: usize) -> f32 {
+        ass.lines()
+            .find(|l| l.starts_with(&format!("Style: {style},")))
+            .unwrap_or_else(|| panic!("missing Style: {style}: {ass}"))
+            .split(',')
+            .nth(index)
+            .and_then(|v| v.trim().parse::<f32>().ok())
+            .unwrap_or_else(|| panic!("{style} field {index} not numeric: {ass}"))
+    }
+
+    /// Spec A3: the pro short-form stroke (~8–12px at 1080×1920) is a function
+    /// of the output geometry — a 608×1080 render keeps the same visual weight
+    /// by shrinking with the canvas instead of burning a fixed 1080p border.
+    #[test]
+    fn outline_and_shadow_scale_with_output_geometry() {
+        let (sw, sh) = (608u32, 1080u32);
+        let scale = border_scale(sw, sh);
+        for (ass_style, header) in [
+            ("Impact", impact_header("Inter", OUT_W, OUT_H, false)),
+            ("Pop", pop_header("Inter", OUT_W, OUT_H, false)),
+            ("Caption", clean_header("Inter", OUT_W, OUT_H, false)),
+            ("Cinema", cinema_header("Inter", OUT_W, OUT_H, false)),
+        ] {
+            let small = match ass_style {
+                "Impact" => impact_header("Inter", sw, sh, false),
+                "Pop" => pop_header("Inter", sw, sh, false),
+                "Caption" => clean_header("Inter", sw, sh, false),
+                _ => cinema_header("Inter", sw, sh, false),
+            };
+            for field in [ASS_OUTLINE_FIELD, ASS_SHADOW_FIELD] {
+                let full = style_field(&header, ass_style, field);
+                let shrunk = style_field(&small, ass_style, field);
+                assert!(
+                    (shrunk - full * scale).abs() < 0.05,
+                    "{ass_style} field {field}: {full}px at 1080×1920 → {shrunk}px at 608×1080 (expected {:.2})",
+                    full * scale
+                );
+            }
+        }
+        // The punchy looks land inside the ~8–12px band at full size.
+        for (style, ass) in [
+            ("Impact", impact_header("Inter", OUT_W, OUT_H, false)),
+            ("Pop", pop_header("Inter", OUT_W, OUT_H, false)),
+        ] {
+            let outline = style_field(&ass, style, ASS_OUTLINE_FIELD);
+            assert!(
+                (8.0..=12.0).contains(&outline),
+                "{style} outline {outline}px outside the pro band at 1080×1920"
+            );
+        }
+    }
+
+    /// Spec A3: platform UIs overlay roughly the bottom 20% of the frame, so
+    /// Clean's bottom margin clears that zone at any output size.
+    #[test]
+    fn clean_captions_clear_the_bottom_risk_zone() {
+        for (w, h) in [(OUT_W, OUT_H), (608, 1080)] {
+            let mv = style_field(
+                &clean_header("Inter", w, h, false),
+                "Caption",
+                ASS_MARGINV_FIELD,
+            );
+            assert!(
+                mv > 0.2 * h as f32,
+                "clean baseline {mv}px sits inside the bottom UI zone at {w}×{h}"
+            );
+        }
+    }
+
     /// Every caption style must be authored against the exact render canvas,
     /// so libass scales coordinates the way the renderer crops them.
     #[test]
@@ -1549,8 +1654,25 @@ mod tests {
     #[test]
     fn curated_caption_fonts_parse_to_canonical_names() {
         assert_eq!(caption_font_name("inter"), Some("Inter"));
+        assert_eq!(caption_font_name("anton"), Some("Anton"));
         assert_eq!(caption_font_name("Helvetica Neue"), Some("Helvetica Neue"));
         assert_eq!(caption_font_name("avenir next"), Some("Avenir Next"));
+    }
+
+    /// The condensed black weight ships with the repo (OFL), so the pro look
+    /// never depends on what the user's machine has installed.
+    #[test]
+    fn bundled_anton_is_listed_and_on_disk() {
+        assert!(CAPTION_FONTS.contains(&"Anton"));
+        let fonts = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fonts");
+        assert!(
+            fonts.join("Anton-Regular.ttf").is_file(),
+            "Anton-Regular.ttf missing from assets/fonts"
+        );
+        assert!(
+            fonts.join("OFL-Anton.txt").is_file(),
+            "OFL-Anton.txt license missing from assets/fonts"
+        );
     }
 
     #[test]
