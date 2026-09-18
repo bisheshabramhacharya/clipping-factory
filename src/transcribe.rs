@@ -678,6 +678,7 @@ mod tests {
                 crate::captions::CaptionStyle::Impact,
                 None,
             ),
+            emoji_overlay: false,
             out_w: crate::render::OUT_W,
             out_h: crate::render::OUT_H,
         };
