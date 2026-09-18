@@ -678,6 +678,8 @@ mod tests {
             height: Some(1080),
             auto_cut: false,
             cut_spans: None,
+            zoom_cuts: false,
+            zoom_keys: None,
             score: None,
         }
     }

@@ -1865,6 +1865,8 @@ mod tests {
                         height: Some(1080),
                         auto_cut: false,
                         cut_spans: None,
+                        zoom_cuts: false,
+                        zoom_keys: None,
                         score: None,
                     }],
                     output_dir: None,
@@ -2018,6 +2020,8 @@ mod tests {
             height: None,
             auto_cut: false,
             cut_spans: None,
+            zoom_cuts: false,
+            zoom_keys: None,
         }
     }
 
