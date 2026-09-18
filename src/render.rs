@@ -17,7 +17,7 @@
 //!   still render as a piecewise-linear x(t) crop expression.
 
 use crate::config::Config;
-use crate::domain::{CropKey, CutSpan, LayoutPlan, SourceInfo};
+use crate::domain::{CropKey, CutSpan, LayoutPlan, SourceInfo, ZoomKey};
 use crate::util::run_streaming;
 use anyhow::{anyhow, Result};
 use std::path::Path;
@@ -74,6 +74,8 @@ fn even_floor(v: f64) -> u32 {
 /// `keeps` is auto-cut's keep list: empty or a single span renders the one
 /// continuous excerpt exactly as before; two or more spans go through a
 /// trim+concat stage that lifts the cut out of the stream before framing.
+/// `zoom` is zoom cuts' keyframe list on the post-cut timeline — a punch
+/// inside the Locked crop, applied only by the FaceCrop path.
 /// (The argument list mirrors the render inputs one-to-one on purpose.)
 #[allow(clippy::too_many_arguments)]
 pub async fn render_base_clip<F>(
@@ -84,6 +86,7 @@ pub async fn render_base_clip<F>(
     start_ms: u64,
     end_ms: u64,
     keeps: &[CutSpan],
+    zoom: &[ZoomKey],
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -92,9 +95,9 @@ where
     F: FnMut(f32),
 {
     let graph = if keeps.len() > 1 {
-        build_cut_graph(source, layout, None, keeps, start_ms)
+        build_cut_graph(source, layout, None, keeps, start_ms, zoom)
     } else {
-        build_graph(source, layout, None)
+        build_graph(source, layout, None, zoom)
     };
     // One surviving span only needs the input window re-aimed at it; several
     // spans keep the full clip read and let the graph pick them out.
@@ -279,8 +282,13 @@ pub fn subtitles_filter(fonts_dir: Option<&Path>, ass_path: &Path) -> String {
     format!("ass='{}'{}", ass, fonts)
 }
 
-fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> String {
-    build_graph_from(source, layout, subs, "0:v", "0:a")
+fn build_graph(
+    source: &SourceInfo,
+    layout: &LayoutPlan,
+    subs: Option<&str>,
+    zoom: &[ZoomKey],
+) -> String {
+    build_graph_from(source, layout, subs, "0:v", "0:a", zoom)
 }
 
 /// The framing graph, reading from named pads instead of input 0 — the cut
@@ -291,6 +299,7 @@ fn build_graph_from(
     subs: Option<&str>,
     vpad: &str,
     apad: &str,
+    zoom: &[ZoomKey],
 ) -> String {
     // Trailing subtitle step when burning in one pass; empty for base renders.
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
@@ -325,13 +334,31 @@ fn build_graph_from(
                 (String::new(), source.width as u64)
             };
             if frame_w < w as u64 {
-                // Shouldn't happen (face_window_fits ran above), but stay safe.
-                return build_graph(source, &LayoutPlan::BlurPad, subs);
+                // Shouldn't happen (face_window_fits ran above), but stay
+                // safe — and BlurPad has no Locked crop for zoom to live in.
+                return build_graph(source, &LayoutPlan::BlurPad, subs, &[]);
             }
             let expr = crop_x_expr(keyframes, frame_w, w as u64);
+            // Zoom cuts: a post-scale punch inside the locked window (the
+            // crop's x never moves). zoompan re-scales a centered subregion
+            // of the cropped frame back to output size; between keys the
+            // expression is exactly 1.0, i.e. pixel-identical to no zoom.
+            // fps must follow the source — zoompan defaults to 25 and would
+            // otherwise retime the video out of sync with the audio.
+            let zoom_step = if zoom.is_empty() || !(source.fps > 0.0 && source.fps.is_finite()) {
+                String::new()
+            } else {
+                format!(
+                    "zoompan=z='{}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={w}x{h}:fps={:.3},",
+                    zoom_z_expr(zoom),
+                    source.fps,
+                    w = w,
+                    h = h,
+                )
+            };
             format!(
                 "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
-                 {subs}format=yuv420p[v];\
+                 {zoom}{subs}format=yuv420p[v];\
                  [{apad}]asetpts=PTS-STARTPTS[a]",
                 scale = scale_step,
                 vpad = vpad,
@@ -339,6 +366,7 @@ fn build_graph_from(
                 w = w,
                 h = h,
                 expr = expr,
+                zoom = zoom_step,
                 subs = subs_step
             )
         }
@@ -355,6 +383,7 @@ fn build_cut_graph(
     subs: Option<&str>,
     keeps: &[CutSpan],
     origin_ms: u64,
+    zoom: &[ZoomKey],
 ) -> String {
     let n = keeps.len();
     let mut g = String::new();
@@ -384,7 +413,7 @@ fn build_cut_graph(
         g.push_str(&format!("[cat{i}]"));
     }
     g.push_str(&format!("concat=n={n}:v=0:a=1[caj];"));
-    g.push_str(&build_graph_from(source, layout, subs, "cvj", "caj"));
+    g.push_str(&build_graph_from(source, layout, subs, "cvj", "caj", zoom));
     g
 }
 
@@ -415,6 +444,37 @@ pub fn crop_x_expr(keyframes: &[CropKey], frame_w: u64, crop_w: u64) -> String {
                     t1 = t1,
                     x0 = x0,
                     x1 = x1,
+                    t0 = t0,
+                    dt = t1 - t0,
+                    rest = expr
+                );
+            }
+            expr
+        }
+    }
+}
+
+/// Piecewise-linear z(t) for zoompan, built like [`crop_x_expr`] but over
+/// `time` — zoompan's per-frame timestamp in seconds on the (post-cut,
+/// PTS-reset) output stream. Keys always open and close at z=1.0, so the
+/// image only magnifies inside each bump and rests otherwise.
+pub fn zoom_z_expr(keys: &[ZoomKey]) -> String {
+    match keys.len() {
+        0 => "1".to_string(),
+        1 => format!("{:.3}", keys[0].z),
+        _ => {
+            let mut expr = format!("{:.3}", keys[keys.len() - 1].z);
+            for pair in keys.windows(2).rev() {
+                let (a, b) = (&pair[0], &pair[1]);
+                let (t0, t1) = (a.t_ms as f64 / 1000.0, b.t_ms as f64 / 1000.0);
+                if t1 <= t0 {
+                    continue;
+                }
+                expr = format!(
+                    "if(lt(time\\,{t1:.3})\\,{z0:.3}+({z1:.3}-{z0:.3})*(time-{t0:.3})/{dt:.3}\\,{rest})",
+                    t1 = t1,
+                    z0 = a.z,
+                    z1 = b.z,
                     t0 = t0,
                     dt = t1 - t0,
                     rest = expr
@@ -554,6 +614,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
             None,
+            &[],
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(!g.contains("scale"), "native window crops directly: {g}");
@@ -569,6 +630,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
             None,
+            &[],
         );
         assert!(g.contains("scale=-2:1920"), "{g}");
         assert!(g.contains("crop=1080:1920:"), "{g}");
@@ -576,7 +638,7 @@ mod tests {
 
     #[test]
     fn blurpad_graph_uses_the_native_scale_canvas() {
-        let g = build_graph(&source(640, 360), &LayoutPlan::BlurPad, None);
+        let g = build_graph(&source(640, 360), &LayoutPlan::BlurPad, None, &[]);
         assert!(g.contains("scale=202:360"), "{g}");
     }
 
@@ -613,7 +675,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
         ] {
-            let g = build_graph(&source(1920, 1080), &layout, None);
+            let g = build_graph(&source(1920, 1080), &layout, None, &[]);
             assert!(
                 !g.contains("ass="),
                 "base graph must not burn captions: {g}"
@@ -624,7 +686,7 @@ mod tests {
 
     #[test]
     fn base_graph_resets_audio_and_video_to_the_same_zero_origin() {
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None);
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, &[]);
         assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
         assert!(g.contains("[0:a]asetpts=PTS-STARTPTS[a]"));
     }
@@ -632,7 +694,7 @@ mod tests {
     #[test]
     fn captioned_graph_includes_subtitle_filter() {
         let subs = subtitles_filter(None, Path::new("/tmp/c.ass"));
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, Some(&subs));
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, Some(&subs), &[]);
         assert!(g.contains("ass='/tmp/c.ass'"));
     }
 
@@ -650,6 +712,7 @@ mod tests {
             None,
             &[keep(0, 4_500), keep(6_000, 16_000)],
             0,
+            &[],
         );
         assert!(g.contains("[0:v]split=2[cv0][cv1]"), "{g}");
         assert!(g.contains("[0:a]asplit=2[ca0][ca1]"), "{g}");
@@ -673,6 +736,7 @@ mod tests {
             None,
             &[keep(60_000, 62_000), keep(65_000, 70_000)],
             60_000,
+            &[],
         );
         assert!(g.contains("trim=start=0.000:duration=2.000"), "{g}");
         assert!(g.contains("trim=start=5.000:duration=5.000"), "{g}");
@@ -688,9 +752,83 @@ mod tests {
             None,
             &[keep(0, 4_500), keep(6_000, 16_000)],
             0,
+            &[],
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(g.contains("concat=n=2"), "{g}");
+    }
+
+    // ---- Zoom cuts ----
+
+    fn zk(t_ms: u64, z: f32) -> ZoomKey {
+        ZoomKey { t_ms, z }
+    }
+
+    #[test]
+    fn zoom_keys_add_a_zoompan_step_inside_the_face_crop() {
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+            },
+            None,
+            &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
+        );
+        // The zoom sits between the crop and the pixel-format fix, sizing
+        // back to the output window — the crop's locked x is untouched.
+        assert!(g.contains("crop=608:1080:x='656.0':y=0,zoompan="), "{g}");
+        assert!(g.contains("zoompan=z='"), "{g}");
+        assert!(g.contains(":s=608x1080:"), "{g}");
+        // fps follows the source — the default 25 would retime the video
+        // and desync it from the audio.
+        assert!(g.contains(":fps=30.000,"), "{g}");
+        assert!(g.contains(":d=1:"), "{g}");
+    }
+
+    #[test]
+    fn zoom_expression_is_piecewise_and_rests_at_one() {
+        assert_eq!(zoom_z_expr(&[]), "1");
+        assert_eq!(zoom_z_expr(&[zk(0, 1.07)]), "1.070");
+        let e = zoom_z_expr(&[zk(0, 1.0), zk(350, 1.07), zk(900, 1.0)]);
+        // Innermost segment (350–900 ms) is the fall back to rest.
+        assert!(e.contains("if(lt(time\\,0.900)"), "{e}");
+        assert!(e.contains("1.070+(1.000-1.070)*(time-0.350)/0.550"), "{e}");
+        // Everything after the last key rests at z=1.
+        assert!(e.ends_with("1.000))"), "{e}");
+    }
+
+    #[test]
+    fn zoom_is_skipped_for_blurpad_and_empty_key_lists() {
+        // BlurPad composites its own canvas — there is no Locked crop to
+        // punch inside, so zoom keys never reach the graph.
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
+        );
+        assert!(!g.contains("zoompan"), "{g}");
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+            },
+            None,
+            &[],
+        );
+        assert!(!g.contains("zoompan"), "{g}");
+        // An unparseable source fps would retime the output — skip instead.
+        let mut no_fps = source(1920, 1080);
+        no_fps.fps = 0.0;
+        let g = build_graph(
+            &no_fps,
+            &LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+            },
+            None,
+            &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
+        );
+        assert!(!g.contains("zoompan"), "{g}");
     }
 
     #[test]
@@ -708,6 +846,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
             None,
+            &[],
         );
         assert!(
             g.contains("gblur"),

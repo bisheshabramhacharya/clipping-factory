@@ -21,6 +21,7 @@ mod store;
 mod transcribe;
 mod util;
 mod validate;
+mod zoom;
 
 use config::Config;
 use state::AppState;
