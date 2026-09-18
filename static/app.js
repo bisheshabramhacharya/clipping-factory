@@ -45,6 +45,9 @@
   ];
   const clipRev = {}; // clip id → cache-busting token after a restyle
   const restyleState = {}; // clip id → {busy, kind, message, draft}
+  // clip id → {sig, row}: lets a refetch rebuild only the cards whose clip
+  // changed instead of remounting the whole list.
+  const clipRowCache = {};
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -353,6 +356,7 @@
     if (sse) { sse.close(); sse = null; }
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
+    for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
     const warning = $("warning-banner");
     warning.textContent = "";
     warning.classList.add("hidden");
@@ -604,15 +608,40 @@
     $("empty-results").classList.toggle("hidden", !(p.status === "complete" && total === 0));
 
     const wrap = $("clips");
-    wrap.innerHTML = "";
     // Highest validator score first; scoreless rows (caption-only, old
     // manifests) keep their manifest order at the end.
     const ranked = clips.slice().sort((a, b) =>
       (typeof b.score === "number" ? b.score : -Infinity) -
       (typeof a.score === "number" ? a.score : -Infinity));
-    for (const c of ranked) {
-      wrap.appendChild(clipRow(c));
-    }
+    // Reconcile row-by-row instead of remounting the list: clips land
+    // one at a time while later ones still render, and remounting a card
+    // whose data didn't change would reset its <video>'s playback and any
+    // open caption controls.
+    const seen = new Set();
+    const kept = new Set();
+    const rows = ranked.map((c) => {
+      const prev = clipRowCache[c.id];
+      let sig = clipSignature(c);
+      let row;
+      if (prev && prev.sig === sig) {
+        row = prev.row;
+      } else {
+        row = clipRow(c);
+        // Building a ready clip's controls seeds restyleState[c.id], which
+        // the signature reads — retake it after the build.
+        sig = clipSignature(c);
+      }
+      clipRowCache[c.id] = { sig, row };
+      seen.add(c.id);
+      kept.add(row);
+      return row;
+    });
+    for (const id of Object.keys(clipRowCache)) if (!seen.has(id)) delete clipRowCache[id];
+    for (const child of [...wrap.children]) if (!kept.has(child)) child.remove();
+    rows.forEach((row, i) => {
+      const current = wrap.children[i];
+      if (current !== row) wrap.insertBefore(row, current || null);
+    });
 
     // Rejected transparency
     const rej = view.rejected_summary || [];
@@ -630,6 +659,26 @@
         list.appendChild(d);
       }
     }
+  }
+
+  // Everything a clip card renders, as one string: the clip record itself,
+  // the restyle-preview cache buster, the retry button's pending label, the
+  // font/style catalogs (they land via loadSetup after first paint), and the
+  // restyle "applying" flag — its failure path relies on a rebuild to restore
+  // the controls. Draft edits and status text already update via sync()
+  // inside the row, so they stay out — keeping them out is what lets a
+  // mid-edit card survive a sibling clip's SSE-driven re-render.
+  function clipSignature(c) {
+    const r = restyleState[c.id] || {};
+    return JSON.stringify([
+      c,
+      view.caption_only === true,
+      clipRev[c.id] || 0,
+      retryPending,
+      captionFonts,
+      captionStyles,
+      Boolean(r.busy),
+    ]);
   }
 
   function clipRow(c) {
@@ -675,7 +724,7 @@
       }
       preview.appendChild(v);
     } else if (c.status === "rendering") {
-      preview.innerHTML = `<span class="spinner"></span>`;
+      preview.innerHTML = `<div class="rendering-note"><span class="spinner"></span><span>Rendering…</span></div>`;
     } else if (c.status === "failed") {
       preview.textContent = "render failed";
     } else {
@@ -693,6 +742,7 @@
     else badges.push(`<span class="badge">blur-pad layout</span>`);
     if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">low transcription confidence</span>`);
+    if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     body.innerHTML = `
       <div class="rank"></div>

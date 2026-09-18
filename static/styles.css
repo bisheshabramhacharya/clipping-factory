@@ -391,6 +391,9 @@ a:hover { text-decoration: underline; }
   object-fit: cover; object-position: center top;
   display: block; background: var(--theater-bg);
 }
+.rendering-note {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
 .clip > div:nth-of-type(2) { padding: 12px 14px 14px; }
 .rank { font-size: 12px; color: var(--ink-2); }
 .clip h3 {
