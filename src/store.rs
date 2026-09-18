@@ -349,6 +349,7 @@ mod tests {
                 accent_color: Some("#FFDD00".into()),
                 caption_font: Some("Inter".into()),
                 caption_text: None,
+                emoji_overlay: None,
                 width: Some(608),
                 height: Some(1080),
             }],
@@ -388,6 +389,7 @@ mod tests {
             caption_text: None,
             accent_color: None,
             caption_font: None,
+            emoji_overlay: None,
             width: None,
             height: None,
         };
@@ -475,6 +477,7 @@ mod tests {
                         caption_text: None,
                         accent_color: None,
                         caption_font: None,
+                        emoji_overlay: None,
                         width: None,
                         height: None,
                     }],

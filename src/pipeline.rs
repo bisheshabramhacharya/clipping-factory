@@ -624,6 +624,7 @@ async fn run(
                     caption_style: None,
                     accent_color: None,
                     caption_font: None,
+                    emoji_overlay: None,
                     caption_text: Some(words_to_text(&crate::captions::words_in_interval(
                         &transcript.words,
                         c.start_ms,
@@ -690,6 +691,7 @@ async fn run(
         .clone()
         .unwrap_or_else(|| crate::captions::default_accent_hex(caption_style).to_string());
     let accent_bgr = accent_bgr_for(caption_style, Some(&accent_hex));
+    let emoji_overlay = p.emoji_overlay.unwrap_or(false);
     let output_dir = state
         .cfg
         .output_root
@@ -774,6 +776,7 @@ async fn run(
                     headline: &clip.headline,
                     font: &cfg.caption_font,
                     accent_bgr: accent_bgr.clone(),
+                    emoji_overlay,
                     out_w,
                     out_h,
                 },
@@ -814,6 +817,7 @@ async fn run(
                 manifest.clips[i].caption_style = Some(caption_style.label().to_string());
                 manifest.clips[i].accent_color = Some(accent_hex.clone());
                 manifest.clips[i].caption_font = Some(cfg.caption_font.clone());
+                manifest.clips[i].emoji_overlay = Some(emoji_overlay);
                 manifest.clips[i].width = Some(out_w);
                 manifest.clips[i].height = Some(out_h);
                 // Copy into the user-facing output folder (best-effort).
