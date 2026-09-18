@@ -91,6 +91,38 @@ evals/results/<UTC-run-id>/
 
 `evals/results/` and `evals/sources/` are gitignored.
 
+## 2a. No media yet? The synthetic fixture
+
+The golden set wants real episodes, but the repo carries none. Generate a
+deterministic synthetic one (distinct test-pattern scenes + synthesized
+speech when ffmpeg has `flite`, tone audio otherwise):
+
+```bash
+python3 evals/make_fixture.py            # writes evals/fixtures/synthetic-episode.mp4
+```
+
+Run it through the golden-set runner or the clip-quality verifier:
+
+```bash
+bash evals/run.sh --manifest evals/manifest.synthetic.json
+bash evals/verify_clip_quality.sh --source evals/fixtures/synthetic-episode.mp4 --min-clips 0
+```
+
+The verifier asserts rendered output: clip-count bounds, per-clip cut guard
+(no detected scene boundary within ±500 ms of an open/close), caption-band
+contrast when a caption style was selected, locked crop, honest size, and the
+libx264 SEI. On tone audio, a clean run producing zero clips is the honest
+outcome — the fixture exercises the harness, it does not fake a golden set.
+The canonical episode asset is still an open handoff on issue #48.
+
+To bless a finished run as the committed regression baseline:
+
+```bash
+bash evals/bless_baseline.sh evals/results/<run-id> <baseline-name>
+```
+
+Baselines under `evals/baselines/` hold reports only — never media.
+
 ## 3. Score the clips
 
 Watch every produced clip and complete the copied `rubric.csv`.
