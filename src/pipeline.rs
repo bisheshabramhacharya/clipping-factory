@@ -366,7 +366,7 @@ async fn run(
             .unwrap_or_else(|| "source.mp4".into());
         stage!("inspecting", {
             match crate::media::probe(cfg, &src, &original, &ctx.cancel).await {
-                Ok(info) => {
+                Ok(mut info) => {
                     let detail = format!(
                         "{}×{} · {} · {}/{}",
                         info.width,
@@ -375,8 +375,24 @@ async fn run(
                         info.video_codec,
                         info.audio_codec
                     );
-                    p.source = Some(info);
-                    Ok(detail)
+                    // Scene detection is advisory like the energy profile: a
+                    // failed pass degrades to no boundaries — but a
+                    // cancellation must still fail the stage.
+                    match crate::media::scene_boundaries(cfg, &src, &ctx.cancel).await {
+                        Ok(boundaries) => {
+                            info.scene_boundaries_ms = boundaries;
+                            p.source = Some(info);
+                            Ok(detail)
+                        }
+                        Err(e) if is_cancelled(&e, &ctx.cancel) => Err(e),
+                        Err(e) => {
+                            tracing::warn!(
+                                "scene detection failed; continuing without boundaries: {e:#}"
+                            );
+                            p.source = Some(info);
+                            Ok(detail)
+                        }
+                    }
                 }
                 Err(e) => Err(e),
             }
@@ -532,7 +548,13 @@ async fn run(
         let raw = store.load_raw_candidates(&id).await?;
         let selector = p.selector.clone().unwrap_or_else(|| "unknown".into());
         stage!("validating_candidates", {
-            let report = crate::validate::validate(raw, &transcript, source.duration_ms, selector);
+            let report = crate::validate::validate(
+                raw,
+                &transcript,
+                source.duration_ms,
+                selector,
+                &source.scene_boundaries_ms,
+            );
             let detail = format!(
                 "{} passed · {} rejected",
                 report.accepted.len(),

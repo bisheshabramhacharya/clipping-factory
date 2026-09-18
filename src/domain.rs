@@ -89,6 +89,11 @@ pub struct SourceInfo {
     pub video_codec: String,
     pub audio_codec: String,
     pub size_bytes: u64,
+    /// Scene-boundary timestamps (ms) detected once during inspection via
+    /// ffmpeg `scdet`. Empty when detection ran before this field existed or
+    /// failed — the validator then applies no transition guard.
+    #[serde(default)]
+    pub scene_boundaries_ms: Vec<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
