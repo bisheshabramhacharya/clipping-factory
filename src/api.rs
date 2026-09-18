@@ -1000,6 +1000,8 @@ struct RestyleIn {
     /// Locked crop. Omitted = keep the clip's current setting.
     #[serde(default)]
     zoom_cuts: Option<bool>,
+    /// Opt-in "Made with Clipping Factory" tail — flips re-render.
+    end_card: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -1085,6 +1087,11 @@ async fn restyle_clip(
             clip.zoom_keys = None;
         }
     }
+    // End card: deterministic tail — nothing to replan, the key just moves
+    // this variant to its own base.
+    if let Some(on) = body.end_card {
+        clip.end_card = on;
+    }
 
     let cfg = &state.cfg;
 
@@ -1157,6 +1164,9 @@ async fn restyle_clip(
     let removals = clip.effective_removals();
     let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
     let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+    // The end card lengthens the file but not the caption timeline — keep
+    // it out of zoom planning, count it in render progress and duration.
+    let card_ms = crate::render::end_card_ms(cfg, clip.end_card);
     // Zoom cuts: the key list is planned once and stored on the clip, so a
     // later restyle reproduces the identical zoom. Beats land on the
     // post-cut timeline, so this runs after the removals above are known.
@@ -1233,6 +1243,7 @@ async fn restyle_clip(
             clip.end_ms,
             &keeps,
             clip.effective_zoom_keys(),
+            clip.end_card,
             &base_temp,
             &cancel,
             |_| {},
@@ -1287,7 +1298,7 @@ async fn restyle_clip(
         &base_path,
         &ass_path,
         &tmp_out,
-        out_dur_ms,
+        out_dur_ms + card_ms,
         &cancel,
         |_| {},
     )
@@ -1366,8 +1377,9 @@ async fn restyle_clip(
     manifest.clips[idx].cut_spans = clip.cut_spans.clone();
     manifest.clips[idx].zoom_cuts = clip.zoom_cuts;
     manifest.clips[idx].zoom_keys = clip.zoom_keys.clone();
+    manifest.clips[idx].end_card = clip.end_card;
     // Auto-cut shortens the clip — report the rendered length.
-    manifest.clips[idx].duration_ms = out_dur_ms;
+    manifest.clips[idx].duration_ms = out_dur_ms + card_ms;
     state
         .store
         .save_manifest(&id, &manifest)
@@ -1796,6 +1808,7 @@ mod tests {
                         cut_spans: None,
                         zoom_cuts: false,
                         zoom_keys: None,
+                        end_card: false,
                     }],
                     output_dir: None,
                 },
@@ -2109,6 +2122,7 @@ mod tests {
                         cut_spans: None,
                         zoom_cuts: false,
                         zoom_keys: None,
+                        end_card: false,
                         score: None,
                     }],
                     output_dir: None,
@@ -2264,6 +2278,7 @@ mod tests {
             cut_spans: None,
             zoom_cuts: false,
             zoom_keys: None,
+            end_card: false,
         }
     }
 

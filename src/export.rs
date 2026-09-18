@@ -680,6 +680,7 @@ mod tests {
             cut_spans: None,
             zoom_cuts: false,
             zoom_keys: None,
+            end_card: false,
             score: None,
         }
     }

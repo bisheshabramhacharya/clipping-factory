@@ -766,6 +766,7 @@
       emoji: Boolean(c.emoji_overlay),
       autoCut: Boolean(c.auto_cut),
       zoomCuts: Boolean(c.zoom_cuts),
+      endCard: Boolean(c.end_card),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -935,6 +936,26 @@
     zoomCuts.appendChild(zoomCutsBox);
     zoomCuts.appendChild(zoomCutsText);
 
+    // Opt-in end card: a short "Made with Clipping Factory" tail appended
+    // after the audio fade. Default off — the clip ends on content.
+    const endCard = document.createElement("label");
+    endCard.className = "auto-cut-toggle";
+    endCard.title = "Append a 1.2 s 'Made with Clipping Factory' card after the clip — re-renders this clip";
+    const endCardBox = document.createElement("input");
+    endCardBox.type = "checkbox";
+    endCardBox.checked = state.draft.endCard;
+    endCardBox.setAttribute("aria-label", `Append an end card for ${c.headline}`);
+    endCardBox.addEventListener("change", () => {
+      state.draft.endCard = endCardBox.checked;
+      state.kind = "dirty";
+      state.message = "End card change re-renders this clip";
+      sync();
+    });
+    const endCardText = document.createElement("span");
+    endCardText.textContent = "End card";
+    endCard.appendChild(endCardBox);
+    endCard.appendChild(endCardText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -953,7 +974,8 @@
         (state.draft.textPresent && state.draft.text !== applied.text) ||
         Boolean(state.draft.emoji) !== applied.emoji ||
         state.draft.autoCut !== applied.autoCut ||
-        state.draft.zoomCuts !== applied.zoomCuts
+        state.draft.zoomCuts !== applied.zoomCuts ||
+        state.draft.endCard !== applied.endCard
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -977,6 +999,7 @@
       emojiBox.checked = Boolean(state.draft.emoji);
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
+      endCardBox.checked = Boolean(state.draft.endCard);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -1001,6 +1024,7 @@
         if (state.draft.textPresent) payload.caption_text = state.draft.text;
         if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
         if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
+        if (state.draft.endCard !== applied.endCard) payload.end_card = state.draft.endCard;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1048,6 +1072,7 @@
     box.appendChild(emojiToggle);
     box.appendChild(autoCut);
     box.appendChild(zoomCuts);
+    box.appendChild(endCard);
     box.appendChild(apply);
     box.appendChild(status);
     sync();

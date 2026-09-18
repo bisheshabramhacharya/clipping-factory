@@ -20,7 +20,7 @@ use crate::config::Config;
 use crate::domain::{CropKey, CutSpan, LayoutPlan, SourceInfo, ZoomKey};
 use crate::util::run_streaming;
 use anyhow::{anyhow, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
 
 /// Output size ceilings (ADR-0002). A clip renders at its native crop
@@ -87,6 +87,7 @@ pub async fn render_base_clip<F>(
     end_ms: u64,
     keeps: &[CutSpan],
     zoom: &[ZoomKey],
+    end_card: bool,
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -104,16 +105,32 @@ where
     let dur_s = in_dur_ms as f64 / 1000.0;
     // Progress is measured against what the file will contain, not what was
     // read — the concat path discards removed time on the way through.
-    let out_dur_ms: u64 = if keeps.len() > 1 {
+    let clip_dur_ms: u64 = if keeps.len() > 1 {
         keeps.iter().map(|k| k.len_ms()).sum()
     } else {
         in_dur_ms
     };
+    // The card tail only exists when the bundled display font resolves —
+    // without it the toggle silently renders plain.
+    let card_font = if end_card { end_card_font(cfg) } else { None };
+    let out_dur_ms = clip_dur_ms + card_font.as_ref().map(|_| END_CARD_MS).unwrap_or(0);
     let out_dur_s = out_dur_ms as f64 / 1000.0;
+    let card = card_font.as_deref();
     let graph = if keeps.len() > 1 {
-        build_cut_graph(source, layout, None, keeps, start_ms, zoom, out_dur_ms)
+        build_cut_graph(
+            source,
+            layout,
+            None,
+            CutSpec {
+                keeps,
+                origin_ms: start_ms,
+            },
+            zoom,
+            clip_dur_ms,
+            card,
+        )
     } else {
-        build_graph(source, layout, None, zoom, in_dur_ms)
+        build_graph(source, layout, None, zoom, clip_dur_ms, card)
     };
 
     let mut args: Vec<String> = vec![
@@ -283,14 +300,66 @@ pub fn subtitles_filter(fonts_dir: Option<&Path>, ass_path: &Path) -> String {
     format!("ass='{}'{}", ass, fonts)
 }
 
+/// The stream labels a graph stage reads from (`in_*`) and writes to
+/// (`out_*`). With an end card the outs are `v0`/`a0` for the tail's concat;
+/// otherwise they're the final `[v]`/`[a]`.
+struct Pads<'a> {
+    in_v: &'a str,
+    in_a: &'a str,
+    out_v: &'a str,
+    out_a: &'a str,
+}
+
 fn build_graph(
     source: &SourceInfo,
     layout: &LayoutPlan,
     subs: Option<&str>,
     zoom: &[ZoomKey],
     dur_ms: u64,
+    card_font: Option<&Path>,
 ) -> String {
-    build_graph_from(source, layout, subs, "0:v", "0:a", zoom, dur_ms)
+    let body = graph_body(
+        source,
+        layout,
+        subs,
+        zoom,
+        dur_ms,
+        ("0:v", "0:a"),
+        card_font,
+    );
+    match card_font {
+        Some(font) => format!("{body};{}", end_card_tail(source, layout, font)),
+        None => body,
+    }
+}
+
+/// The framing body plus an optional end-card tail via intermediate pads.
+fn graph_body(
+    source: &SourceInfo,
+    layout: &LayoutPlan,
+    subs: Option<&str>,
+    zoom: &[ZoomKey],
+    dur_ms: u64,
+    inputs: (&str, &str),
+    card_font: Option<&Path>,
+) -> String {
+    let (in_v, in_a) = inputs;
+    let pads = if card_font.is_some() {
+        Pads {
+            in_v,
+            in_a,
+            out_v: "v0",
+            out_a: "a0",
+        }
+    } else {
+        Pads {
+            in_v,
+            in_a,
+            out_v: "v",
+            out_a: "a",
+        }
+    };
+    build_graph_from(source, layout, subs, zoom, dur_ms, pads)
 }
 
 /// The framing graph, reading from named pads instead of input 0 — the cut
@@ -299,13 +368,18 @@ fn build_graph_from(
     source: &SourceInfo,
     layout: &LayoutPlan,
     subs: Option<&str>,
-    vpad: &str,
-    apad: &str,
     zoom: &[ZoomKey],
     dur_ms: u64,
+    pads: Pads<'_>,
 ) -> String {
     // Trailing subtitle step when burning in one pass; empty for base renders.
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
+    let Pads {
+        in_v: vpad,
+        in_a: apad,
+        out_v: vout,
+        out_a: aout,
+    } = pads;
     let audio = audio_chain(dur_ms);
     let (w, h) = output_size(source, layout);
     let keyframes = match layout {
@@ -318,14 +392,16 @@ fn build_graph_from(
              [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
-             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v];\
-             [{apad}]{audio}[a]",
+             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[{vout}];\
+             [{apad}]{audio}[{aout}]",
             vpad = vpad,
             apad = apad,
             w = w,
             h = h,
             subs = subs_step,
-            audio = audio
+            audio = audio,
+            vout = vout,
+            aout = aout
         ),
         Some(keyframes) => {
             // Downscale only when the source is taller than the ceiling;
@@ -341,7 +417,19 @@ fn build_graph_from(
             if frame_w < w as u64 {
                 // Shouldn't happen (face_window_fits ran above), but stay
                 // safe — and BlurPad has no Locked crop for zoom to live in.
-                return build_graph(source, &LayoutPlan::BlurPad, subs, &[], dur_ms);
+                return build_graph_from(
+                    source,
+                    &LayoutPlan::BlurPad,
+                    subs,
+                    &[],
+                    dur_ms,
+                    Pads {
+                        in_v: vpad,
+                        in_a: apad,
+                        out_v: vout,
+                        out_a: aout,
+                    },
+                );
             }
             let expr = crop_x_expr(keyframes, frame_w, w as u64);
             // Zoom cuts: a post-scale punch inside the locked window (the
@@ -363,8 +451,8 @@ fn build_graph_from(
             };
             format!(
                 "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
-                 {zoom}{subs}format=yuv420p[v];\
-                 [{apad}]{audio}[a]",
+                 {zoom}{subs}format=yuv420p[{vout}];\
+                 [{apad}]{audio}[{aout}]",
                 scale = scale_step,
                 vpad = vpad,
                 apad = apad,
@@ -373,25 +461,35 @@ fn build_graph_from(
                 expr = expr,
                 zoom = zoom_step,
                 subs = subs_step,
-                audio = audio
+                audio = audio,
+                vout = vout,
+                aout = aout
             )
         }
     }
 }
 
+/// A multi-keep render: the spans to keep and the `-ss` point the input is
+/// relative to.
+struct CutSpec<'a> {
+    keeps: &'a [CutSpan],
+    origin_ms: u64,
+}
+
 /// Auto-cut graph: split the (already `-ss`-seeked) input into one branch per
 /// kept span, trim each to its relative window, reset timestamps, and concat
 /// the survivors into a single stream the normal framing graph then shapes.
-/// `origin_ms` is the `-ss` point — the clip start the input is relative to.
 fn build_cut_graph(
     source: &SourceInfo,
     layout: &LayoutPlan,
     subs: Option<&str>,
-    keeps: &[CutSpan],
-    origin_ms: u64,
+    cut: CutSpec<'_>,
     zoom: &[ZoomKey],
     dur_ms: u64,
+    card_font: Option<&Path>,
 ) -> String {
+    let keeps = cut.keeps;
+    let origin_ms = cut.origin_ms;
     let n = keeps.len();
     let mut g = String::new();
     g.push_str(&format!("[0:v]split={n}"));
@@ -420,10 +518,81 @@ fn build_cut_graph(
         g.push_str(&format!("[cat{i}]"));
     }
     g.push_str(&format!("concat=n={n}:v=0:a=1[caj];"));
-    g.push_str(&build_graph_from(
-        source, layout, subs, "cvj", "caj", zoom, dur_ms,
+    g.push_str(&graph_body(
+        source,
+        layout,
+        subs,
+        zoom,
+        dur_ms,
+        ("cvj", "caj"),
+        card_font,
     ));
+    if let Some(font) = card_font {
+        g.push(';');
+        g.push_str(&end_card_tail(source, layout, font));
+    }
     g
+}
+
+/// End-card length: a beat long enough to register as intentional, short
+/// enough to never feel like a watermark wall.
+const END_CARD_MS: u64 = 1200;
+
+/// The bundled display face the card is typeset in. None when the fonts
+/// directory or the face itself is missing — the caller treats that as
+/// "no card" rather than letting drawtext fail the render.
+fn end_card_font(cfg: &Config) -> Option<PathBuf> {
+    let f = cfg.fonts_dir.as_deref()?.join("Inter-ExtraBold.ttf");
+    f.is_file().then_some(f)
+}
+
+/// Extra output length the card adds, for progress/duration bookkeeping.
+/// Zero when off or when the font is missing (the render then has no tail).
+pub(crate) fn end_card_ms(cfg: &Config, on: bool) -> u64 {
+    if on && end_card_font(cfg).is_some() {
+        END_CARD_MS
+    } else {
+        0
+    }
+}
+
+/// A generated tail appended after the clip: a 1.2 s near-black card with
+/// the product line centered, fading in over 150 ms, plus a matching silent
+/// stereo pad so the concat never drops the audio stream.
+fn end_card_tail(source: &SourceInfo, layout: &LayoutPlan, font: &Path) -> String {
+    let (w, h) = output_size(source, layout);
+    let fps = if source.fps.is_finite() && source.fps > 0.0 {
+        source.fps
+    } else {
+        30.0
+    };
+    let d = END_CARD_MS as f64 / 1000.0;
+    // Two-line lockup sized off the frame width: "Made with" sits quiet above
+    // a bold "Clipping Factory". The big line is ~16 glyphs at ~0.62em, so
+    // 8.2% of the width keeps it inside the frame at any output size.
+    let fs_big = w as f64 * 0.082;
+    let fs_small = fs_big * 0.42;
+    let gap = fs_big * 0.28;
+    format!(
+        "color=c=0x0B0B0F:s={w}x{h}:r={fps:.3}:d={d:.3},format=yuv420p[cv];\
+         [cv]drawtext=fontfile='{font}':text='Made with':fontcolor=0xA8A8B0:\
+         fontsize={fs_small:.0}:x=(w-text_w)/2:y=(h-text_h)/2-{off:.0},\
+         drawtext=fontfile='{font}':text='Clipping Factory':fontcolor=0xF5F5F0:\
+         fontsize={fs_big:.0}:x=(w-text_w)/2:y=(h-text_h)/2+{gap:.0},\
+         fade=t=in:st=0:d=0.15[cardv];\
+         anullsrc=r=48000:cl=stereo:d={d:.3}[carda];\
+         [v0][cardv]concat=n=2:v=1:a=0[v];\
+         [a0][carda]concat=n=2:v=0:a=1[a]",
+        w = w,
+        h = h,
+        fps = fps,
+        d = d,
+        font = ff_escape_str(&font.to_string_lossy()),
+        fs_small = fs_small,
+        fs_big = fs_big,
+        off = gap + fs_small * 0.7,
+        gap = gap,
+    )
 }
 
 /// Audio stage shared by both layouts: loudness-normalize to the
@@ -640,6 +809,7 @@ mod tests {
             None,
             &[],
             10_000,
+            None,
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(!g.contains("scale"), "native window crops directly: {g}");
@@ -657,6 +827,7 @@ mod tests {
             None,
             &[],
             10_000,
+            None,
         );
         assert!(g.contains("scale=-2:1920"), "{g}");
         assert!(g.contains("crop=1080:1920:"), "{g}");
@@ -664,7 +835,14 @@ mod tests {
 
     #[test]
     fn blurpad_graph_uses_the_native_scale_canvas() {
-        let g = build_graph(&source(640, 360), &LayoutPlan::BlurPad, None, &[], 10_000);
+        let g = build_graph(
+            &source(640, 360),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            None,
+        );
         assert!(g.contains("scale=202:360"), "{g}");
     }
 
@@ -701,7 +879,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
         ] {
-            let g = build_graph(&source(1920, 1080), &layout, None, &[], 10_000);
+            let g = build_graph(&source(1920, 1080), &layout, None, &[], 10_000, None);
             assert!(
                 !g.contains("ass="),
                 "base graph must not burn captions: {g}"
@@ -712,7 +890,14 @@ mod tests {
 
     #[test]
     fn base_graph_resets_audio_and_video_to_the_same_zero_origin() {
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, &[], 10_000);
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            None,
+        );
         assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
         assert!(g.contains("[0:a]asetpts=PTS-STARTPTS,"), "{g}");
     }
@@ -726,6 +911,7 @@ mod tests {
             Some(&subs),
             &[],
             10_000,
+            None,
         );
         assert!(g.contains("ass='/tmp/c.ass'"));
     }
@@ -742,10 +928,13 @@ mod tests {
             &source(1920, 1080),
             &LayoutPlan::BlurPad,
             None,
-            &[keep(0, 4_500), keep(6_000, 16_000)],
-            0,
+            CutSpec {
+                keeps: &[keep(0, 4_500), keep(6_000, 16_000)],
+                origin_ms: 0,
+            },
             &[],
             10_000,
+            None,
         );
         assert!(g.contains("[0:v]split=2[cv0][cv1]"), "{g}");
         assert!(g.contains("[0:a]asplit=2[ca0][ca1]"), "{g}");
@@ -767,10 +956,13 @@ mod tests {
             &source(1920, 1080),
             &LayoutPlan::BlurPad,
             None,
-            &[keep(60_000, 62_000), keep(65_000, 70_000)],
-            60_000,
+            CutSpec {
+                keeps: &[keep(60_000, 62_000), keep(65_000, 70_000)],
+                origin_ms: 60_000,
+            },
             &[],
             10_000,
+            None,
         );
         assert!(g.contains("trim=start=0.000:duration=2.000"), "{g}");
         assert!(g.contains("trim=start=5.000:duration=5.000"), "{g}");
@@ -784,10 +976,13 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
             None,
-            &[keep(0, 4_500), keep(6_000, 16_000)],
-            0,
+            CutSpec {
+                keeps: &[keep(0, 4_500), keep(6_000, 16_000)],
+                origin_ms: 0,
+            },
             &[],
             10_000,
+            None,
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(g.contains("concat=n=2"), "{g}");
@@ -797,7 +992,14 @@ mod tests {
 
     #[test]
     fn audio_chain_normalizes_loudness_and_fades_edges() {
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, &[], 30_000);
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            30_000,
+            None,
+        );
         assert!(g.contains("loudnorm=I=-16:TP=-1.5:LRA=11"), "{g}");
         assert!(g.contains("afade=t=in:st=0:d=0.05"), "{g}");
         // Tail fade starts 80 ms before the output end.
@@ -811,10 +1013,13 @@ mod tests {
             &source(1920, 1080),
             &LayoutPlan::BlurPad,
             None,
-            &[keep(0, 4_500), keep(6_000, 16_000)],
-            0,
+            CutSpec {
+                keeps: &[keep(0, 4_500), keep(6_000, 16_000)],
+                origin_ms: 0,
+            },
             &[],
             14_500,
+            None,
         );
         assert!(g.contains("afade=t=out:st=14.420:d=0.08"), "{g}");
     }
@@ -835,6 +1040,7 @@ mod tests {
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
             10_000,
+            None,
         );
         // The zoom sits between the crop and the pixel-format fix, sizing
         // back to the output window — the crop's locked x is untouched.
@@ -869,6 +1075,7 @@ mod tests {
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
             10_000,
+            None,
         );
         assert!(!g.contains("zoompan"), "{g}");
         let g = build_graph(
@@ -879,6 +1086,7 @@ mod tests {
             None,
             &[],
             10_000,
+            None,
         );
         assert!(!g.contains("zoompan"), "{g}");
         // An unparseable source fps would retime the output — skip instead.
@@ -892,6 +1100,7 @@ mod tests {
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
             10_000,
+            None,
         );
         assert!(!g.contains("zoompan"), "{g}");
     }
@@ -913,10 +1122,115 @@ mod tests {
             None,
             &[],
             10_000,
+            None,
         );
         assert!(
             g.contains("gblur"),
             "portrait must fall back to blur-pad: {g}"
         );
+    }
+
+    // ---- End card ----
+
+    /// The bundled face the card is typeset in (relative to the crate root —
+    /// tests run with it as cwd).
+    fn card_font() -> PathBuf {
+        PathBuf::from("assets/fonts/Inter-ExtraBold.ttf")
+    }
+
+    #[test]
+    fn end_card_appends_a_generated_tail_after_the_clip() {
+        let font = card_font();
+        assert!(font.is_file(), "bundled display font missing");
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Some(font.as_path()),
+        );
+        // The framing body emits intermediate pads the card concat consumes.
+        assert!(g.contains("format=yuv420p[v0]"), "{g}");
+        assert!(g.contains("[a0]"), "{g}");
+        // The tail: sized/fps-matched card, drawn line, fade-in, silent pad.
+        let (w, h) = output_size(&source(1920, 1080), &LayoutPlan::BlurPad);
+        assert!(
+            g.contains(&format!("color=c=0x0B0B0F:s={w}x{h}:r=30.000:d=1.200")),
+            "{g}"
+        );
+        assert!(g.contains("text='Made with'"), "{g}");
+        assert!(g.contains("text='Clipping Factory'"), "{g}");
+        assert!(g.contains("fade=t=in:st=0:d=0.15"), "{g}");
+        assert!(g.contains("anullsrc=r=48000:cl=stereo:d=1.200"), "{g}");
+        assert!(g.contains("[v0][cardv]concat=n=2:v=1:a=0[v]"), "{g}");
+        assert!(g.contains("[a0][carda]concat=n=2:v=0:a=1[a]"), "{g}");
+        // The audio fade still keys off the clip duration, not clip + card.
+        assert!(g.contains("afade=t=out:st=9.920:d=0.08"), "{g}");
+    }
+
+    #[test]
+    fn end_card_off_emits_the_final_pads_directly() {
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            None,
+        );
+        assert!(g.contains("format=yuv420p[v]"), "{g}");
+        assert!(!g.contains("v0]"), "{g}");
+        assert!(!g.contains("color=c=0x0B0B0F"), "{g}");
+    }
+
+    #[test]
+    fn cut_graph_places_the_card_after_the_joined_clip() {
+        let g = build_cut_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            CutSpec {
+                keeps: &[keep(0, 4_500), keep(6_000, 16_000)],
+                origin_ms: 0,
+            },
+            &[],
+            14_500,
+            Some(card_font().as_path()),
+        );
+        // Card tail comes last, after the keep-concat and framing body.
+        let card_at = g.find("color=c=0x0B0B0F").expect("card missing");
+        let join_at = g.find("[caj]").expect("join missing");
+        assert!(card_at > join_at, "card must follow the joined clip: {g}");
+        assert!(g.contains("concat=n=2:v=1:a=0[v]"), "{g}");
+    }
+
+    #[test]
+    fn end_card_lockup_fits_the_frame_width() {
+        // The big line is ~16 ExtraBold glyphs; sized at 8.2% of the output
+        // width it stays inside even the narrowest 406px render.
+        for (sw, sh) in [(1280, 720), (1920, 1080)] {
+            let g = build_graph(
+                &source(sw, sh),
+                &LayoutPlan::BlurPad,
+                None,
+                &[],
+                10_000,
+                Some(card_font().as_path()),
+            );
+            let (w, _h) = output_size(&source(sw, sh), &LayoutPlan::BlurPad);
+            let want = format!("fontsize={:.0}", w as f64 * 0.082);
+            assert!(g.contains(&want), "{w}px-wide output wants {want}: {g}");
+        }
+    }
+
+    #[test]
+    fn end_card_ms_counts_only_when_the_font_resolves() {
+        let mut cfg = Config::resolve();
+        cfg.fonts_dir = Some(PathBuf::from("assets/fonts"));
+        assert_eq!(end_card_ms(&cfg, true), END_CARD_MS);
+        assert_eq!(end_card_ms(&cfg, false), 0);
+        cfg.fonts_dir = Some(PathBuf::from("/nonexistent"));
+        assert_eq!(end_card_ms(&cfg, true), 0);
     }
 }

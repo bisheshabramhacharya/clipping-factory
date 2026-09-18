@@ -364,6 +364,7 @@ mod tests {
                 cut_spans: None,
                 zoom_cuts: false,
                 zoom_keys: None,
+                end_card: false,
             }],
             output_dir: Some("/tmp/out".into()),
         };
@@ -410,6 +411,7 @@ mod tests {
             cut_spans: None,
             zoom_cuts: false,
             zoom_keys: None,
+            end_card: false,
         };
         store
             .save_manifest(
@@ -521,6 +523,7 @@ mod tests {
                         cut_spans: None,
                         zoom_cuts: false,
                         zoom_keys: None,
+                        end_card: false,
                     }],
                     output_dir: None,
                 },

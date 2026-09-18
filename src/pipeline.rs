@@ -677,6 +677,7 @@ async fn run(
                     cut_spans: None,
                     zoom_cuts: false,
                     zoom_keys: None,
+                    end_card: false,
                 });
             }
             match result {
@@ -819,6 +820,9 @@ async fn run(
         let removals = clip.effective_removals();
         let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
         let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+        // The end card lengthens the file but not the caption timeline —
+        // keep it out of zoom planning, count it in progress and duration.
+        let card_ms = crate::render::end_card_ms(cfg, clip.end_card);
         // Zoom cuts (opt-in): plan the keyframes once and persist them on
         // the clip so restyle/retry reproduce the identical zoom without
         // re-running beat detection. Beats land on the post-cut timeline,
@@ -885,6 +889,7 @@ async fn run(
                     clip.end_ms,
                     &keeps,
                     clip.effective_zoom_keys(),
+                    clip.end_card,
                     &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),
@@ -927,7 +932,7 @@ async fn run(
                 &base_path,
                 &ass_path,
                 &out_temp,
-                out_dur_ms,
+                out_dur_ms + card_ms,
                 &ctx.cancel,
                 |pct| prog(0.85 + pct * 0.15, Some(caption_label.clone())),
             )
@@ -974,7 +979,7 @@ async fn run(
                 manifest.clips[i].height = Some(out_h);
                 // Auto-cut shortens the clip — the manifest reports the
                 // rendered length, not the source interval.
-                manifest.clips[i].duration_ms = out_dur_ms;
+                manifest.clips[i].duration_ms = out_dur_ms + card_ms;
                 // Copy into the user-facing output folder (best-effort).
                 if tokio::fs::create_dir_all(&output_dir).await.is_ok() {
                     let dest = output_dir.join(&clip.filename);
