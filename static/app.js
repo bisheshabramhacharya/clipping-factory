@@ -210,6 +210,8 @@
     form.append("framing_mode", framingMode);
     form.append("accent_mode", accentMode);
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
+    const focusPrompt = $("focus-prompt").value.trim();
+    if (focusPrompt) form.append("focus_prompt", focusPrompt);
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
@@ -384,6 +386,7 @@
     $("source-meta").textContent = src
       ? `${src.width}×${src.height} · ${fmtMs(src.duration_ms)} · ${src.video_codec}/${src.audio_codec}`
       : "";
+    $("source-focus").textContent = p.focus_prompt ? ` · focus: "${p.focus_prompt}"` : "";
 
     // Warning banner
     const warn = $("warning-banner");

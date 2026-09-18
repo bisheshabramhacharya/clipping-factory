@@ -126,18 +126,71 @@ const HOUSEKEEPING_OR_SPONSOR_CUES: &[&str] = &[
 const MIN_MS: u64 = 20_000;
 const MAX_MS: u64 = 90_000;
 
+/// Function words dropped from the focus prompt before keyword matching, plus
+/// the request boilerplate users naturally type ("clips about", "the part
+/// where"). Topical words survive — they are the signal.
+const FOCUS_STOPWORDS: &[&str] = &[
+    "a", "an", "the", "and", "or", "but", "of", "to", "in", "on", "for", "with", "about", "at",
+    "by", "is", "are", "was", "were", "be", "been", "it", "its", "that", "this", "these", "those",
+    "they", "them", "their", "where", "when", "what", "who", "how", "why", "do", "does", "did",
+    "i", "we", "you", "me", "my", "our", "your", "his", "her", "he", "she", "from", "into", "any",
+    "all", "get", "find", "keep", "make", "show", "clip", "clips", "moment", "moments", "part",
+    "parts", "section", "bit", "video",
+];
+
+/// Keywords extracted from the free-text focus prompt: lowercased,
+/// punctuation-stripped, deduplicated, stopwords and stray short tokens
+/// removed. A term needs ≥3 letters or a digit to count as topical.
+fn focus_terms(focus: Option<&str>) -> Vec<String> {
+    let Some(focus) = focus.map(str::trim).filter(|f| !f.is_empty()) else {
+        return Vec::new();
+    };
+    let mut terms: Vec<String> = Vec::new();
+    for word in normalized_claim(focus).split_whitespace() {
+        let keep = !FOCUS_STOPWORDS.contains(&word)
+            && (word.chars().count() >= 3 || word.chars().any(|c| c.is_ascii_digit()));
+        if keep && !terms.iter().any(|t| t == word) {
+            terms.push(word.to_string());
+        }
+    }
+    terms
+}
+
+/// Stem-lite match: a term hits a window word on exact match, when the
+/// shorter token is a prefix of the longer ("cat"~"cats"), or when it is one
+/// letter shy of a prefix ("price"~"pricing", "argue"~"arguing"). The shared
+/// stem must be ≥4 chars so stray short words like "art"~"party" don't match.
+fn term_hits_word(term: &str, word: &str) -> bool {
+    if term == word {
+        return true;
+    }
+    let (short, long) = if term.len() <= word.len() {
+        (term, word)
+    } else {
+        (word, term)
+    };
+    long.starts_with(short) && short.len() >= 3
+        || short.len() >= 5 && long.starts_with(&short[..short.len() - 1])
+}
+
 /// Propose candidates; an optional loudness profile adds a modest composite
-/// boost to high-energy windows (see [`crate::energy`]).
+/// boost to high-energy windows (see [`crate::energy`]). An optional focus
+/// prompt ("clips about pricing") steers ranking toward windows whose
+/// transcript text matches its keywords — topical windows also pass the
+/// editorial-signal gate, since the user asked for the topic directly.
+/// Blank or absent focus keeps generic best-moments ranking unchanged.
 pub fn propose(
     t: &Transcript,
     source_duration_ms: u64,
     proposal_count: usize,
     energy: Option<&crate::energy::EnergyProfile>,
+    focus: Option<&str>,
 ) -> Vec<Candidate> {
     let sentences = &t.sentences;
     if sentences.is_empty() {
         return Vec::new();
     }
+    let focus_terms = focus_terms(focus);
 
     let mut scored: Vec<(f32, Candidate)> = Vec::new();
 
@@ -210,6 +263,34 @@ pub fn propose(
         let word_count = window_text.split_whitespace().count().max(1);
         let normalized_window = normalized_claim(&window_lower);
         let normalized_words: Vec<&str> = normalized_window.split_whitespace().collect();
+        // Distinct focus terms present in the window, plus how much of the
+        // window is actually on-topic: a stray topical tail inside a long
+        // generic stretch shouldn't count, so the boost requires at least a
+        // third of the window's sentences to hit.
+        let focus_hits = focus_terms
+            .iter()
+            .filter(|term| normalized_words.iter().any(|w| term_hits_word(term, w)))
+            .count();
+        let focus_hit_sentences = window
+            .iter()
+            .filter(|s| {
+                let normalized = normalized_claim(&s.text);
+                focus_terms.iter().any(|term| {
+                    normalized
+                        .split_whitespace()
+                        .any(|w| term_hits_word(term, w))
+                })
+            })
+            .count();
+        let focus_density = focus_hit_sentences as f32 / window.len() as f32;
+        // Decisive but not absolute: the user asked for the topic directly, so
+        // a topical window outweighs a generically stronger one, and only an
+        // exceptional off-topic window can still outrank it.
+        let focus_boost = if focus_hits == 0 || focus_density < 0.3 {
+            0.0
+        } else {
+            (14.0 + 6.0 * focus_density + 2.0 * focus_hits as f32).min(24.0)
+        };
         let filler_count = FILLER_WORDS
             .iter()
             .map(|f| count_phrase_occurrences(&normalized_words, f))
@@ -230,9 +311,12 @@ pub fn propose(
         {
             continue;
         }
+        // A window dense with focus-prompt keywords is itself the requested
+        // content, so topicality substitutes for generic editorial signal.
+        // Housekeeping/filler exclusions above still apply.
         let has_editorial_signal =
             hook || contrast || payoff_cue || repeated_claim || exchange || absolute_claim;
-        if !has_editorial_signal {
+        if !has_editorial_signal && focus_boost == 0.0 {
             continue;
         }
 
@@ -312,6 +396,7 @@ pub fn propose(
             + specificity as f32 * 0.8
             - context_dependency as f32 * 1.5
             + end_score
+            + focus_boost
             + if repeated_claim { 4.0 } else { 0.0 }
             + if exchange { 3.0 } else { 0.0 }
             + if absolute_claim { 1.5 } else { 0.0 }
@@ -323,7 +408,7 @@ pub fn propose(
         let headline = make_headline(best_headline_sentence(window));
         let opening_quote = quote_head(&opener.text, 12);
         let closing_quote = quote_tail(&closer.text, 12);
-        let selection_reason = make_reason(
+        let mut selection_reason = make_reason(
             hook,
             question_open,
             contrast,
@@ -332,6 +417,9 @@ pub fn propose(
             repeated_claim,
             exchange,
         );
+        if focus_boost > 0.0 {
+            selection_reason.push_str(" It matches your focus prompt.");
+        }
 
         scored.push((
             composite,
@@ -598,7 +686,7 @@ mod tests {
         let mid = "The mistake is thinking discipline is about motivation when really it is about designing your environment so the default action is the right one every single day without fail.";
         let close = "So the lesson is simple: stop negotiating with yourself every morning and build the system once. That's why the habit finally sticks.";
         let t = transcript_from(&[(long, 0), (mid, 400), (close, 400)]);
-        let cands = propose(&t, t.words.last().unwrap().end_ms + 500, 3, None);
+        let cands = propose(&t, t.words.last().unwrap().end_ms + 500, 3, None, None);
         assert!(!cands.is_empty(), "expected at least one candidate");
         let c = &cands[0];
         assert!(c.end_ms - c.start_ms >= MIN_MS);
@@ -615,7 +703,7 @@ mod tests {
             sentences: vec![],
             avg_confidence: 0.0,
         };
-        assert!(propose(&t, 60_000, 3, None).is_empty());
+        assert!(propose(&t, 60_000, 3, None, None).is_empty());
     }
 
     #[test]
@@ -633,7 +721,7 @@ mod tests {
             ("Yes, everybody can be rich, and the reason is that knowledge and productive tools can spread.", 200),
         ]);
         let duration = t.words.last().unwrap().end_ms + 500;
-        let cands = propose(&t, duration, 3, None);
+        let cands = propose(&t, duration, 3, None, None);
         assert!(!cands.is_empty());
         let headline = cands[0].headline.to_lowercase();
         assert!(
@@ -666,7 +754,7 @@ mod tests {
             avg_confidence: 0.92,
         };
 
-        let cands = propose(&t, 60_000, 1, None);
+        let cands = propose(&t, 60_000, 1, None, None);
         assert_eq!(cands.len(), 1);
         assert!(cands[0].headline.ends_with('…'));
         assert!(cands[0].headline.chars().count() <= 91);
@@ -692,7 +780,7 @@ mod tests {
             ("That is the full schedule for episode 42.", 500),
         ]);
         let duration = t.words.last().unwrap().end_ms + 500;
-        assert!(propose(&t, duration, 3, None).is_empty());
+        assert!(propose(&t, duration, 3, None, None).is_empty());
     }
 
     #[derive(serde::Deserialize)]
@@ -717,7 +805,7 @@ mod tests {
                 .collect();
             let t = transcript_from(&script);
             let duration = t.words.last().map(|w| w.end_ms + 500).unwrap_or(60_000);
-            let candidates = propose(&t, duration, 3, None);
+            let candidates = propose(&t, duration, 3, None, None);
             let observed = if candidates.is_empty() {
                 "reject"
             } else {
@@ -747,7 +835,7 @@ mod tests {
         let t = transcript_from(&[(a, 0), (b, 400)]);
         let duration = t.words.last().unwrap().end_ms + 500;
 
-        let quiet = propose(&t, duration, 3, None);
+        let quiet = propose(&t, duration, 3, None, None);
         assert!(!quiet.is_empty());
         assert!(
             quiet[0].start_ms < 10_000,
@@ -761,12 +849,113 @@ mod tests {
             *v = -12.0;
         }
         let energy = crate::energy::EnergyProfile { per_second_db: db };
-        let boosted = propose(&t, duration, 3, Some(&energy));
+        let boosted = propose(&t, duration, 3, Some(&energy), None);
         assert!(!boosted.is_empty());
         assert!(
             boosted[0].start_ms >= 35_000,
             "loud second group should rank first, got {}",
             boosted[0].start_ms
         );
+    }
+
+    // A hooky discipline cluster (~43s), then a plainly-worded pricing stretch
+    // (~30s) that carries no editorial cues at all — topicality alone must
+    // surface it when a focus prompt asks for it.
+    fn focused_fixture() -> (Transcript, u64, u64, u64) {
+        let d1 = "Most people completely misunderstand what discipline actually is and I want to explain the real mechanics behind it because once you see it you cannot unsee it at all.";
+        let d2 = "The mistake is thinking discipline is about motivation when really it is about designing your environment so the default action is the right one every single day without fail.";
+        let d3 = "So the lesson is simple: stop negotiating with yourself every morning and build the system once. That's why the habit finally sticks.";
+        let p1 = "The pricing page lists three tiers and each tier adds seats for larger teams.";
+        let p2 =
+            "Monthly billing runs on the first business day and receipts go out automatically.";
+        let p3 = "Enterprise contracts include a custom quote and a named account manager.";
+        let p4 = "The pricing experiment ran for six weeks across two cohorts last year.";
+        let p5 = "Seat counts update on renewal and the invoice total follows the plan.";
+        let t = transcript_from(&[
+            (d1, 0),
+            (d2, 400),
+            (d3, 400),
+            (p1, 60_000),
+            (p2, 400),
+            (p3, 400),
+            (p4, 400),
+            (p5, 400),
+        ]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+        let pricing_start = t
+            .sentences
+            .iter()
+            .find(|s| s.text.contains("pricing"))
+            .unwrap()
+            .start_ms;
+        let pricing_end = t.sentences.last().unwrap().end_ms;
+        (t, duration, pricing_start, pricing_end)
+    }
+
+    #[test]
+    fn focus_prompt_pulls_matching_windows_to_the_top() {
+        let (t, duration, pricing_start, pricing_end) = focused_fixture();
+        let covers_pricing = |c: &Candidate| {
+            overlap_ms(c.start_ms, c.end_ms, pricing_start, pricing_end) * 2
+                >= pricing_end - pricing_start
+        };
+
+        // Without a focus, the cue-less pricing window is never proposed.
+        let generic = propose(&t, duration, 6, None, None);
+        assert!(!generic.is_empty());
+        assert!(
+            generic.iter().all(|c| !covers_pricing(c)),
+            "generic ranking should not surface the plain pricing stretch"
+        );
+
+        // With the focus, matching windows outrank stronger generic ones.
+        let focused = propose(&t, duration, 6, None, Some("clips about pricing"));
+        assert!(!focused.is_empty());
+        assert!(
+            covers_pricing(&focused[0]),
+            "top candidate should cover the pricing stretch, got {}..{}",
+            focused[0].start_ms,
+            focused[0].end_ms
+        );
+        assert!(focused[0].selection_reason.contains("focus"));
+    }
+
+    #[test]
+    fn blank_or_unmatched_focus_is_generic_ranking() {
+        let (t, duration, _, _) = focused_fixture();
+        let intervals =
+            |c: Vec<Candidate>| c.iter().map(|c| (c.start_ms, c.end_ms)).collect::<Vec<_>>();
+        let plain = intervals(propose(&t, duration, 6, None, None));
+        assert_eq!(
+            plain,
+            intervals(propose(&t, duration, 6, None, Some("   ")))
+        );
+        // A focus whose keywords appear nowhere changes nothing.
+        assert_eq!(
+            plain,
+            intervals(propose(&t, duration, 6, None, Some("zebra crossings")))
+        );
+    }
+
+    #[test]
+    fn focus_terms_drop_boilerplate_and_keep_keywords() {
+        assert_eq!(focus_terms(Some("clips about pricing")), ["pricing"]);
+        assert_eq!(
+            focus_terms(Some("the part where they argue about pricing")),
+            ["argue", "pricing"]
+        );
+        assert!(focus_terms(Some("the clips")).is_empty());
+        assert!(focus_terms(Some("   ")).is_empty());
+        assert!(focus_terms(None).is_empty());
+    }
+
+    #[test]
+    fn focus_terms_match_by_stem_not_substring() {
+        assert!(term_hits_word("pricing", "price"));
+        assert!(term_hits_word("argue", "arguing"));
+        assert!(term_hits_word("argue", "argue"));
+        assert!(term_hits_word("cat", "cats"));
+        assert!(!term_hits_word("them", "thesis"));
+        assert!(!term_hits_word("art", "party"));
     }
 }

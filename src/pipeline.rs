@@ -506,6 +506,7 @@ async fn run(
                         &transcript,
                         &source,
                         energy.as_ref(),
+                        p.focus_prompt.as_deref(),
                     ) => result,
                 };
                 match proposed {

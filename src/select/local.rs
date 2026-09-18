@@ -94,13 +94,25 @@ pub(crate) mod test_server {
     /// lists `models`, POST `…/chat/completions` answers with `content` as the
     /// assistant message. Returns the base URL (with `/v1` suffix).
     pub(crate) async fn spawn(models: Vec<String>, content: String) -> String {
+        spawn_with_requests(models, content).await.0
+    }
+
+    /// Like `spawn`, but also returns a shared log of the raw request bodies
+    /// the stub received, so tests can assert on what the provider was sent.
+    pub(crate) async fn spawn_with_requests(
+        models: Vec<String>,
+        content: String,
+    ) -> (String, std::sync::Arc<tokio::sync::Mutex<Vec<String>>>) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let requests = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
+        let log = requests.clone();
         tokio::spawn(async move {
             while let Ok((mut sock, _)) = listener.accept().await {
                 let models = models.clone();
                 let content = content.clone();
+                let log = log.clone();
                 tokio::spawn(async move {
                     let mut buf = vec![0u8; 65536];
                     let mut filled = 0;
@@ -126,6 +138,7 @@ pub(crate) mod test_server {
                             break text;
                         }
                     };
+                    log.lock().await.push(request.clone());
                     let payload = if request.starts_with("POST") {
                         serde_json::json!({
                             "choices": [{
@@ -150,6 +163,6 @@ pub(crate) mod test_server {
                 });
             }
         });
-        format!("http://127.0.0.1:{port}/v1")
+        (format!("http://127.0.0.1:{port}/v1"), requests)
     }
 }

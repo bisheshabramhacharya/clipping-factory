@@ -40,13 +40,19 @@ pub struct SelectionOutcome {
     pub warning: Option<String>,
 }
 
+/// `focus` is the project's optional free-text steering prompt ("clips about
+/// pricing"). Providers receive it as a rubric directive; the offline tier
+/// falls back to keyword matching. Blank or absent focus keeps generic
+/// best-moments ranking.
 pub async fn propose(
     settings: &AiSettings,
     transcript: &Transcript,
     source: &SourceInfo,
     energy: Option<&crate::energy::EnergyProfile>,
+    focus: Option<&str>,
 ) -> Result<SelectionOutcome> {
     let (target, proposals) = plan_counts(source.duration_ms);
+    let focus = focus.map(str::trim).filter(|f| !f.is_empty());
 
     // An unconnected setup always ranks locally, whatever its stored provider says.
     let provider = if settings.connected() {
@@ -63,6 +69,7 @@ pub async fn propose(
                 source.duration_ms,
                 local_proposal_limit(source.duration_ms),
                 energy,
+                focus,
             ),
             selector: "local ranking".into(),
             warning: None,
@@ -76,7 +83,7 @@ pub async fn propose(
             let mut failure = None;
 
             for win in &windows {
-                let user_prompt = window_prompt(win, source, target, per_window.max(2));
+                let user_prompt = window_prompt(win, source, target, per_window.max(2), focus);
                 match local::complete(&base_url, &model, SYSTEM_PROMPT, &user_prompt)
                     .await
                     .and_then(|raw| parse_candidates(&raw))
@@ -108,6 +115,7 @@ pub async fn propose(
                         source.duration_ms,
                         local_proposal_limit(source.duration_ms),
                         energy,
+                        focus,
                     ),
                     selector: "local ranking (local endpoint failed)".into(),
                     warning: Some(format!(
@@ -127,7 +135,7 @@ pub async fn propose(
             let per_window = ((proposals as f64) / (windows.len() as f64)).ceil() as usize;
 
             for win in &windows {
-                let user_prompt = window_prompt(win, source, target, per_window.max(2));
+                let user_prompt = window_prompt(win, source, target, per_window.max(2), focus);
                 let raw = match provider {
                     Provider::Anthropic => {
                         anthropic::complete(&key, &model, SYSTEM_PROMPT, &user_prompt).await?
@@ -294,13 +302,29 @@ Return ONLY a JSON object, no markdown fences, shaped exactly like:
 {"candidates":[{"start_ms":1122000,"end_ms":1188000,"headline":"...","opening_quote":"...","closing_quote":"...","selection_reason":"...","scores":{"self_contained":5,"opening_strength":4,"specificity":4,"tension_or_novelty":4,"payoff":5,"clarity":5,"context_dependency":1,"slop_risk":1}}]}
 Propose fewer candidates than asked rather than padding with weak ones. If nothing qualifies, return {"candidates":[]}."#;
 
-fn window_prompt(win: &Window, source: &SourceInfo, target: usize, per_window: usize) -> String {
+fn window_prompt(
+    win: &Window,
+    source: &SourceInfo,
+    target: usize,
+    per_window: usize,
+    focus: Option<&str>,
+) -> String {
+    let directive = focus
+        .map(|f| f.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|f| !f.is_empty())
+        .map(|f| {
+            format!(
+                "\n\nEDITORIAL FOCUS\nThe editor who set up this project asked for clips about: \"{f}\". Topical relevance to that request is now the top selection priority — a moment that clearly addresses it outranks a generically stronger one. Only propose off-topic moments when they are exceptional. Every hard rule still applies; never pad the quota with off-topic filler."
+            )
+        })
+        .unwrap_or_default();
     format!(
-        "Source: \"{}\" — total duration {} ({} ms). Planning target for the whole source: about {} clip(s); this is guidance, not a quota.\n\nTranscript window ({} → {}), one sentence per line as [start --> end] text:\n\n{}\n\nPropose up to {} strong candidates from THIS window only. Timestamps are absolute source milliseconds. Remember: return only the JSON object.",
+        "Source: \"{}\" — total duration {} ({} ms). Planning target for the whole source: about {} clip(s); this is guidance, not a quota.{}\n\nTranscript window ({} → {}), one sentence per line as [start --> end] text:\n\n{}\n\nPropose up to {} strong candidates from THIS window only. Timestamps are absolute source milliseconds. Remember: return only the JSON object.",
         source.filename,
         fmt_ms(source.duration_ms),
         source.duration_ms,
         target,
+        directive,
         fmt_ms(win.start_ms),
         fmt_ms(win.end_ms),
         win.lines,
@@ -519,7 +543,7 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None).await.unwrap();
+        let outcome = propose(&settings, &t, &src, None, None).await.unwrap();
         assert_eq!(outcome.selector, "local · qwen2.5:7b");
         assert!(outcome.warning.is_none());
         assert_eq!(outcome.candidates.len(), 1);
@@ -541,8 +565,46 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None).await.unwrap();
+        let outcome = propose(&settings, &t, &src, None, None).await.unwrap();
         assert_eq!(outcome.selector, "local ranking (local endpoint failed)");
         assert!(outcome.warning.is_some());
+    }
+
+    #[test]
+    fn window_prompt_carries_the_focus_directive() {
+        let (t, src) = tiny_fixture();
+        let windows = build_windows(&t, src.duration_ms);
+        let focused = window_prompt(&windows[0], &src, 1, 2, Some("clips about pricing"));
+        assert!(focused.contains("EDITORIAL FOCUS"));
+        assert!(focused.contains("clips about pricing"));
+        let plain = window_prompt(&windows[0], &src, 1, 2, None);
+        assert!(!plain.contains("EDITORIAL FOCUS"));
+        let blank = window_prompt(&windows[0], &src, 1, 2, Some("   "));
+        assert_eq!(blank, plain);
+    }
+
+    #[tokio::test]
+    async fn local_endpoint_receives_the_focus_directive() {
+        let (base_url, requests) = local::test_server::spawn_with_requests(
+            vec!["qwen2.5:7b".into()],
+            "{\"candidates\":[]}".into(),
+        )
+        .await;
+        let settings = AiSettings {
+            provider: crate::settings::PROVIDER_LOCAL.into(),
+            model: "qwen2.5:7b".into(),
+            base_url,
+            api_key: None,
+        };
+        let (t, src) = tiny_fixture();
+        let outcome = propose(&settings, &t, &src, None, Some("clips about pricing"))
+            .await
+            .unwrap();
+        assert_eq!(outcome.selector, "local · qwen2.5:7b");
+        let sent = requests.lock().await;
+        assert!(
+            sent.iter().any(|r| r.contains("clips about pricing")),
+            "provider request must carry the focus prompt"
+        );
     }
 }

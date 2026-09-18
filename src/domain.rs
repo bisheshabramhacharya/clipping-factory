@@ -114,6 +114,10 @@ pub struct Project {
     /// Output composition selected before upload.
     #[serde(default)]
     pub framing_mode: FramingMode,
+    /// Free-text focus from project setup ("clips about pricing"). Steers
+    /// candidate selection toward the topic; `None` keeps generic ranking.
+    #[serde(default)]
+    pub focus_prompt: Option<String>,
 }
 
 impl Project {
@@ -131,6 +135,7 @@ impl Project {
             caption_style: None,
             accent_color: None,
             framing_mode: FramingMode::default(),
+            focus_prompt: None,
         }
     }
 

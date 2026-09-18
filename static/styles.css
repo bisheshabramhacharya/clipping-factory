@@ -226,6 +226,18 @@ a:hover { text-decoration: underline; }
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
 }
+.focus-field { display: block; margin: 20px 0 0; text-align: left; }
+.focus-label {
+  display: block; margin-bottom: 8px;
+  font-size: 12px; font-weight: 500; color: var(--ink-2);
+}
+.focus-label small { color: var(--ink-2); font-weight: 400; }
+.focus-field input {
+  width: 100%; padding: 10px 12px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--hairline); border-radius: var(--r-md);
+}
+.focus-field input:focus { border-color: var(--ink); outline: none; }
 .upload-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
 .upload-swatch {
   width: 28px; height: 28px; min-height: 0; padding: 0;
