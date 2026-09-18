@@ -83,7 +83,7 @@ async fn first_run_report(cfg: &Config) {
             .unwrap_or_else(|| "MISSING (brew install whisper-cpp, or set CF_WHISPER_BIN)".into())
     );
     println!(
-        "  ├─ whisper model {}",
+        "  ├─ whisper model {}{}",
         cfg.whisper_model
             .as_ref()
             .map(|p| format!(
@@ -95,10 +95,15 @@ async fn first_run_report(cfg: &Config) {
             ))
             .unwrap_or_else(|| {
                 format!(
-                    "MISSING — download ggml-base.en.bin (~148 MB) to {}/models/",
+                    "MISSING — download ggml-base.bin (~148 MB) to {}/models/",
                     cfg.data_dir.to_string_lossy()
                 )
-            })
+            }),
+        match cfg.whisper_model.as_deref() {
+            Some(p) if crate::config::model_is_multilingual(p) => " — multilingual",
+            Some(_) => " — English-only",
+            None => "",
+        }
     );
     println!(
         "  ├─ face model    {}",

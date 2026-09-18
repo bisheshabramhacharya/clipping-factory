@@ -104,11 +104,12 @@
       else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. macOS: brew install ffmpeg-full, then restart.");
       if (!s.ffprobe) problems.push("FFprobe was not found. It ships with FFmpeg.");
       if (!s.whisper_ok) problems.push("whisper-cli was not found. macOS: brew install whisper-cpp, or set CF_WHISPER_BIN.");
-      if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.en.bin into ${s.data_dir}/models/`);
+      if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
       if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push(`Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`);
       const banner = $("setup-banner");
       captionDefaultFont = s.caption_font || captionDefaultFont;
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
+      populateLanguagePicker(s);
       if (problems.length) {
         banner.textContent = problems.join("\n");
         banner.classList.remove("hidden");
@@ -119,6 +120,35 @@
       if (view) render();
     } catch {
       showActionMessage("Couldn't reconnect to the local server. Refresh to try again.", "reconnect");
+    }
+  }
+
+  // The language list comes from the backend so the picker always matches what
+  // the installed whisper.cpp understands. English-only ggml-*.en.bin weights
+  // can't do detection or other languages — grey those options out.
+  function populateLanguagePicker(setup) {
+    const select = $("upload-language");
+    const note = $("upload-language-note");
+    if (!select || select.dataset.populated) {
+      if (note && setup.model_ok && setup.model_multilingual === false) note.textContent =
+        "The installed transcription model is English-only. Add a multilingual model (e.g. ggml-base.bin) to transcribe other languages.";
+      return;
+    }
+    const langs = Array.isArray(setup.whisper_languages) ? setup.whisper_languages : [];
+    if (!langs.length) return;
+    for (const lang of langs) {
+      const opt = document.createElement("option");
+      opt.value = lang.code;
+      opt.textContent = lang.name;
+      if (setup.model_ok && setup.model_multilingual === false && lang.code !== "en") {
+        opt.disabled = true;
+      }
+      select.appendChild(opt);
+    }
+    select.dataset.populated = "1";
+    if (note && setup.model_ok && setup.model_multilingual === false) {
+      note.textContent =
+        "The installed transcription model is English-only. Add a multilingual model (e.g. ggml-base.bin) to transcribe other languages.";
     }
   }
 
@@ -209,6 +239,7 @@
     form.append("framing_mode", framingMode);
     form.append("accent_mode", accentMode);
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
+    form.append("language", $("upload-language").value || "auto");
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;

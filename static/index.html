@@ -64,6 +64,13 @@
               <span><strong>Optimized</strong><small>Matches the video palette</small></span>
             </label>
           </fieldset>
+          <fieldset class="language-choice">
+            <legend>Transcription language</legend>
+            <select id="upload-language" aria-label="Transcription language">
+              <option value="auto" selected>Auto-detect</option>
+            </select>
+            <small id="upload-language-note">Auto-detect identifies the spoken language. Picking a language skips detection.</small>
+          </fieldset>
           <p class="muted small">MP4 with an audio stream, up to 4 hours long. Captions, highlight color, and font stay editable on each finished clip.</p>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
