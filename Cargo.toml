@@ -24,6 +24,7 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 rustface = "0.1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["download-binaries", "copy-dylibs", "std", "tls-rustls"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

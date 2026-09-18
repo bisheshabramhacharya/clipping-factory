@@ -617,6 +617,8 @@
       : (c.rank === 1 ? "Best candidate" : `Candidate ${c.rank}`);
     const badges = [];
     if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">face-tracked crop</span>`);
+    else if (c.layout && c.layout.mode === "speaker_crop") badges.push(`<span class="badge">speaker-switched crop</span>`);
+    else if (c.layout && c.layout.mode === "split") badges.push(`<span class="badge">two-speaker split</span>`);
     else badges.push(`<span class="badge">blur-pad layout</span>`);
     if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">low transcription confidence</span>`);

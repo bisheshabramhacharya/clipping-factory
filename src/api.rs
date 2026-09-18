@@ -1101,19 +1101,29 @@ async fn restyle_clip(
         ),
         clip.effective_removals(),
     );
-    let ass = build_ass(
-        &CaptionInput {
-            words: &words,
-            clip_start_ms: clip.start_ms,
-            clip_end_ms: clip.start_ms + out_dur_ms,
-            headline: &clip.headline,
-            font: &caption_font,
-            accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
-            out_w: out_dims.0,
-            out_h: out_dims.1,
-        },
-        style,
-    );
+    // Speaker tags ride along when the project was diarized (turns shift to
+    // the output timeline with the words).
+    let clip_diar = state
+        .store
+        .load_diarization(&id)
+        .await
+        .map(|d| Diarization {
+            labels: d.labels,
+            turns: crate::autocut::retime_turns(&d.turns, clip.effective_removals()),
+        });
+    let caption_input = CaptionInput {
+        words: &words,
+        clip_start_ms: clip.start_ms,
+        clip_end_ms: clip.start_ms + out_dur_ms,
+        headline: &clip.headline,
+        font: &caption_font,
+        accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
+        out_w: out_dims.0,
+        out_h: out_dims.1,
+        diarization: clip_diar.as_ref(),
+    };
+    let ass = build_ass(&caption_input, style);
+    let srt = crate::captions::build_srt(&caption_input);
     let clips_dir = state.store.clips_dir(&id);
     let final_path = clips_dir.join(&clip.filename);
     let ass_path =
@@ -1143,13 +1153,18 @@ async fn restyle_clip(
     crate::util::promote_atomic(&tmp_out, &final_path)
         .await
         .map_err(ApiError::from)?;
+    tokio::fs::write(final_path.with_extension("srt"), &srt)
+        .await
+        .ok();
     state
         .store
         .mark_final_ready(&id, &clip.id)
         .await
         .map_err(ApiError::from)?;
     if let Some(dir) = manifest.output_dir.clone() {
-        tokio::fs::copy(&final_path, std::path::Path::new(&dir).join(&clip.filename))
+        let dest = std::path::Path::new(&dir).join(&clip.filename);
+        tokio::fs::copy(&final_path, &dest).await.ok();
+        tokio::fs::copy(final_path.with_extension("srt"), dest.with_extension("srt"))
             .await
             .ok();
     }

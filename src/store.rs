@@ -7,6 +7,7 @@
 //!   transcript.json
 //!   candidates-raw.json      (selector proposals, pre-validation)
 //!   candidates.json          (validated SelectionReport)
+//!   speakers.json            (diarized speaker turns, when a model ran)
 //!   render-manifest.json
 //!   source.mp4
 //!   audio.wav                (temporary; deleted after transcription)
@@ -59,8 +60,20 @@ impl Store {
         let bytes = tokio::fs::read(self.energy_path(id)).await.ok()?;
         serde_json::from_slice(&bytes).ok()
     }
+    pub async fn save_diarization(&self, id: &str, d: &crate::domain::Diarization) -> Result<()> {
+        atomic_write_json(&self.speakers_path(id), d).await
+    }
+    /// Diarization is advisory state: absent or unreadable means "no speaker
+    /// info", never an error worth failing a stage over.
+    pub async fn load_diarization(&self, id: &str) -> Option<crate::domain::Diarization> {
+        let bytes = tokio::fs::read(self.speakers_path(id)).await.ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
     pub fn candidates_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("candidates.json")
+    }
+    pub fn speakers_path(&self, id: &str) -> PathBuf {
+        self.project_dir(id).join("speakers.json")
     }
     pub fn manifest_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("render-manifest.json")

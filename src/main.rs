@@ -8,6 +8,7 @@ mod api;
 mod autocut;
 mod captions;
 mod config;
+mod diarize;
 mod domain;
 mod energy;
 mod frame;
@@ -108,6 +109,15 @@ async fn first_run_report(cfg: &Config) {
             .as_ref()
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|| "missing (optional — clips fall back to blur-pad layout)".into())
+    );
+    println!(
+        "  ├─ speaker model {}",
+        cfg.speaker_model
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| {
+                "missing (optional — no diarization; two-face shots keep single-face crops)".into()
+            })
     );
     println!("  ├─ caption font  {}", cfg.caption_font);
     println!(

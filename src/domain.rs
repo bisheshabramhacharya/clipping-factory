@@ -243,6 +243,11 @@ impl FramingMode {
     pub fn apply(self, analyzed: LayoutPlan) -> LayoutPlan {
         match (self, analyzed) {
             (FramingMode::Fill, tracked @ LayoutPlan::FaceCrop { .. }) => tracked,
+            // Speaker-aware layouts still fill the canvas, just around two
+            // faces — a user asking to fill never wants them flattened to
+            // BlurPad or collapsed to one face.
+            (FramingMode::Fill, planned @ LayoutPlan::Split { .. }) => planned,
+            (FramingMode::Fill, planned @ LayoutPlan::SpeakerCrop { .. }) => planned,
             (FramingMode::Fill, LayoutPlan::BlurPad) => LayoutPlan::FaceCrop {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
@@ -256,14 +261,35 @@ impl FramingMode {
 pub enum LayoutPlan {
     /// Smoothed vertical crop that follows one persistent face.
     FaceCrop { keyframes: Vec<CropKey> },
+    /// Two-person interview shot: the frame split into two stacked panels,
+    /// each a crop centered on one face. `top`/`bottom` are the face anchors
+    /// in normalized source coordinates (left face renders on top).
+    Split { top: FaceAnchor, bottom: FaceAnchor },
+    /// Locked crop that cuts between faces at speaker-turn boundaries.
+    /// Unlike FaceCrop keyframes (piecewise-linear legacy pans), every
+    /// keyframe here applies instantly at its `t_ms` — a hard cut, matching
+    /// the no-camera-motion rule (ADR-0001, amended by ADR-0004).
+    SpeakerCrop { keyframes: Vec<CropKey> },
     /// Uncropped source centered over a blurred, darkened background.
     BlurPad,
+}
+
+/// A face position in normalized source coordinates — the anchor a crop
+/// window or split panel is centered on.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct FaceAnchor {
+    /// Normalized horizontal center (0–1).
+    pub cx: f32,
+    /// Normalized vertical center (0–1).
+    pub cy: f32,
 }
 
 impl LayoutPlan {
     pub fn label(&self) -> &'static str {
         match self {
             LayoutPlan::FaceCrop { .. } => "face_crop",
+            LayoutPlan::Split { .. } => "split",
+            LayoutPlan::SpeakerCrop { .. } => "speaker_crop",
             LayoutPlan::BlurPad => "blur_pad",
         }
     }
@@ -275,6 +301,74 @@ pub struct CropKey {
     pub t_ms: u64,
     /// Normalized horizontal face center in the source frame (0–1).
     pub cx: f32,
+}
+
+// ---------------------------------------------------------------------------
+// Speaker diarization
+// ---------------------------------------------------------------------------
+
+/// One diarized speaker turn: the span of audio assigned to one voice.
+/// `speaker` indexes `Diarization::labels`. Turn boundaries sit in silence
+/// gaps — a turn never starts mid-word, so crop switches keyed to turns
+/// cannot land mid-sentence.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SpeakerTurn {
+    pub start_ms: u64,
+    pub end_ms: u64,
+    /// Index into `Diarization::labels`.
+    pub speaker: u8,
+}
+
+/// Project-level diarization persisted as `speakers.json`: who speaks when,
+/// across the whole source. Produced once per project (not per clip) so
+/// every clip sees the same voice → name mapping.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Diarization {
+    /// Display names indexed by `SpeakerTurn::speaker`, in first-appearance
+    /// order ("S1" is whoever talks first).
+    pub labels: Vec<String>,
+    /// Speaker turns sorted by `start_ms`, non-overlapping.
+    pub turns: Vec<SpeakerTurn>,
+}
+
+impl Diarization {
+    /// The speaker whose turn covers `t_ms`, when one does.
+    pub fn speaker_at(&self, t_ms: u64) -> Option<u8> {
+        self.turns
+            .iter()
+            .find(|t| t.start_ms <= t_ms && t_ms < t.end_ms)
+            .map(|t| t.speaker)
+    }
+
+    /// Speaker label for a word: the turn covering the word's midpoint.
+    /// Words sit inside speech spans by construction, and turn boundaries
+    /// fall in the gaps between spans — so a word can never straddle a
+    /// boundary. Midpoint lookup is the whole attribution rule.
+    pub fn word_speaker(&self, word: &Word) -> Option<u8> {
+        self.speaker_at(word.start_ms + word.end_ms.saturating_sub(word.start_ms) / 2)
+    }
+
+    /// Distinct speakers heard inside `[start_ms, end_ms)`.
+    pub fn speakers_in(&self, start_ms: u64, end_ms: u64) -> Vec<u8> {
+        let mut seen: Vec<u8> = self
+            .turns
+            .iter()
+            .filter(|t| t.start_ms < end_ms && t.end_ms > start_ms)
+            .map(|t| t.speaker)
+            .collect();
+        seen.sort_unstable();
+        seen.dedup();
+        seen
+    }
+
+    /// Turns overlapping `[start_ms, end_ms)`, in order.
+    pub fn turns_in(&self, start_ms: u64, end_ms: u64) -> Vec<SpeakerTurn> {
+        self.turns
+            .iter()
+            .filter(|t| t.start_ms < end_ms && t.end_ms > start_ms)
+            .copied()
+            .collect()
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]

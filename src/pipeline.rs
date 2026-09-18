@@ -292,6 +292,75 @@ fn is_cancelled(e: &anyhow::Error, token: &CancellationToken) -> bool {
     token.is_cancelled() || e.to_string().contains("cancelled")
 }
 
+/// Load the project's diarization, or produce it once. Advisory by design:
+/// no speaker model → `Ok(None)`; a model/diarization failure logs and
+/// also yields `None` — framing falls back to speaker-free layouts. Only a
+/// cancellation propagates (as `Err`).
+///
+/// Needs 16 kHz mono PCM — the same `audio.wav` whisper consumed. That file
+/// is deleted after transcription (PRD §13), so a resumed project
+/// re-extracts it to a temp sibling and cleans up afterwards.
+async fn ensure_diarization(
+    cfg: &crate::config::Config,
+    store: &crate::store::Store,
+    id: &str,
+    src: &std::path::Path,
+    source: &SourceInfo,
+    transcript: &Transcript,
+    cancel: &CancellationToken,
+) -> Result<Option<Diarization>> {
+    if cfg.speaker_model.is_none() {
+        return Ok(None);
+    }
+    if let Some(d) = store.load_diarization(id).await {
+        return Ok(Some(d));
+    }
+
+    let wav = store.audio_path(id);
+    let mut temp_wav: Option<PathBuf> = None;
+    let wav_path = if wav.is_file() {
+        wav
+    } else {
+        let tmp = unique_temp_path(&wav);
+        if let Err(e) =
+            crate::media::extract_audio(cfg, src, &tmp, source.duration_ms, cancel, |_| {}).await
+        {
+            tokio::fs::remove_file(&tmp).await.ok();
+            if is_cancelled(&e, cancel) {
+                return Err(e);
+            }
+            tracing::warn!("diarization skipped: audio re-extract failed: {e:#}");
+            return Ok(None);
+        }
+        temp_wav = Some(tmp.clone());
+        tmp
+    };
+
+    let out = match crate::diarize::diarize(cfg, &wav_path, &transcript.words, cancel).await {
+        Ok(Some(d)) => {
+            if let Err(e) = store.save_diarization(id, &d).await {
+                tracing::warn!("diarization not persisted: {e:#}");
+            }
+            Some(d)
+        }
+        Ok(None) => None,
+        Err(e) => {
+            if is_cancelled(&e, cancel) {
+                if let Some(t) = &temp_wav {
+                    tokio::fs::remove_file(t).await.ok();
+                }
+                return Err(e);
+            }
+            tracing::warn!("diarization failed; continuing without speakers: {e:#}");
+            None
+        }
+    };
+    if let Some(t) = temp_wav {
+        tokio::fs::remove_file(t).await.ok();
+    }
+    Ok(out)
+}
+
 fn full_video_candidate(transcript: &Transcript, duration_ms: u64) -> Candidate {
     let caption = words_to_text(&transcript.words);
     Candidate {
@@ -571,6 +640,13 @@ async fn run(
     } else {
         let mut prog = ctx.progress_fn("analyzing_layout");
         stage!("analyzing_layout", {
+            // Speaker diarization is per-project and advisory: it runs once
+            // here (the only stage that consumes it), persists to
+            // speakers.json, and any absence simply means speaker-free
+            // layouts and unlabeled captions.
+            let diarization =
+                ensure_diarization(cfg, store, &id, &src, &source, &transcript, &ctx.cancel)
+                    .await?;
             let mut clips: Vec<ClipRecord> = Vec::new();
             let total = report.accepted.len();
             let mut result: anyhow::Result<String> = Ok(String::new());
@@ -586,6 +662,7 @@ async fn run(
                     &source,
                     vc.candidate.start_ms,
                     vc.candidate.end_ms,
+                    diarization.as_ref(),
                     &frames_dir,
                     &ctx.cancel,
                 )
@@ -639,7 +716,14 @@ async fn run(
                 Ok(_) => {
                     let face_crops = clips
                         .iter()
-                        .filter(|c| matches!(c.layout, LayoutPlan::FaceCrop { .. }))
+                        .filter(|c| {
+                            matches!(
+                                c.layout,
+                                LayoutPlan::FaceCrop { .. }
+                                    | LayoutPlan::Split { .. }
+                                    | LayoutPlan::SpeakerCrop { .. }
+                            )
+                        })
                         .count();
                     store
                         .save_manifest(
@@ -662,6 +746,9 @@ async fn run(
 
     // ---- 7. Render (sequential, incremental, per-clip isolation) ------------
     let mut manifest = store.load_manifest(&id).await?;
+    // Speaker labels for captions/SRT ride on the same diarization the
+    // layout pass produced; it may not exist — that's fine.
+    let diarization = store.load_diarization(&id).await;
     if ctx.cancel.is_cancelled() {
         ctx.mark_cancelled(&mut p, "rendering").await?;
         return Ok(());
@@ -844,20 +931,30 @@ async fn run(
                 ),
                 clip.effective_removals(),
             );
-            let ass = build_ass(
-                &CaptionInput {
-                    words: &words,
-                    clip_start_ms: clip.start_ms,
-                    clip_end_ms: clip.start_ms + out_dur_ms,
-                    headline: &clip.headline,
-                    font: &cfg.caption_font,
-                    accent_bgr: accent_bgr.clone(),
-                    out_w,
-                    out_h,
-                },
-                caption_style,
-            );
+            // Speaker turns move onto the output timeline alongside the
+            // words so a caption tag and a speaker-crop cut agree.
+            let clip_diar = diarization.as_ref().map(|d| Diarization {
+                labels: d.labels.clone(),
+                turns: crate::autocut::retime_turns(&d.turns, clip.effective_removals()),
+            });
+            let caption_input = CaptionInput {
+                words: &words,
+                clip_start_ms: clip.start_ms,
+                clip_end_ms: clip.start_ms + out_dur_ms,
+                headline: &clip.headline,
+                font: &cfg.caption_font,
+                accent_bgr: accent_bgr.clone(),
+                out_w,
+                out_h,
+                diarization: clip_diar.as_ref(),
+            };
+            let ass = build_ass(&caption_input, caption_style);
             tokio::fs::write(&ass_path, &ass).await?;
+            // Speaker-labeled subtitle sidecar beside the clip.
+            let srt = crate::captions::build_srt(&caption_input);
+            tokio::fs::write(out_path.with_extension("srt"), srt)
+                .await
+                .ok();
             if ctx.cancel.is_cancelled() {
                 return Err(anyhow::anyhow!("cancelled"));
             }
@@ -902,6 +999,10 @@ async fn run(
                     let dest = output_dir.join(&clip.filename);
                     if tokio::fs::copy(&out_path, &dest).await.is_ok() {
                         manifest.output_dir = Some(output_dir.to_string_lossy().into_owned());
+                        let srt = out_path.with_extension("srt");
+                        if srt.is_file() {
+                            tokio::fs::copy(&srt, dest.with_extension("srt")).await.ok();
+                        }
                     }
                 }
                 store.save_manifest(&id, &manifest).await?;
