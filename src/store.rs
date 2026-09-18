@@ -341,6 +341,7 @@ mod tests {
                 duration_ms: 30000,
                 selection_reason: "why".into(),
                 scores: Scores::default(),
+                score: Some(21.5),
                 layout: LayoutPlan::BlurPad,
                 status: ClipStatus::Ready,
                 error: None,
@@ -359,6 +360,7 @@ mod tests {
         assert_eq!(loaded.clips.len(), 1);
         assert_eq!(loaded.clips[0].layout, LayoutPlan::BlurPad);
         assert_eq!(loaded.clips[0].status, ClipStatus::Ready);
+        assert_eq!(loaded.clips[0].score, Some(21.5));
 
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
@@ -380,6 +382,7 @@ mod tests {
             duration_ms: 20_000,
             selection_reason: "test".into(),
             scores: Scores::default(),
+            score: None,
             layout: LayoutPlan::BlurPad,
             status: ClipStatus::Ready,
             error: None,
@@ -467,6 +470,7 @@ mod tests {
                         duration_ms: 20_000,
                         selection_reason: "test".into(),
                         scores: Scores::default(),
+                        score: None,
                         layout: LayoutPlan::BlurPad,
                         status: ClipStatus::Ready,
                         error: None,

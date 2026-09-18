@@ -297,6 +297,11 @@ pub struct ClipRecord {
     pub duration_ms: u64,
     pub selection_reason: String,
     pub scores: Scores,
+    /// The validator's composite quality score for the Candidate behind this
+    /// Clip — the same number that set `rank`. `None` on caption-only
+    /// projects and manifests written before scores were surfaced.
+    #[serde(default)]
+    pub score: Option<f32>,
     pub layout: LayoutPlan,
     pub status: ClipStatus,
     pub error: Option<String>,
@@ -391,6 +396,7 @@ mod tests {
         }"#;
         let m: RenderManifest = serde_json::from_str(old).expect("old manifest must load");
         assert_eq!(m.clips.len(), 1);
+        assert_eq!(m.clips[0].score, None);
         assert_eq!(m.clips[0].caption_style, None);
         assert_eq!(m.clips[0].accent_color, None);
         assert_eq!(m.clips[0].caption_font, None);
