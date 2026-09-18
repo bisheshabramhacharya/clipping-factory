@@ -755,6 +755,7 @@ async fn run(
                     zoom_cuts: false,
                     zoom_keys: None,
                     end_card: false,
+                    progress_bar: false,
                 });
             }
             match result {
@@ -977,6 +978,7 @@ async fn run(
                     &keeps,
                     clip.effective_zoom_keys(),
                     clip.end_card,
+                    clip.progress_bar.then_some(accent_hex.as_str()),
                     &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),

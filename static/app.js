@@ -769,6 +769,7 @@
       autoCut: Boolean(c.auto_cut),
       zoomCuts: Boolean(c.zoom_cuts),
       endCard: Boolean(c.end_card),
+      progressBar: Boolean(c.progress_bar),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -958,6 +959,22 @@
     endCard.appendChild(endCardBox);
     endCard.appendChild(endCardText);
 
+    const progBar = document.createElement("label");
+    progBar.className = "auto-cut-toggle";
+    progBar.title = "Draw a thin accent-colored progress bar along the bottom edge — re-renders this clip";
+    const progBarBox = document.createElement("input");
+    progBarBox.type = "checkbox";
+    progBarBox.checked = state.draft.progressBar;
+    progBarBox.setAttribute("aria-label", `Draw a progress bar for ${c.headline}`);
+    progBarBox.addEventListener("change", () => {
+      state.draft.progressBar = progBarBox.checked;
+      sync();
+    });
+    const progBarText = document.createElement("span");
+    progBarText.textContent = "Progress bar";
+    progBar.appendChild(progBarBox);
+    progBar.appendChild(progBarText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -977,7 +994,8 @@
         Boolean(state.draft.emoji) !== applied.emoji ||
         state.draft.autoCut !== applied.autoCut ||
         state.draft.zoomCuts !== applied.zoomCuts ||
-        state.draft.endCard !== applied.endCard
+        state.draft.endCard !== applied.endCard ||
+        state.draft.progressBar !== applied.progressBar
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -1002,6 +1020,7 @@
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
       endCardBox.checked = Boolean(state.draft.endCard);
+      progBarBox.checked = Boolean(state.draft.progressBar);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -1027,6 +1046,7 @@
         if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
         if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
         if (state.draft.endCard !== applied.endCard) payload.end_card = state.draft.endCard;
+        if (state.draft.progressBar !== applied.progressBar) payload.progress_bar = state.draft.progressBar;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1075,6 +1095,7 @@
     box.appendChild(autoCut);
     box.appendChild(zoomCuts);
     box.appendChild(endCard);
+    box.appendChild(progBar);
     box.appendChild(apply);
     box.appendChild(status);
     sync();

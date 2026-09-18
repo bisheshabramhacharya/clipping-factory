@@ -1002,6 +1002,8 @@ struct RestyleIn {
     zoom_cuts: Option<bool>,
     /// Opt-in "Made with Clipping Factory" tail — flips re-render.
     end_card: Option<bool>,
+    /// Opt-in accent progress bar — flips re-render.
+    progress_bar: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -1091,6 +1093,9 @@ async fn restyle_clip(
     // this variant to its own base.
     if let Some(on) = body.end_card {
         clip.end_card = on;
+    }
+    if let Some(on) = body.progress_bar {
+        clip.progress_bar = on;
     }
 
     let cfg = &state.cfg;
@@ -1244,6 +1249,7 @@ async fn restyle_clip(
             &keeps,
             clip.effective_zoom_keys(),
             clip.end_card,
+            clip.progress_bar.then_some(accent_hex.as_str()),
             &base_temp,
             &cancel,
             |_| {},
@@ -1391,6 +1397,7 @@ async fn restyle_clip(
     manifest.clips[idx].zoom_cuts = clip.zoom_cuts;
     manifest.clips[idx].zoom_keys = clip.zoom_keys.clone();
     manifest.clips[idx].end_card = clip.end_card;
+    manifest.clips[idx].progress_bar = clip.progress_bar;
     // Auto-cut shortens the clip — report the rendered length.
     manifest.clips[idx].duration_ms = out_dur_ms + card_ms;
     state
@@ -1822,6 +1829,7 @@ mod tests {
                         zoom_cuts: false,
                         zoom_keys: None,
                         end_card: false,
+                        progress_bar: false,
                     }],
                     output_dir: None,
                 },
@@ -2136,6 +2144,7 @@ mod tests {
                         zoom_cuts: false,
                         zoom_keys: None,
                         end_card: false,
+                        progress_bar: false,
                         score: None,
                     }],
                     output_dir: None,
@@ -2292,6 +2301,7 @@ mod tests {
             zoom_cuts: false,
             zoom_keys: None,
             end_card: false,
+            progress_bar: false,
         }
     }
 

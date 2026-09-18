@@ -492,6 +492,10 @@ pub struct ClipRecord {
     /// after the clip's audio fade. Default off.
     #[serde(default)]
     pub end_card: bool,
+    /// Opt-in progress bar: a thin accent-colored strip along the bottom
+    /// edge filling over the clip's duration. Default off.
+    #[serde(default)]
+    pub progress_bar: bool,
 }
 
 impl ClipRecord {
@@ -529,6 +533,9 @@ impl ClipRecord {
         }
         if self.end_card {
             key.push_str(".card");
+        }
+        if self.progress_bar {
+            key.push_str(".bar");
         }
         key
     }

@@ -109,6 +109,7 @@ pub async fn render_base_clip<F>(
     keeps: &[CutSpan],
     zoom: &[ZoomKey],
     end_card: bool,
+    bar: Option<&str>,
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -151,6 +152,7 @@ where
     let out_dur_ms = clip_dur_ms + card_font.as_ref().map(|_| END_CARD_MS).unwrap_or(0);
     let out_dur_s = out_dur_ms as f64 / 1000.0;
     let card = card_font.as_deref();
+    let garnish = Garnish { card, bar };
     let graph = if keeps.len() > 1 {
         build_cut_graph(
             source,
@@ -162,10 +164,10 @@ where
             },
             zoom,
             clip_dur_ms,
-            card,
+            garnish,
         )
     } else {
-        build_graph(source, layout, None, zoom, clip_dur_ms, card)
+        build_graph(source, layout, None, zoom, clip_dur_ms, garnish)
     };
 
     let mut args: Vec<String> = vec![
@@ -345,24 +347,24 @@ struct Pads<'a> {
     out_a: &'a str,
 }
 
+/// Opt-in garnish applied to a base render: the end card tail (font must
+/// resolve or the card is absent) and the progress bar (accent hex or None).
+#[derive(Clone, Copy, Default)]
+struct Garnish<'a> {
+    card: Option<&'a Path>,
+    bar: Option<&'a str>,
+}
+
 fn build_graph(
     source: &SourceInfo,
     layout: &LayoutPlan,
     subs: Option<&str>,
     zoom: &[ZoomKey],
     dur_ms: u64,
-    card_font: Option<&Path>,
+    garnish: Garnish<'_>,
 ) -> String {
-    let body = graph_body(
-        source,
-        layout,
-        subs,
-        zoom,
-        dur_ms,
-        ("0:v", "0:a"),
-        card_font,
-    );
-    match card_font {
+    let body = graph_body(source, layout, subs, zoom, dur_ms, ("0:v", "0:a"), garnish);
+    match garnish.card {
         Some(font) => format!("{body};{}", end_card_tail(source, layout, font)),
         None => body,
     }
@@ -376,10 +378,10 @@ fn graph_body(
     zoom: &[ZoomKey],
     dur_ms: u64,
     inputs: (&str, &str),
-    card_font: Option<&Path>,
+    garnish: Garnish<'_>,
 ) -> String {
     let (in_v, in_a) = inputs;
-    let pads = if card_font.is_some() {
+    let pads = if garnish.card.is_some() {
         Pads {
             in_v,
             in_a,
@@ -394,7 +396,7 @@ fn graph_body(
             out_a: "a",
         }
     };
-    build_graph_from(source, layout, subs, zoom, dur_ms, pads)
+    build_graph_from(source, layout, subs, zoom, dur_ms, pads, garnish)
 }
 
 /// The framing graph, reading from named pads instead of input 0 — the cut
@@ -406,9 +408,14 @@ fn build_graph_from(
     zoom: &[ZoomKey],
     dur_ms: u64,
     pads: Pads<'_>,
+    garnish: Garnish<'_>,
 ) -> String {
     // Trailing subtitle step when burning in one pass; empty for base renders.
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
+    let bar_step = garnish
+        .bar
+        .map(|hex| format!("{},", progress_bar_step(hex, dur_ms)))
+        .unwrap_or_default();
     let Pads {
         in_v: vpad,
         in_a: apad,
@@ -436,7 +443,7 @@ fn build_graph_from(
              [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
-             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[{vout}];\
+             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}{bar_step}format=yuv420p[{vout}];\
              [{apad}]{audio}[{aout}]",
             vpad = vpad,
             apad = apad,
@@ -445,7 +452,8 @@ fn build_graph_from(
             subs = subs_step,
             audio = audio,
             vout = vout,
-            aout = aout
+            aout = aout,
+            bar_step = bar_step
         ),
         Some(keyframes) => {
             // Downscale only when the source is taller than the ceiling;
@@ -473,6 +481,7 @@ fn build_graph_from(
                         out_v: vout,
                         out_a: aout,
                     },
+                    garnish,
                 );
             }
             let expr = match layout {
@@ -500,7 +509,7 @@ fn build_graph_from(
             };
             format!(
                 "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
-                 {zoom}{subs}format=yuv420p[{vout}];\
+                 {zoom}{subs}{bar_step}format=yuv420p[{vout}];\
                  [{apad}]{audio}[{aout}]",
                 scale = scale_step,
                 vpad = vpad,
@@ -510,6 +519,7 @@ fn build_graph_from(
                 expr = expr,
                 zoom = zoom_step,
                 subs = subs_step,
+                bar_step = bar_step,
                 audio = audio,
                 vout = vout,
                 aout = aout
@@ -535,7 +545,7 @@ fn build_cut_graph(
     cut: CutSpec<'_>,
     zoom: &[ZoomKey],
     dur_ms: u64,
-    card_font: Option<&Path>,
+    garnish: Garnish<'_>,
 ) -> String {
     let keeps = cut.keeps;
     let origin_ms = cut.origin_ms;
@@ -574,9 +584,9 @@ fn build_cut_graph(
         zoom,
         dur_ms,
         ("cvj", "caj"),
-        card_font,
+        garnish,
     ));
-    if let Some(font) = card_font {
+    if let Some(font) = garnish.card {
         g.push(';');
         g.push_str(&end_card_tail(source, layout, font));
     }
@@ -593,6 +603,20 @@ const END_CARD_MS: u64 = 1200;
 fn end_card_font(cfg: &Config) -> Option<PathBuf> {
     let f = cfg.fonts_dir.as_deref()?.join("Inter-ExtraBold.ttf");
     f.is_file().then_some(f)
+}
+
+/// Opt-in progress bar: a thin accent-colored strip along the bottom edge
+/// filling left-to-right over the clip's content duration. drawbox clamps
+/// the width at the frame edge, so the appended card tail just holds it
+/// full. `hex` is an "#RRGGBB" accent; only hex digits survive into the
+/// filter value.
+const BAR_H: u32 = 6;
+fn progress_bar_step(hex: &str, dur_ms: u64) -> String {
+    let digits: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+    format!(
+        "drawbox=x=0:y='ih-{BAR_H}':w='trunc(iw*t/{dur:.3})':h={BAR_H}:color=0x{digits}@0.9:t=fill",
+        dur = dur_ms as f64 / 1000.0,
+    )
 }
 
 /// Extra output length the card adds, for progress/duration bookkeeping.
@@ -976,7 +1000,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(!g.contains("scale"), "native window crops directly: {g}");
@@ -994,7 +1018,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("scale=-2:1920"), "{g}");
         assert!(g.contains("crop=1080:1920:"), "{g}");
@@ -1008,7 +1032,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("scale=202:360"), "{g}");
     }
@@ -1046,7 +1070,14 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
         ] {
-            let g = build_graph(&source(1920, 1080), &layout, None, &[], 10_000, None);
+            let g = build_graph(
+                &source(1920, 1080),
+                &layout,
+                None,
+                &[],
+                10_000,
+                Garnish::default(),
+            );
             assert!(
                 !g.contains("ass="),
                 "base graph must not burn captions: {g}"
@@ -1063,7 +1094,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
         assert!(g.contains("[0:a]asetpts=PTS-STARTPTS,"), "{g}");
@@ -1078,7 +1109,7 @@ mod tests {
             Some(&subs),
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("ass='/tmp/c.ass'"));
     }
@@ -1101,7 +1132,7 @@ mod tests {
             },
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("[0:v]split=2[cv0][cv1]"), "{g}");
         assert!(g.contains("[0:a]asplit=2[ca0][ca1]"), "{g}");
@@ -1129,7 +1160,7 @@ mod tests {
             },
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("trim=start=0.000:duration=2.000"), "{g}");
         assert!(g.contains("trim=start=5.000:duration=5.000"), "{g}");
@@ -1149,7 +1180,7 @@ mod tests {
             },
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(g.contains("concat=n=2"), "{g}");
@@ -1165,7 +1196,7 @@ mod tests {
             None,
             &[],
             30_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("loudnorm=I=-16:TP=-1.5:LRA=11"), "{g}");
         assert!(g.contains("afade=t=in:st=0:d=0.05"), "{g}");
@@ -1186,7 +1217,7 @@ mod tests {
             },
             &[],
             14_500,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("afade=t=out:st=14.420:d=0.08"), "{g}");
     }
@@ -1207,7 +1238,7 @@ mod tests {
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
             10_000,
-            None,
+            Garnish::default(),
         );
         // The zoom sits between the crop and the pixel-format fix, sizing
         // back to the output window — the crop's locked x is untouched.
@@ -1242,7 +1273,7 @@ mod tests {
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(!g.contains("zoompan"), "{g}");
         let g = build_graph(
@@ -1253,7 +1284,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(!g.contains("zoompan"), "{g}");
         // An unparseable source fps would retime the output — skip instead.
@@ -1267,7 +1298,7 @@ mod tests {
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(!g.contains("zoompan"), "{g}");
     }
@@ -1380,7 +1411,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         // Panel crop = 1080 tall × 1216 wide (9:8) around each face's x.
         assert!(g.contains("vstack=2"), "{g}");
@@ -1405,7 +1436,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("if(lt(t\\,4.000)\\,272.0\\,1040.0)"), "{g}");
         assert!(!g.contains("*(t-"), "{g}");
@@ -1422,7 +1453,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(
             g.contains("gblur"),
@@ -1448,7 +1479,10 @@ mod tests {
             None,
             &[],
             10_000,
-            Some(font.as_path()),
+            Garnish {
+                card: Some(font.as_path()),
+                ..Default::default()
+            },
         );
         // The framing body emits intermediate pads the card concat consumes.
         assert!(g.contains("format=yuv420p[v0]"), "{g}");
@@ -1477,7 +1511,7 @@ mod tests {
             None,
             &[],
             10_000,
-            None,
+            Garnish::default(),
         );
         assert!(g.contains("format=yuv420p[v]"), "{g}");
         assert!(!g.contains("v0]"), "{g}");
@@ -1496,7 +1530,10 @@ mod tests {
             },
             &[],
             14_500,
-            Some(card_font().as_path()),
+            Garnish {
+                card: Some(card_font().as_path()),
+                ..Default::default()
+            },
         );
         // Card tail comes last, after the keep-concat and framing body.
         let card_at = g.find("color=c=0x0B0B0F").expect("card missing");
@@ -1516,7 +1553,10 @@ mod tests {
                 None,
                 &[],
                 10_000,
-                Some(card_font().as_path()),
+                Garnish {
+                    card: Some(card_font().as_path()),
+                    ..Default::default()
+                },
             );
             let (w, _h) = output_size(&source(sw, sh), &LayoutPlan::BlurPad);
             let want = format!("fontsize={:.0}", w as f64 * 0.082);
@@ -1532,5 +1572,62 @@ mod tests {
         assert_eq!(end_card_ms(&cfg, false), 0);
         cfg.fonts_dir = Some(PathBuf::from("/nonexistent"));
         assert_eq!(end_card_ms(&cfg, true), 0);
+    }
+
+    // ---- Progress bar garnish ----
+
+    #[test]
+    fn progress_bar_draws_a_drawbox_filling_over_the_clip_duration() {
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Garnish {
+                bar: Some("#ffaa00"),
+                ..Default::default()
+            },
+        );
+        assert!(
+            g.contains("drawbox=x=0:y='ih-6':w='trunc(iw*t/10.000)':h=6:color=0xffaa00@0.9:t=fill,format=yuv420p"),
+            "{g}"
+        );
+    }
+
+    #[test]
+    fn progress_bar_sanitizes_the_accent_and_stays_off_by_default() {
+        let plain = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Garnish::default(),
+        );
+        assert!(!plain.contains("drawbox"), "{plain}");
+        let dirty = progress_bar_step("0xff<script>", 5_000);
+        assert!(!dirty.contains('<'), "{dirty}");
+        assert!(dirty.contains("color=0x0ffc"), "{dirty}");
+    }
+
+    #[test]
+    fn progress_bar_reaches_the_concat_graph_too() {
+        let g = build_cut_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            CutSpec {
+                keeps: &[keep(0, 4_500), keep(6_000, 16_000)],
+                origin_ms: 0,
+            },
+            &[],
+            14_500,
+            Garnish {
+                bar: Some("#ffffff"),
+                ..Default::default()
+            },
+        );
+        assert!(g.contains("drawbox"), "{g}");
     }
 }
