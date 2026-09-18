@@ -2,9 +2,9 @@
 //!
 //! Every rule here is pure and unit-tested: score thresholds, duration bounds
 //! (with the explicit exception path), timestamp bounds, word-boundary
-//! snapping, verbatim quote matching, and >30% overlap suppression against
-//! higher-ranked candidates. The validator is the final authority — the LLM
-//! only proposes.
+//! snapping, verbatim quote matching, >30% overlap suppression against
+//! higher-ranked candidates, and the scene-transition guard. The validator is
+//! the final authority — the LLM only proposes.
 
 use crate::domain::*;
 
@@ -15,14 +15,21 @@ const MAX_MS: u64 = 90_000;
 const EXC_MIN_MS: u64 = 15_000;
 const EXC_MAX_MS: u64 = 110_000;
 const MAX_OVERLAP: f64 = 0.30;
+/// Half-width of the transition around a detected scene boundary (ms): a cut
+/// inside this window lands on the crossfade itself.
+const TRANSITION_HALF_MS: u64 = 500;
 
 pub fn validate(
     candidates: Vec<Candidate>,
     transcript: &Transcript,
     source_duration_ms: u64,
     selector: String,
+    scene_boundaries: &[u64],
 ) -> SelectionReport {
     let mut evaluated: Vec<Result<(Candidate, bool, f32), RejectedCandidate>> = Vec::new();
+    let mut scene_bounds = scene_boundaries.to_vec();
+    scene_bounds.sort_unstable();
+    scene_bounds.dedup();
 
     for mut cand in candidates {
         let mut reasons: Vec<String> = Vec::new();
@@ -54,6 +61,15 @@ pub fn validate(
             evaluated.push(Err(RejectedCandidate {
                 candidate: cand,
                 reasons: vec!["interval contains no transcribed words".into()],
+            }));
+            continue;
+        }
+
+        // --- Scene-transition guard ---------------------------------------
+        if let Err(reason) = clear_scene_transitions(transcript, &scene_bounds, &mut cand) {
+            evaluated.push(Err(RejectedCandidate {
+                candidate: cand,
+                reasons: vec![reason],
             }));
             continue;
         }
@@ -233,6 +249,54 @@ pub fn snap_to_words(t: &Transcript, start: u64, end: u64) -> Option<(u64, u64)>
     Some((first, last))
 }
 
+/// Scene-transition guard: a Clip may neither open/close inside a detected
+/// transition nor span a boundary mid-interval. A cut inside a transition
+/// window is moved to the nearest word boundary clear of it — the same
+/// word-timestamp snapping rules as `snap_to_words` (open on a word start,
+/// close on a word end). Returns the rejection reason when the interval
+/// cannot be cleared.
+fn clear_scene_transitions(
+    t: &Transcript,
+    boundaries: &[u64],
+    cand: &mut Candidate,
+) -> Result<(), String> {
+    // Nudge the opening cut past any transition containing it, landing on the
+    // first word that starts after the transition ends.
+    while let Some(&b) = boundaries
+        .iter()
+        .find(|&&b| cand.start_ms.abs_diff(b) <= TRANSITION_HALF_MS)
+    {
+        let after = b.saturating_add(TRANSITION_HALF_MS);
+        match t.words.iter().find(|w| w.start_ms > after) {
+            Some(w) if w.start_ms < cand.end_ms => cand.start_ms = w.start_ms,
+            _ => {
+                return Err(format!("opens inside a scene transition at {}", fmt_ms(b)));
+            }
+        }
+    }
+    // Nudge the closing cut before any transition containing it, landing on
+    // the last word that ends before the transition starts.
+    while let Some(&b) = boundaries
+        .iter()
+        .find(|&&b| cand.end_ms.abs_diff(b) <= TRANSITION_HALF_MS)
+    {
+        let before = b.saturating_sub(TRANSITION_HALF_MS);
+        match t.words.iter().rev().find(|w| w.end_ms < before) {
+            Some(w) if w.end_ms > cand.start_ms => cand.end_ms = w.end_ms,
+            _ => {
+                return Err(format!("closes inside a scene transition at {}", fmt_ms(b)));
+            }
+        }
+    }
+    if let Some(&b) = boundaries
+        .iter()
+        .find(|&&b| cand.start_ms < b && b < cand.end_ms)
+    {
+        return Err(format!("spans a scene transition at {}", fmt_ms(b)));
+    }
+    Ok(())
+}
+
 pub fn excerpt_text(t: &Transcript, start: u64, end: u64) -> String {
     t.words
         .iter()
@@ -347,7 +411,7 @@ mod tests {
     fn accepts_a_good_candidate() {
         let t = transcript(1500, 400); // 600s of words
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "test".into());
+        let r = validate(vec![c], &t, SRC, "test".into(), &[]);
         assert_eq!(r.accepted.len(), 1);
         assert_eq!(r.rejected.len(), 0);
         assert_eq!(r.accepted[0].rank, 1);
@@ -373,7 +437,13 @@ mod tests {
                 "context_dependency" => s.context_dependency = value,
                 _ => s.slop_risk = value,
             }
-            let r = validate(vec![cand(&t, 10_000, 50_000, s)], &t, SRC, "test".into());
+            let r = validate(
+                vec![cand(&t, 10_000, 50_000, s)],
+                &t,
+                SRC,
+                "test".into(),
+                &[],
+            );
             assert_eq!(r.accepted.len(), 0, "{} should reject", field);
             assert!(
                 r.rejected[0].reasons[0].contains(field),
@@ -393,6 +463,7 @@ mod tests {
             &t,
             SRC,
             "t".into(),
+            &[],
         );
         assert_eq!(r.accepted.len(), 0);
         // 150s — too long even for the exception.
@@ -401,6 +472,7 @@ mod tests {
             &t,
             SRC,
             "t".into(),
+            &[],
         );
         assert_eq!(r.accepted.len(), 0);
     }
@@ -414,13 +486,14 @@ mod tests {
             &t,
             SRC,
             "t".into(),
+            &[],
         );
         assert_eq!(r.accepted.len(), 1);
         assert!(r.accepted[0].duration_exception);
         // 17s, mediocre payoff → rejected.
         let mut s = good_scores();
         s.payoff = 3;
-        let r = validate(vec![cand(&t, 10_000, 27_000, s)], &t, SRC, "t".into());
+        let r = validate(vec![cand(&t, 10_000, 27_000, s)], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 0);
     }
 
@@ -428,7 +501,7 @@ mod tests {
     fn rejects_timestamps_outside_source() {
         let t = transcript(1500, 400);
         let c = cand(&t, 590_000, 640_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0].reasons[0].contains("outside the source"));
     }
@@ -437,7 +510,7 @@ mod tests {
     fn rejects_inverted_interval() {
         let t = transcript(1500, 400);
         let c = cand(&t, 50_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 0);
     }
 
@@ -446,7 +519,7 @@ mod tests {
         let t = transcript(1500, 400);
         // Propose an interval starting mid-word: word at 10_000..10_350.
         let c = cand(&t, 10_133, 50_177, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 1);
         let a = &r.accepted[0].candidate;
         assert_eq!(a.start_ms % 400, 0, "start snapped to a word start");
@@ -458,7 +531,7 @@ mod tests {
         let t = transcript(1500, 400);
         let mut c = cand(&t, 10_000, 50_000, good_scores());
         c.opening_quote = "words that were never spoken".into();
-        let r = validate(vec![c], &t, SRC, "t".into());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0].reasons[0].contains("opening quote"));
     }
@@ -474,7 +547,7 @@ mod tests {
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let mut c = cand(&t, 0, 80_000, good_scores());
         c.closing_quote = "we finally got there".into();
-        let r = validate(vec![c], &t, SRC, "t".into());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
@@ -487,7 +560,7 @@ mod tests {
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let mut c = cand(&t, 0, 80_000, good_scores());
         c.closing_quote = "we finally got there".into();
-        let r = validate(vec![c], &t, SRC, "t".into());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -505,7 +578,7 @@ mod tests {
         let overlapping = cand(&t, 40_000, 80_000, weaker_scores);
         // Distant candidate survives.
         let distant = cand(&t, 200_000, 250_000, weaker_scores);
-        let r = validate(vec![strong, overlapping, distant], &t, SRC, "t".into());
+        let r = validate(vec![strong, overlapping, distant], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 2);
         assert_eq!(r.rejected.len(), 1);
         assert!(r.rejected[0].reasons[0].contains("overlaps"));
@@ -522,7 +595,7 @@ mod tests {
         s2.tension_or_novelty = 3;
         // 60s candidate sharing 10s with `a` → 16% overlap → allowed.
         let b = cand(&t, 60_000, 120_000, s2);
-        let r = validate(vec![a, b], &t, SRC, "t".into());
+        let r = validate(vec![a, b], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 2);
     }
 
@@ -545,7 +618,7 @@ mod tests {
         let mut weaker_scores = good_scores();
         weaker_scores.tension_or_novelty = 3;
         let containing = cand(&t, containing_start, containing_end, weaker_scores);
-        let r = validate(vec![strong, containing], &t, SRC, "t".into());
+        let r = validate(vec![strong, containing], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 1);
         assert_eq!(r.rejected.len(), 1);
         assert!(r.rejected[0].reasons[0].contains("overlaps"));
@@ -558,7 +631,7 @@ mod tests {
         let mut weaker_scores = good_scores();
         weaker_scores.tension_or_novelty = 3;
         let mostly_distinct = cand(&t, 23_000, 113_000, weaker_scores);
-        let r = validate(vec![strong, mostly_distinct], &t, SRC, "t".into());
+        let r = validate(vec![strong, mostly_distinct], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 2, "reasons: {:?}", r.rejected);
     }
 
@@ -571,8 +644,87 @@ mod tests {
     #[test]
     fn zero_candidates_yields_clean_empty_report() {
         let t = transcript(100, 400);
-        let r = validate(vec![], &t, SRC, "t".into());
+        let r = validate(vec![], &t, SRC, "t".into(), &[]);
         assert!(r.accepted.is_empty());
         assert!(r.rejected.is_empty());
+    }
+
+    // --- Scene-transition guard -------------------------------------------
+
+    #[test]
+    fn a_candidate_spanning_a_scene_boundary_is_rejected() {
+        let t = transcript(1500, 400);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[30_000]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("spans a scene transition")));
+    }
+
+    #[test]
+    fn an_opening_cut_inside_a_transition_snaps_to_the_next_word() {
+        let t = transcript(1500, 400);
+        // Boundary at 10_100 → window 9_600–10_600; the proposed cut at
+        // 10_000 (word 25) lands inside, so the guard re-snaps to the first
+        // word starting after the window: word 27 at 10_800.
+        let mut c = cand(&t, 10_000, 50_000, good_scores());
+        c.opening_quote = excerpt_head(&t, 10_800, 50_000, 5);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[10_100]);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+        let a = &r.accepted[0].candidate;
+        assert_eq!(a.start_ms, 10_800);
+        assert_eq!(a.start_ms % 400, 0, "start snapped to a word start");
+        assert_eq!((a.end_ms + 50) % 400, 0, "end snapped to a word end");
+    }
+
+    #[test]
+    fn a_closing_cut_inside_a_transition_snaps_to_the_prior_word() {
+        let t = transcript(1500, 400);
+        // Boundary at 49_500 → window 49_000–50_000; the word-snapped cut at
+        // 49_950 lands inside, so the guard re-snaps to the last word ending
+        // before the window: word 121 ends at 48_750.
+        let mut c = cand(&t, 10_000, 50_000, good_scores());
+        c.closing_quote = excerpt_tail(&t, 10_000, 48_750, 5);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[49_500]);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+        assert_eq!(r.accepted[0].candidate.end_ms, 48_750);
+    }
+
+    #[test]
+    fn a_cut_inside_a_transition_that_cannot_clear_is_rejected() {
+        let t = transcript(1500, 400);
+        // Only 700 ms of room before the transition: no word past it can keep
+        // the interval non-empty.
+        let c = cand(&t, 200, 700, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[300]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("opens inside a scene transition")));
+
+        // Symmetric case on the closing cut: the last word ending before the
+        // window (word 23 at 9_550) is not past the already-placed start.
+        let c = cand(&t, 9_600, 10_300, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[10_300]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("closes inside a scene transition")));
+    }
+
+    #[test]
+    fn boundaries_outside_transition_windows_leave_candidates_alone() {
+        let t = transcript(1500, 400);
+        // 50_600 is just past the snapped end (49_950) and 300_000 is far away;
+        // unsorted input is fine.
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[300_000, 50_600]);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+        assert_eq!(r.accepted[0].candidate.start_ms, 10_000);
+        assert_eq!(r.accepted[0].candidate.end_ms, 49_950);
     }
 }

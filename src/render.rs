@@ -367,6 +367,7 @@ mod tests {
             video_codec: "h264".into(),
             audio_codec: "aac".into(),
             size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
         }
     }
 

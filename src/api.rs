@@ -1312,6 +1312,7 @@ mod tests {
             video_codec: "h264".into(),
             audio_codec: "aac".into(),
             size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
         });
         store.save_project(&older).await.unwrap();
         // Corrupt entry must be skipped, not fatal.
