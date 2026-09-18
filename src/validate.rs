@@ -18,6 +18,16 @@ const MAX_OVERLAP: f64 = 0.30;
 /// Half-width of the transition around a detected scene boundary (ms): a cut
 /// inside this window lands on the crossfade itself.
 const TRANSITION_HALF_MS: u64 = 500;
+/// A closing word without terminal punctuation is a mid-sentence cut only
+/// when speech resumes quickly — a ≥700 ms gap reads as an intended stop.
+const TRAILING_SPEECH_MS: u64 = 700;
+/// Room tone kept around the snapped boundary words so no clip opens or
+/// closes on a hard sample edge.
+const LEAD_PAD_MS: u64 = 80;
+const TAIL_PAD_MS: u64 = 250;
+/// The pad never reaches all the way to the neighboring word — eating the
+/// neighbor's first/last samples would be worse than cutting tight.
+const PAD_MARGIN_MS: u64 = 20;
 
 pub fn validate(
     candidates: Vec<Candidate>,
@@ -72,6 +82,46 @@ pub fn validate(
                 reasons: vec![reason],
             }));
             continue;
+        }
+
+        // --- Boundary completeness ----------------------------------------
+        // The clip may not close mid-sentence while speech continues: a
+        // non-terminal closing word followed by speech within 700 ms means
+        // the cut lands inside a thought. (Mid-thought cold OPENS are
+        // intentional; the start side stays loose on purpose.)
+        let words = &transcript.words;
+        let fi = words.iter().position(|w| w.end_ms > cand.start_ms);
+        let li = words.iter().rposition(|w| w.start_ms < cand.end_ms);
+        if let (Some(fi), Some(li)) = (fi, li) {
+            let first = &words[fi];
+            let last = &words[li];
+            if !crate::transcribe::terminal_word(&last.text) {
+                let continues = words
+                    .get(li + 1)
+                    .map(|n| n.start_ms.saturating_sub(last.end_ms) < TRAILING_SPEECH_MS)
+                    .unwrap_or(false);
+                if continues {
+                    reasons
+                        .push("ends mid-sentence with speech continuing under 0.7s later".into());
+                }
+            }
+            // Breathing-room pads applied to the final (post-scene-guard)
+            // boundary: a little room tone so the clip never opens or closes
+            // on a hard sample edge, capped by the actual silence gap so the
+            // pad can never swallow a neighboring word's samples.
+            let lead_gap = fi
+                .checked_sub(1)
+                .map(|p| first.start_ms.saturating_sub(words[p].end_ms))
+                .unwrap_or(first.start_ms);
+            cand.start_ms = first
+                .start_ms
+                .saturating_sub(lead_gap.saturating_sub(PAD_MARGIN_MS).min(LEAD_PAD_MS));
+            let tail_gap = words
+                .get(li + 1)
+                .map(|n| n.start_ms.saturating_sub(last.end_ms))
+                .unwrap_or(source_duration_ms.saturating_sub(last.end_ms));
+            cand.end_ms = (last.end_ms + tail_gap.saturating_sub(PAD_MARGIN_MS).min(TAIL_PAD_MS))
+                .min(source_duration_ms);
         }
 
         // --- Score thresholds (PRD §9.3) ---------------------------------
@@ -352,7 +402,7 @@ mod tests {
         for i in 0..n_words {
             let t0 = i as u64 * word_ms;
             words.push(Word {
-                text: format!("word{}", i),
+                text: format!("word{}.", i),
                 start_ms: t0,
                 end_ms: t0 + word_ms - 50,
                 p: 0.9,
@@ -522,8 +572,16 @@ mod tests {
         let r = validate(vec![c], &t, SRC, "t".into(), &[]);
         assert_eq!(r.accepted.len(), 1);
         let a = &r.accepted[0].candidate;
-        assert_eq!(a.start_ms % 400, 0, "start snapped to a word start");
-        assert_eq!((a.end_ms + 50) % 400, 0, "end snapped to a word end");
+        assert_eq!(
+            (a.start_ms + 30) % 400,
+            0,
+            "start snapped to a word start minus lead pad"
+        );
+        assert_eq!(
+            (a.end_ms - 30 + 50) % 400,
+            0,
+            "end snapped to a word end plus tail pad"
+        );
     }
 
     #[test]
@@ -674,9 +732,17 @@ mod tests {
         let r = validate(vec![c], &t, SRC, "t".into(), &[10_100]);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
         let a = &r.accepted[0].candidate;
-        assert_eq!(a.start_ms, 10_800);
-        assert_eq!(a.start_ms % 400, 0, "start snapped to a word start");
-        assert_eq!((a.end_ms + 50) % 400, 0, "end snapped to a word end");
+        assert_eq!(a.start_ms, 10_800 - 30);
+        assert_eq!(
+            (a.start_ms + 30) % 400,
+            0,
+            "start snapped to a word start minus lead pad"
+        );
+        assert_eq!(
+            (a.end_ms - 30 + 50) % 400,
+            0,
+            "end snapped to a word end plus tail pad"
+        );
     }
 
     #[test]
@@ -689,7 +755,7 @@ mod tests {
         c.closing_quote = excerpt_tail(&t, 10_000, 48_750, 5);
         let r = validate(vec![c], &t, SRC, "t".into(), &[49_500]);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
-        assert_eq!(r.accepted[0].candidate.end_ms, 48_750);
+        assert_eq!(r.accepted[0].candidate.end_ms, 48_750 + 30);
     }
 
     #[test]
@@ -724,7 +790,82 @@ mod tests {
         let c = cand(&t, 10_000, 50_000, good_scores());
         let r = validate(vec![c], &t, SRC, "t".into(), &[300_000, 50_600]);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
-        assert_eq!(r.accepted[0].candidate.start_ms, 10_000);
-        assert_eq!(r.accepted[0].candidate.end_ms, 49_950);
+        assert_eq!(r.accepted[0].candidate.start_ms, 10_000 - 30);
+        assert_eq!(r.accepted[0].candidate.end_ms, 49_950 + 30);
+    }
+
+    // --- Boundary completeness --------------------------------------------
+
+    #[test]
+    fn rejects_a_clip_ending_mid_sentence_while_speech_continues() {
+        let mut t = transcript(1500, 400);
+        // Strip the period off the closing word; the next word starts 50 ms
+        // later, so the cut lands inside a live sentence.
+        t.words[124].text = "word124".into();
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 0);
+        assert!(r.rejected[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("mid-sentence")));
+    }
+
+    #[test]
+    fn a_non_terminal_end_is_allowed_after_a_natural_pause() {
+        let mut t = transcript(1500, 400);
+        // The closing word (ends 48_350) has no period, but the next word
+        // starts 800 ms later — a real pause reads as an intended stop.
+        t.words[120].text = "word120".into();
+        for w in &mut t.words[121..] {
+            w.start_ms += 750;
+            w.end_ms += 750;
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 48_400, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+    }
+
+    #[test]
+    fn boundaries_keep_a_little_room_tone() {
+        // 50 ms inter-word gaps clamp both pads to 30 ms.
+        let t = transcript(1500, 400);
+        let c = cand(&t, 10_000, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let a = &r.accepted[0].candidate;
+        assert_eq!(a.start_ms, 10_000 - 30);
+        assert_eq!(a.end_ms, 49_950 + 30);
+    }
+
+    #[test]
+    fn pads_take_the_full_allowance_inside_real_silence() {
+        let mut t = transcript(1500, 400);
+        // 400+ ms of silence after the clip's last word (word 74, shifted to
+        // end 30_450, next word at 30_900) and 500 ms before its first
+        // (word 25 starts 10_500).
+        for w in &mut t.words[25..] {
+            w.start_ms += 500;
+            w.end_ms += 500;
+        }
+        for w in &mut t.words[75..] {
+            w.start_ms += 400;
+            w.end_ms += 400;
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_400, 30_350, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let a = &r.accepted[0].candidate;
+        assert_eq!(a.start_ms, 10_500 - 80);
+        assert_eq!(a.end_ms, 30_450 + 250);
+    }
+
+    #[test]
+    fn the_first_word_of_the_source_gets_no_leading_pad_before_zero() {
+        let t = transcript(1500, 400);
+        let c = cand(&t, 0, 50_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        assert_eq!(r.accepted[0].candidate.start_ms, 0);
     }
 }

@@ -2042,7 +2042,7 @@ mod tests {
         let mut words = Vec::new();
         for i in 0..1500u64 {
             words.push(Word {
-                text: format!("w{i}"),
+                text: format!("w{i}."),
                 start_ms: i * 400,
                 end_ms: i * 400 + 350,
                 p: 0.9,

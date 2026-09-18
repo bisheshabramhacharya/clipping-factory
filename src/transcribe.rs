@@ -450,6 +450,13 @@ fn parse_words(v: &serde_json::Value) -> Vec<Word> {
     words
 }
 
+/// Does this word's text end a sentence (terminal punctuation, allowing
+/// closing quotes/brackets after the mark)?
+pub fn terminal_word(text: &str) -> bool {
+    text.trim_end_matches(['"', '\'', ')', ']'])
+        .ends_with(['.', '?', '!', '…'])
+}
+
 /// Group words into sentence-like segments: break after terminal punctuation,
 /// on long pauses, or when a segment grows unreasonably large.
 pub fn build_sentences(words: &[Word]) -> Vec<Sentence> {
@@ -459,10 +466,7 @@ pub fn build_sentences(words: &[Word]) -> Vec<Sentence> {
 
     for i in 0..words.len() {
         char_len += words[i].text.len() + 1;
-        let terminal = words[i]
-            .text
-            .trim_end_matches(['"', '\'', ')', ']'])
-            .ends_with(['.', '?', '!', '…']);
+        let terminal = terminal_word(&words[i].text);
         let long_pause = words
             .get(i + 1)
             .map(|next| next.start_ms.saturating_sub(words[i].end_ms) >= 1000)

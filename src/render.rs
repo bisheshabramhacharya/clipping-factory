@@ -94,11 +94,6 @@ pub async fn render_base_clip<F>(
 where
     F: FnMut(f32),
 {
-    let graph = if keeps.len() > 1 {
-        build_cut_graph(source, layout, None, keeps, start_ms, zoom)
-    } else {
-        build_graph(source, layout, None, zoom)
-    };
     // One surviving span only needs the input window re-aimed at it; several
     // spans keep the full clip read and let the graph pick them out.
     let (in_start_ms, in_dur_ms) = if keeps.len() == 1 {
@@ -109,10 +104,16 @@ where
     let dur_s = in_dur_ms as f64 / 1000.0;
     // Progress is measured against what the file will contain, not what was
     // read — the concat path discards removed time on the way through.
-    let out_dur_s: f64 = if keeps.len() > 1 {
-        keeps.iter().map(|k| k.len_ms()).sum::<u64>() as f64 / 1000.0
+    let out_dur_ms: u64 = if keeps.len() > 1 {
+        keeps.iter().map(|k| k.len_ms()).sum()
     } else {
-        dur_s
+        in_dur_ms
+    };
+    let out_dur_s = out_dur_ms as f64 / 1000.0;
+    let graph = if keeps.len() > 1 {
+        build_cut_graph(source, layout, None, keeps, start_ms, zoom, out_dur_ms)
+    } else {
+        build_graph(source, layout, None, zoom, in_dur_ms)
     };
 
     let mut args: Vec<String> = vec![
@@ -287,8 +288,9 @@ fn build_graph(
     layout: &LayoutPlan,
     subs: Option<&str>,
     zoom: &[ZoomKey],
+    dur_ms: u64,
 ) -> String {
-    build_graph_from(source, layout, subs, "0:v", "0:a", zoom)
+    build_graph_from(source, layout, subs, "0:v", "0:a", zoom, dur_ms)
 }
 
 /// The framing graph, reading from named pads instead of input 0 — the cut
@@ -300,9 +302,11 @@ fn build_graph_from(
     vpad: &str,
     apad: &str,
     zoom: &[ZoomKey],
+    dur_ms: u64,
 ) -> String {
     // Trailing subtitle step when burning in one pass; empty for base renders.
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
+    let audio = audio_chain(dur_ms);
     let (w, h) = output_size(source, layout);
     let keyframes = match layout {
         LayoutPlan::FaceCrop { keyframes } if face_window_fits(source) => Some(keyframes),
@@ -315,12 +319,13 @@ fn build_graph_from(
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
              [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v];\
-             [{apad}]asetpts=PTS-STARTPTS[a]",
+             [{apad}]{audio}[a]",
             vpad = vpad,
             apad = apad,
             w = w,
             h = h,
-            subs = subs_step
+            subs = subs_step,
+            audio = audio
         ),
         Some(keyframes) => {
             // Downscale only when the source is taller than the ceiling;
@@ -336,7 +341,7 @@ fn build_graph_from(
             if frame_w < w as u64 {
                 // Shouldn't happen (face_window_fits ran above), but stay
                 // safe — and BlurPad has no Locked crop for zoom to live in.
-                return build_graph(source, &LayoutPlan::BlurPad, subs, &[]);
+                return build_graph(source, &LayoutPlan::BlurPad, subs, &[], dur_ms);
             }
             let expr = crop_x_expr(keyframes, frame_w, w as u64);
             // Zoom cuts: a post-scale punch inside the locked window (the
@@ -359,7 +364,7 @@ fn build_graph_from(
             format!(
                 "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
                  {zoom}{subs}format=yuv420p[v];\
-                 [{apad}]asetpts=PTS-STARTPTS[a]",
+                 [{apad}]{audio}[a]",
                 scale = scale_step,
                 vpad = vpad,
                 apad = apad,
@@ -367,7 +372,8 @@ fn build_graph_from(
                 h = h,
                 expr = expr,
                 zoom = zoom_step,
-                subs = subs_step
+                subs = subs_step,
+                audio = audio
             )
         }
     }
@@ -384,6 +390,7 @@ fn build_cut_graph(
     keeps: &[CutSpan],
     origin_ms: u64,
     zoom: &[ZoomKey],
+    dur_ms: u64,
 ) -> String {
     let n = keeps.len();
     let mut g = String::new();
@@ -413,8 +420,24 @@ fn build_cut_graph(
         g.push_str(&format!("[cat{i}]"));
     }
     g.push_str(&format!("concat=n={n}:v=0:a=1[caj];"));
-    g.push_str(&build_graph_from(source, layout, subs, "cvj", "caj", zoom));
+    g.push_str(&build_graph_from(
+        source, layout, subs, "cvj", "caj", zoom, dur_ms,
+    ));
     g
+}
+
+/// Audio stage shared by both layouts: loudness-normalize to the
+/// short-form convention (-16 LUFS integrated, -1.5 dB true peak) and add
+/// 50 ms in / 80 ms out fades so a clip never opens or closes on a hard
+/// sample edge. `dur_ms` is the OUTPUT duration — the concat path is
+/// PTS-reset, so the tail fade keys off the joined length.
+fn audio_chain(dur_ms: u64) -> String {
+    let fade_out_s = dur_ms.saturating_sub(80) as f64 / 1000.0;
+    format!(
+        "asetpts=PTS-STARTPTS,loudnorm=I=-16:TP=-1.5:LRA=11,\
+         aformat=channel_layouts=stereo:sample_rates=48000,\
+         afade=t=in:st=0:d=0.05,afade=t=out:st={fade_out_s:.3}:d=0.08"
+    )
 }
 
 /// Piecewise-linear x(t) between keyframes, clamped so the `crop_w`-wide
@@ -616,6 +639,7 @@ mod tests {
             },
             None,
             &[],
+            10_000,
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(!g.contains("scale"), "native window crops directly: {g}");
@@ -632,6 +656,7 @@ mod tests {
             },
             None,
             &[],
+            10_000,
         );
         assert!(g.contains("scale=-2:1920"), "{g}");
         assert!(g.contains("crop=1080:1920:"), "{g}");
@@ -639,7 +664,7 @@ mod tests {
 
     #[test]
     fn blurpad_graph_uses_the_native_scale_canvas() {
-        let g = build_graph(&source(640, 360), &LayoutPlan::BlurPad, None, &[]);
+        let g = build_graph(&source(640, 360), &LayoutPlan::BlurPad, None, &[], 10_000);
         assert!(g.contains("scale=202:360"), "{g}");
     }
 
@@ -676,7 +701,7 @@ mod tests {
                 keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
             },
         ] {
-            let g = build_graph(&source(1920, 1080), &layout, None, &[]);
+            let g = build_graph(&source(1920, 1080), &layout, None, &[], 10_000);
             assert!(
                 !g.contains("ass="),
                 "base graph must not burn captions: {g}"
@@ -687,15 +712,21 @@ mod tests {
 
     #[test]
     fn base_graph_resets_audio_and_video_to_the_same_zero_origin() {
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, &[]);
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, &[], 10_000);
         assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
-        assert!(g.contains("[0:a]asetpts=PTS-STARTPTS[a]"));
+        assert!(g.contains("[0:a]asetpts=PTS-STARTPTS,"), "{g}");
     }
 
     #[test]
     fn captioned_graph_includes_subtitle_filter() {
         let subs = subtitles_filter(None, Path::new("/tmp/c.ass"));
-        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, Some(&subs), &[]);
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            Some(&subs),
+            &[],
+            10_000,
+        );
         assert!(g.contains("ass='/tmp/c.ass'"));
     }
 
@@ -714,6 +745,7 @@ mod tests {
             &[keep(0, 4_500), keep(6_000, 16_000)],
             0,
             &[],
+            10_000,
         );
         assert!(g.contains("[0:v]split=2[cv0][cv1]"), "{g}");
         assert!(g.contains("[0:a]asplit=2[ca0][ca1]"), "{g}");
@@ -725,7 +757,7 @@ mod tests {
         // The normal framing graph then shapes the joined stream.
         assert!(g.contains("[cvj]setpts=PTS-STARTPTS"), "{g}");
         assert!(g.contains("gblur"), "{g}");
-        assert!(g.contains("[caj]asetpts=PTS-STARTPTS[a]"), "{g}");
+        assert!(g.contains("[caj]asetpts=PTS-STARTPTS,"), "{g}");
     }
 
     #[test]
@@ -738,6 +770,7 @@ mod tests {
             &[keep(60_000, 62_000), keep(65_000, 70_000)],
             60_000,
             &[],
+            10_000,
         );
         assert!(g.contains("trim=start=0.000:duration=2.000"), "{g}");
         assert!(g.contains("trim=start=5.000:duration=5.000"), "{g}");
@@ -754,9 +787,36 @@ mod tests {
             &[keep(0, 4_500), keep(6_000, 16_000)],
             0,
             &[],
+            10_000,
         );
         assert!(g.contains("crop=608:1080:"), "{g}");
         assert!(g.contains("concat=n=2"), "{g}");
+    }
+
+    // ---- Audio leveling ----
+
+    #[test]
+    fn audio_chain_normalizes_loudness_and_fades_edges() {
+        let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, None, &[], 30_000);
+        assert!(g.contains("loudnorm=I=-16:TP=-1.5:LRA=11"), "{g}");
+        assert!(g.contains("afade=t=in:st=0:d=0.05"), "{g}");
+        // Tail fade starts 80 ms before the output end.
+        assert!(g.contains("afade=t=out:st=29.920:d=0.08"), "{g}");
+    }
+
+    #[test]
+    fn cut_graph_fades_against_the_joined_duration() {
+        // Output length is the sum of keeps (4.5 s + 10 s), not the read window.
+        let g = build_cut_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[keep(0, 4_500), keep(6_000, 16_000)],
+            0,
+            &[],
+            14_500,
+        );
+        assert!(g.contains("afade=t=out:st=14.420:d=0.08"), "{g}");
     }
 
     // ---- Zoom cuts ----
@@ -774,6 +834,7 @@ mod tests {
             },
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
+            10_000,
         );
         // The zoom sits between the crop and the pixel-format fix, sizing
         // back to the output window — the crop's locked x is untouched.
@@ -807,6 +868,7 @@ mod tests {
             &LayoutPlan::BlurPad,
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
+            10_000,
         );
         assert!(!g.contains("zoompan"), "{g}");
         let g = build_graph(
@@ -816,6 +878,7 @@ mod tests {
             },
             None,
             &[],
+            10_000,
         );
         assert!(!g.contains("zoompan"), "{g}");
         // An unparseable source fps would retime the output — skip instead.
@@ -828,6 +891,7 @@ mod tests {
             },
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
+            10_000,
         );
         assert!(!g.contains("zoompan"), "{g}");
     }
@@ -848,6 +912,7 @@ mod tests {
             },
             None,
             &[],
+            10_000,
         );
         assert!(
             g.contains("gblur"),
