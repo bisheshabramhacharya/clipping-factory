@@ -15,6 +15,9 @@ const MAX_MS: u64 = 90_000;
 const EXC_MIN_MS: u64 = 15_000;
 const EXC_MAX_MS: u64 = 110_000;
 const MAX_OVERLAP: f64 = 0.30;
+/// Ranking sweet spot (not a bound): durations platforms actually reward.
+const SWEET_MIN_MS: u64 = 25_000;
+const SWEET_MAX_MS: u64 = 60_000;
 /// Half-width of the transition around a detected scene boundary (ms): a cut
 /// inside this window lands on the crossfade itself.
 const TRANSITION_HALF_MS: u64 = 500;
@@ -256,7 +259,15 @@ pub fn validate(
         }
 
         if reasons.is_empty() {
-            let composite = composite_score(&s);
+            // Ranking nudge only: 25–60s is the short-form sweet spot
+            // (Shorts cap 60s; viral clips cluster under ~45s). Bounds
+            // and the exception path above are untouched.
+            let duration_bonus = if (SWEET_MIN_MS..=SWEET_MAX_MS).contains(&dur) {
+                0.75
+            } else {
+                0.0
+            };
+            let composite = composite_score(&s) + duration_bonus;
             evaluated.push(Ok((cand, duration_exception, composite)));
         } else {
             evaluated.push(Err(RejectedCandidate {
@@ -745,6 +756,22 @@ mod tests {
     fn normalize_is_punctuation_and_case_tolerant() {
         assert_eq!(normalize("Hello,   WORLD!"), "hello world");
         assert_eq!(normalize("don't-stop"), "don t stop");
+    }
+
+    #[test]
+    fn sweet_spot_duration_ranks_above_equal_scored_long_clip() {
+        let t = transcript(1500, 400);
+        let short = cand(&t, 10_000, 40_000, good_scores()); // 30s
+        let long = cand(&t, 200_000, 280_000, good_scores()); // 80s, still in bounds
+        let r = validate(vec![long, short], &t, SRC, "test".into(), &[]);
+        assert_eq!(r.accepted.len(), 2);
+        let dur = |i: usize| r.accepted[i].candidate.end_ms - r.accepted[i].candidate.start_ms;
+        assert!(
+            dur(0) < 50_000,
+            "rank 1 should be the ~30s clip, got {}ms",
+            dur(0)
+        );
+        assert!(r.accepted[0].composite > r.accepted[1].composite);
     }
 
     #[test]
