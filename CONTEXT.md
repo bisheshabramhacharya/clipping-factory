@@ -38,3 +38,7 @@ _Avoid_: leading-gap guard
 **Downscale-only output**:
 The rule that rendered pixels are never upscaled. Output size equals the native crop window, capped at 1080×1920; smaller sources produce smaller (sharp) output rather than stretched output.
 _Avoid_: upscale, fit-to-canvas, normalize to 1080
+
+**Auto-cut**:
+A per-Clip opt-in that removes silence gaps and filler words ("um", "uh") at render time via a keep-list concat in the base render. Off by default — a Clip is otherwise one continuous faithful excerpt.
+_Avoid_: smart trim, jump cut, edit decision

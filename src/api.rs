@@ -853,6 +853,10 @@ struct RestyleIn {
     /// Emoji accent overlay on/off. Omitted = keep the clip's current setting.
     #[serde(default)]
     emoji_overlay: Option<bool>,
+    /// Auto-cut toggle: remove silence gaps and filler words at render.
+    /// Omitted = keep the clip's current setting.
+    #[serde(default)]
+    auto_cut: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -912,12 +916,22 @@ async fn restyle_clip(
         .iter()
         .position(|c| c.id == clip_id)
         .ok_or_else(|| not_found("Clip not found."))?;
-    let clip = manifest.clips[idx].clone();
+    let mut clip = manifest.clips[idx].clone();
     if clip.status != ClipStatus::Ready {
         return Err(ApiError(
             StatusCode::CONFLICT,
             "Only rendered clips can be restyled.".into(),
         ));
+    }
+
+    // Auto-cut toggle: flipping it drops the stored cut list so the new
+    // render plans fresh — and the other variant's base stays on disk, so
+    // toggling back reuses it without re-rendering.
+    if let Some(on) = body.auto_cut {
+        if on != clip.auto_cut {
+            clip.auto_cut = on;
+            clip.cut_spans = None;
+        }
     }
 
     let cfg = &state.cfg;
@@ -971,12 +985,34 @@ async fn restyle_clip(
     })?;
     let cancel = tokio_util::sync::CancellationToken::new();
 
+    // Auto-cut: the cut list is computed once and stored on the clip, so a
+    // later restyle reproduces the identical cut without re-detecting.
+    if clip.auto_cut && clip.cut_spans.is_none() {
+        let energy = state.store.load_energy(&id).await;
+        let removals = crate::autocut::plan_for_clip(
+            cfg,
+            &p.source_path,
+            &transcript.words,
+            clip.start_ms,
+            clip.end_ms,
+            energy.as_ref(),
+            &cancel,
+        )
+        .await
+        .map_err(ApiError::from)?;
+        clip.cut_spans = Some(removals);
+    }
+    let removals = clip.effective_removals();
+    let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
+    let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+    let base_key = clip.base_key();
+
     // Ensure the framed, uncaptioned base exists (projects rendered before
     // base intermediates existed rebuild it here from the source, one time).
-    let base_path = state.store.base_clip_path(&id, &clip.id);
+    let base_path = state.store.base_clip_path(&id, &base_key);
     let mut base_ready = state
         .store
-        .base_is_ready(&id, &clip.id)
+        .base_is_ready(&id, &base_key)
         .await
         .map_err(ApiError::from)?;
     // Captions are authored against the base clip's real size. Manifests from
@@ -993,7 +1029,7 @@ async fn restyle_clip(
     {
         state
             .store
-            .mark_base_ready(&id, &clip.id)
+            .mark_base_ready(&id, &base_key)
             .await
             .map_err(ApiError::from)?;
         base_ready = true;
@@ -1015,7 +1051,7 @@ async fn restyle_clip(
             .await
             .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
         tokio::fs::remove_file(&base_path).await.ok();
-        state.store.clear_base_ready(&id, &clip.id).await;
+        state.store.clear_base_ready(&id, &base_key).await;
         let base_temp = crate::util::unique_temp_path(&base_path);
         crate::render::render_base_clip(
             cfg,
@@ -1024,6 +1060,7 @@ async fn restyle_clip(
             &clip.layout,
             clip.start_ms,
             clip.end_ms,
+            &keeps,
             &base_temp,
             &cancel,
             |_| {},
@@ -1035,23 +1072,27 @@ async fn restyle_clip(
             .map_err(ApiError::from)?;
         state
             .store
-            .mark_base_ready(&id, &clip.id)
+            .mark_base_ready(&id, &base_key)
             .await
             .map_err(ApiError::from)?;
         // A base rebuilt today renders at the downscale-only size.
         out_dims = crate::render::output_size(&source, &clip.layout);
     }
 
-    // Build the new captions and burn them onto the base.
-    let words = with_caption_text(
-        &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
-        caption_text.as_deref(),
+    // Build the new captions and burn them onto the base. Auto-cut moves
+    // the words onto the cut timeline; the toggle-off path is unchanged.
+    let words = crate::autocut::retime_words(
+        &with_caption_text(
+            &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+            caption_text.as_deref(),
+        ),
+        clip.effective_removals(),
     );
     let ass = build_ass(
         &CaptionInput {
             words: &words,
             clip_start_ms: clip.start_ms,
-            clip_end_ms: clip.end_ms,
+            clip_end_ms: clip.start_ms + out_dur_ms,
             headline: &clip.headline,
             font: &caption_font,
             accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
@@ -1074,7 +1115,7 @@ async fn restyle_clip(
         &base_path,
         &ass_path,
         &tmp_out,
-        clip.end_ms.saturating_sub(clip.start_ms),
+        out_dur_ms,
         &cancel,
         |_| {},
     )
@@ -1108,6 +1149,10 @@ async fn restyle_clip(
     manifest.clips[idx].emoji_overlay = Some(emoji_overlay);
     manifest.clips[idx].width = Some(out_dims.0);
     manifest.clips[idx].height = Some(out_dims.1);
+    manifest.clips[idx].auto_cut = clip.auto_cut;
+    manifest.clips[idx].cut_spans = clip.cut_spans.clone();
+    // Auto-cut shortens the clip — report the rendered length.
+    manifest.clips[idx].duration_ms = out_dur_ms;
     state
         .store
         .save_manifest(&id, &manifest)

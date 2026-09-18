@@ -17,7 +17,7 @@
 //!   still render as a piecewise-linear x(t) crop expression.
 
 use crate::config::Config;
-use crate::domain::{CropKey, LayoutPlan, SourceInfo};
+use crate::domain::{CropKey, CutSpan, LayoutPlan, SourceInfo};
 use crate::util::run_streaming;
 use anyhow::{anyhow, Result};
 use std::path::Path;
@@ -71,6 +71,9 @@ fn even_floor(v: f64) -> u32 {
 }
 
 /// Render the framed, uncaptioned base clip from the source video.
+/// `keeps` is auto-cut's keep list: empty or a single span renders the one
+/// continuous excerpt exactly as before; two or more spans go through a
+/// trim+concat stage that lifts the cut out of the stream before framing.
 /// (The argument list mirrors the render inputs one-to-one on purpose.)
 #[allow(clippy::too_many_arguments)]
 pub async fn render_base_clip<F>(
@@ -80,6 +83,7 @@ pub async fn render_base_clip<F>(
     layout: &LayoutPlan,
     start_ms: u64,
     end_ms: u64,
+    keeps: &[CutSpan],
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -87,8 +91,26 @@ pub async fn render_base_clip<F>(
 where
     F: FnMut(f32),
 {
-    let dur_s = (end_ms.saturating_sub(start_ms)) as f64 / 1000.0;
-    let graph = build_graph(source, layout, None);
+    let graph = if keeps.len() > 1 {
+        build_cut_graph(source, layout, None, keeps, start_ms)
+    } else {
+        build_graph(source, layout, None)
+    };
+    // One surviving span only needs the input window re-aimed at it; several
+    // spans keep the full clip read and let the graph pick them out.
+    let (in_start_ms, in_dur_ms) = if keeps.len() == 1 {
+        (keeps[0].start_ms, keeps[0].len_ms())
+    } else {
+        (start_ms, end_ms.saturating_sub(start_ms))
+    };
+    let dur_s = in_dur_ms as f64 / 1000.0;
+    // Progress is measured against what the file will contain, not what was
+    // read — the concat path discards removed time on the way through.
+    let out_dur_s: f64 = if keeps.len() > 1 {
+        keeps.iter().map(|k| k.len_ms()).sum::<u64>() as f64 / 1000.0
+    } else {
+        dur_s
+    };
 
     let mut args: Vec<String> = vec![
         "-y".into(),
@@ -96,7 +118,7 @@ where
         "-loglevel".into(),
         "error".into(),
         "-ss".into(),
-        format!("{:.3}", start_ms as f64 / 1000.0),
+        format!("{:.3}", in_start_ms as f64 / 1000.0),
         "-t".into(),
         format!("{:.3}", dur_s),
         "-i".into(),
@@ -128,7 +150,7 @@ where
     args.push("pipe:1".into());
     args.push(out_path.to_string_lossy().into_owned());
 
-    run_ffmpeg_with_progress(cfg, &args, dur_s, cancel, &mut on_progress)
+    run_ffmpeg_with_progress(cfg, &args, out_dur_s, cancel, &mut on_progress)
         .await
         .map_err(|e| {
             if e.to_string().contains("cancelled") {
@@ -258,6 +280,18 @@ pub fn subtitles_filter(fonts_dir: Option<&Path>, ass_path: &Path) -> String {
 }
 
 fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> String {
+    build_graph_from(source, layout, subs, "0:v", "0:a")
+}
+
+/// The framing graph, reading from named pads instead of input 0 — the cut
+/// variant feeds it the concat output instead of the raw source.
+fn build_graph_from(
+    source: &SourceInfo,
+    layout: &LayoutPlan,
+    subs: Option<&str>,
+    vpad: &str,
+    apad: &str,
+) -> String {
     // Trailing subtitle step when burning in one pass; empty for base renders.
     let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
     let (w, h) = output_size(source, layout);
@@ -267,12 +301,14 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
     };
     match keyframes {
         None => format!(
-            "[0:v]setpts=PTS-STARTPTS,split=2[bga][fga];\
+            "[{vpad}]setpts=PTS-STARTPTS,split=2[bga][fga];\
              [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
              [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}format=yuv420p[v];\
-             [0:a]asetpts=PTS-STARTPTS[a]",
+             [{apad}]asetpts=PTS-STARTPTS[a]",
+            vpad = vpad,
+            apad = apad,
             w = w,
             h = h,
             subs = subs_step
@@ -294,10 +330,12 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
             }
             let expr = crop_x_expr(keyframes, frame_w, w as u64);
             format!(
-                "[0:v]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
+                "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
                  {subs}format=yuv420p[v];\
-                 [0:a]asetpts=PTS-STARTPTS[a]",
+                 [{apad}]asetpts=PTS-STARTPTS[a]",
                 scale = scale_step,
+                vpad = vpad,
+                apad = apad,
                 w = w,
                 h = h,
                 expr = expr,
@@ -305,6 +343,49 @@ fn build_graph(source: &SourceInfo, layout: &LayoutPlan, subs: Option<&str>) -> 
             )
         }
     }
+}
+
+/// Auto-cut graph: split the (already `-ss`-seeked) input into one branch per
+/// kept span, trim each to its relative window, reset timestamps, and concat
+/// the survivors into a single stream the normal framing graph then shapes.
+/// `origin_ms` is the `-ss` point — the clip start the input is relative to.
+fn build_cut_graph(
+    source: &SourceInfo,
+    layout: &LayoutPlan,
+    subs: Option<&str>,
+    keeps: &[CutSpan],
+    origin_ms: u64,
+) -> String {
+    let n = keeps.len();
+    let mut g = String::new();
+    g.push_str(&format!("[0:v]split={n}"));
+    for i in 0..n {
+        g.push_str(&format!("[cv{i}]"));
+    }
+    g.push(';');
+    g.push_str(&format!("[0:a]asplit={n}"));
+    for i in 0..n {
+        g.push_str(&format!("[ca{i}]"));
+    }
+    g.push(';');
+    for (i, k) in keeps.iter().enumerate() {
+        let s = k.start_ms.saturating_sub(origin_ms) as f64 / 1000.0;
+        let d = k.len_ms() as f64 / 1000.0;
+        g.push_str(&format!(
+            "[cv{i}]trim=start={s:.3}:duration={d:.3},setpts=PTS-STARTPTS[cvt{i}];\
+             [ca{i}]atrim=start={s:.3}:duration={d:.3},asetpts=PTS-STARTPTS[cat{i}];"
+        ));
+    }
+    for i in 0..n {
+        g.push_str(&format!("[cvt{i}]"));
+    }
+    g.push_str(&format!("concat=n={n}:v=1:a=0[cvj];"));
+    for i in 0..n {
+        g.push_str(&format!("[cat{i}]"));
+    }
+    g.push_str(&format!("concat=n={n}:v=0:a=1[caj];"));
+    g.push_str(&build_graph_from(source, layout, subs, "cvj", "caj"));
+    g
 }
 
 /// Piecewise-linear x(t) between keyframes, clamped so the `crop_w`-wide
@@ -554,6 +635,63 @@ mod tests {
         let subs = subtitles_filter(None, Path::new("/tmp/c.ass"));
         let g = build_graph(&source(1920, 1080), &LayoutPlan::BlurPad, Some(&subs));
         assert!(g.contains("ass='/tmp/c.ass'"));
+    }
+
+    // ---- Auto-cut concat graph ----
+
+    fn keep(start_ms: u64, end_ms: u64) -> CutSpan {
+        CutSpan { start_ms, end_ms }
+    }
+
+    #[test]
+    fn cut_graph_trims_each_keep_and_concats() {
+        let g = build_cut_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[keep(0, 4_500), keep(6_000, 16_000)],
+            0,
+        );
+        assert!(g.contains("[0:v]split=2[cv0][cv1]"), "{g}");
+        assert!(g.contains("[0:a]asplit=2[ca0][ca1]"), "{g}");
+        assert!(g.contains("trim=start=0.000:duration=4.500"), "{g}");
+        assert!(g.contains("trim=start=6.000:duration=10.000"), "{g}");
+        assert!(g.contains("atrim=start=0.000:duration=4.500"), "{g}");
+        assert!(g.contains("[cvt0][cvt1]concat=n=2:v=1:a=0[cvj]"), "{g}");
+        assert!(g.contains("[cat0][cat1]concat=n=2:v=0:a=1[caj]"), "{g}");
+        // The normal framing graph then shapes the joined stream.
+        assert!(g.contains("[cvj]setpts=PTS-STARTPTS"), "{g}");
+        assert!(g.contains("gblur"), "{g}");
+        assert!(g.contains("[caj]asetpts=PTS-STARTPTS[a]"), "{g}");
+    }
+
+    #[test]
+    fn cut_graph_trim_times_are_relative_to_the_seek_origin() {
+        // Clip starting at 60 s: keep times minus 60 s = stream-relative.
+        let g = build_cut_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[keep(60_000, 62_000), keep(65_000, 70_000)],
+            60_000,
+        );
+        assert!(g.contains("trim=start=0.000:duration=2.000"), "{g}");
+        assert!(g.contains("trim=start=5.000:duration=5.000"), "{g}");
+    }
+
+    #[test]
+    fn cut_graph_keeps_the_face_crop_pipeline() {
+        let g = build_cut_graph(
+            &source(1920, 1080),
+            &LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+            },
+            None,
+            &[keep(0, 4_500), keep(6_000, 16_000)],
+            0,
+        );
+        assert!(g.contains("crop=608:1080:"), "{g}");
+        assert!(g.contains("concat=n=2"), "{g}");
     }
 
     #[test]
