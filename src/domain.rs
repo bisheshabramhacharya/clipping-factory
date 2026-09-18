@@ -101,7 +101,7 @@ pub struct Project {
     pub stages: Vec<StageRecord>,
     /// Top-level error message when status == Failed.
     pub error: Option<String>,
-    /// Which selector produced candidates: "openai" | "anthropic" | "offline heuristic".
+    /// Which selector produced candidates: "openai" | "anthropic" | "local" | "offline heuristic".
     pub selector: Option<String>,
     /// Non-fatal warning surfaced in the UI (e.g. low transcription confidence).
     pub warning: Option<String>,

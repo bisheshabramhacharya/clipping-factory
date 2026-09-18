@@ -144,16 +144,21 @@
         <select id="provider">
           <option value="openai">OpenAI</option>
           <option value="anthropic">Anthropic</option>
+          <option value="local">Local endpoint (Ollama, LM Studio)</option>
           <option value="offline">Local ranking (no key)</option>
         </select>
       </label>
       <label id="model-row">Model
         <input id="model" type="text" placeholder="gpt-4o-mini">
       </label>
+      <label id="base-url-row" class="hidden">Base URL
+        <input id="base-url" type="text" placeholder="http://localhost:11434/v1">
+      </label>
       <label id="key-row">API key
         <input id="api-key" type="password" placeholder="sk-…" autocomplete="off">
       </label>
       <p id="offline-note" class="muted small hidden">Local ranking scans the full transcript for strong openings, reactions, repeated claims, clean endings, and standalone clarity. No model or API key is required.</p>
+      <p id="local-note" class="muted small hidden">An OpenAI-compatible server running on this machine — Ollama at http://localhost:11434/v1, LM Studio at http://localhost:1234/v1, or llama.cpp. The model name must be one the server already has (e.g. <code>ollama pull qwen2.5:7b</code>). No API key needed; if the endpoint is down, selection falls back to local ranking.</p>
       <p id="test-result" class="small hidden"></p>
       <div class="modal-actions">
         <button id="modal-close" type="button" aria-label="Close AI connection dialog">Close</button>

@@ -4,11 +4,14 @@
 //! Providers:
 //! - `openai`    — the PRD's primary provider (user's key)
 //! - `anthropic` — optional alternative provider
+//! - `local`     — OpenAI-compatible endpoint on this machine (Ollama,
+//!   llama.cpp, LM Studio); falls back to `offline` on failure
 //! - `offline`   — deterministic heuristic; also the automatic fallback when
 //!   no key is configured, clearly labeled in the UI.
 
 pub mod anthropic;
 pub mod heuristic;
+pub mod local;
 pub mod openai;
 
 use crate::domain::{fmt_ms, Candidate, Scores, SourceInfo, Transcript};
@@ -32,6 +35,9 @@ pub fn local_proposal_limit(source_duration_ms: u64) -> usize {
 pub struct SelectionOutcome {
     pub candidates: Vec<Candidate>,
     pub selector: String,
+    /// Non-fatal caveat surfaced in the UI (e.g. the local endpoint failed
+    /// and the heuristic tier ranked instead).
+    pub warning: Option<String>,
 }
 
 pub async fn propose(
@@ -59,7 +65,57 @@ pub async fn propose(
                 energy,
             ),
             selector: "local ranking".into(),
+            warning: None,
         }),
+        Provider::Local => {
+            let base_url = settings.effective_base_url();
+            let model = settings.effective_model();
+            let windows = build_windows(transcript, source.duration_ms);
+            let per_window = ((proposals as f64) / (windows.len() as f64)).ceil() as usize;
+            let mut all: Vec<Candidate> = Vec::new();
+            let mut failure = None;
+
+            for win in &windows {
+                let user_prompt = window_prompt(win, source, target, per_window.max(2));
+                match local::complete(&base_url, &model, SYSTEM_PROMPT, &user_prompt)
+                    .await
+                    .and_then(|raw| parse_candidates(&raw))
+                {
+                    Ok(mut cands) => all.append(&mut cands),
+                    Err(e) => {
+                        failure = Some(e);
+                        break;
+                    }
+                }
+            }
+
+            match failure {
+                None => {
+                    if windows.len() > 1 {
+                        all = dedupe_similar(all);
+                    }
+                    Ok(SelectionOutcome {
+                        candidates: all,
+                        selector: format!("{} · {}", provider.as_str(), model),
+                        warning: None,
+                    })
+                }
+                // A down or misbehaving local endpoint must never wedge the
+                // pipeline: rank locally and say so in the UI.
+                Some(e) => Ok(SelectionOutcome {
+                    candidates: heuristic::propose(
+                        transcript,
+                        source.duration_ms,
+                        local_proposal_limit(source.duration_ms),
+                        energy,
+                    ),
+                    selector: "local ranking (local endpoint failed)".into(),
+                    warning: Some(format!(
+                        "The local endpoint failed ({e}) — ranked locally instead."
+                    )),
+                }),
+            }
+        }
         Provider::OpenAi | Provider::Anthropic => {
             let key = settings
                 .api_key
@@ -87,6 +143,7 @@ pub async fn propose(
             Ok(SelectionOutcome {
                 candidates: all,
                 selector: format!("{} · {}", provider.as_str(), model),
+                warning: None,
             })
         }
     }
@@ -120,6 +177,20 @@ pub async fn test_connection(settings: &AiSettings) -> Result<String> {
             Ok(format!(
                 "Anthropic connection verified. Using model {}.",
                 settings.effective_model()
+            ))
+        }
+        Provider::Local => {
+            let model = settings.effective_model();
+            if model.is_empty() {
+                return Err(anyhow!(
+                    "Enter the model name your local endpoint serves (e.g. qwen2.5:7b)."
+                ));
+            }
+            let base_url = settings.effective_base_url();
+            local::test(&base_url, &model).await?;
+            Ok(format!(
+                "Local endpoint verified at {}. Using model {}.",
+                base_url, model
             ))
         }
     }
@@ -396,5 +467,82 @@ mod tests {
     #[test]
     fn malformed_json_is_error() {
         assert!(parse_candidates("no json here").is_err());
+    }
+
+    // ------------------------------------------------------------------
+    // local endpoint (OpenAI-compatible) — end-to-end against a stub server
+    // ------------------------------------------------------------------
+
+    fn tiny_fixture() -> (Transcript, SourceInfo) {
+        let text = "The real trick with discipline is designing the environment once so the default action is the right one every single day.";
+        let mut words = Vec::new();
+        let mut t = 0u64;
+        for token in text.split_whitespace() {
+            words.push(crate::domain::Word {
+                text: token.into(),
+                start_ms: t,
+                end_ms: t + 300,
+                p: 0.92,
+            });
+            t += 360;
+        }
+        let duration_ms = words.last().unwrap().end_ms + 500;
+        let sentences = crate::transcribe::build_sentences(&words);
+        (
+            Transcript {
+                language: "en".into(),
+                words,
+                sentences,
+                avg_confidence: 0.92,
+            },
+            SourceInfo {
+                filename: "episode.mp4".into(),
+                duration_ms,
+                width: 1920,
+                height: 1080,
+                fps: 30.0,
+                video_codec: "h264".into(),
+                audio_codec: "aac".into(),
+                size_bytes: 1,
+            },
+        )
+    }
+
+    #[tokio::test]
+    async fn local_endpoint_produces_candidates() {
+        let content = "{\"candidates\":[{\"start_ms\":1000,\"end_ms\":31000,\"headline\":\"H\",\"opening_quote\":\"a\",\"closing_quote\":\"b\",\"selection_reason\":\"r\",\"scores\":{\"self_contained\":5,\"opening_strength\":4,\"specificity\":4,\"tension_or_novelty\":4,\"payoff\":5,\"clarity\":5,\"context_dependency\":1,\"slop_risk\":1}}]}";
+        let base_url = local::test_server::spawn(vec!["qwen2.5:7b".into()], content.into()).await;
+        let settings = AiSettings {
+            provider: crate::settings::PROVIDER_LOCAL.into(),
+            model: "qwen2.5:7b".into(),
+            base_url,
+            api_key: None,
+        };
+        let (t, src) = tiny_fixture();
+        let outcome = propose(&settings, &t, &src, None).await.unwrap();
+        assert_eq!(outcome.selector, "local · qwen2.5:7b");
+        assert!(outcome.warning.is_none());
+        assert_eq!(outcome.candidates.len(), 1);
+        assert_eq!(outcome.candidates[0].start_ms, 1000);
+        assert_eq!(outcome.candidates[0].scores.payoff, 5);
+    }
+
+    #[tokio::test]
+    async fn local_endpoint_failure_falls_back_to_local_ranking() {
+        // Bind then drop: a port guaranteed to refuse connections.
+        let port = {
+            let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            l.local_addr().unwrap().port()
+        };
+        let settings = AiSettings {
+            provider: crate::settings::PROVIDER_LOCAL.into(),
+            model: "qwen2.5:7b".into(),
+            base_url: format!("http://127.0.0.1:{port}/v1"),
+            api_key: None,
+        };
+        let (t, src) = tiny_fixture();
+        let outcome = propose(&settings, &t, &src, None).await.unwrap();
+        assert_eq!(outcome.selector, "local ranking (local endpoint failed)");
+        assert!(outcome.warning.is_some());
     }
 }

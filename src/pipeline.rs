@@ -512,6 +512,12 @@ async fn run(
                     Ok(outcome) => {
                         store.save_raw_candidates(&id, &outcome.candidates).await?;
                         p.selector = Some(outcome.selector.clone());
+                        if let Some(warning) = outcome.warning {
+                            p.warning = Some(match p.warning.take() {
+                                Some(existing) => format!("{existing} {warning}"),
+                                None => warning,
+                            });
+                        }
                         Ok(format!(
                             "{} proposal(s) from {}",
                             outcome.candidates.len(),
