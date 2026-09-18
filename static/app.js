@@ -29,6 +29,7 @@
   let actionMessageKind = null;
   let modalReturnFocus = null;
   let liveProgress = null; // {stage, progress, detail}
+  let firstClipAnnounced = false; // scroll to the first ready clip once per run
   // Last style/color the user applied — the starting point for new restyles.
   let captionStyle = localStorage.getItem("cf-caption-style") || "impact";
   let accentColor = localStorage.getItem("cf-accent-color") || "#FFDD00";
@@ -198,6 +199,7 @@
   // source server-side, then the normal progress flow takes over.
   async function startSample() {
     if (uploadXhr) return;
+    firstClipAnnounced = false;
     $("drop").classList.add("hidden");
     $("upload-progress").classList.remove("hidden");
     $("cancel-upload-btn").disabled = true;
@@ -260,6 +262,7 @@
       return;
     }
     if (uploadXhr) return;
+    firstClipAnnounced = false;
     $("drop").classList.add("hidden");
     $("upload-progress").classList.remove("hidden");
     $("cancel-upload-btn").disabled = false;
@@ -559,6 +562,13 @@
     const section = $("results-state");
     const clips = (view.clips || []);
     const ready = clips.filter((c) => c.status === "ready");
+    // The first finished clip lands while later ones still render: pull the
+    // results into view once so the user notices without hunting for it.
+    if (ready.length > 0 && !firstClipAnnounced && isProcessing(p.status)) {
+      firstClipAnnounced = true;
+      section.classList.remove("hidden");
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
     const failed = clips.filter((c) => c.status === "failed");
     const showResults = clips.length > 0 || p.status === "complete";
     section.classList.toggle("hidden", !showResults);
@@ -1371,6 +1381,8 @@
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
     $("choose-another-btn").addEventListener("click", resetToEmpty);
+    $("empty-sample-btn").addEventListener("click", startSample);
+    $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);
     loadSetup();

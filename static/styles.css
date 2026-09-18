@@ -526,6 +526,7 @@ a:hover { text-decoration: underline; }
 }
 .empty-results strong { display: block; margin-bottom: 4px; font-size: 14px; }
 .empty-results p { max-width: 52ch; margin: 0 auto; font-size: 13px; }
+.empty-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 
 .rejected { margin-top: 14px; }
 .rejected summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
