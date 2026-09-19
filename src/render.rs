@@ -110,6 +110,7 @@ pub async fn render_base_clip<F>(
     zoom: &[ZoomKey],
     end_card: bool,
     bar: Option<&str>,
+    hook: Option<HookSpec<'_>>,
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -152,7 +153,21 @@ where
     let out_dur_ms = clip_dur_ms + card_font.as_ref().map(|_| END_CARD_MS).unwrap_or(0);
     let out_dur_s = out_dur_ms as f64 / 1000.0;
     let card = card_font.as_deref();
-    let garnish = Garnish { card, bar };
+    // The hook title's wrapped lines and resolved face are owned here and
+    // borrowed by the garnish for the graph build below.
+    let hook_lines = hook
+        .map(|h| wrap_hook_title(h.headline, h.caps))
+        .unwrap_or_default();
+    let hook_file = hook.and_then(|h| hook_font_file(cfg, h.font));
+    let garnish = Garnish {
+        card,
+        bar,
+        hook: hook.map(|h| HookTitle {
+            lines: &hook_lines,
+            fontfile: hook_file.as_deref(),
+            font: h.face,
+        }),
+    };
     let graph = if keeps.len() > 1 {
         build_cut_graph(
             source,
@@ -348,11 +363,39 @@ struct Pads<'a> {
 }
 
 /// Opt-in garnish applied to a base render: the end card tail (font must
-/// resolve or the card is absent) and the progress bar (accent hex or None).
+/// resolve or the card is absent), the progress bar (accent hex or None),
+/// and the hook title (opening title card, None unless the toggle is on
+/// and the headline wrapped to at least one line).
 #[derive(Clone, Copy, Default)]
 struct Garnish<'a> {
     card: Option<&'a Path>,
     bar: Option<&'a str>,
+    hook: Option<HookTitle<'a>>,
+}
+
+/// What the hook title needs that the render already knows: the headline
+/// text plus the caption styling to match (font family and caps voice).
+#[derive(Clone, Copy)]
+pub struct HookSpec<'a> {
+    /// The clip's headline — wrapped and case-folded at render time.
+    pub headline: &'a str,
+    /// The resolved caption font family, e.g. "Inter".
+    pub font: &'a str,
+    /// The style's face name for that family (fontconfig fallback), e.g.
+    /// "Inter ExtraBold" under Impact — see `CaptionStyle::face`.
+    pub face: &'a str,
+    /// True when the caption style renders its display text uppercase.
+    pub caps: bool,
+}
+
+/// A hook title ready to draw: `lines` are the wrapped title rows, and the
+/// face is the bundled `fontfile` when the caption family is vendored or
+/// the style's `font` face name (fontconfig) when it is not.
+#[derive(Clone, Copy)]
+struct HookTitle<'a> {
+    lines: &'a [String],
+    fontfile: Option<&'a Path>,
+    font: &'a str,
 }
 
 fn build_graph(
@@ -424,6 +467,7 @@ fn build_graph_from(
     } = pads;
     let audio = audio_chain(dur_ms);
     let (w, h) = output_size(source, layout);
+    let hook_step = hook_title_step(garnish.hook, dur_ms, w, h);
     let keyframes = match layout {
         LayoutPlan::FaceCrop { keyframes } | LayoutPlan::SpeakerCrop { keyframes }
             if face_window_fits(source) =>
@@ -435,7 +479,7 @@ fn build_graph_from(
     // Split renders on its own graph — two locked crops stacked, not one
     // crop following a position.
     if let (LayoutPlan::Split { top, bottom }, true) = (layout, split_window_fits(source)) {
-        return split_graph(source, *top, *bottom, w, h, subs, vpad, apad);
+        return split_graph(source, *top, *bottom, w, h, subs, &hook_step, vpad, apad);
     }
     match keyframes {
         None => format!(
@@ -443,7 +487,7 @@ fn build_graph_from(
              [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
-             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}{bar_step}format=yuv420p[{vout}];\
+             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}{hook}{bar_step}format=yuv420p[{vout}];\
              [{apad}]{audio}[{aout}]",
             vpad = vpad,
             apad = apad,
@@ -453,6 +497,7 @@ fn build_graph_from(
             audio = audio,
             vout = vout,
             aout = aout,
+            hook = hook_step,
             bar_step = bar_step
         ),
         Some(keyframes) => {
@@ -509,7 +554,7 @@ fn build_graph_from(
             };
             format!(
                 "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
-                 {zoom}{subs}{bar_step}format=yuv420p[{vout}];\
+                 {zoom}{subs}{hook}{bar_step}format=yuv420p[{vout}];\
                  [{apad}]{audio}[{aout}]",
                 scale = scale_step,
                 vpad = vpad,
@@ -519,6 +564,7 @@ fn build_graph_from(
                 expr = expr,
                 zoom = zoom_step,
                 subs = subs_step,
+                hook = hook_step,
                 bar_step = bar_step,
                 audio = audio,
                 vout = vout,
@@ -617,6 +663,170 @@ fn progress_bar_step(hex: &str, dur_ms: u64) -> String {
         "drawbox=x=0:y='ih-{BAR_H}':w='trunc(iw*t/{dur:.3})':h={BAR_H}:color=0x{digits}@0.9:t=fill",
         dur = dur_ms as f64 / 1000.0,
     )
+}
+
+/// The hook title's on-screen budget: at most two lines of 22 characters,
+/// the longest a shouting title card stays readable at a glance.
+const HOOK_LINE_CHARS: usize = 22;
+const HOOK_MAX_LINES: usize = 2;
+
+/// Wrap a headline for the title card: greedy word wrap at 22 characters,
+/// capped at two lines; an overflow earns a trailing ellipsis inside the
+/// same budget. Empty input wraps to nothing — the title draws no-op.
+fn wrap_hook_title(headline: &str, caps: bool) -> Vec<String> {
+    let text = headline.split_whitespace().collect::<Vec<_>>().join(" ");
+    let text = if caps { text.to_uppercase() } else { text };
+    let mut lines: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for word in text.split(' ') {
+        if word.is_empty() {
+            continue;
+        }
+        // A word alone wider than the budget is hard-split into chunks.
+        let mut rest = word;
+        loop {
+            let cur_len = cur.chars().count();
+            let room = if cur.is_empty() {
+                HOOK_LINE_CHARS
+            } else {
+                HOOK_LINE_CHARS.saturating_sub(cur_len + 1)
+            };
+            let word_len = rest.chars().count();
+            if word_len <= room {
+                if !cur.is_empty() {
+                    cur.push(' ');
+                }
+                cur.push_str(rest);
+                break;
+            }
+            if !cur.is_empty() {
+                lines.push(std::mem::take(&mut cur));
+                continue;
+            }
+            if word_len <= HOOK_LINE_CHARS {
+                cur = rest.to_string();
+                break;
+            }
+            let cut: String = rest.chars().take(HOOK_LINE_CHARS).collect();
+            let byte_len = cut.len();
+            lines.push(cut);
+            rest = &rest[byte_len..];
+        }
+    }
+    if !cur.is_empty() {
+        lines.push(cur);
+    }
+    if lines.len() > HOOK_MAX_LINES {
+        lines.truncate(HOOK_MAX_LINES);
+        let last = lines.last_mut().unwrap();
+        while last.chars().count() >= HOOK_LINE_CHARS {
+            match last.rfind(' ') {
+                Some(sp) => last.truncate(sp),
+                None => {
+                    last.pop();
+                }
+            }
+        }
+        last.push('…');
+    }
+    lines
+}
+
+/// The heaviest bundled face for a caption font family ("Inter" →
+/// Inter-ExtraBold.ttf), resolved by scanning fonts_dir. None when the
+/// family isn't vendored — the caller then typesets via the family name.
+fn hook_font_file(cfg: &Config, family: &str) -> Option<PathBuf> {
+    let dir = cfg.fonts_dir.as_deref()?;
+    let want: String = family
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
+    let mut best: Option<(u8, PathBuf)> = None;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let raw = entry.file_name().to_string_lossy().to_lowercase();
+        let Some(stem) = raw
+            .strip_suffix(".ttf")
+            .or_else(|| raw.strip_suffix(".otf"))
+        else {
+            continue;
+        };
+        let norm: String = stem.chars().filter(|c| c.is_alphanumeric()).collect();
+        let Some(rest) = norm.strip_prefix(&want) else {
+            continue;
+        };
+        let rank = match rest {
+            "" | "regular" | "normal" | "roman" => 0,
+            "thin" | "extralight" | "light" => 0,
+            "medium" => 1,
+            "semibold" | "demibold" => 2,
+            "bold" => 3,
+            "extrabold" | "ultrabold" | "black" | "heavy" => 4,
+            _ => continue,
+        };
+        let better = match &best {
+            Some((r, p)) => rank > *r || (rank == *r && entry.path() < *p),
+            None => true,
+        };
+        if better {
+            best = Some((rank, entry.path()));
+        }
+    }
+    best.map(|(_, p)| p)
+}
+
+/// Escape text for a single-quoted drawtext `text=` value: `'` would end
+/// the quoting (close-escape-reopen), `:` and `,` are filter separators,
+/// `%` starts a drawtext expansion, `\` is an escape lead, and control
+/// characters break the filter line — so they fold to a space.
+fn drawtext_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push('/'),
+            ':' => out.push_str("\\:"),
+            ',' => out.push_str("\\,"),
+            '%' => out.push_str("%%"),
+            '\'' => out.push_str("'\\''"),
+            c if c.is_control() => out.push(' '),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// The hook-title drawtext chain: each wrapped line centered in the upper
+/// safe zone (~14% down, clear of the ~60–70% caption band), dropped after
+/// the opening beat — min(1.8 s, 25% of the clip) via `enable`. Empty or
+/// absent titles emit no step at all.
+fn hook_title_step(hook: Option<HookTitle>, dur_ms: u64, w: u32, h: u32) -> String {
+    let Some(hook) = hook else {
+        return String::new();
+    };
+    if hook.lines.is_empty() {
+        return String::new();
+    }
+    let show_s = ((dur_ms as f64 / 1000.0) * 0.25).min(1.8);
+    // A full 22-char caps line (~0.62 em/char) must stay inside ~85% of the
+    // frame width; the black stroke follows at ~8% of the font size.
+    let fs = (w as f64 * 0.062).max(16.0);
+    let border = (fs * 0.08).max(1.0);
+    let font = match hook.fontfile {
+        Some(path) => format!("fontfile='{}'", ff_escape_str(&path.to_string_lossy())),
+        None => format!("font='{}'", drawtext_escape(hook.font)),
+    };
+    let pitch = fs * 1.2;
+    let mut step = String::new();
+    for (i, line) in hook.lines.iter().enumerate() {
+        step.push_str(&format!(
+            "drawtext={font}:text='{text}':fontcolor=white:fontsize={fs:.0}:\
+             borderw={border:.0}:bordercolor=black:x=(w-text_w)/2:y={y:.0}:\
+             enable='between(t,0,{show_s:.2})',",
+            text = drawtext_escape(line),
+            y = h as f64 * 0.14 + i as f64 * pitch,
+        ));
+    }
+    step
 }
 
 /// Extra output length the card adds, for progress/duration bookkeeping.
@@ -762,6 +972,7 @@ fn split_graph(
     w: u32,
     h: u32,
     subs: Option<&str>,
+    hook_step: &str,
     vpad: &str,
     apad: &str,
 ) -> String {
@@ -791,7 +1002,7 @@ fn split_graph(
         "[{vpad}]setpts=PTS-STARTPTS,{scale}split=2[spa][spb];\
          [spa]crop={cw}:{ch}:{xt}:0,scale={w}:{ph}:force_divisible_by=2[spt];\
          [spb]crop={cw}:{ch}:{xb}:0,scale={w}:{ph}:force_divisible_by=2[spq];\
-         [spt][spq]vstack=2,scale={w}:{h}:force_divisible_by=2,{subs}format=yuv420p[v];\
+         [spt][spq]vstack=2,scale={w}:{h}:force_divisible_by=2,{subs}{hook_step}format=yuv420p[v];\
          [{apad}]asetpts=PTS-STARTPTS[a]",
         vpad = vpad,
         apad = apad,
@@ -803,7 +1014,8 @@ fn split_graph(
         w = w,
         ph = h / 2,
         h = h,
-        subs = subs_step
+        subs = subs_step,
+        hook_step = hook_step
     )
 }
 
@@ -1629,5 +1841,123 @@ mod tests {
             },
         );
         assert!(g.contains("drawbox"), "{g}");
+    }
+
+    // ---- Hook title garnish ----
+
+    fn hook(lines: &[String]) -> Option<HookTitle<'_>> {
+        Some(HookTitle {
+            lines,
+            fontfile: None,
+            font: "Inter",
+        })
+    }
+
+    #[test]
+    fn hook_title_draws_a_timed_title_card_in_the_upper_band() {
+        let lines = wrap_hook_title("the quick brown fox jumps over the lazy dog", true);
+        assert_eq!(lines, vec!["THE QUICK BROWN FOX", "JUMPS OVER THE LAZY…"]);
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Garnish {
+                hook: hook(&lines),
+                ..Default::default()
+            },
+        );
+        // min(1.8, 25% of 10 s) — the card drops after the opening beat.
+        assert_eq!(g.matches("enable='between(t,0,1.80)'").count(), 2, "{g}");
+        assert!(g.contains("text='THE QUICK BROWN FOX'"), "{g}");
+        assert!(g.contains("text='JUMPS OVER THE LAZY…'"), "{g}");
+        // Upper band: ~14% of the 1080-tall output, clear of the caption zone.
+        assert!(g.contains("y=151"), "{g}");
+        // Font falls back to the family name when no bundled file resolves.
+        assert!(g.contains("font='Inter'"), "{g}");
+        assert!(g.contains("borderw="), "{g}");
+    }
+
+    #[test]
+    fn hook_title_window_shrinks_below_a_quarter_of_the_clip() {
+        let lines = wrap_hook_title("hi", true);
+        let g = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            4_000,
+            Garnish {
+                hook: hook(&lines),
+                ..Default::default()
+            },
+        );
+        assert!(g.contains("enable='between(t,0,1.00)'"), "{g}");
+    }
+
+    #[test]
+    fn hook_title_is_absent_by_default_and_noops_on_empty_text() {
+        let plain = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Garnish::default(),
+        );
+        assert!(!plain.contains("drawtext"), "{plain}");
+
+        let empty = build_graph(
+            &source(1920, 1080),
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Garnish {
+                hook: hook(&[]),
+                ..Default::default()
+            },
+        );
+        assert!(!empty.contains("drawtext"), "{empty}");
+    }
+
+    #[test]
+    fn hook_title_wrap_respects_the_char_budget() {
+        // Word wrap: 19 chars + " JUMPS" would overflow, so it wraps.
+        assert_eq!(
+            wrap_hook_title("the quick brown fox jumps", false),
+            vec!["the quick brown fox", "jumps"]
+        );
+        // A single over-long word hard-splits inside the budget.
+        let long = wrap_hook_title("supercalifragilisticexpialidocious", true);
+        assert_eq!(long, vec!["SUPERCALIFRAGILISTICEX", "PIALIDOCIOUS"]);
+        for l in &long {
+            assert!(l.chars().count() <= HOOK_LINE_CHARS, "{l}");
+        }
+        // Blank input wraps to nothing.
+        assert!(wrap_hook_title("   ", true).is_empty());
+    }
+
+    #[test]
+    fn hook_title_text_escapes_filter_and_drawtext_metachars() {
+        assert_eq!(drawtext_escape("a:b,c%d'e\\f\nz"), "a\\:b\\,c%%d'\\''e/f z");
+    }
+
+    #[test]
+    fn hook_title_uses_the_heaviest_bundled_face() {
+        let mut cfg = Config::resolve();
+        cfg.fonts_dir = Some(PathBuf::from("assets/fonts"));
+        assert_eq!(
+            hook_font_file(&cfg, "Inter"),
+            Some(PathBuf::from("assets/fonts/Inter-ExtraBold.ttf"))
+        );
+        assert_eq!(
+            hook_font_file(&cfg, "Anton"),
+            Some(PathBuf::from("assets/fonts/Anton-Regular.ttf"))
+        );
+        assert_eq!(hook_font_file(&cfg, "Georgia"), None);
+        cfg.fonts_dir = Some(PathBuf::from("/nonexistent"));
+        assert_eq!(hook_font_file(&cfg, "Inter"), None);
     }
 }

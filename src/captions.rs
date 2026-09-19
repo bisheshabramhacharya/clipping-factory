@@ -52,6 +52,21 @@ impl CaptionStyle {
             CaptionStyle::Cinema => "cinema",
         }
     }
+    /// True when the style shouts its display text in caps (Impact's
+    /// emphasis word, Pop's keywords) — the hook title matches that voice;
+    /// Clean and Cinema keep the headline's own casing.
+    pub fn uses_caps(&self) -> bool {
+        matches!(self, CaptionStyle::Impact | CaptionStyle::Pop)
+    }
+    /// The display-face name this style writes for `family` — Impact and
+    /// Pop wear Inter's ExtraBold face; the rest name the family itself.
+    /// Used when a hook title must resolve a font name without a file.
+    pub fn face<'a>(&self, family: &'a str) -> &'a str {
+        match self {
+            CaptionStyle::Impact | CaptionStyle::Pop if family == "Inter" => "Inter ExtraBold",
+            _ => family,
+        }
+    }
 }
 
 /// Curated for caption legibility. Keep this list strict: every option is a

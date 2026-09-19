@@ -379,6 +379,7 @@ mod tests {
                 zoom_keys: None,
                 end_card: false,
                 progress_bar: false,
+                hook_title: false,
             }],
             output_dir: Some("/tmp/out".into()),
         };
@@ -427,6 +428,7 @@ mod tests {
             zoom_keys: None,
             end_card: false,
             progress_bar: false,
+            hook_title: false,
         };
         store
             .save_manifest(
@@ -540,6 +542,7 @@ mod tests {
                         zoom_keys: None,
                         end_card: false,
                         progress_bar: false,
+                        hook_title: false,
                     }],
                     output_dir: None,
                 },
