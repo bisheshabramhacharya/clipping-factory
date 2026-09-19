@@ -3,7 +3,7 @@
 //! - **Impact** (default): kinetic stacked lockups. Each spoken phrase becomes
 //!   a tight, ragged stack of words at different sizes — connective words
 //!   small, the key word HUGE in caps — popping in mid-frame, with the
-//!   currently spoken word tinted. The short-form-native look.
+//!   currently spoken word tinted and popped ~6%. The short-form-native look.
 //! - **Clean**: the original restrained PRD §11.3 treatment — 3–7 word groups
 //!   in the lower safe area, one accent color on the active word.
 //! - **Pop**: one spoken word at a time, dead center, popping in on a scale
@@ -532,7 +532,16 @@ fn build_impact(input: &CaptionInput) -> String {
                     } else {
                         raw.to_lowercase()
                     };
-                    if wi == k || line.emphasis {
+                    if wi == k {
+                        // Active word pops ~6% then eases back to 100 in
+                        // ~70ms — the hand-edited karaoke beat. The reset
+                        // right after pins line-mates at 100 so only the
+                        // spoken word moves.
+                        text.push_str(&format!(
+                            "{{\\c&H{}&\\fscx106\\fscy106\\t(0,70,\\fscx100\\fscy100)}}{}{{\\c&H{}&\\fscx100\\fscy100}}",
+                            input.accent_bgr, shown, WHITE_BGR
+                        ));
+                    } else if line.emphasis {
                         text.push_str(&format!(
                             "{{\\c&H{}&}}{}{{\\c&H{}&}}",
                             input.accent_bgr, shown, WHITE_BGR
@@ -1678,6 +1687,49 @@ mod tests {
         assert!(ass.contains(&accent_bgr_for(CaptionStyle::Impact, None)));
         let pops = ass.matches("\\t(0,").count();
         assert!(pops >= paginate_impact(&words).len(), "pop-in on each page");
+    }
+
+    /// Quality delta #5: the Impact karaoke active word opens at ~106% and
+    /// eases back to 100 inside ~70ms. Each spoken word pops exactly once —
+    /// on the lockup line it lives in — and the scale resets right after the
+    /// word so line-mates and the trailing neutral window never move.
+    #[test]
+    fn impact_active_word_pops_once_and_settles_at_100() {
+        let words = words_from("when silence feels like strength");
+        let ass = build_ass(&input(&words, 4000), CaptionStyle::Impact);
+        assert_eq!(
+            ass.matches("\\fscx106\\fscy106").count(),
+            words.len(),
+            "one active-word pop per spoken word: {ass}"
+        );
+        for line in ass.lines().filter(|l| l.contains("\\fscx106")) {
+            assert!(line.contains("\\t(0,70,\\fscx100\\fscy100)"), "{line}");
+            assert!(line.contains("\\fscx100\\fscy100}"), "{line}");
+        }
+        // The pop composes into the accent block rather than replacing it.
+        let accent = accent_bgr_for(CaptionStyle::Impact, None);
+        assert!(
+            ass.contains(&format!("\\c&H{accent}&\\fscx106\\fscy106")),
+            "{ass}"
+        );
+        // The always-tinted emphasis word holds still on other words' turns.
+        assert!(
+            ass.lines()
+                .any(|l| l.contains("STRENGTH") && !l.contains("\\fscx106")),
+            "emphasis stays put when it is not the spoken word: {ass}"
+        );
+    }
+
+    /// The pop is an Impact signature — the other styles stay quiet.
+    #[test]
+    fn active_word_pop_is_impact_only() {
+        let words = words_from("when silence feels like strength");
+        for style in [CaptionStyle::Clean, CaptionStyle::Pop, CaptionStyle::Cinema] {
+            let mut inp = input(&words, 4000);
+            inp.accent_bgr = accent_bgr_for(style, None);
+            let ass = build_ass(&inp, style);
+            assert!(!ass.contains("\\fscx106"), "{style:?} popped: {ass}");
+        }
     }
 
     #[test]
