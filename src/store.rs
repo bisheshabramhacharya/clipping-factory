@@ -123,6 +123,37 @@ impl Store {
         Ok(())
     }
 
+    /// On-disk footprint of the project's working directory as
+    /// `(file_count, total_bytes)`. Best-effort: unreadable entries are
+    /// skipped and symlinks are never followed outside the directory.
+    pub async fn dir_stats(&self, id: &str) -> (u64, u64) {
+        let dir = self.project_dir(id);
+        tokio::task::spawn_blocking(move || {
+            let mut files = 0u64;
+            let mut bytes = 0u64;
+            let mut stack = vec![dir];
+            while let Some(dir) = stack.pop() {
+                let Ok(entries) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
+                for entry in entries.flatten() {
+                    let Ok(kind) = entry.file_type() else {
+                        continue;
+                    };
+                    if kind.is_dir() {
+                        stack.push(entry.path());
+                    } else if kind.is_file() {
+                        files += 1;
+                        bytes += entry.metadata().map(|m| m.len()).unwrap_or(0);
+                    }
+                }
+            }
+            (files, bytes)
+        })
+        .await
+        .unwrap_or((0, 0))
+    }
+
     /// A base clip is reusable only when its completed media and promotion
     /// marker both exist. This keeps old direct-to-final partials out of retry.
     pub async fn base_is_ready(&self, id: &str, clip_id: &str) -> Result<bool> {

@@ -170,6 +170,13 @@
           <div id="rejected-list"></div>
         </details>
       </section>
+
+      <!-- Library: every project on this computer; open or delete -->
+      <section id="library-state" class="hidden" aria-labelledby="library-title">
+        <h2 id="library-title">Library</h2>
+        <p class="muted small">Past projects live on this machine. Open one to pick it back up, or delete it to reclaim the disk.</p>
+        <div id="library-list" class="library-list"></div>
+      </section>
     </main>
 
     <footer class="muted small">
@@ -205,6 +212,18 @@
       <div class="modal-actions">
         <button id="modal-close" type="button" aria-label="Close AI connection dialog">Close</button>
         <button id="test-save" class="primary" type="button">Test &amp; save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation -->
+  <div id="delete-backdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" aria-describedby="delete-modal-description">
+      <h3 id="delete-modal-title">Delete project?</h3>
+      <p id="delete-modal-description" class="muted small"></p>
+      <div class="modal-actions">
+        <button id="delete-cancel" type="button">Cancel</button>
+        <button id="delete-confirm" class="danger" type="button">Delete</button>
       </div>
     </div>
   </div>

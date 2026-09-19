@@ -162,6 +162,12 @@ impl AppState {
             .clone()
     }
 
+    /// Forget a project's runtime handle once its data is gone, so broadcast
+    /// and live-progress state don't outlive the project on disk.
+    pub fn drop_handle(&self, id: &str) {
+        self.handles.lock().unwrap().remove(id);
+    }
+
     /// Claim the restyle lock for one clip. Returns false when a restyle for
     /// the same clip is already running.
     pub fn try_begin_restyle(&self, key: &str) -> bool {

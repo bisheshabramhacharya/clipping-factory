@@ -880,6 +880,9 @@ struct LibraryEntry {
     width: Option<u32>,
     height: Option<u32>,
     duration_ms: Option<u64>,
+    /// Working-directory footprint on disk: recursive file count and bytes.
+    file_count: u64,
+    size_bytes: u64,
     clips_total: usize,
     clips_ready: usize,
     clips_failed: usize,
@@ -896,7 +899,10 @@ async fn library_entries(store: &crate::store::Store) -> Vec<LibraryEntry> {
             continue;
         };
         let manifest = store.load_manifest(&id).await.ok();
+        let (file_count, size_bytes) = store.dir_stats(&id).await;
         entries.push(LibraryEntry {
+            file_count,
+            size_bytes,
             clips_total: manifest.as_ref().map(|m| m.clips.len()).unwrap_or(0),
             clips_ready: manifest
                 .as_ref()
@@ -934,14 +940,22 @@ async fn list_projects(State(state): State<AppState>) -> Json<serde_json::Value>
     Json(json!(library_entries(&state.store).await))
 }
 
+/// Remove a project's local data. Idempotent by absence: deleting a project
+/// that is already gone answers 404, the same as any unknown id.
 async fn delete_project(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    let handle = state.handle(&id);
+    // The operation lock serializes deletion against start/retry transitions
+    // and in-flight restyles, which all hold it for their mutation. A run
+    // itself only takes it to start — `is_running` catches the live run.
+    let _operation = handle.operation.lock().await;
+    // Re-check under the lock: a racing delete may have emptied the dir.
     if !state.store.exists(&id) {
         return Err(not_found("Project not found."));
     }
-    if state.handle(&id).is_running() {
+    if handle.is_running() {
         return Err(ApiError(
             StatusCode::CONFLICT,
             "Processing is running for this project. Cancel it before deleting.".into(),
@@ -952,6 +966,7 @@ async fn delete_project(
     tokio::fs::remove_dir_all(state.store.project_dir(&id))
         .await
         .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    state.drop_handle(&id);
     Ok(Json(json!({ "deleted": true })))
 }
 
@@ -1796,6 +1811,119 @@ mod tests {
                 .status(),
             StatusCode::NOT_FOUND
         );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    fn delete_request(id: &str) -> Request<Body> {
+        Request::builder()
+            .method(Method::DELETE)
+            .uri(format!("/api/projects/{id}"))
+            .header(header::HOST, "localhost:4571")
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    async fn make_project(store: &crate::store::Store, id: &str) {
+        store.create_dirs(id).await.unwrap();
+        store
+            .save_project(&Project::new(id.to_string(), store.source_path(id)))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn delete_removes_the_directory_forgets_the_handle_and_404s_after() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        make_project(&store, "del-proj").await;
+        tokio::fs::write(store.source_path("del-proj"), b"mp4")
+            .await
+            .unwrap();
+        let stale = state.handle("del-proj");
+        let app = router(state.clone());
+
+        let res = app
+            .clone()
+            .oneshot(delete_request("del-proj"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        assert!(!store.project_dir("del-proj").exists());
+        assert!(
+            !std::sync::Arc::ptr_eq(&stale, &state.handle("del-proj")),
+            "deleted project must not keep its old runtime handle"
+        );
+
+        let get = app
+            .clone()
+            .oneshot(
+                Request::get("/api/projects/del-proj")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get.status(), StatusCode::NOT_FOUND);
+        // Idempotent: a second delete reports not-found, not an error.
+        let res = app.oneshot(delete_request("del-proj")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn delete_while_processing_conflicts_and_keeps_everything() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        make_project(&store, "busy-proj").await;
+        let lease = state
+            .handle("busy-proj")
+            .try_start()
+            .expect("run should start");
+        let app = router(state.clone());
+
+        let res = app.oneshot(delete_request("busy-proj")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        assert!(store.exists("busy-proj"));
+        assert!(store.project_dir("busy-proj").is_dir());
+
+        state.handle("busy-proj").finish(lease.generation);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn delete_is_guarded_like_every_other_mutation() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        make_project(&store, "guard-proj").await;
+        let app = router(state.clone());
+        let guarded = |host: &'static str, fetch_site: Option<&'static str>| {
+            let mut builder = Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/projects/guard-proj")
+                .header(header::HOST, host);
+            if let Some(fetch_site) = fetch_site {
+                builder = builder.header("sec-fetch-site", fetch_site);
+            }
+            builder.body(Body::empty()).unwrap()
+        };
+        assert_eq!(
+            app.clone()
+                .oneshot(guarded("example.com", None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(guarded("127.0.0.1:4571", Some("cross-site")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert!(store.exists("guard-proj"));
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

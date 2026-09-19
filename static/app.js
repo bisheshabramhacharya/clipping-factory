@@ -28,6 +28,11 @@
   let retryPending = false;
   let actionMessageKind = null;
   let modalReturnFocus = null;
+  let deleteReturnFocus = null;
+  let pendingDeleteId = null;
+  let deleteBusy = false;
+  let library = []; // LibraryEntry rows from GET /api/projects
+  let librarySig = ""; // last-rendered signature — skips pointless rebuilds
   let liveProgress = null; // LiveStage + receivedAt (client receipt time)
   // Progress samples for the active stage — the ETA's rolling-rate window.
   let liveSamples = { stage: null, pts: [] };
@@ -54,6 +59,13 @@
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
+
+  function fmtBytes(n) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let v = Number(n) || 0, i = 0;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v >= 10 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+  }
 
   function formatApiError(payload, status, fallback) {
     const message = payload && (payload.error || payload.message);
@@ -384,6 +396,7 @@
     $("file-input").value = "";
     render();
     if (message) showActionMessage(message, kind);
+    loadLibrary();
   }
 
   // ------------------------------------------------------------------ data
@@ -419,6 +432,202 @@
   function scheduleRefetch() {
     clearTimeout(refetchTimer);
     refetchTimer = setTimeout(refetch, 180);
+  }
+
+  // ------------------------------------------------------------------ library
+  async function loadLibrary() {
+    try {
+      const entries = await requestJson("/api/projects", {}, "Couldn't load the library.");
+      library = Array.isArray(entries) ? entries : [];
+    } catch {
+      library = [];
+    }
+    renderLibrary();
+  }
+
+  const LIBRARY_STATUS = {
+    created: "Queued",
+    complete: "Complete",
+    cancelled: "Cancelled",
+    failed: "Failed",
+  };
+  function libraryStatus(entry) {
+    if (LIBRARY_STATUS[entry.status]) return LIBRARY_STATUS[entry.status];
+    const stage = STAGE_LABELS[entry.status];
+    return stage ? stage.replace(/^\d+\.\s*/, "") + "…" : entry.status;
+  }
+
+  function renderLibrary() {
+    const restyleBusy = Object.values(restyleState).some((s) => s.busy);
+    const sig = JSON.stringify([library, projectId, restyleBusy]);
+    if (sig === librarySig) return;
+    librarySig = sig;
+
+    const section = $("library-state");
+    const list = $("library-list");
+    section.classList.toggle("hidden", library.length === 0);
+    list.innerHTML = "";
+    for (const entry of library) {
+      const isOpen = entry.id === projectId;
+      const name = entry.source_filename || `project ${entry.id}`;
+      const date = entry.created_at
+        ? new Date(entry.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+        : "";
+      const bits = [date, libraryStatus(entry)];
+      if (entry.clips_ready) bits.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
+      bits.push(`${fmtBytes(entry.size_bytes)} on disk`);
+
+      const card = document.createElement("div");
+      card.className = `library-card${isOpen ? " open" : ""}`;
+
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "library-open";
+      open.title = isOpen ? `${name} is open` : `Open ${name}`;
+      const nameEl = document.createElement("span");
+      nameEl.className = "name";
+      nameEl.textContent = name;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = bits.filter(Boolean).join(" · ") + (isOpen ? " " : "");
+      if (isOpen) {
+        const tag = document.createElement("span");
+        tag.className = "open-tag";
+        tag.textContent = "· open";
+        meta.appendChild(tag);
+      }
+      open.appendChild(nameEl);
+      open.appendChild(meta);
+      open.addEventListener("click", () => openProject(entry.id));
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "library-delete";
+      del.textContent = "Delete";
+      del.setAttribute("aria-label", `Delete ${name} from this computer`);
+      const blocked = isProcessing(entry.status);
+      const styling = isOpen && restyleBusy;
+      del.disabled = blocked || styling || deleteBusy;
+      del.title = blocked
+        ? "Processing is running — cancel it before deleting."
+        : styling
+          ? "Caption update is applying — wait for it to finish."
+          : `Delete ${name} from this computer`;
+      del.addEventListener("click", () => askDelete(entry));
+
+      card.appendChild(open);
+      card.appendChild(del);
+      list.appendChild(card);
+    }
+  }
+
+  // Switch the screen to a library project: same runtime teardown as
+  // resetToEmpty, minus clearing the selection itself.
+  function openProject(id) {
+    if (!id || id === projectId || uploadXhr) return;
+    projectId = id;
+    view = null;
+    liveProgress = null;
+    liveSamples = { stage: null, pts: [] };
+    cancellationPending = false;
+    retryPending = false;
+    firstClipAnnounced = false;
+    localStorage.setItem("cf-project", projectId);
+    clearTimeout(refetchTimer);
+    refetchTimer = null;
+    if (sse) { sse.close(); sse = null; }
+    for (const key of Object.keys(restyleState)) delete restyleState[key];
+    for (const key of Object.keys(clipRev)) delete clipRev[key];
+    for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
+    clearActionMessage();
+    render();
+    refetch().then(() => connectSse());
+  }
+
+  function openDeleteModal() {
+    deleteReturnFocus = document.activeElement;
+    $("delete-backdrop").classList.remove("hidden");
+    $("delete-backdrop").setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(() => $("delete-cancel").focus());
+  }
+
+  function closeDeleteModal() {
+    $("delete-backdrop").classList.add("hidden");
+    $("delete-backdrop").setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+    pendingDeleteId = null;
+    if (deleteReturnFocus && typeof deleteReturnFocus.focus === "function") deleteReturnFocus.focus();
+    deleteReturnFocus = null;
+  }
+
+  function askDelete(entry) {
+    if (deleteBusy) return;
+    pendingDeleteId = entry.id;
+    const name = entry.source_filename || `project ${entry.id}`;
+    const files = entry.file_count || 0;
+    $("delete-modal-description").textContent =
+      `Delete "${name}" — ${files} file${files === 1 ? "" : "s"}, ${fmtBytes(entry.size_bytes)} — from this computer? This can't be undone.`;
+    openDeleteModal();
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId || deleteBusy) return;
+    const id = pendingDeleteId;
+    deleteBusy = true;
+    const btn = $("delete-confirm");
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+    try {
+      await requestJson(apiPath("projects", id), { method: "DELETE" }, "Couldn't delete the project.");
+      closeDeleteModal();
+      if (id === projectId) {
+        resetToEmpty({ message: "Project deleted from this computer.", kind: "notice" });
+      } else {
+        // cf-project only ever points at the open project, but clear it if a
+        // stale value happened to name the deleted id.
+        if (localStorage.getItem("cf-project") === id) localStorage.removeItem("cf-project");
+        showActionMessage("Project deleted from this computer.", "notice");
+      }
+      await loadLibrary();
+    } catch (err) {
+      closeDeleteModal();
+      showActionMessage(err.message);
+      await loadLibrary();
+    } finally {
+      deleteBusy = false;
+      btn.disabled = false;
+      btn.textContent = "Delete";
+    }
+  }
+
+  function wireDeleteModal() {
+    $("delete-cancel").addEventListener("click", closeDeleteModal);
+    $("delete-confirm").addEventListener("click", confirmDelete);
+    $("delete-backdrop").addEventListener("click", (e) => {
+      if (e.target === $("delete-backdrop")) closeDeleteModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if ($("delete-backdrop").classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeDeleteModal();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusables = [...$("delete-backdrop").querySelectorAll("button, input, select, [href]")]
+        .filter((el) => !el.disabled && el.getClientRects().length > 0);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
   }
 
   function connectSse() {
@@ -464,6 +673,13 @@
   // ------------------------------------------------------------------ render
   function render() {
     const p = view && view.project;
+    // Keep the open project's library card in step with live status so its
+    // Delete disables while a run is active.
+    if (p) {
+      const entry = library.find((e) => e.id === p.id);
+      if (entry && entry.status !== p.status) entry.status = p.status;
+    }
+    renderLibrary();
     $("upload-state").classList.toggle("hidden", !!p);
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
@@ -1518,6 +1734,8 @@
     wireUpload();
     wireUploadOptions();
     wireModal();
+    wireDeleteModal();
+    loadLibrary();
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
