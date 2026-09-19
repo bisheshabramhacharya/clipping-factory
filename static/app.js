@@ -830,6 +830,7 @@
       zoomCuts: Boolean(c.zoom_cuts),
       endCard: Boolean(c.end_card),
       progressBar: Boolean(c.progress_bar),
+      hookTitle: Boolean(c.hook_title),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -1035,6 +1036,26 @@
     progBar.appendChild(progBarBox);
     progBar.appendChild(progBarText);
 
+    // Opt-in hook title: the clip's headline as a bold title card over the
+    // opening beat. Default off — the clip opens on content.
+    const hookTitle = document.createElement("label");
+    hookTitle.className = "auto-cut-toggle";
+    hookTitle.title = "Burn the clip headline as a title card over the first ~1.8s — re-renders this clip";
+    const hookTitleBox = document.createElement("input");
+    hookTitleBox.type = "checkbox";
+    hookTitleBox.checked = state.draft.hookTitle;
+    hookTitleBox.setAttribute("aria-label", `Show a hook title card at the start of ${c.headline}`);
+    hookTitleBox.addEventListener("change", () => {
+      state.draft.hookTitle = hookTitleBox.checked;
+      state.kind = "dirty";
+      state.message = "Hook title change re-renders this clip";
+      sync();
+    });
+    const hookTitleText = document.createElement("span");
+    hookTitleText.textContent = "Hook title";
+    hookTitle.appendChild(hookTitleBox);
+    hookTitle.appendChild(hookTitleText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -1055,7 +1076,8 @@
         state.draft.autoCut !== applied.autoCut ||
         state.draft.zoomCuts !== applied.zoomCuts ||
         state.draft.endCard !== applied.endCard ||
-        state.draft.progressBar !== applied.progressBar
+        state.draft.progressBar !== applied.progressBar ||
+        state.draft.hookTitle !== applied.hookTitle
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -1081,6 +1103,7 @@
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
       endCardBox.checked = Boolean(state.draft.endCard);
       progBarBox.checked = Boolean(state.draft.progressBar);
+      hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -1107,6 +1130,7 @@
         if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
         if (state.draft.endCard !== applied.endCard) payload.end_card = state.draft.endCard;
         if (state.draft.progressBar !== applied.progressBar) payload.progress_bar = state.draft.progressBar;
+        if (state.draft.hookTitle !== applied.hookTitle) payload.hook_title = state.draft.hookTitle;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1134,6 +1158,9 @@
           emoji: Boolean(updated.emoji_overlay),
           autoCut: Boolean(updated.auto_cut),
           zoomCuts: Boolean(updated.zoom_cuts),
+          endCard: Boolean(updated.end_card),
+          progressBar: Boolean(updated.progress_bar),
+          hookTitle: Boolean(updated.hook_title),
         };
         render();
       } catch (err) {
@@ -1156,6 +1183,7 @@
     box.appendChild(zoomCuts);
     box.appendChild(endCard);
     box.appendChild(progBar);
+    box.appendChild(hookTitle);
     box.appendChild(apply);
     box.appendChild(status);
     sync();

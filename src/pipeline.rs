@@ -756,6 +756,7 @@ async fn run(
                     zoom_keys: None,
                     end_card: false,
                     progress_bar: false,
+                    hook_title: false,
                 });
             }
             match result {
@@ -979,6 +980,12 @@ async fn run(
                     clip.effective_zoom_keys(),
                     clip.end_card,
                     clip.progress_bar.then_some(accent_hex.as_str()),
+                    clip.hook_title.then_some(crate::render::HookSpec {
+                        headline: &clip.headline,
+                        font: cfg.caption_font.as_str(),
+                        face: caption_style.face(&cfg.caption_font),
+                        caps: caption_style.uses_caps(),
+                    }),
                     &base_temp,
                     &ctx.cancel,
                     |pct| prog(pct * 0.85, Some(done_label.clone())),

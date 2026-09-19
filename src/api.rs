@@ -1004,6 +1004,8 @@ struct RestyleIn {
     end_card: Option<bool>,
     /// Opt-in accent progress bar — flips re-render.
     progress_bar: Option<bool>,
+    /// Opt-in hook title card over the clip's opening — flips re-render.
+    hook_title: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -1096,6 +1098,11 @@ async fn restyle_clip(
     }
     if let Some(on) = body.progress_bar {
         clip.progress_bar = on;
+    }
+    // Hook title: deterministic overlay — nothing to replan, the key just
+    // moves this variant to its own base.
+    if let Some(on) = body.hook_title {
+        clip.hook_title = on;
     }
 
     let cfg = &state.cfg;
@@ -1250,6 +1257,12 @@ async fn restyle_clip(
             clip.effective_zoom_keys(),
             clip.end_card,
             clip.progress_bar.then_some(accent_hex.as_str()),
+            clip.hook_title.then_some(crate::render::HookSpec {
+                headline: &clip.headline,
+                font: caption_font.as_str(),
+                face: style.face(&caption_font),
+                caps: style.uses_caps(),
+            }),
             &base_temp,
             &cancel,
             |_| {},
@@ -1399,6 +1412,7 @@ async fn restyle_clip(
     manifest.clips[idx].zoom_keys = clip.zoom_keys.clone();
     manifest.clips[idx].end_card = clip.end_card;
     manifest.clips[idx].progress_bar = clip.progress_bar;
+    manifest.clips[idx].hook_title = clip.hook_title;
     // Auto-cut shortens the clip — report the rendered length.
     manifest.clips[idx].duration_ms = out_dur_ms + card_ms;
     state
@@ -1836,6 +1850,7 @@ mod tests {
                         zoom_keys: None,
                         end_card: false,
                         progress_bar: false,
+                        hook_title: false,
                     }],
                     output_dir: None,
                 },
@@ -2151,6 +2166,7 @@ mod tests {
                         zoom_keys: None,
                         end_card: false,
                         progress_bar: false,
+                        hook_title: false,
                         score: None,
                     }],
                     output_dir: None,
@@ -2308,6 +2324,7 @@ mod tests {
             zoom_keys: None,
             end_card: false,
             progress_bar: false,
+            hook_title: false,
         }
     }
 

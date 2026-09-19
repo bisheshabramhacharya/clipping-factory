@@ -496,6 +496,10 @@ pub struct ClipRecord {
     /// edge filling over the clip's duration. Default off.
     #[serde(default)]
     pub progress_bar: bool,
+    /// Opt-in hook title: the clip's headline burned as a title card over
+    /// the opening beat, upper-third. Default off.
+    #[serde(default)]
+    pub hook_title: bool,
 }
 
 impl ClipRecord {
@@ -536,6 +540,9 @@ impl ClipRecord {
         }
         if self.progress_bar {
             key.push_str(".bar");
+        }
+        if self.hook_title {
+            key.push_str(".hook");
         }
         key
     }
