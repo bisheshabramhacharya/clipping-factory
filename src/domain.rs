@@ -268,7 +268,11 @@ impl FramingMode {
             (FramingMode::Fill, planned @ LayoutPlan::Split { .. }) => planned,
             (FramingMode::Fill, planned @ LayoutPlan::SpeakerCrop { .. }) => planned,
             (FramingMode::Fill, LayoutPlan::BlurPad) => LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+                keyframes: vec![CropKey {
+                    t_ms: 0,
+                    cx: 0.5,
+                    dy: 0.0,
+                }],
             },
             (FramingMode::Background, _) => LayoutPlan::BlurPad,
         }
@@ -301,6 +305,11 @@ pub struct FaceAnchor {
     pub cx: f32,
     /// Normalized vertical center (0–1).
     pub cy: f32,
+    /// The panel's eye-line offset in normalized panel heights: >0 slides
+    /// the column down (blurred underlay fills above), <0 lifts it, 0 keeps
+    /// the column centered (the framing used before eye-line anchoring).
+    #[serde(default)]
+    pub dy: f32,
 }
 
 impl LayoutPlan {
@@ -320,6 +329,12 @@ pub struct CropKey {
     pub t_ms: u64,
     /// Normalized horizontal face center in the source frame (0–1).
     pub cx: f32,
+    /// Eye-line offset in normalized canvas heights: >0 slides the crop down
+    /// over a blurred underlay (blurred band fills above the frame), <0 lifts
+    /// it, 0 keeps the frame centered (the framing used before eye-line
+    /// anchoring and whenever face metadata lacks a usable vertical extent.
+    #[serde(default)]
+    pub dy: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -573,7 +588,11 @@ mod tests {
     #[test]
     fn fill_framing_keeps_face_tracking_when_available() {
         let tracked = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey { t_ms: 0, cx: 0.42 }],
+            keyframes: vec![CropKey {
+                t_ms: 0,
+                cx: 0.42,
+                dy: 0.0,
+            }],
         };
         assert_eq!(FramingMode::Fill.apply(tracked.clone()), tracked);
     }
@@ -583,7 +602,11 @@ mod tests {
         assert_eq!(
             FramingMode::Fill.apply(LayoutPlan::BlurPad),
             LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+                keyframes: vec![CropKey {
+                    t_ms: 0,
+                    cx: 0.5,
+                    dy: 0.0
+                }],
             }
         );
     }
@@ -591,7 +614,11 @@ mod tests {
     #[test]
     fn background_framing_always_preserves_the_full_source() {
         let tracked = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey { t_ms: 0, cx: 0.42 }],
+            keyframes: vec![CropKey {
+                t_ms: 0,
+                cx: 0.42,
+                dy: 0.0,
+            }],
         };
         assert_eq!(FramingMode::Background.apply(tracked), LayoutPlan::BlurPad);
     }

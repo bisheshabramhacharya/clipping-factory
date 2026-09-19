@@ -61,6 +61,19 @@ const CO_PRESENT_TAU: f64 = 0.5;
 /// speaker keeps the dominant face.
 const MOUTH_MOTION_SHARE: f32 = 0.55;
 
+/// Canonical eye line for a talking-head vertical: the eyes ride near the
+/// upper third, clear of the hook-title band (~14%) above and the caption
+/// zone (~60-70%) below.
+const EYE_LINE: f32 = 0.35;
+/// Eyes sit about 15% of the face-box height above its center.
+const EYE_FACE_OFFSET: f32 = 0.15;
+/// Offsets under this need no reframing: a sub-2% slide is invisible yet
+/// would still cost the underlay composite on every rendered frame.
+const EYE_DEADBAND: f32 = 0.02;
+/// The crop never slides more than this far off center; beyond it the
+/// blurred band would dominate the frame.
+const EYE_MAX_SHIFT: f32 = 0.25;
+
 /// One face detection in a sampled frame.
 #[derive(Clone, Copy, Debug)]
 pub struct FaceDet {
@@ -71,6 +84,9 @@ pub struct FaceDet {
     /// Normalized face width (bbox width / frame width) — the "size" input
     /// to the dominant-cluster tiebreak.
     pub w: f32,
+    /// Normalized face height (bbox height / frame height); the eye-line
+    /// offset and the split-panel anchors both measure from it.
+    pub h: f32,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -222,6 +238,7 @@ fn detect_all(
                             cx: (b.x() as f32 + b.width() as f32 / 2.0) / w as f32,
                             cy: (b.y() as f32 + b.height() as f32 / 2.0) / h as f32,
                             w: b.width() as f32 / w as f32,
+                            h: b.height() as f32 / h as f32,
                         }
                     })
                     .collect()
@@ -353,6 +370,7 @@ pub fn decide_layout_full(
         keyframes: vec![CropKey {
             t_ms: 0,
             cx: median_cx(dominant),
+            dy: eye_shift(dominant),
         }],
     }
 }
@@ -386,11 +404,39 @@ fn co_presence(a: &[(usize, FaceDet)], b: &[(usize, FaceDet)], n_frames: usize) 
     fa.intersection(&fb).count() as f64 / n_frames.max(1) as f64
 }
 
-/// A cluster's split-panel anchor: median horizontal and vertical centers.
+/// A cluster's split-panel anchor: median centers, plus the eye-line
+/// offset the panel slides by when the eyes sit off the target.
 fn cluster_anchor(cluster: &[(usize, FaceDet)]) -> FaceAnchor {
     FaceAnchor {
         cx: median_cx(cluster),
         cy: median_val(cluster.iter().map(|(_, d)| d.cy)),
+        dy: eye_shift(cluster),
+    }
+}
+
+/// A cluster's median eye line in normalized source coordinates: face
+/// center minus the intra-box eye offset.
+fn eye_line(cluster: &[(usize, FaceDet)]) -> f32 {
+    median_val(cluster.iter().map(|(_, d)| d.cy - EYE_FACE_OFFSET * d.h))
+}
+
+/// The normalized canvas-height offset that lands the face's eye line on
+/// EYE_LINE: >0 slides the locked crop down (the blurred underlay fills
+/// above it), <0 lifts it. The crop window itself is unchanged (the same
+/// full-height window, shifted), so this never resamples the pixels.
+///
+/// Returns 0, the centered crop used before eye-line anchoring, when the
+/// correction lands inside the deadband, or when the cluster carries no
+/// usable vertical extent (face height ≤ 0).
+fn eye_shift(cluster: &[(usize, FaceDet)]) -> f32 {
+    if median_val(cluster.iter().map(|(_, d)| d.h)) <= 0.0 {
+        return 0.0;
+    }
+    let dy = EYE_LINE - eye_line(cluster);
+    if dy.abs() <= EYE_DEADBAND {
+        0.0
+    } else {
+        dy.clamp(-EYE_MAX_SHIFT, EYE_MAX_SHIFT)
     }
 }
 
@@ -430,17 +476,22 @@ fn speaker_crop_plan(
 ) -> Option<LayoutPlan> {
     let face_map = speaker_face_map(motion, diarization.labels.len());
     let cluster_cx: Vec<f32> = persistent.iter().map(|c| median_cx(c)).collect();
-    let speaker_face =
-        |spk: u8| -> f32 { cluster_cx[face_map.get(spk as usize).copied().unwrap_or(0)] };
+    let cluster_dy: Vec<f32> = persistent.iter().map(|c| eye_shift(c)).collect();
+    let speaker_face = |spk: u8| -> usize { face_map.get(spk as usize).copied().unwrap_or(0) };
 
     let mut keyframes: Vec<CropKey> = Vec::new();
     for turn in diarization.turns_in(clip_start_ms, clip_end_ms) {
-        let cx = speaker_face(turn.speaker);
+        let face = speaker_face(turn.speaker);
         let t = turn.start_ms.saturating_sub(clip_start_ms);
+        let cx = cluster_cx[face];
         if keyframes.last().map(|k| k.cx) == Some(cx) {
             continue; // same face — no cut
         }
-        keyframes.push(CropKey { t_ms: t, cx });
+        keyframes.push(CropKey {
+            t_ms: t,
+            cx,
+            dy: cluster_dy[face],
+        });
     }
     if keyframes.first().map(|k| k.t_ms) != Some(0) {
         // Crop must hold something before the first observed turn.
@@ -449,6 +500,7 @@ fn speaker_crop_plan(
             CropKey {
                 t_ms: 0,
                 cx: keyframes.first().map(|k| k.cx).unwrap_or(cluster_cx[0]),
+                dy: keyframes.first().map(|k| k.dy).unwrap_or(cluster_dy[0]),
             },
         );
     }
@@ -713,7 +765,12 @@ mod tests {
     use super::*;
 
     fn det(cx: f32, w: f32) -> FaceDet {
-        FaceDet { cx, cy: 0.45, w }
+        FaceDet {
+            cx,
+            cy: 0.45,
+            w,
+            h: w,
+        }
     }
 
     fn turn(start_ms: u64, end_ms: u64, speaker: u8) -> crate::domain::SpeakerTurn {
@@ -733,7 +790,7 @@ mod tests {
 
     fn locked_cx(plan: LayoutPlan) -> f32 {
         match plan {
-            LayoutPlan::FaceCrop { keyframes } => {
+            LayoutPlan::FaceCrop { keyframes, .. } => {
                 assert_eq!(keyframes.len(), 1, "locked crop emits one keyframe");
                 assert_eq!(keyframes[0].t_ms, 0);
                 keyframes[0].cx
@@ -906,7 +963,7 @@ mod tests {
         let clusters = persistent_clusters(&det, 30);
         let plan = decide_layout_full(&clusters, 30, Some(&d), 0, 30_000, Some(&motion));
         match plan {
-            LayoutPlan::SpeakerCrop { keyframes } => {
+            LayoutPlan::SpeakerCrop { keyframes, .. } => {
                 // Cut at the turn boundary (~15.5 s) from left to right face.
                 assert_eq!(keyframes.len(), 2, "{keyframes:?}");
                 assert_eq!(keyframes[0].t_ms, 0);
@@ -979,7 +1036,7 @@ mod tests {
         let (det, d, motion) = multi_cam_fixture();
         let clusters = persistent_clusters(&det, 30);
         let plan = decide_layout_full(&clusters, 30, Some(&d), 0, 30_000, Some(&motion));
-        if let LayoutPlan::SpeakerCrop { keyframes } = plan {
+        if let LayoutPlan::SpeakerCrop { keyframes, .. } = plan {
             for k in keyframes.iter().skip(1) {
                 assert!(
                     d.turns.iter().any(|t| t.start_ms == k.t_ms),
@@ -990,6 +1047,84 @@ mod tests {
         } else {
             panic!("expected SpeakerCrop");
         }
+    }
+
+    // ---- eye-line offset ----
+
+    fn det_at(cx: f32, cy: f32, w: f32, h: f32) -> FaceDet {
+        FaceDet { cx, cy, w, h }
+    }
+
+    fn cluster_of(det: FaceDet) -> Vec<Vec<FaceDet>> {
+        (0..30).map(|_| vec![det]).collect()
+    }
+
+    fn locked_key(plan: LayoutPlan) -> CropKey {
+        match plan {
+            LayoutPlan::FaceCrop { keyframes } => {
+                assert_eq!(keyframes.len(), 1, "locked crop emits one keyframe");
+                keyframes[0].clone()
+            }
+            other => panic!("expected FaceCrop, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn face_with_crown_at_top_slides_down_to_the_eye_line() {
+        // Crown at the frame's top edge: cy = h/2 = 0.25, so the eye line
+        // sits at 0.25 - 0.15*0.5 = 0.175, the classic cramped crop.
+        let key = locked_key(decide_layout(&cluster_of(det_at(0.5, 0.25, 0.3, 0.5)), 30));
+        let eye = 0.25 - 0.15 * 0.5;
+        assert!(key.dy > 0.0, "crop must slide down, dy={}", key.dy);
+        assert!(
+            (eye + key.dy - EYE_LINE).abs() < 1e-4,
+            "eye lands at {}, expected {EYE_LINE}",
+            eye + key.dy
+        );
+    }
+
+    #[test]
+    fn low_eyes_lift_the_crop() {
+        // Eyes at 0.62 - 0.15*0.24 = 0.584: the crop rises, the blurred
+        // underlay fills below.
+        let key = locked_key(decide_layout(
+            &cluster_of(det_at(0.5, 0.62, 0.15, 0.24)),
+            30,
+        ));
+        let eye = 0.62 - 0.15 * 0.24;
+        assert!(key.dy < 0.0, "crop must lift, dy={}", key.dy);
+        assert!((key.dy - (EYE_LINE - eye)).abs() < 1e-4, "dy={}", key.dy);
+    }
+
+    #[test]
+    fn face_near_the_eye_line_keeps_the_centered_crop() {
+        // Eyes at 0.39 - 0.15*0.2 = 0.36, inside the deadband: no shift.
+        let key = locked_key(decide_layout(&cluster_of(det_at(0.5, 0.39, 0.15, 0.2)), 30));
+        assert_eq!(key.dy, 0.0);
+        // Off-band faces are bounded: the slide never exceeds the clamp.
+        let key = locked_key(decide_layout(&cluster_of(det_at(0.5, 0.9, 0.15, 0.1)), 30));
+        assert!(key.dy >= -EYE_MAX_SHIFT && key.dy < 0.0, "dy={}", key.dy);
+    }
+
+    #[test]
+    fn extreme_eye_lines_clamp_at_the_shift_bound() {
+        // Eyes hard against the frame edges would push the crop off the
+        // canvas entirely; the clamp stops at EYE_MAX_SHIFT.
+        let top = locked_key(decide_layout(&cluster_of(det_at(0.5, 0.05, 0.3, 0.06)), 30));
+        assert!((top.dy - EYE_MAX_SHIFT).abs() < 1e-4, "dy={}", top.dy);
+        let bottom = locked_key(decide_layout(
+            &cluster_of(det_at(0.5, 0.99, 0.15, 0.02)),
+            30,
+        ));
+        assert!((bottom.dy + EYE_MAX_SHIFT).abs() < 1e-4, "dy={}", bottom.dy);
+    }
+
+    #[test]
+    fn missing_vertical_extent_keeps_the_centered_crop() {
+        // Detections without a usable face height produce no offset; the
+        // framing stays exactly what it was before eye-line anchoring.
+        let key = locked_key(decide_layout(&cluster_of(det_at(0.5, 0.9, 0.15, 0.0)), 30));
+        assert_eq!(key.dy, 0.0);
     }
 
     #[test]

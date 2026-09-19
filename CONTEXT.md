@@ -59,6 +59,10 @@ _Avoid_: side-by-side, grid
 The Locked crop window hard-cutting between faces at Speaker-turn boundaries — for multi-cam sources where each speaker has their own shot. A cut, never a pan.
 _Avoid_: auto-switching crop, face-follow
 
+**Eye line**:
+The vertical anchor of a Locked crop: the face's estimated eye height (face center minus ~15% of the face-box height) is placed near 35% of the output height by sliding the crop window over a blurred underlay. The window itself never resizes and never pans; faces already near the line keep the centered crop.
+_Avoid_: headroom rule, vertical tracking
+
 **Composite score**:
 The weighted sum of a Candidate's seven validator scores (self-contained ×2, payoff ×1.6, opening strength ×1.4, clarity ×1.2, tension/novelty, specificity, minus context-dependency and slop-risk), plus a 25–60s duration nudge. Surfaced on every Clip card and in the rejected list.
 _Avoid_: virality score, AI score
