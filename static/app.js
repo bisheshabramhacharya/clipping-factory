@@ -28,11 +28,20 @@
   let retryPending = false;
   let actionMessageKind = null;
   let modalReturnFocus = null;
-  let liveProgress = null; // {stage, progress, detail}
+  let deleteReturnFocus = null;
+  let pendingDeleteId = null;
+  let deleteBusy = false;
+  let library = []; // LibraryEntry rows from GET /api/projects
+  let librarySig = ""; // last-rendered signature — skips pointless rebuilds
+  let liveProgress = null; // LiveStage + receivedAt (client receipt time)
+  // Progress samples for the active stage — the ETA's rolling-rate window.
+  let liveSamples = { stage: null, pts: [] };
+  let firstClipAnnounced = false; // scroll to the first ready clip once per run
   // Last style/color the user applied — the starting point for new restyles.
   let captionStyle = localStorage.getItem("cf-caption-style") || "impact";
   let accentColor = localStorage.getItem("cf-accent-color") || "#FFDD00";
   let captionFonts = [];
+  let captionStyles = [];
   let captionDefaultFont = "Inter";
   const ACCENT_PRESETS = [
     { name: "Sun yellow", color: "#FFDD00" },
@@ -44,9 +53,19 @@
   ];
   const clipRev = {}; // clip id → cache-busting token after a restyle
   const restyleState = {}; // clip id → {busy, kind, message, draft}
+  // clip id → {sig, row}: lets a refetch rebuild only the cards whose clip
+  // changed instead of remounting the whole list.
+  const clipRowCache = {};
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
+
+  function fmtBytes(n) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let v = Number(n) || 0, i = 0;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v >= 10 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+  }
 
   function formatApiError(payload, status, fallback) {
     const message = payload && (payload.error || payload.message);
@@ -104,11 +123,13 @@
       else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. macOS: brew install ffmpeg-full, then restart.");
       if (!s.ffprobe) problems.push("FFprobe was not found. It ships with FFmpeg.");
       if (!s.whisper_ok) problems.push("whisper-cli was not found. macOS: brew install whisper-cpp, or set CF_WHISPER_BIN.");
-      if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.en.bin into ${s.data_dir}/models/`);
+      if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
       if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push(`Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`);
       const banner = $("setup-banner");
       captionDefaultFont = s.caption_font || captionDefaultFont;
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
+      if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
+      populateLanguagePicker(s);
       if (problems.length) {
         banner.textContent = problems.join("\n");
         banner.classList.remove("hidden");
@@ -122,6 +143,35 @@
     }
   }
 
+  // The language list comes from the backend so the picker always matches what
+  // the installed whisper.cpp understands. English-only ggml-*.en.bin weights
+  // can't do detection or other languages — grey those options out.
+  function populateLanguagePicker(setup) {
+    const select = $("upload-language");
+    const note = $("upload-language-note");
+    if (!select || select.dataset.populated) {
+      if (note && setup.model_ok && setup.model_multilingual === false) note.textContent =
+        "The installed transcription model is English-only. Add a multilingual model (e.g. ggml-base.bin) to transcribe other languages.";
+      return;
+    }
+    const langs = Array.isArray(setup.whisper_languages) ? setup.whisper_languages : [];
+    if (!langs.length) return;
+    for (const lang of langs) {
+      const opt = document.createElement("option");
+      opt.value = lang.code;
+      opt.textContent = lang.name;
+      if (setup.model_ok && setup.model_multilingual === false && lang.code !== "en") {
+        opt.disabled = true;
+      }
+      select.appendChild(opt);
+    }
+    select.dataset.populated = "1";
+    if (note && setup.model_ok && setup.model_multilingual === false) {
+      note.textContent =
+        "The installed transcription model is English-only. Add a multilingual model (e.g. ggml-base.bin) to transcribe other languages.";
+    }
+  }
+
   async function loadSettings() {
     try {
       const s = await requestJson("/api/settings/ai", {}, "Couldn't reconnect to the local server.");
@@ -130,6 +180,7 @@
       else { $("ai-label").textContent = "AI connection"; }
       $("provider").value = s.provider || "openai";
       $("model").value = s.model || "";
+      $("base-url").value = s.base_url || "";
       syncModalRows();
       clearActionMessage("reconnect");
     } catch {
@@ -155,6 +206,35 @@
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (f) uploadFile(f);
     });
+    $("sample-btn").addEventListener("click", startSample);
+  }
+
+  // Zero-input first run: the bundled sample episode becomes the project's
+  // source server-side, then the normal progress flow takes over.
+  async function startSample() {
+    if (uploadXhr) return;
+    firstClipAnnounced = false;
+    $("drop").classList.add("hidden");
+    $("upload-progress").classList.remove("hidden");
+    $("cancel-upload-btn").disabled = true;
+    setUploadPhase("Preparing the sample episode…", null);
+    try {
+      const res = await fetch("/api/projects/sample", { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Could not start the sample episode.");
+      }
+      const v = await res.json();
+      if (!v.project || !PROJECT_ID_RE.test(v.project.id)) throw new Error("invalid project id");
+      projectId = v.project.id;
+      localStorage.setItem("cf-project", projectId);
+      view = v;
+      clearActionMessage();
+      connectSse();
+      render();
+    } catch (e) {
+      resetToEmpty({ message: e.message || "Could not start the sample episode." });
+    }
   }
 
   function wireUploadOptions() {
@@ -188,6 +268,15 @@
       swatch.addEventListener("click", () => selectColor(swatch.dataset.color));
     }
     selectColor(accentColor);
+    // Platform target is a UI pref like caption style: restore the last pick.
+    const platformSelect = $("upload-platform");
+    const savedPlatform = localStorage.getItem("cf-platform");
+    if (savedPlatform && [...platformSelect.options].some((o) => o.value === savedPlatform)) {
+      platformSelect.value = savedPlatform;
+    }
+    platformSelect.addEventListener("change", () => {
+      localStorage.setItem("cf-platform", platformSelect.value);
+    });
   }
 
   function uploadFile(file) {
@@ -196,6 +285,7 @@
       return;
     }
     if (uploadXhr) return;
+    firstClipAnnounced = false;
     $("drop").classList.add("hidden");
     $("upload-progress").classList.remove("hidden");
     $("cancel-upload-btn").disabled = false;
@@ -209,6 +299,11 @@
     form.append("framing_mode", framingMode);
     form.append("accent_mode", accentMode);
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
+    if ($("upload-emoji").checked) form.append("emoji_overlay", "1");
+    form.append("language", $("upload-language").value || "auto");
+    form.append("platform", $("upload-platform").value || "any");
+    const focusPrompt = $("focus-prompt").value.trim();
+    if (focusPrompt) form.append("focus_prompt", focusPrompt);
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
@@ -279,6 +374,7 @@
     projectId = null;
     view = null;
     liveProgress = null;
+    liveSamples = { stage: null, pts: [] };
     cancellationPending = false;
     retryPending = false;
     uploadCancelRequested = false;
@@ -288,6 +384,7 @@
     if (sse) { sse.close(); sse = null; }
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
+    for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
     const warning = $("warning-banner");
     warning.textContent = "";
     warning.classList.add("hidden");
@@ -299,6 +396,7 @@
     $("file-input").value = "";
     render();
     if (message) showActionMessage(message, kind);
+    loadLibrary();
   }
 
   // ------------------------------------------------------------------ data
@@ -336,6 +434,202 @@
     refetchTimer = setTimeout(refetch, 180);
   }
 
+  // ------------------------------------------------------------------ library
+  async function loadLibrary() {
+    try {
+      const entries = await requestJson("/api/projects", {}, "Couldn't load the library.");
+      library = Array.isArray(entries) ? entries : [];
+    } catch {
+      library = [];
+    }
+    renderLibrary();
+  }
+
+  const LIBRARY_STATUS = {
+    created: "Queued",
+    complete: "Complete",
+    cancelled: "Cancelled",
+    failed: "Failed",
+  };
+  function libraryStatus(entry) {
+    if (LIBRARY_STATUS[entry.status]) return LIBRARY_STATUS[entry.status];
+    const stage = STAGE_LABELS[entry.status];
+    return stage ? stage.replace(/^\d+\.\s*/, "") + "…" : entry.status;
+  }
+
+  function renderLibrary() {
+    const restyleBusy = Object.values(restyleState).some((s) => s.busy);
+    const sig = JSON.stringify([library, projectId, restyleBusy]);
+    if (sig === librarySig) return;
+    librarySig = sig;
+
+    const section = $("library-state");
+    const list = $("library-list");
+    section.classList.toggle("hidden", library.length === 0);
+    list.innerHTML = "";
+    for (const entry of library) {
+      const isOpen = entry.id === projectId;
+      const name = entry.source_filename || `project ${entry.id}`;
+      const date = entry.created_at
+        ? new Date(entry.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+        : "";
+      const bits = [date, libraryStatus(entry)];
+      if (entry.clips_ready) bits.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
+      bits.push(`${fmtBytes(entry.size_bytes)} on disk`);
+
+      const card = document.createElement("div");
+      card.className = `library-card${isOpen ? " open" : ""}`;
+
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "library-open";
+      open.title = isOpen ? `${name} is open` : `Open ${name}`;
+      const nameEl = document.createElement("span");
+      nameEl.className = "name";
+      nameEl.textContent = name;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = bits.filter(Boolean).join(" · ") + (isOpen ? " " : "");
+      if (isOpen) {
+        const tag = document.createElement("span");
+        tag.className = "open-tag";
+        tag.textContent = "· open";
+        meta.appendChild(tag);
+      }
+      open.appendChild(nameEl);
+      open.appendChild(meta);
+      open.addEventListener("click", () => openProject(entry.id));
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "library-delete";
+      del.textContent = "Delete";
+      del.setAttribute("aria-label", `Delete ${name} from this computer`);
+      const blocked = isProcessing(entry.status);
+      const styling = isOpen && restyleBusy;
+      del.disabled = blocked || styling || deleteBusy;
+      del.title = blocked
+        ? "Processing is running — cancel it before deleting."
+        : styling
+          ? "Caption update is applying — wait for it to finish."
+          : `Delete ${name} from this computer`;
+      del.addEventListener("click", () => askDelete(entry));
+
+      card.appendChild(open);
+      card.appendChild(del);
+      list.appendChild(card);
+    }
+  }
+
+  // Switch the screen to a library project: same runtime teardown as
+  // resetToEmpty, minus clearing the selection itself.
+  function openProject(id) {
+    if (!id || id === projectId || uploadXhr) return;
+    projectId = id;
+    view = null;
+    liveProgress = null;
+    liveSamples = { stage: null, pts: [] };
+    cancellationPending = false;
+    retryPending = false;
+    firstClipAnnounced = false;
+    localStorage.setItem("cf-project", projectId);
+    clearTimeout(refetchTimer);
+    refetchTimer = null;
+    if (sse) { sse.close(); sse = null; }
+    for (const key of Object.keys(restyleState)) delete restyleState[key];
+    for (const key of Object.keys(clipRev)) delete clipRev[key];
+    for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
+    clearActionMessage();
+    render();
+    refetch().then(() => connectSse());
+  }
+
+  function openDeleteModal() {
+    deleteReturnFocus = document.activeElement;
+    $("delete-backdrop").classList.remove("hidden");
+    $("delete-backdrop").setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(() => $("delete-cancel").focus());
+  }
+
+  function closeDeleteModal() {
+    $("delete-backdrop").classList.add("hidden");
+    $("delete-backdrop").setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+    pendingDeleteId = null;
+    if (deleteReturnFocus && typeof deleteReturnFocus.focus === "function") deleteReturnFocus.focus();
+    deleteReturnFocus = null;
+  }
+
+  function askDelete(entry) {
+    if (deleteBusy) return;
+    pendingDeleteId = entry.id;
+    const name = entry.source_filename || `project ${entry.id}`;
+    const files = entry.file_count || 0;
+    $("delete-modal-description").textContent =
+      `Delete "${name}" — ${files} file${files === 1 ? "" : "s"}, ${fmtBytes(entry.size_bytes)} — from this computer? This can't be undone.`;
+    openDeleteModal();
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId || deleteBusy) return;
+    const id = pendingDeleteId;
+    deleteBusy = true;
+    const btn = $("delete-confirm");
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+    try {
+      await requestJson(apiPath("projects", id), { method: "DELETE" }, "Couldn't delete the project.");
+      closeDeleteModal();
+      if (id === projectId) {
+        resetToEmpty({ message: "Project deleted from this computer.", kind: "notice" });
+      } else {
+        // cf-project only ever points at the open project, but clear it if a
+        // stale value happened to name the deleted id.
+        if (localStorage.getItem("cf-project") === id) localStorage.removeItem("cf-project");
+        showActionMessage("Project deleted from this computer.", "notice");
+      }
+      await loadLibrary();
+    } catch (err) {
+      closeDeleteModal();
+      showActionMessage(err.message);
+      await loadLibrary();
+    } finally {
+      deleteBusy = false;
+      btn.disabled = false;
+      btn.textContent = "Delete";
+    }
+  }
+
+  function wireDeleteModal() {
+    $("delete-cancel").addEventListener("click", closeDeleteModal);
+    $("delete-confirm").addEventListener("click", confirmDelete);
+    $("delete-backdrop").addEventListener("click", (e) => {
+      if (e.target === $("delete-backdrop")) closeDeleteModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if ($("delete-backdrop").classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeDeleteModal();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusables = [...$("delete-backdrop").querySelectorAll("button, input, select, [href]")]
+        .filter((el) => !el.disabled && el.getClientRects().length > 0);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+  }
+
   function connectSse() {
     if (sse) sse.close();
     if (!projectId) return;
@@ -348,13 +642,26 @@
       try { msg = JSON.parse(e.data); } catch { return; }
       if (msg.type === "snapshot" && msg.view) { view = msg.view; clearActionMessage("reconnect"); render(); return; }
       if (msg.type === "progress") {
-        liveProgress = { stage: msg.stage, progress: msg.progress, detail: msg.detail };
+        liveProgress = {
+          stage: msg.stage,
+          progress: msg.progress,
+          detail: msg.detail,
+          elapsed_ms: msg.elapsed_ms,
+          stage_estimate_ms: msg.stage_estimate_ms,
+          overall_progress: msg.overall_progress,
+          pending_ms: msg.pending_ms,
+          receivedAt: Date.now(),
+        };
+        if (liveSamples.stage !== msg.stage) liveSamples = { stage: msg.stage, pts: [] };
+        liveSamples.pts.push({ t: Date.now(), p: msg.progress || 0 });
+        if (liveSamples.pts.length > 600) liveSamples.pts.splice(0, liveSamples.pts.length - 600);
         clearActionMessage("reconnect");
         renderLive();
         return;
       }
       // stage / clip / done → authoritative refetch
       liveProgress = null;
+      liveSamples = { stage: null, pts: [] };
       scheduleRefetch();
     };
     source.onerror = () => {
@@ -366,6 +673,13 @@
   // ------------------------------------------------------------------ render
   function render() {
     const p = view && view.project;
+    // Keep the open project's library card in step with live status so its
+    // Delete disables while a run is active.
+    if (p) {
+      const entry = library.find((e) => e.id === p.id);
+      if (entry && entry.status !== p.status) entry.status = p.status;
+    }
+    renderLibrary();
     $("upload-state").classList.toggle("hidden", !!p);
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
@@ -383,6 +697,7 @@
     $("source-meta").textContent = src
       ? `${src.width}×${src.height} · ${fmtMs(src.duration_ms)} · ${src.video_codec}/${src.audio_codec}`
       : "";
+    $("source-focus").textContent = p.focus_prompt ? ` · focus: "${p.focus_prompt}"` : "";
 
     // Warning banner
     const warn = $("warning-banner");
@@ -419,7 +734,9 @@
         st === "done" ? (rec.detail || "Done") :
         st === "active" ? (rec.detail || "Working…") : "";
       div.innerHTML = `<strong>${STAGE_LABELS[name]}</strong><span class="status"></span>` +
-        (st === "active" ? `<div class="mini-bar"><div class="mini-fill"></div></div>` : "");
+        (st === "active"
+          ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
+          : "");
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
       wrap.appendChild(div);
@@ -427,21 +744,99 @@
     renderLive();
   }
 
-  function renderLive() {
-    if (!liveProgress && view && view.live) liveProgress = view.live;
-    if (!liveProgress) return;
-    const step = document.querySelector(`.step[data-stage="${liveProgress.stage}"] .mini-fill`);
-    const percent = Math.round((liveProgress.progress || 0) * 100);
-    if (step) step.style.transform = "scaleX(" + (percent / 100) + ")";
-    const status = document.querySelector(`.step[data-stage="${liveProgress.stage}"] .status`);
-    if (status && liveProgress.detail) {
-      status.textContent = liveProgress.detail;
-      status.parentElement.setAttribute("aria-label", `${STAGE_LABELS[liveProgress.stage] || liveProgress.stage}: ${liveProgress.detail}`);
+  // "~45s" / "~3m" / "~1h 04m" — compact ETA text for a millisecond count.
+  function fmtEta(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    if (s < 90) return `${s}s`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m}m`;
+    return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+  }
+
+  // Rolling rate: the slope of progress across the last ~60s of samples,
+  // measured against *now* — so a stage that stalls drags its own rate
+  // toward zero and its ETA visibly grows instead of freezing.
+  function recentRate() {
+    const pts = liveSamples.pts;
+    if (!liveProgress || !pts.length) return 0;
+    const cutoff = Date.now() - 60_000;
+    let first = pts[0];
+    for (const s of pts) {
+      if (s.t >= cutoff) break;
+      first = s;
     }
-    if (liveProgress.detail) $("current-op-text").textContent = liveProgress.detail;
-    else if (liveProgress.progress != null)
+    const dt = Date.now() - first.t;
+    const dp = Math.max(0, (liveProgress.progress || 0) - first.p);
+    return dt > 0 ? dp / dt : 0;
+  }
+
+  // Estimated ms left in the active stage. Elapsed time is aged past the
+  // last SSE event; while almost nothing is measured, the backend's
+  // calibrated stage estimate is the honest figure.
+  function liveEtaMs() {
+    if (!liveProgress) return null;
+    const p = Math.min(Math.max(liveProgress.progress || 0, 0), 0.995);
+    const elapsed =
+      (liveProgress.elapsed_ms || 0) + (Date.now() - (liveProgress.receivedAt || Date.now()));
+    if ((p < 0.005 || elapsed < 3_000) && liveProgress.stage_estimate_ms != null) {
+      return liveProgress.stage_estimate_ms;
+    }
+    if (p <= 0 || elapsed <= 0) return null;
+    const rate = recentRate() || p / elapsed;
+    if (rate <= 0) return null;
+    return (1 - p) / rate;
+  }
+
+  function renderOverall(live, etaMs) {
+    const box = $("overall");
+    if (!box) return;
+    const show = !!(live && live.overall_progress != null);
+    box.classList.toggle("hidden", !show);
+    if (!show) return;
+    const pct = Math.min(100, Math.round(live.overall_progress * 100));
+    $("overall-bar").style.transform = `scaleX(${pct / 100})`;
+    $("overall-bar").parentElement.setAttribute("aria-valuenow", String(pct));
+    const left =
+      etaMs != null && live.pending_ms != null
+        ? ` · ~${fmtEta(etaMs + live.pending_ms)} left`
+        : "";
+    $("overall-text").textContent = `${pct}%${left}`;
+  }
+
+  function renderLive() {
+    if (!liveProgress && view && view.live) {
+      liveProgress = { ...view.live, receivedAt: Date.now() };
+      if (liveSamples.stage !== liveProgress.stage) {
+        liveSamples = { stage: liveProgress.stage, pts: [] };
+      }
+    }
+    if (!liveProgress) { renderOverall(null); return; }
+    const stage = liveProgress.stage;
+    const percent = Math.round((liveProgress.progress || 0) * 100);
+    const etaMs = liveEtaMs();
+    const etaText = etaMs != null ? ` · ~${fmtEta(etaMs)}` : "";
+    const step = document.querySelector(`.step[data-stage="${stage}"]`);
+    if (step) {
+      const fill = step.querySelector(".mini-fill");
+      if (fill) fill.style.transform = `scaleX(${percent / 100})`;
+      const meta = step.querySelector(".step-meta");
+      if (meta) meta.textContent = `${percent}%${etaText ? `${etaText} left` : ""}`;
+      const status = step.querySelector(".status");
+      if (status && liveProgress.detail) {
+        status.textContent = liveProgress.detail;
+        step.setAttribute(
+          "aria-label",
+          `${STAGE_LABELS[stage] || stage}: ${liveProgress.detail} · ${percent}%`
+        );
+      }
+    }
+    if (!cancellationPending) {
+      const label =
+        liveProgress.detail || `${STAGE_LABELS[stage] || stage}`;
       $("current-op-text").textContent =
-        `${STAGE_LABELS[liveProgress.stage] || liveProgress.stage} · ${Math.round(liveProgress.progress * 100)}%`;
+        `${label} · ${percent}%${etaText ? `${etaText} remaining` : ""}`;
+    }
+    renderOverall(liveProgress, etaMs);
   }
 
   function renderCurrentOp(p) {
@@ -451,10 +846,14 @@
     $("cancel-btn").disabled = cancellationPending;
     $("cancel-btn").textContent = cancellationPending ? "Cancelling…" : "Cancel";
     if (active) {
-      const label = STAGE_LABELS[p.status] || p.status;
-      $("current-op-text").textContent = cancellationPending
-        ? "Cancelling…"
-        : label.replace(/^\d+\.\s*/, "") + "…";
+      // A live progress report already carries percent + ETA — don't
+      // clobber it with the generic stage label between SSE events.
+      const liveCovers = liveProgress && liveProgress.stage === p.status;
+      if (cancellationPending) $("current-op-text").textContent = "Cancelling…";
+      else if (!liveCovers) {
+        const label = STAGE_LABELS[p.status] || p.status;
+        $("current-op-text").textContent = label.replace(/^\d+\.\s*/, "") + "…";
+      }
     }
   }
 
@@ -489,6 +888,13 @@
     const section = $("results-state");
     const clips = (view.clips || []);
     const ready = clips.filter((c) => c.status === "ready");
+    // The first finished clip lands while later ones still render: pull the
+    // results into view once so the user notices without hunting for it.
+    if (ready.length > 0 && !firstClipAnnounced && isProcessing(p.status)) {
+      firstClipAnnounced = true;
+      section.classList.remove("hidden");
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
     const failed = clips.filter((c) => c.status === "failed");
     const showResults = clips.length > 0 || p.status === "complete";
     section.classList.toggle("hidden", !showResults);
@@ -538,10 +944,40 @@
     $("empty-results").classList.toggle("hidden", !(p.status === "complete" && total === 0));
 
     const wrap = $("clips");
-    wrap.innerHTML = "";
-    for (const c of clips) {
-      wrap.appendChild(clipRow(c));
-    }
+    // Highest validator score first; scoreless rows (caption-only, old
+    // manifests) keep their manifest order at the end.
+    const ranked = clips.slice().sort((a, b) =>
+      (typeof b.score === "number" ? b.score : -Infinity) -
+      (typeof a.score === "number" ? a.score : -Infinity));
+    // Reconcile row-by-row instead of remounting the list: clips land
+    // one at a time while later ones still render, and remounting a card
+    // whose data didn't change would reset its <video>'s playback and any
+    // open caption controls.
+    const seen = new Set();
+    const kept = new Set();
+    const rows = ranked.map((c) => {
+      const prev = clipRowCache[c.id];
+      let sig = clipSignature(c);
+      let row;
+      if (prev && prev.sig === sig) {
+        row = prev.row;
+      } else {
+        row = clipRow(c);
+        // Building a ready clip's controls seeds restyleState[c.id], which
+        // the signature reads — retake it after the build.
+        sig = clipSignature(c);
+      }
+      clipRowCache[c.id] = { sig, row };
+      seen.add(c.id);
+      kept.add(row);
+      return row;
+    });
+    for (const id of Object.keys(clipRowCache)) if (!seen.has(id)) delete clipRowCache[id];
+    for (const child of [...wrap.children]) if (!kept.has(child)) child.remove();
+    rows.forEach((row, i) => {
+      const current = wrap.children[i];
+      if (current !== row) wrap.insertBefore(row, current || null);
+    });
 
     // Rejected transparency
     const rej = view.rejected_summary || [];
@@ -553,11 +989,32 @@
         const d = document.createElement("div");
         d.className = "rejected-item";
         d.innerHTML = `<div></div><div class="reasons"></div>`;
-        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}`;
+        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}` +
+          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}` : "");
         d.children[1].textContent = (r.reasons || []).join("; ");
         list.appendChild(d);
       }
     }
+  }
+
+  // Everything a clip card renders, as one string: the clip record itself,
+  // the restyle-preview cache buster, the retry button's pending label, the
+  // font/style catalogs (they land via loadSetup after first paint), and the
+  // restyle "applying" flag — its failure path relies on a rebuild to restore
+  // the controls. Draft edits and status text already update via sync()
+  // inside the row, so they stay out — keeping them out is what lets a
+  // mid-edit card survive a sibling clip's SSE-driven re-render.
+  function clipSignature(c) {
+    const r = restyleState[c.id] || {};
+    return JSON.stringify([
+      c,
+      view.caption_only === true,
+      clipRev[c.id] || 0,
+      retryPending,
+      captionFonts,
+      captionStyles,
+      Boolean(r.busy),
+    ]);
   }
 
   function clipRow(c) {
@@ -603,7 +1060,7 @@
       }
       preview.appendChild(v);
     } else if (c.status === "rendering") {
-      preview.innerHTML = `<span class="spinner"></span>`;
+      preview.innerHTML = `<div class="rendering-note"><span class="spinner"></span><span>Rendering…</span></div>`;
     } else if (c.status === "failed") {
       preview.textContent = "render failed";
     } else {
@@ -616,10 +1073,14 @@
       ? "Full video"
       : (c.rank === 1 ? "Best candidate" : `Candidate ${c.rank}`);
     const badges = [];
+    if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
     if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">face-tracked crop</span>`);
+    else if (c.layout && c.layout.mode === "speaker_crop") badges.push(`<span class="badge">speaker-switched crop</span>`);
+    else if (c.layout && c.layout.mode === "split") badges.push(`<span class="badge">two-speaker split</span>`);
     else badges.push(`<span class="badge">blur-pad layout</span>`);
     if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">low transcription confidence</span>`);
+    if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     body.innerHTML = `
       <div class="rank"></div>
@@ -648,6 +1109,21 @@
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
       a.textContent = "Download MP4";
       actions.appendChild(a);
+      // Export pack: the .srt/.vtt/.meta.json sidecars next to every MP4.
+      const stem = (c.filename || "clip").replace(/\.mp4$/i, "");
+      const pack = document.createElement("div");
+      pack.className = "export-links";
+      pack.setAttribute("aria-label", "Export pack files");
+      for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta JSON", "meta", "meta.json"], ["Poster", "poster", "jpg"]]) {
+        const link = document.createElement("a");
+        link.className = "export-link";
+        link.href = apiPath("projects", projectId, "clips", c.id, "export", kind);
+        link.download = `${stem}.${ext}`;
+        link.title = `Download ${stem}.${ext}`;
+        link.textContent = label;
+        pack.appendChild(link);
+      }
+      actions.appendChild(pack);
     } else if (c.status === "failed") {
       const b = document.createElement("button");
       b.textContent = retryPending ? "Retrying…" : "Retry failed clips";
@@ -675,6 +1151,12 @@
       font: c.caption_font || captionDefaultFont,
       text: c.caption_text ?? "",
       textPresent: c.caption_text !== null && c.caption_text !== undefined,
+      emoji: Boolean(c.emoji_overlay),
+      autoCut: Boolean(c.auto_cut),
+      zoomCuts: Boolean(c.zoom_cuts),
+      endCard: Boolean(c.end_card),
+      progressBar: Boolean(c.progress_bar),
+      hookTitle: Boolean(c.hook_title),
     };
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
@@ -702,11 +1184,12 @@
     seg.className = "seg";
     seg.setAttribute("role", "group");
     seg.setAttribute("aria-label", "Caption style");
-    const styleBtns = ["impact", "clean"].map((s) => {
+    const STYLE_LABELS = { impact: "Impact", clean: "Clean", pop: "Pop", cinema: "Cinema" };
+    const styleBtns = (captionStyles.length ? captionStyles : Object.keys(STYLE_LABELS)).map((s) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "seg-btn";
-      b.textContent = s === "impact" ? "Impact" : "Clean";
+      b.textContent = STYLE_LABELS[s] || s;
       b.setAttribute("aria-pressed", "false");
       b.addEventListener("click", () => {
         state.draft.style = s;
@@ -786,6 +1269,119 @@
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
 
+    const emojiToggle = document.createElement("label");
+    emojiToggle.className = "emoji-toggle";
+    const emojiBox = document.createElement("input");
+    emojiBox.type = "checkbox";
+    emojiBox.checked = state.draft.emoji;
+    emojiBox.setAttribute("aria-label", "Flash an emoji accent over caption keywords");
+    emojiBox.addEventListener("change", () => {
+      state.draft.emoji = emojiBox.checked;
+      state.kind = "dirty";
+      state.message = "Unsaved caption changes";
+      sync();
+    });
+    const emojiText = document.createElement("span");
+    emojiText.textContent = "Emoji accents";
+    emojiToggle.appendChild(emojiBox);
+    emojiToggle.appendChild(emojiText);
+
+    // Opt-in auto-cut: removes silence gaps and filler words at render.
+    // Default off — a clip is otherwise one continuous faithful excerpt.
+    const autoCut = document.createElement("label");
+    autoCut.className = "auto-cut-toggle";
+    autoCut.title = "Remove silence gaps and filler words (um, uh) — re-renders this clip";
+    const autoCutBox = document.createElement("input");
+    autoCutBox.type = "checkbox";
+    autoCutBox.checked = state.draft.autoCut;
+    autoCutBox.setAttribute("aria-label", `Auto-cut silences and filler words for ${c.headline}`);
+    autoCutBox.addEventListener("change", () => {
+      state.draft.autoCut = autoCutBox.checked;
+      state.kind = "dirty";
+      state.message = "Auto-cut change re-renders this clip";
+      sync();
+    });
+    const autoCutText = document.createElement("span");
+    autoCutText.textContent = "Auto-cut";
+    autoCut.appendChild(autoCutBox);
+    autoCut.appendChild(autoCutText);
+
+    // Opt-in zoom cuts: subtle punch-in/out on emphasis beats inside the
+    // locked crop. Default off — the crop otherwise never moves.
+    const zoomCuts = document.createElement("label");
+    zoomCuts.className = "auto-cut-toggle";
+    zoomCuts.title = "Punch in slightly on loud moments and stressed words — re-renders this clip";
+    const zoomCutsBox = document.createElement("input");
+    zoomCutsBox.type = "checkbox";
+    zoomCutsBox.checked = state.draft.zoomCuts;
+    zoomCutsBox.setAttribute("aria-label", `Zoom cuts on emphasis beats for ${c.headline}`);
+    zoomCutsBox.addEventListener("change", () => {
+      state.draft.zoomCuts = zoomCutsBox.checked;
+      state.kind = "dirty";
+      state.message = "Zoom cuts change re-renders this clip";
+      sync();
+    });
+    const zoomCutsText = document.createElement("span");
+    zoomCutsText.textContent = "Zoom cuts";
+    zoomCuts.appendChild(zoomCutsBox);
+    zoomCuts.appendChild(zoomCutsText);
+
+    // Opt-in end card: a short "Made with Clipping Factory" tail appended
+    // after the audio fade. Default off — the clip ends on content.
+    const endCard = document.createElement("label");
+    endCard.className = "auto-cut-toggle";
+    endCard.title = "Append a 1.2 s 'Made with Clipping Factory' card after the clip — re-renders this clip";
+    const endCardBox = document.createElement("input");
+    endCardBox.type = "checkbox";
+    endCardBox.checked = state.draft.endCard;
+    endCardBox.setAttribute("aria-label", `Append an end card for ${c.headline}`);
+    endCardBox.addEventListener("change", () => {
+      state.draft.endCard = endCardBox.checked;
+      state.kind = "dirty";
+      state.message = "End card change re-renders this clip";
+      sync();
+    });
+    const endCardText = document.createElement("span");
+    endCardText.textContent = "End card";
+    endCard.appendChild(endCardBox);
+    endCard.appendChild(endCardText);
+
+    const progBar = document.createElement("label");
+    progBar.className = "auto-cut-toggle";
+    progBar.title = "Draw a thin accent-colored progress bar along the bottom edge — re-renders this clip";
+    const progBarBox = document.createElement("input");
+    progBarBox.type = "checkbox";
+    progBarBox.checked = state.draft.progressBar;
+    progBarBox.setAttribute("aria-label", `Draw a progress bar for ${c.headline}`);
+    progBarBox.addEventListener("change", () => {
+      state.draft.progressBar = progBarBox.checked;
+      sync();
+    });
+    const progBarText = document.createElement("span");
+    progBarText.textContent = "Progress bar";
+    progBar.appendChild(progBarBox);
+    progBar.appendChild(progBarText);
+
+    // Opt-in hook title: the clip's headline as a bold title card over the
+    // opening beat. Default off — the clip opens on content.
+    const hookTitle = document.createElement("label");
+    hookTitle.className = "auto-cut-toggle";
+    hookTitle.title = "Burn the clip headline as a title card over the first ~1.8s — re-renders this clip";
+    const hookTitleBox = document.createElement("input");
+    hookTitleBox.type = "checkbox";
+    hookTitleBox.checked = state.draft.hookTitle;
+    hookTitleBox.setAttribute("aria-label", `Show a hook title card at the start of ${c.headline}`);
+    hookTitleBox.addEventListener("change", () => {
+      state.draft.hookTitle = hookTitleBox.checked;
+      state.kind = "dirty";
+      state.message = "Hook title change re-renders this clip";
+      sync();
+    });
+    const hookTitleText = document.createElement("span");
+    hookTitleText.textContent = "Hook title";
+    hookTitle.appendChild(hookTitleBox);
+    hookTitle.appendChild(hookTitleText);
+
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
@@ -801,7 +1397,13 @@
         state.draft.color !== applied.color ||
         state.draft.font !== applied.font ||
         state.draft.textPresent !== applied.textPresent ||
-        (state.draft.textPresent && state.draft.text !== applied.text)
+        (state.draft.textPresent && state.draft.text !== applied.text) ||
+        Boolean(state.draft.emoji) !== applied.emoji ||
+        state.draft.autoCut !== applied.autoCut ||
+        state.draft.zoomCuts !== applied.zoomCuts ||
+        state.draft.endCard !== applied.endCard ||
+        state.draft.progressBar !== applied.progressBar ||
+        state.draft.hookTitle !== applied.hookTitle
       );
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
@@ -822,6 +1424,12 @@
       custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = state.draft.color;
       font.value = state.draft.font;
+      emojiBox.checked = Boolean(state.draft.emoji);
+      autoCutBox.checked = Boolean(state.draft.autoCut);
+      zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
+      endCardBox.checked = Boolean(state.draft.endCard);
+      progBarBox.checked = Boolean(state.draft.progressBar);
+      hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply captions";
@@ -841,8 +1449,14 @@
           style: state.draft.style,
           accent_color: state.draft.color,
           font: state.draft.font,
+          emoji_overlay: Boolean(state.draft.emoji),
         };
         if (state.draft.textPresent) payload.caption_text = state.draft.text;
+        if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
+        if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
+        if (state.draft.endCard !== applied.endCard) payload.end_card = state.draft.endCard;
+        if (state.draft.progressBar !== applied.progressBar) payload.progress_bar = state.draft.progressBar;
+        if (state.draft.hookTitle !== applied.hookTitle) payload.hook_title = state.draft.hookTitle;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -867,6 +1481,12 @@
           font: updated.caption_font || state.draft.font,
           text: updated.caption_text ?? "",
           textPresent: updated.caption_text !== null && updated.caption_text !== undefined,
+          emoji: Boolean(updated.emoji_overlay),
+          autoCut: Boolean(updated.auto_cut),
+          zoomCuts: Boolean(updated.zoom_cuts),
+          endCard: Boolean(updated.end_card),
+          progressBar: Boolean(updated.progress_bar),
+          hookTitle: Boolean(updated.hook_title),
         };
         render();
       } catch (err) {
@@ -884,6 +1504,12 @@
     box.appendChild(seg);
     box.appendChild(swatches);
     box.appendChild(fontPicker);
+    box.appendChild(emojiToggle);
+    box.appendChild(autoCut);
+    box.appendChild(zoomCuts);
+    box.appendChild(endCard);
+    box.appendChild(progBar);
+    box.appendChild(hookTitle);
     box.appendChild(apply);
     box.appendChild(status);
     sync();
@@ -899,6 +1525,9 @@
     elapsedTimer = setInterval(() => {
       const s = Math.max(0, Math.floor((Date.now() - started) / 1000));
       $("elapsed").textContent = `· ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} elapsed`;
+      // Ages the displayed ETA between SSE events — a stalled stage's
+      // remaining estimate keeps growing instead of freezing.
+      renderLive();
     }, 1000);
   }
   function stopElapsed() { clearInterval(elapsedTimer); }
@@ -992,11 +1621,15 @@
 
   // ------------------------------------------------------------------ modal
   function syncModalRows() {
-    const offline = $("provider").value === "offline";
-    $("key-row").classList.toggle("hidden", offline);
+    const provider = $("provider").value;
+    const offline = provider === "offline";
+    const local = provider === "local";
+    $("key-row").classList.toggle("hidden", offline || local);
     $("model-row").classList.toggle("hidden", offline);
+    $("base-url-row").classList.toggle("hidden", !local);
     $("offline-note").classList.toggle("hidden", !offline);
-    $("model").placeholder = $("provider").value === "anthropic" ? "claude-sonnet-4-5" : "gpt-4o-mini";
+    $("local-note").classList.toggle("hidden", !local);
+    $("model").placeholder = provider === "anthropic" ? "claude-sonnet-4-5" : local ? "qwen2.5:7b" : "gpt-4o-mini";
   }
 
   function modalFocusables() {
@@ -1061,13 +1694,16 @@
           body: JSON.stringify({
             provider: $("provider").value,
             model: $("model").value.trim(),
+            base_url: $("base-url").value.trim(),
             api_key: $("api-key").value.trim(),
           }),
         }, "Could not save AI settings.");
         const out = $("test-result");
         out.textContent = saved.provider === "offline"
           ? "Local ranking is ready. No API key needed."
-          : `${saved.provider === "anthropic" ? "Anthropic" : "OpenAI"} connection verified. Using model ${saved.model}.`;
+          : saved.provider === "local"
+            ? `Local endpoint verified. Using model ${saved.model}.`
+            : `${saved.provider === "anthropic" ? "Anthropic" : "OpenAI"} connection verified. Using model ${saved.model}.`;
         out.className = "small ok";
         out.classList.remove("hidden");
         $("api-key").value = "";
@@ -1098,10 +1734,14 @@
     wireUpload();
     wireUploadOptions();
     wireModal();
+    wireDeleteModal();
+    loadLibrary();
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
     $("choose-another-btn").addEventListener("click", resetToEmpty);
+    $("empty-sample-btn").addEventListener("click", startSample);
+    $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);
     loadSetup();

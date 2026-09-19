@@ -10,9 +10,12 @@ use std::path::{Path, PathBuf};
 pub const PROVIDER_OPENAI: &str = "openai";
 pub const PROVIDER_ANTHROPIC: &str = "anthropic";
 pub const PROVIDER_OFFLINE: &str = "offline";
+pub const PROVIDER_LOCAL: &str = "local";
 
 pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
 pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-sonnet-4-5";
+/// Ollama's OpenAI-compatible endpoint; llama.cpp and LM Studio differ only by port.
+pub const DEFAULT_LOCAL_BASE_URL: &str = "http://localhost:11434/v1";
 
 /// The AI backends a user can configure. The stored setting stays a string
 /// (the on-disk format and wire API are unchanged); parse it and match
@@ -23,6 +26,7 @@ pub enum Provider {
     OpenAi,
     Anthropic,
     Offline,
+    Local,
 }
 
 impl Provider {
@@ -31,6 +35,7 @@ impl Provider {
             PROVIDER_OPENAI => Some(Self::OpenAi),
             PROVIDER_ANTHROPIC => Some(Self::Anthropic),
             PROVIDER_OFFLINE => Some(Self::Offline),
+            PROVIDER_LOCAL => Some(Self::Local),
             _ => None,
         }
     }
@@ -40,6 +45,7 @@ impl Provider {
             Self::OpenAi => PROVIDER_OPENAI,
             Self::Anthropic => PROVIDER_ANTHROPIC,
             Self::Offline => PROVIDER_OFFLINE,
+            Self::Local => PROVIDER_LOCAL,
         }
     }
 }
@@ -49,6 +55,10 @@ pub struct AiSettings {
     pub provider: String,
     #[serde(default)]
     pub model: String,
+    /// OpenAI-compatible base URL for the `local` provider (Ollama, llama.cpp,
+    /// LM Studio). Ignored by the cloud providers.
+    #[serde(default)]
+    pub base_url: String,
     /// Never serialized into API responses — see `public()`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
@@ -59,6 +69,7 @@ impl Default for AiSettings {
         AiSettings {
             provider: PROVIDER_OPENAI.into(),
             model: String::new(),
+            base_url: String::new(),
             api_key: None,
         }
     }
@@ -69,6 +80,7 @@ impl Default for AiSettings {
 pub struct PublicSettings {
     pub provider: String,
     pub model: String,
+    pub base_url: String,
     pub connected: bool,
 }
 
@@ -79,24 +91,50 @@ impl AiSettings {
         }
         match Provider::parse(&self.provider) {
             Some(Provider::Anthropic) => DEFAULT_ANTHROPIC_MODEL.into(),
+            // A local endpoint serves whatever model the user loaded; there is
+            // no sensible default name.
+            Some(Provider::Local) => String::new(),
             // Unknown stored values keep the historical default.
             _ => DEFAULT_OPENAI_MODEL.into(),
         }
     }
 
+    pub fn effective_base_url(&self) -> String {
+        let url = self.base_url.trim().trim_end_matches('/');
+        if url.is_empty() {
+            DEFAULT_LOCAL_BASE_URL.into()
+        } else {
+            url.to_string()
+        }
+    }
+
+    /// The stored API key, trimmed, or None when blank.
+    pub fn effective_key(&self) -> Option<&str> {
+        self.api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+    }
+
     pub fn connected(&self) -> bool {
-        self.provider == PROVIDER_OFFLINE
-            || self
-                .api_key
-                .as_deref()
-                .map(|k| !k.trim().is_empty())
-                .unwrap_or(false)
+        match Provider::parse(&self.provider) {
+            Some(Provider::Offline) => true,
+            // The base URL has a default; a local endpoint only counts as
+            // configured once the user names a model to run.
+            Some(Provider::Local) => !self.model.trim().is_empty(),
+            _ => self.effective_key().is_some(),
+        }
     }
 
     pub fn public(&self) -> PublicSettings {
         PublicSettings {
             provider: self.provider.clone(),
             model: self.effective_model(),
+            base_url: if Provider::parse(&self.provider) == Some(Provider::Local) {
+                self.effective_base_url()
+            } else {
+                self.base_url.clone()
+            },
             connected: self.connected(),
         }
     }
@@ -155,7 +193,12 @@ mod tests {
 
     #[test]
     fn provider_parse_round_trips_through_as_str() {
-        for p in [Provider::OpenAi, Provider::Anthropic, Provider::Offline] {
+        for p in [
+            Provider::OpenAi,
+            Provider::Anthropic,
+            Provider::Offline,
+            Provider::Local,
+        ] {
             assert_eq!(Provider::parse(p.as_str()), Some(p));
         }
     }
@@ -174,6 +217,7 @@ mod tests {
         let settings = AiSettings {
             provider: PROVIDER_ANTHROPIC.into(),
             model: "test-model".into(),
+            base_url: String::new(),
             api_key: Some("secret".into()),
         };
         save(&dir, &settings).unwrap();
@@ -194,5 +238,20 @@ mod tests {
             );
         }
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn local_provider_uses_default_base_url_and_needs_a_model() {
+        let mut settings = AiSettings {
+            provider: PROVIDER_LOCAL.into(),
+            ..AiSettings::default()
+        };
+        assert_eq!(settings.effective_base_url(), DEFAULT_LOCAL_BASE_URL);
+        assert!(!settings.connected());
+        settings.model = " qwen2.5:7b ".into();
+        assert!(settings.connected());
+        assert_eq!(settings.effective_model(), "qwen2.5:7b");
+        settings.base_url = "http://localhost:1234/v1/".into();
+        assert_eq!(settings.effective_base_url(), "http://localhost:1234/v1");
     }
 }

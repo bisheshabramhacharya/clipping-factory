@@ -161,6 +161,52 @@ pub async fn run_capture_cancellable(
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// [`run_capture_cancellable`] variant for tools whose report goes to stderr —
+/// ffmpeg `ametadata`/`silencedetect` both print there. Returns stderr then
+/// stdout concatenated, keeping cancellation control over the child.
+pub async fn run_capture_cancellable_all(
+    bin: &str,
+    args: &[String],
+    cancel: &CancellationToken,
+) -> Result<String> {
+    let bin_task = bin.to_string();
+    let args = args.to_vec();
+    let mut task = tokio::spawn(async move {
+        Command::new(&bin_task)
+            .args(&args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .output()
+            .await
+            .with_context(|| format!("failed to start `{}`", bin_task))
+    });
+
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => {
+            task.abort();
+            let _ = task.await;
+            bail!("cancelled");
+        }
+        result = &mut task => {
+            let out = result.context("subprocess capture failed")??;
+            let mut all = String::from_utf8_lossy(&out.stderr).into_owned();
+            all.push_str(&String::from_utf8_lossy(&out.stdout));
+            if !out.status.success() {
+                bail!(
+                    "`{}` exited with {} — {}",
+                    bin,
+                    out.status.code().unwrap_or(-1),
+                    all.lines().last().unwrap_or("").trim()
+                );
+            }
+            Ok(all)
+        }
+    }
+}
+
 /// Whether this FFmpeg build can burn the generated ASS captions.
 pub async fn ffmpeg_has_ass(bin: &str) -> bool {
     let args = ["-hide_banner".into(), "-filters".into()];

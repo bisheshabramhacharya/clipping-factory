@@ -14,6 +14,7 @@
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
+//! GET    /api/projects/{id}/clips/{clipId}/export/{kind}  export pack sidecar (srt|vtt|meta)
 //! POST   /api/projects/{id}/clips/{clipId}/restyle   re-burn captions (style/color)
 //! POST   /api/projects/{id}/open-output-folder
 
@@ -45,6 +46,7 @@ pub fn router(state: AppState) -> Router {
         .route("/app.js", get(app_js))
         .route("/review.js", get(review_js))
         .route("/api/setup", get(setup_status))
+        .route("/api/stats", get(get_stats))
         .route("/api/settings/ai", get(get_settings).post(set_settings))
         .route("/api/settings/ai/test", post(test_settings))
         .route(
@@ -53,6 +55,7 @@ pub fn router(state: AppState) -> Router {
                 .post(create_project)
                 .layer(DefaultBodyLimit::disable()),
         )
+        .route("/api/projects/sample", post(create_sample_project))
         .route(
             "/api/projects/{id}",
             get(get_project).delete(delete_project),
@@ -65,6 +68,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/projects/{id}/clips/{clip}/download",
             get(serve_clip_download),
+        )
+        .route(
+            "/api/projects/{id}/clips/{clip}/export/{kind}",
+            get(serve_clip_export),
         )
         .route(
             "/api/projects/{id}/clips/{clip}/restyle",
@@ -216,6 +223,11 @@ async fn setup_status(State(state): State<AppState>) -> Json<serde_json::Value> 
         .as_ref()
         .and_then(|p| std::fs::metadata(p).ok())
         .map(|m| m.len() / 1_000_000);
+    let model_multilingual = cfg
+        .whisper_model
+        .as_deref()
+        .map(crate::config::model_is_multilingual)
+        .unwrap_or(false);
     let disk = crate::util::disk_free_gb(&cfg.data_dir).await;
     Json(json!({
         "ffmpeg": ffmpeg_ok,
@@ -225,9 +237,15 @@ async fn setup_status(State(state): State<AppState>) -> Json<serde_json::Value> 
         "whisper_ok": cfg.whisper_bin.is_some(),
         "model_ok": cfg.whisper_model.is_some(),
         "model_mb": model_size,
+        "model_multilingual": model_multilingual,
+        "whisper_languages": crate::transcribe::WHISPER_LANGUAGES
+            .iter()
+            .map(|(code, name)| json!({ "code": code, "name": name }))
+            .collect::<Vec<_>>(),
         "face_model_ok": cfg.face_model.is_some(),
         "caption_font": cfg.caption_font,
         "caption_fonts": crate::captions::CAPTION_FONTS,
+        "caption_styles": crate::captions::CAPTION_STYLES,
         "accent_palette": crate::accent::ACCENT_PALETTE,
         "disk_free_gb": disk,
         "data_dir": cfg.data_dir.to_string_lossy(),
@@ -246,6 +264,8 @@ struct SettingsIn {
     #[serde(default)]
     model: String,
     #[serde(default)]
+    base_url: String,
+    #[serde(default)]
     api_key: String,
 }
 
@@ -256,13 +276,14 @@ async fn set_settings(
     let _update = state.settings_update.lock().await;
     if crate::settings::Provider::parse(&body.provider).is_none() {
         return Err(bad_request(
-            "provider must be openai, anthropic, or offline",
+            "provider must be openai, anthropic, local, or offline",
         ));
     }
     let updated = {
         let mut candidate = state.settings.read().unwrap().clone();
         candidate.provider = body.provider;
         candidate.model = body.model;
+        candidate.base_url = body.base_url;
         // Empty key = keep the existing one (lets users switch model without retyping).
         if !body.api_key.trim().is_empty() {
             candidate.api_key = Some(body.api_key.trim().to_string());
@@ -303,7 +324,11 @@ struct UploadFields {
     original_name: String,
     caption_style: Option<String>,
     accent_color: Option<String>,
+    emoji_overlay: Option<bool>,
     framing_mode: FramingMode,
+    language: Option<String>,
+    focus_prompt: Option<String>,
+    platform: Platform,
 }
 
 const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -412,8 +437,12 @@ async fn receive_upload(
     let mut wrote_bytes: u64 = 0;
     let mut caption_style: Option<String> = None;
     let mut accent_color: Option<String> = None;
+    let mut emoji_overlay: Option<bool> = None;
     let mut accent_mode = crate::accent::AccentMode::default();
     let mut framing_mode = FramingMode::default();
+    let mut language: Option<String> = None;
+    let mut focus_prompt: Option<String> = None;
+    let mut platform = Platform::default();
     let mut saw_file = false;
 
     while let Some(mut field) = multipart
@@ -426,6 +455,11 @@ async fn receive_upload(
             if crate::captions::CaptionStyle::parse_strict(&v).is_some() {
                 caption_style = Some(v);
             }
+            continue;
+        }
+        if field.name() == Some("emoji_overlay") {
+            let v = read_multipart_text(field).await?.trim().to_lowercase();
+            emoji_overlay = Some(matches!(v.as_str(), "1" | "true" | "on" | "yes"));
             continue;
         }
         if field.name() == Some("accent_color") {
@@ -451,6 +485,31 @@ async fn receive_upload(
                 "background" => FramingMode::Background,
                 _ => FramingMode::Fill,
             };
+            continue;
+        }
+        if field.name() == Some("language") {
+            let v = read_multipart_text(field).await?;
+            let v = v.trim().to_lowercase();
+            if v.is_empty() || v == "auto" {
+                continue;
+            }
+            if crate::transcribe::language_name(&v).is_none() {
+                return Err(bad_request(
+                    "language must be auto or a supported whisper language code",
+                ));
+            }
+            language = Some(v);
+            continue;
+        }
+        if field.name() == Some("focus_prompt") {
+            let v = read_multipart_text(field).await?;
+            focus_prompt = Some(v.trim().to_string()).filter(|s| !s.is_empty());
+            continue;
+        }
+        if field.name() == Some("platform") {
+            let v = read_multipart_text(field).await?;
+            platform = Platform::parse(&v)
+                .ok_or_else(|| bad_request("platform must be any, tiktok, reels, or shorts"))?;
             continue;
         }
         if field.name() != Some("file") {
@@ -527,7 +586,11 @@ async fn receive_upload(
         original_name,
         caption_style,
         accent_color,
+        emoji_overlay,
         framing_mode,
+        language,
+        focus_prompt,
+        platform,
     })
 }
 
@@ -549,7 +612,11 @@ async fn create_project(
     let mut project = Project::new(id.clone(), state.store.source_path(&id));
     project.caption_style = fields.caption_style;
     project.accent_color = fields.accent_color;
+    project.emoji_overlay = fields.emoji_overlay;
     project.framing_mode = fields.framing_mode;
+    project.language = fields.language;
+    project.focus_prompt = fields.focus_prompt;
+    project.platform = fields.platform;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
         cleanup.disarm();
@@ -570,6 +637,101 @@ async fn create_project(
 
     let view = project_view(&state, &id).await.map_err(ApiError::from)?;
     Ok(Json(view))
+}
+
+/// POST /api/projects/sample — the zero-input first run: make a project from
+/// the bundled sample episode and start the pipeline immediately.
+async fn create_sample_project(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let sample = state
+        .cfg
+        .sample_episode
+        .clone()
+        .ok_or_else(|| bad_request("No bundled sample episode on this install."))?;
+
+    let id = crate::util::short_id();
+    let mut cleanup = UploadCleanupGuard::new(state.store.project_dir(&id));
+    if let Err(error) = state.store.create_dirs(&id).await {
+        cleanup.disarm();
+        return Err(ApiError::from(error));
+    }
+    if let Err(error) = tokio::fs::copy(&sample, state.store.source_path(&id)).await {
+        cleanup_upload(&state, &id).await;
+        cleanup.disarm();
+        return Err(ApiError::from(anyhow::Error::from(error)));
+    }
+
+    let mut project = Project::new(id.clone(), state.store.source_path(&id));
+    // The sample's speech is synthesized English — skip auto-detect.
+    project.language = Some("en".into());
+    if let Err(error) = state.store.save_project(&project).await {
+        cleanup_upload(&state, &id).await;
+        cleanup.disarm();
+        return Err(ApiError::from(error));
+    }
+    cleanup.disarm();
+    tokio::fs::write(
+        state.store.project_dir(&id).join("original-name.txt"),
+        "sample-episode.mp4",
+    )
+    .await
+    .ok();
+
+    pipeline::start(state.clone(), id.clone()).await.ok();
+    let view = project_view(&state, &id).await.map_err(ApiError::from)?;
+    Ok(Json(view))
+}
+
+/// GET /api/stats — build-in-public numbers computed from saved project
+/// state: hours processed, clips rendered, validator accept/reject counts.
+async fn get_stats(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let mut projects = 0u64;
+    let mut processed_ms: u64 = 0;
+    let mut clips_rendered = 0u64;
+    let mut accepted = 0u64;
+    let mut rejected = 0u64;
+
+    for id in state.store.project_ids().await {
+        let Ok(project) = state.store.load_project(&id).await else {
+            continue;
+        };
+        projects += 1;
+        if let Some(source) = &project.source {
+            processed_ms += source.duration_ms;
+        }
+        if let Ok(manifest) = state.store.load_manifest(&id).await {
+            clips_rendered += manifest
+                .clips
+                .iter()
+                .filter(|c| c.status == ClipStatus::Ready)
+                .count() as u64;
+        }
+        if let Ok(raw) = tokio::fs::read(state.store.candidates_path(&id)).await {
+            if let Ok(report) = serde_json::from_slice::<SelectionReport>(&raw) {
+                accepted += report.accepted.len() as u64;
+                rejected += report.rejected.len() as u64;
+            }
+        }
+    }
+
+    let evaluated = accepted + rejected;
+    Json(json!({
+        "projects": projects,
+        "hours_processed": (processed_ms as f64 / 36_000.0).round() / 100.0,
+        "clips_rendered": clips_rendered,
+        "validator": {
+            "accepted": accepted,
+            "rejected": rejected,
+            // Share of candidates that failed the bar — null until the first
+            // selection run exists.
+            "rejection_rate_pct": if evaluated > 0 {
+                Some((rejected as f64 / evaluated as f64 * 1000.0).round() / 10.0)
+            } else {
+                None
+            },
+        },
+    }))
 }
 
 async fn get_project(
@@ -632,6 +794,7 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
                         "start_ms": r.candidate.start_ms,
                         "end_ms": r.candidate.end_ms,
                         "reasons": r.reasons,
+                        "score": crate::validate::composite_score(&r.candidate.scores),
                     })
                 })
                 .collect()
@@ -717,6 +880,9 @@ struct LibraryEntry {
     width: Option<u32>,
     height: Option<u32>,
     duration_ms: Option<u64>,
+    /// Working-directory footprint on disk: recursive file count and bytes.
+    file_count: u64,
+    size_bytes: u64,
     clips_total: usize,
     clips_ready: usize,
     clips_failed: usize,
@@ -733,7 +899,10 @@ async fn library_entries(store: &crate::store::Store) -> Vec<LibraryEntry> {
             continue;
         };
         let manifest = store.load_manifest(&id).await.ok();
+        let (file_count, size_bytes) = store.dir_stats(&id).await;
         entries.push(LibraryEntry {
+            file_count,
+            size_bytes,
             clips_total: manifest.as_ref().map(|m| m.clips.len()).unwrap_or(0),
             clips_ready: manifest
                 .as_ref()
@@ -771,14 +940,22 @@ async fn list_projects(State(state): State<AppState>) -> Json<serde_json::Value>
     Json(json!(library_entries(&state.store).await))
 }
 
+/// Remove a project's local data. Idempotent by absence: deleting a project
+/// that is already gone answers 404, the same as any unknown id.
 async fn delete_project(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    let handle = state.handle(&id);
+    // The operation lock serializes deletion against start/retry transitions
+    // and in-flight restyles, which all hold it for their mutation. A run
+    // itself only takes it to start — `is_running` catches the live run.
+    let _operation = handle.operation.lock().await;
+    // Re-check under the lock: a racing delete may have emptied the dir.
     if !state.store.exists(&id) {
         return Err(not_found("Project not found."));
     }
-    if state.handle(&id).is_running() {
+    if handle.is_running() {
         return Err(ApiError(
             StatusCode::CONFLICT,
             "Processing is running for this project. Cancel it before deleting.".into(),
@@ -789,6 +966,7 @@ async fn delete_project(
     tokio::fs::remove_dir_all(state.store.project_dir(&id))
         .await
         .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    state.drop_handle(&id);
     Ok(Json(json!({ "deleted": true })))
 }
 
@@ -823,7 +1001,8 @@ async fn project_events(
 
 #[derive(serde::Deserialize)]
 struct RestyleIn {
-    /// "impact" | "clean". Omitted = keep the clip's current style.
+    /// "impact" | "clean" | "pop" | "cinema". Omitted = keep the clip's
+    /// current style.
     #[serde(default)]
     style: Option<String>,
     /// `#RRGGBB`. Omitted = keep the clip's current accent.
@@ -835,6 +1014,23 @@ struct RestyleIn {
     /// Replacement caption wording. Omitted = keep the current text.
     #[serde(default)]
     caption_text: Option<String>,
+    /// Emoji accent overlay on/off. Omitted = keep the clip's current setting.
+    #[serde(default)]
+    emoji_overlay: Option<bool>,
+    /// Auto-cut toggle: remove silence gaps and filler words at render.
+    /// Omitted = keep the clip's current setting.
+    #[serde(default)]
+    auto_cut: Option<bool>,
+    /// Zoom cuts toggle: subtle punch-in/out on emphasis beats inside the
+    /// Locked crop. Omitted = keep the clip's current setting.
+    #[serde(default)]
+    zoom_cuts: Option<bool>,
+    /// Opt-in "Made with Clipping Factory" tail — flips re-render.
+    end_card: Option<bool>,
+    /// Opt-in accent progress bar — flips re-render.
+    progress_bar: Option<bool>,
+    /// Opt-in hook title card over the clip's opening — flips re-render.
+    hook_title: Option<bool>,
 }
 
 /// Releases the per-clip restyle lock on every exit path.
@@ -894,7 +1090,7 @@ async fn restyle_clip(
         .iter()
         .position(|c| c.id == clip_id)
         .ok_or_else(|| not_found("Clip not found."))?;
-    let clip = manifest.clips[idx].clone();
+    let mut clip = manifest.clips[idx].clone();
     if clip.status != ClipStatus::Ready {
         return Err(ApiError(
             StatusCode::CONFLICT,
@@ -902,11 +1098,44 @@ async fn restyle_clip(
         ));
     }
 
+    // Auto-cut toggle: flipping it drops the stored cut list so the new
+    // render plans fresh — and the other variant's base stays on disk, so
+    // toggling back reuses it without re-rendering.
+    if let Some(on) = body.auto_cut {
+        if on != clip.auto_cut {
+            clip.auto_cut = on;
+            clip.cut_spans = None;
+        }
+    }
+    // Zoom cuts toggle: flipping it drops the stored key list so the new
+    // render plans fresh — and the other variant's base stays on disk, so
+    // toggling back reuses it without re-rendering.
+    if let Some(on) = body.zoom_cuts {
+        if on != clip.zoom_cuts {
+            clip.zoom_cuts = on;
+            clip.zoom_keys = None;
+        }
+    }
+    // End card: deterministic tail — nothing to replan, the key just moves
+    // this variant to its own base.
+    if let Some(on) = body.end_card {
+        clip.end_card = on;
+    }
+    if let Some(on) = body.progress_bar {
+        clip.progress_bar = on;
+    }
+    // Hook title: deterministic overlay — nothing to replan, the key just
+    // moves this variant to its own base.
+    if let Some(on) = body.hook_title {
+        clip.hook_title = on;
+    }
+
     let cfg = &state.cfg;
 
     let style = match body.style.as_deref() {
-        Some(s) => CaptionStyle::parse_strict(s)
-            .ok_or_else(|| bad_request("style must be \"impact\" or \"clean\""))?,
+        Some(s) => CaptionStyle::parse_strict(s).ok_or_else(|| {
+            bad_request("style must be one of \"impact\", \"clean\", \"pop\", \"cinema\"")
+        })?,
         None => CaptionStyle::from_str(clip.caption_style.as_deref().unwrap_or("impact")),
     };
     let accent_hex = match body.accent_color.as_deref() {
@@ -937,6 +1166,7 @@ async fn restyle_clip(
         .caption_text
         .map(|text| text.trim().to_string())
         .or_else(|| clip.caption_text.clone());
+    let emoji_overlay = body.emoji_overlay.or(clip.emoji_overlay).unwrap_or(false);
 
     let p = state
         .store
@@ -951,12 +1181,56 @@ async fn restyle_clip(
     })?;
     let cancel = tokio_util::sync::CancellationToken::new();
 
+    // Auto-cut: the cut list is computed once and stored on the clip, so a
+    // later restyle reproduces the identical cut without re-detecting.
+    if clip.auto_cut && clip.cut_spans.is_none() {
+        let energy = state.store.load_energy(&id).await;
+        let removals = crate::autocut::plan_for_clip(
+            cfg,
+            &p.source_path,
+            &transcript.words,
+            clip.start_ms,
+            clip.end_ms,
+            energy.as_ref(),
+            &cancel,
+        )
+        .await
+        .map_err(ApiError::from)?;
+        clip.cut_spans = Some(removals);
+    }
+    let removals = clip.effective_removals();
+    let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
+    let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+    // The end card lengthens the file but not the caption timeline — keep
+    // it out of zoom planning, count it in render progress and duration.
+    let card_ms = crate::render::end_card_ms(cfg, clip.end_card);
+    // Zoom cuts: the key list is planned once and stored on the clip, so a
+    // later restyle reproduces the identical zoom. Beats land on the
+    // post-cut timeline, so this runs after the removals above are known.
+    if clip.zoom_cuts && clip.zoom_keys.is_none() {
+        let energy = state.store.load_energy(&id).await;
+        let caption_words = with_caption_text(
+            &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+            caption_text.as_deref(),
+        );
+        let keys = crate::zoom::plan(
+            clip.start_ms,
+            clip.end_ms,
+            &caption_words,
+            energy.as_ref(),
+            removals,
+            out_dur_ms,
+        );
+        clip.zoom_keys = Some(keys);
+    }
+    let base_key = clip.base_key();
+
     // Ensure the framed, uncaptioned base exists (projects rendered before
     // base intermediates existed rebuild it here from the source, one time).
-    let base_path = state.store.base_clip_path(&id, &clip.id);
+    let base_path = state.store.base_clip_path(&id, &base_key);
     let mut base_ready = state
         .store
-        .base_is_ready(&id, &clip.id)
+        .base_is_ready(&id, &base_key)
         .await
         .map_err(ApiError::from)?;
     // Captions are authored against the base clip's real size. Manifests from
@@ -973,7 +1247,7 @@ async fn restyle_clip(
     {
         state
             .store
-            .mark_base_ready(&id, &clip.id)
+            .mark_base_ready(&id, &base_key)
             .await
             .map_err(ApiError::from)?;
         base_ready = true;
@@ -995,7 +1269,7 @@ async fn restyle_clip(
             .await
             .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
         tokio::fs::remove_file(&base_path).await.ok();
-        state.store.clear_base_ready(&id, &clip.id).await;
+        state.store.clear_base_ready(&id, &base_key).await;
         let base_temp = crate::util::unique_temp_path(&base_path);
         crate::render::render_base_clip(
             cfg,
@@ -1004,6 +1278,16 @@ async fn restyle_clip(
             &clip.layout,
             clip.start_ms,
             clip.end_ms,
+            &keeps,
+            clip.effective_zoom_keys(),
+            clip.end_card,
+            clip.progress_bar.then_some(accent_hex.as_str()),
+            clip.hook_title.then_some(crate::render::HookSpec {
+                headline: &clip.headline,
+                font: caption_font.as_str(),
+                face: style.face(&caption_font),
+                caps: style.uses_caps(),
+            }),
             &base_temp,
             &cancel,
             |_| {},
@@ -1015,31 +1299,46 @@ async fn restyle_clip(
             .map_err(ApiError::from)?;
         state
             .store
-            .mark_base_ready(&id, &clip.id)
+            .mark_base_ready(&id, &base_key)
             .await
             .map_err(ApiError::from)?;
         // A base rebuilt today renders at the downscale-only size.
         out_dims = crate::render::output_size(&source, &clip.layout);
     }
 
-    // Build the new captions and burn them onto the base.
-    let words = with_caption_text(
-        &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
-        caption_text.as_deref(),
+    // Build the new captions and burn them onto the base. Auto-cut moves
+    // the words onto the cut timeline; the toggle-off path is unchanged.
+    let words = crate::autocut::retime_words(
+        &with_caption_text(
+            &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
+            caption_text.as_deref(),
+        ),
+        clip.effective_removals(),
     );
-    let ass = build_ass(
-        &CaptionInput {
-            words: &words,
-            clip_start_ms: clip.start_ms,
-            clip_end_ms: clip.end_ms,
-            headline: &clip.headline,
-            font: &caption_font,
-            accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
-            out_w: out_dims.0,
-            out_h: out_dims.1,
-        },
-        style,
-    );
+    // Speaker tags ride along when the project was diarized (turns shift to
+    // the output timeline with the words).
+    let clip_diar = state
+        .store
+        .load_diarization(&id)
+        .await
+        .map(|d| Diarization {
+            labels: d.labels,
+            turns: crate::autocut::retime_turns(&d.turns, clip.effective_removals()),
+        });
+    let caption_input = CaptionInput {
+        words: &words,
+        clip_start_ms: clip.start_ms,
+        clip_end_ms: clip.start_ms + out_dur_ms,
+        headline: &clip.headline,
+        font: &caption_font,
+        accent_bgr: accent_bgr_for(style, Some(&accent_hex)),
+        emoji_overlay,
+        out_w: out_dims.0,
+        out_h: out_dims.1,
+        diarization: clip_diar.as_ref(),
+    };
+    let ass = build_ass(&caption_input, style);
+    let srt = crate::captions::build_srt(&caption_input);
     let clips_dir = state.store.clips_dir(&id);
     let final_path = clips_dir.join(&clip.filename);
     let ass_path =
@@ -1053,7 +1352,7 @@ async fn restyle_clip(
         &base_path,
         &ass_path,
         &tmp_out,
-        clip.end_ms.saturating_sub(clip.start_ms),
+        out_dur_ms + card_ms,
         &cancel,
         |_| {},
     )
@@ -1069,23 +1368,78 @@ async fn restyle_clip(
     crate::util::promote_atomic(&tmp_out, &final_path)
         .await
         .map_err(ApiError::from)?;
+    tokio::fs::write(final_path.with_extension("srt"), &srt)
+        .await
+        .ok();
     state
         .store
         .mark_final_ready(&id, &clip.id)
         .await
         .map_err(ApiError::from)?;
+
+    // The export pack follows the burned captions: .srt/.vtt regenerate from
+    // the new wording, and meta.json is written when missing (clips rendered
+    // before export packs existed). Sidecar failures never undo a restyle.
+    if let Err(e) = crate::export::write_caption_files(
+        &clips_dir,
+        &clip.filename,
+        &words,
+        clip.start_ms,
+        clip.end_ms,
+    )
+    .await
+    {
+        tracing::warn!(clip = %clip.id, "caption sidecar rewrite failed: {e:#}");
+    }
+    if !crate::export::meta_path(&clips_dir, &clip.filename).is_file() {
+        if let Some(source) = p.source.as_ref() {
+            let settings = state.settings.read().unwrap().clone();
+            let input = crate::export::MetaInput {
+                clip: &clip,
+                source,
+                words: &words,
+                project_id: &id,
+                selector: p.selector.as_deref(),
+                caption_style: Some(style.label()),
+            };
+            if let Err(e) =
+                crate::export::write_meta_file(&clips_dir, &input, &settings, &cancel).await
+            {
+                tracing::warn!(clip = %clip.id, "meta sidecar write failed: {e:#}");
+            }
+        }
+    }
     if let Some(dir) = manifest.output_dir.clone() {
-        tokio::fs::copy(&final_path, std::path::Path::new(&dir).join(&clip.filename))
-            .await
-            .ok();
+        let dir = std::path::Path::new(&dir);
+        for name in [
+            clip.filename.clone(),
+            crate::export::srt_name(&clip.filename),
+            crate::export::vtt_name(&clip.filename),
+            crate::export::meta_name(&clip.filename),
+            crate::export::poster_name(&clip.filename),
+        ] {
+            tokio::fs::copy(clips_dir.join(&name), dir.join(&name))
+                .await
+                .ok();
+        }
     }
 
     manifest.clips[idx].caption_style = Some(style.label().to_string());
     manifest.clips[idx].accent_color = Some(accent_hex);
     manifest.clips[idx].caption_font = Some(caption_font);
     manifest.clips[idx].caption_text = caption_text;
+    manifest.clips[idx].emoji_overlay = Some(emoji_overlay);
     manifest.clips[idx].width = Some(out_dims.0);
     manifest.clips[idx].height = Some(out_dims.1);
+    manifest.clips[idx].auto_cut = clip.auto_cut;
+    manifest.clips[idx].cut_spans = clip.cut_spans.clone();
+    manifest.clips[idx].zoom_cuts = clip.zoom_cuts;
+    manifest.clips[idx].zoom_keys = clip.zoom_keys.clone();
+    manifest.clips[idx].end_card = clip.end_card;
+    manifest.clips[idx].progress_bar = clip.progress_bar;
+    manifest.clips[idx].hook_title = clip.hook_title;
+    // Auto-cut shortens the clip — report the rendered length.
+    manifest.clips[idx].duration_ms = out_dur_ms + card_ms;
     state
         .store
         .save_manifest(&id, &manifest)
@@ -1142,6 +1496,52 @@ async fn serve_clip_download(
 ) -> Result<Response, ApiError> {
     let (clip, path) = find_clip(&state, &id, &clip_id).await?;
     serve_video(&path, &headers, Some(clip.filename)).await
+}
+
+/// One export-pack sidecar for a rendered clip: `srt`, `vtt`, or `meta`
+/// (also `meta.json`). Always an attachment — these are carry-out files.
+async fn serve_clip_export(
+    State(state): State<AppState>,
+    AxPath((id, clip_id, kind)): AxPath<(String, String, String)>,
+) -> Result<Response, ApiError> {
+    let (clip, _mp4) = find_clip(&state, &id, &clip_id).await?;
+    let (filename, content_type) = match kind.as_str() {
+        "srt" => (
+            crate::export::srt_name(&clip.filename),
+            "application/x-subrip; charset=utf-8",
+        ),
+        "vtt" => (
+            crate::export::vtt_name(&clip.filename),
+            "text/vtt; charset=utf-8",
+        ),
+        "meta" | "meta.json" => (
+            crate::export::meta_name(&clip.filename),
+            "application/json; charset=utf-8",
+        ),
+        "poster" | "jpg" => (crate::export::poster_name(&clip.filename), "image/jpeg"),
+        _ => {
+            return Err(not_found(
+                "Unknown export kind. Use srt, vtt, meta, or poster.",
+            ))
+        }
+    };
+    let path = state.store.clips_dir(&id).join(&filename);
+    if !path.is_file() {
+        return Err(not_found("That export file is not on disk for this clip."));
+    }
+    let body = tokio::fs::read(&path)
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+    Response::builder()
+        .header(header::CONTENT_TYPE, content_type)
+        // Sidecars rewrite in place when captions are restyled.
+        .header(header::CACHE_CONTROL, "no-store")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(axum::body::Body::from(body))
+        .map_err(|e| ApiError::from(anyhow::Error::from(e)))
 }
 
 async fn serve_video(
@@ -1312,6 +1712,7 @@ mod tests {
             video_codec: "h264".into(),
             audio_codec: "aac".into(),
             size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
         });
         store.save_project(&older).await.unwrap();
         // Corrupt entry must be skipped, not fatal.
@@ -1413,6 +1814,337 @@ mod tests {
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 
+    fn delete_request(id: &str) -> Request<Body> {
+        Request::builder()
+            .method(Method::DELETE)
+            .uri(format!("/api/projects/{id}"))
+            .header(header::HOST, "localhost:4571")
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    async fn make_project(store: &crate::store::Store, id: &str) {
+        store.create_dirs(id).await.unwrap();
+        store
+            .save_project(&Project::new(id.to_string(), store.source_path(id)))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn delete_removes_the_directory_forgets_the_handle_and_404s_after() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        make_project(&store, "del-proj").await;
+        tokio::fs::write(store.source_path("del-proj"), b"mp4")
+            .await
+            .unwrap();
+        let stale = state.handle("del-proj");
+        let app = router(state.clone());
+
+        let res = app
+            .clone()
+            .oneshot(delete_request("del-proj"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        assert!(!store.project_dir("del-proj").exists());
+        assert!(
+            !std::sync::Arc::ptr_eq(&stale, &state.handle("del-proj")),
+            "deleted project must not keep its old runtime handle"
+        );
+
+        let get = app
+            .clone()
+            .oneshot(
+                Request::get("/api/projects/del-proj")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get.status(), StatusCode::NOT_FOUND);
+        // Idempotent: a second delete reports not-found, not an error.
+        let res = app.oneshot(delete_request("del-proj")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn delete_while_processing_conflicts_and_keeps_everything() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        make_project(&store, "busy-proj").await;
+        let lease = state
+            .handle("busy-proj")
+            .try_start()
+            .expect("run should start");
+        let app = router(state.clone());
+
+        let res = app.oneshot(delete_request("busy-proj")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        assert!(store.exists("busy-proj"));
+        assert!(store.project_dir("busy-proj").is_dir());
+
+        state.handle("busy-proj").finish(lease.generation);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn delete_is_guarded_like_every_other_mutation() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        make_project(&store, "guard-proj").await;
+        let app = router(state.clone());
+        let guarded = |host: &'static str, fetch_site: Option<&'static str>| {
+            let mut builder = Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/projects/guard-proj")
+                .header(header::HOST, host);
+            if let Some(fetch_site) = fetch_site {
+                builder = builder.header("sec-fetch-site", fetch_site);
+            }
+            builder.body(Body::empty()).unwrap()
+        };
+        assert_eq!(
+            app.clone()
+                .oneshot(guarded("example.com", None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(guarded("127.0.0.1:4571", Some("cross-site")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert!(store.exists("guard-proj"));
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn stats_endpoint_aggregates_projects_clips_and_validator_counts() {
+        let (state, tmp) = test_state();
+        let store = &state.store;
+        // One project with a probed source, one ready clip, and a selection
+        // report that rejected half its candidates.
+        store.create_dirs("stats-p").await.unwrap();
+        let mut p = Project::new("stats-p".into(), store.source_path("stats-p"));
+        p.source = Some(SourceInfo {
+            filename: "ep.mp4".into(),
+            duration_ms: 3_600_000,
+            width: 1280,
+            height: 720,
+            fps: 30.0,
+            video_codec: "h264".into(),
+            audio_codec: "aac".into(),
+            size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
+        });
+        store.save_project(&p).await.unwrap();
+        store
+            .save_manifest(
+                "stats-p",
+                &RenderManifest {
+                    clips: vec![ClipRecord {
+                        id: "c1".into(),
+                        rank: 1,
+                        headline: "h".into(),
+                        filename: "c1.mp4".into(),
+                        start_ms: 0,
+                        end_ms: 30_000,
+                        duration_ms: 30_000,
+                        selection_reason: "r".into(),
+                        scores: Scores {
+                            self_contained: 5,
+                            opening_strength: 5,
+                            specificity: 5,
+                            tension_or_novelty: 5,
+                            payoff: 5,
+                            clarity: 5,
+                            context_dependency: 0,
+                            slop_risk: 0,
+                        },
+                        score: Some(20.0),
+                        layout: LayoutPlan::BlurPad,
+                        status: ClipStatus::Ready,
+                        error: None,
+                        low_confidence: false,
+                        caption_style: None,
+                        accent_color: None,
+                        caption_font: None,
+                        caption_text: None,
+                        emoji_overlay: None,
+                        width: None,
+                        height: None,
+                        auto_cut: false,
+                        cut_spans: None,
+                        zoom_cuts: false,
+                        zoom_keys: None,
+                        end_card: false,
+                        progress_bar: false,
+                        hook_title: false,
+                    }],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let cand = || {
+            serde_json::json!({
+                "start_ms": 0, "end_ms": 30_000, "headline": "h",
+                "opening_quote": "a", "closing_quote": "b",
+                "selection_reason": "r",
+                "scores": { "self_contained": 5, "opening_strength": 5,
+                            "specificity": 5, "tension_or_novelty": 5,
+                            "payoff": 5, "clarity": 5,
+                            "context_dependency": 0, "slop_risk": 0 },
+            })
+        };
+        let report = serde_json::json!({
+            "selector": "test",
+            "accepted": [{ "rank": 1, "candidate": cand(), "composite": 1.0, "duration_exception": false }],
+            "rejected": [{ "candidate": cand(), "reasons": ["x"] }],
+        });
+        tokio::fs::write(store.candidates_path("stats-p"), report.to_string())
+            .await
+            .unwrap();
+
+        let app = router(state);
+        let res = app
+            .oneshot(
+                Request::get("/api/stats")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["projects"].as_u64().unwrap(), 1);
+        assert_eq!(v["hours_processed"].as_f64().unwrap(), 1.0);
+        assert_eq!(v["clips_rendered"].as_u64().unwrap(), 1);
+        assert_eq!(v["validator"]["accepted"].as_u64().unwrap(), 1);
+        assert_eq!(v["validator"]["rejected"].as_u64().unwrap(), 1);
+        assert_eq!(v["validator"]["rejection_rate_pct"].as_f64().unwrap(), 50.0);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn sample_project_copies_the_bundled_episode_and_starts() {
+        let (state, tmp) = {
+            let tmp = std::env::temp_dir().join(format!("cf-api-{}", crate::util::short_id()));
+            std::fs::create_dir_all(&tmp).unwrap();
+            let mut cfg = crate::config::Config::resolve();
+            cfg.data_dir = tmp.join("data");
+            cfg.output_root = tmp.join("output");
+            let sample = tmp.join("sample-episode.mp4");
+            std::fs::write(&sample, b"fake mp4 bytes").unwrap();
+            cfg.sample_episode = Some(sample);
+            (AppState::new(cfg), tmp)
+        };
+        let app = router(state);
+        let res = app
+            .oneshot(
+                Request::post("/api/projects/sample")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let id = v["project"]["id"].as_str().unwrap();
+        let store = crate::store::Store::new(&tmp.join("data"));
+        let project = store.load_project(id).await.unwrap();
+        assert_eq!(project.language.as_deref(), Some("en"));
+        assert!(tokio::fs::metadata(store.source_path(id)).await.is_ok());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn local_provider_saves_and_tests_against_the_endpoint() {
+        let (state, tmp) = test_state();
+        let base_url =
+            crate::select::local::test_server::spawn(vec!["qwen2.5:7b".into()], "{}".into()).await;
+        let app = router(state);
+
+        let save = app
+            .clone()
+            .oneshot(
+                Request::post("/api/settings/ai")
+                    .header(header::HOST, "localhost:4571")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(
+                        r#"{{"provider":"local","model":"qwen2.5:7b","base_url":"{base_url}"}}"#
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(save.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(save.into_body(), 8 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["provider"], "local");
+        assert_eq!(v["base_url"], base_url);
+        assert_eq!(v["connected"], true);
+
+        let test = app
+            .oneshot(
+                Request::post("/api/settings/ai/test")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(test.into_body(), 8 * 1024)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["ok"], true);
+
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn local_provider_rejects_an_endpoint_without_the_model() {
+        let (state, tmp) = test_state();
+        // The stub serves `other-model`, not the requested one.
+        let base_url =
+            crate::select::local::test_server::spawn(vec!["other-model".into()], "{}".into()).await;
+        let app = router(state);
+        let save = app
+            .oneshot(
+                Request::post("/api/settings/ai")
+                    .header(header::HOST, "localhost:4571")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(
+                        r#"{{"provider":"local","model":"qwen2.5:7b","base_url":"{base_url}"}}"#
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(save.status(), StatusCode::BAD_REQUEST);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
     #[tokio::test]
     async fn router_keeps_json_limit_on_api_routes() {
         let (state, tmp) = test_state();
@@ -1483,6 +2215,83 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn upload_accepts_an_optional_focus_prompt() {
+        let (state, tmp) = test_state();
+        let boundary = "cf-focus-upload";
+        let build = |focus: &str| {
+            Request::builder()
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(format!(
+                    "--{boundary}\r\nContent-Disposition: form-data; name=\"focus_prompt\"\r\n\r\n{focus}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\nx\r\n--{boundary}--\r\n"
+                )))
+                .unwrap()
+        };
+
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("clips about pricing"), &())
+            .await
+            .unwrap();
+        let fields = receive_upload(&state, &id, multipart).await.unwrap();
+        assert_eq!(fields.focus_prompt.as_deref(), Some("clips about pricing"));
+
+        let blank_id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("   "), &()).await.unwrap();
+        let fields = receive_upload(&state, &blank_id, multipart).await.unwrap();
+        assert_eq!(fields.focus_prompt, None);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn upload_accepts_an_optional_platform() {
+        let (state, tmp) = test_state();
+        let boundary = "cf-platform-upload";
+        let build = |platform: Option<&str>| {
+            let field = platform
+                .map(|p| {
+                    format!("--{boundary}\r\nContent-Disposition: form-data; name=\"platform\"\r\n\r\n{p}\r\n")
+                })
+                .unwrap_or_default();
+            Request::builder()
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(format!(
+                    "{field}--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\nx\r\n--{boundary}--\r\n"
+                )))
+                .unwrap()
+        };
+
+        // A known platform parses.
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build(Some("tiktok")), &())
+            .await
+            .unwrap();
+        let fields = receive_upload(&state, &id, multipart).await.unwrap();
+        assert_eq!(fields.platform, Platform::TikTok);
+
+        // Absent and "any" both mean Generic.
+        for absent in [None, Some("any")] {
+            let id = crate::util::short_id();
+            let multipart = Multipart::from_request(build(absent), &()).await.unwrap();
+            let fields = receive_upload(&state, &id, multipart).await.unwrap();
+            assert_eq!(fields.platform, Platform::Generic);
+        }
+
+        // An unknown platform is a bad request, not a silent default.
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build(Some("myspace")), &())
+            .await
+            .unwrap();
+        let error = receive_upload(&state, &id, multipart).await.unwrap_err();
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
     async fn video_range_response_caps_end_and_streams_only_requested_bytes() {
         let tmp = std::env::temp_dir().join(format!("cf-range-{}", crate::util::short_id()));
         tokio::fs::create_dir_all(&tmp).await.unwrap();
@@ -1506,6 +2315,147 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn clip_export_serves_sidecars_as_attachments() {
+        let (state, tmp) = test_state();
+        let id = "exportproj";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![ClipRecord {
+                        id: "clip1".into(),
+                        rank: 1,
+                        headline: "A test".into(),
+                        filename: "01-a-test.mp4".into(),
+                        start_ms: 1000,
+                        end_ms: 31000,
+                        duration_ms: 30000,
+                        selection_reason: "why".into(),
+                        scores: Scores::default(),
+                        layout: LayoutPlan::BlurPad,
+                        status: ClipStatus::Ready,
+                        error: None,
+                        low_confidence: false,
+                        caption_style: Some("impact".into()),
+                        accent_color: None,
+                        caption_font: None,
+                        caption_text: None,
+                        emoji_overlay: None,
+                        width: Some(608),
+                        height: Some(1080),
+                        auto_cut: false,
+                        cut_spans: None,
+                        zoom_cuts: false,
+                        zoom_keys: None,
+                        end_card: false,
+                        progress_bar: false,
+                        hook_title: false,
+                        score: None,
+                    }],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let clips = state.store.clips_dir(id);
+        tokio::fs::write(clips.join("01-a-test.mp4"), b"fake-mp4")
+            .await
+            .unwrap();
+        tokio::fs::write(
+            clips.join("01-a-test.srt"),
+            b"1\n00:00:00,000 --> 00:00:01,000\nhello\n\n",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            clips.join("01-a-test.vtt"),
+            b"WEBVTT\n\n00:00.000 --> 00:01.000\nhello\n",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            clips.join("01-a-test.meta.json"),
+            br##"{"title":"T","description":"D","hashtags":["#a"]}"##,
+        )
+        .await
+        .unwrap();
+
+        let app = router(state);
+        let get = |path: &str| {
+            Request::get(path)
+                .header(header::HOST, "localhost:4571")
+                .body(Body::empty())
+                .unwrap()
+        };
+
+        let resp = app
+            .clone()
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/srt"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "application/x-subrip; charset=utf-8"
+        );
+        assert_eq!(
+            resp.headers()[header::CONTENT_DISPOSITION],
+            "attachment; filename=\"01-a-test.srt\""
+        );
+        let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("-->"));
+
+        let resp = app
+            .clone()
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/vtt"))
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "text/vtt; charset=utf-8"
+        );
+
+        let resp = app
+            .clone()
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/meta"))
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "application/json; charset=utf-8"
+        );
+        let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let meta: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(meta["title"], "T");
+
+        // Unknown kinds, unknown clips, and missing sidecars all 404.
+        for path in [
+            "/api/projects/exportproj/clips/clip1/export/pdf",
+            "/api/projects/exportproj/clips/nope/export/srt",
+            "/api/projects/missing/clips/clip1/export/srt",
+        ] {
+            let resp = app.clone().oneshot(get(path)).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{path}");
+        }
+        // A clip whose sidecar never got written reports missing, not empty.
+        tokio::fs::remove_file(clips.join("01-a-test.srt"))
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(get("/api/projects/exportproj/clips/clip1/export/srt"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
     async fn open_output_folder_returns_not_found_for_unknown_project() {
         let (state, tmp) = test_state();
         let error = match open_output_folder(State(state), AxPath("missing".into())).await {
@@ -1513,6 +2463,161 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(error.0, StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    fn scored_candidate(t: &Transcript, start: u64, end: u64, scores: Scores) -> Candidate {
+        let excerpt = crate::validate::excerpt_text(t, start, end);
+        let words: Vec<&str> = excerpt.split_whitespace().collect();
+        Candidate {
+            start_ms: start,
+            end_ms: end,
+            headline: format!("moment at {}", fmt_ms(start)),
+            opening_quote: words[..5].join(" "),
+            closing_quote: words[words.len() - 5..].join(" "),
+            selection_reason: "stands alone with a payoff".into(),
+            scores,
+        }
+    }
+
+    fn clip_from_validated(vc: &ValidatedCandidate) -> ClipRecord {
+        ClipRecord {
+            id: format!("clip{}", vc.rank),
+            rank: vc.rank,
+            headline: vc.candidate.headline.clone(),
+            filename: format!("{:02}-clip.mp4", vc.rank),
+            start_ms: vc.candidate.start_ms,
+            end_ms: vc.candidate.end_ms,
+            duration_ms: vc.candidate.end_ms - vc.candidate.start_ms,
+            selection_reason: vc.candidate.selection_reason.clone(),
+            scores: vc.candidate.scores,
+            score: Some(vc.composite),
+            layout: LayoutPlan::BlurPad,
+            status: ClipStatus::Ready,
+            error: None,
+            low_confidence: false,
+            caption_style: None,
+            accent_color: None,
+            caption_font: None,
+            caption_text: None,
+            emoji_overlay: None,
+            width: None,
+            height: None,
+            auto_cut: false,
+            cut_spans: None,
+            zoom_cuts: false,
+            zoom_keys: None,
+            end_card: false,
+            progress_bar: false,
+            hook_title: false,
+        }
+    }
+
+    /// The validator's composite score must reach the project view: a numeric
+    /// `score` plus `selection_reason` per clip, in ranked order, and each
+    /// rejected candidate's score alongside the reasons it failed.
+    #[tokio::test]
+    async fn project_view_returns_candidate_scores_and_rejection_reasons() {
+        let (state, tmp) = test_state();
+        let id = "scoreview1";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_project(&Project::new(id.into(), state.store.source_path(id)))
+            .await
+            .unwrap();
+
+        let mut words = Vec::new();
+        for i in 0..1500u64 {
+            words.push(Word {
+                text: format!("w{i}."),
+                start_ms: i * 400,
+                end_ms: i * 400 + 350,
+                p: 0.9,
+            });
+        }
+        let transcript = Transcript {
+            language: "en".into(),
+            sentences: crate::transcribe::build_sentences(&words),
+            words,
+            avg_confidence: 0.9,
+        };
+        let strong = Scores {
+            self_contained: 5,
+            opening_strength: 4,
+            specificity: 4,
+            tension_or_novelty: 4,
+            payoff: 5,
+            clarity: 5,
+            context_dependency: 1,
+            slop_risk: 1,
+        };
+        let mut weaker = strong;
+        weaker.tension_or_novelty = 3;
+        let mut sloppy = strong;
+        sloppy.slop_risk = 5;
+        let report = crate::validate::validate(
+            vec![
+                scored_candidate(&transcript, 10_000, 50_000, strong),
+                scored_candidate(&transcript, 300_000, 340_000, weaker),
+                scored_candidate(&transcript, 200_000, 240_000, sloppy),
+            ],
+            &transcript,
+            600_000,
+            "test".into(),
+            &[],
+            Platform::Generic,
+        );
+        assert_eq!(report.accepted.len(), 2, "reasons: {:?}", report.rejected);
+        assert_eq!(report.rejected.len(), 1);
+        state.store.save_selection(id, &report).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: report.accepted.iter().map(clip_from_validated).collect(),
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        let response = router(state.clone())
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        let clips = view["clips"].as_array().unwrap();
+        assert_eq!(clips.len(), 2);
+        let first = clips[0]["score"].as_f64().unwrap() as f32;
+        let second = clips[1]["score"].as_f64().unwrap() as f32;
+        assert_eq!(first, report.accepted[0].composite);
+        assert_eq!(second, report.accepted[1].composite);
+        assert!(first > second, "clips arrive in ranked order");
+        assert!(clips.iter().all(|c| c["selection_reason"]
+            .as_str()
+            .unwrap()
+            .contains("stands alone")));
+
+        let rejected = &view["rejected_summary"][0];
+        assert!(rejected["score"].is_number());
+        assert!(rejected["reasons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("slop_risk")));
+
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

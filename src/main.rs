@@ -5,10 +5,13 @@
 
 mod accent;
 mod api;
+mod autocut;
 mod captions;
 mod config;
+mod diarize;
 mod domain;
 mod energy;
+mod export;
 mod frame;
 mod media;
 mod pipeline;
@@ -20,6 +23,7 @@ mod store;
 mod transcribe;
 mod util;
 mod validate;
+mod zoom;
 
 use config::Config;
 use state::AppState;
@@ -83,7 +87,7 @@ async fn first_run_report(cfg: &Config) {
             .unwrap_or_else(|| "MISSING (brew install whisper-cpp, or set CF_WHISPER_BIN)".into())
     );
     println!(
-        "  ├─ whisper model {}",
+        "  ├─ whisper model {}{}",
         cfg.whisper_model
             .as_ref()
             .map(|p| format!(
@@ -95,10 +99,15 @@ async fn first_run_report(cfg: &Config) {
             ))
             .unwrap_or_else(|| {
                 format!(
-                    "MISSING — download ggml-base.en.bin (~148 MB) to {}/models/",
+                    "MISSING — download ggml-base.bin (~148 MB) to {}/models/",
                     cfg.data_dir.to_string_lossy()
                 )
-            })
+            }),
+        match cfg.whisper_model.as_deref() {
+            Some(p) if crate::config::model_is_multilingual(p) => " — multilingual",
+            Some(_) => " — English-only",
+            None => "",
+        }
     );
     println!(
         "  ├─ face model    {}",
@@ -106,6 +115,15 @@ async fn first_run_report(cfg: &Config) {
             .as_ref()
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|| "missing (optional — clips fall back to blur-pad layout)".into())
+    );
+    println!(
+        "  ├─ speaker model {}",
+        cfg.speaker_model
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| {
+                "missing (optional — no diarization; two-face shots keep single-face crops)".into()
+            })
     );
     println!("  ├─ caption font  {}", cfg.caption_font);
     println!(

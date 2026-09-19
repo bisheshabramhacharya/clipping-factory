@@ -38,3 +38,75 @@ _Avoid_: leading-gap guard
 **Downscale-only output**:
 The rule that rendered pixels are never upscaled. Output size equals the native crop window, capped at 1080×1920; smaller sources produce smaller (sharp) output rather than stretched output.
 _Avoid_: upscale, fit-to-canvas, normalize to 1080
+
+**Auto-cut**:
+A per-Clip opt-in that removes silence gaps and filler words ("um", "uh") at render time via a keep-list concat in the base render. Off by default — a Clip is otherwise one continuous faithful excerpt.
+_Avoid_: smart trim, jump cut, edit decision
+
+**Diarization**:
+Per-project record of who speaks when (`speakers.json`): speaker turns built from transcript speech spans + ONNX speaker embeddings, fully offline. Advisory — without a speaker model nothing is diarized and layouts/captions are unchanged.
+_Avoid_: speaker detection, voice ID
+
+**Speaker turn**:
+A span of audio attributed to one voice. Turns split only at silence-gap midpoints, so a cut keyed to a turn boundary never lands mid-sentence.
+_Avoid_: utterance, segment
+
+**Split**:
+Two-person layout for a wide two-shot: two stacked panels, each a locked crop on one face (left face on top). Chosen when two substantial persistent faces co-exist in the same frames and the clip holds two voices.
+_Avoid_: side-by-side, grid
+
+**SpeakerCrop**:
+The Locked crop window hard-cutting between faces at Speaker-turn boundaries — for multi-cam sources where each speaker has their own shot. A cut, never a pan.
+_Avoid_: auto-switching crop, face-follow
+
+**Eye line**:
+The vertical anchor of a Locked crop: the face's estimated eye height (face center minus ~15% of the face-box height) is placed near 35% of the output height by sliding the crop window over a blurred underlay. The window itself never resizes and never pans; faces already near the line keep the centered crop.
+_Avoid_: headroom rule, vertical tracking
+
+**Composite score**:
+The weighted sum of a Candidate's seven validator scores (self-contained ×2, payoff ×1.6, opening strength ×1.4, clarity ×1.2, tension/novelty, specificity, minus context-dependency and slop-risk), plus a duration nudge inside the Platform target's sweet-spot window (25–60s under Any). Surfaced on every Clip card and in the rejected list.
+_Avoid_: virality score, AI score
+
+**Scene guard**:
+The validation rule that a Clip may not span a detected scene transition: cuts inside ±500 ms of a boundary snap to word boundaries or the Candidate is rejected.
+_Avoid_: shot detection
+
+**Cold-open guard**:
+The validation rule that a Clip may not open on a greeting, housekeeping line, or lone filler word — every Clip starts mid-thought.
+_Avoid_: hook check
+
+**Zoom cuts**:
+Per-Clip opt-in `zoompan` punch-ins on energy/emphasis beats inside the Locked crop. Zoom rests at 1.0 outside rise/fall; retimed through Auto-cut removals.
+_Avoid_: ken burns, animated crop
+
+**Caption style**:
+The per-Clip caption look — Impact (default karaoke), Clean, Pop (per-word pop + keyword accent), Cinema (lowercase letterspaced fade) — applied at caption time from the Base clip, so restyle is seconds not a re-render.
+_Avoid_: template, preset
+
+**Export pack**:
+The per-Clip share bundle: `.srt`, `.vtt`, and `.meta.json` (title/description/hashtags) beside the rendered MP4.
+_Avoid_: publish, distribution
+
+**End card**:
+Opt-in 1.2 s "Made with Clipping Factory" tail appended to a Clip's render.
+_Avoid_: outro, watermark
+
+**Progress bar**:
+Opt-in thin accent-colored fill strip along a Clip's bottom edge.
+_Avoid_: scrubber
+
+**Hook title**:
+Opt-in ~1.8 s ALL-CAPS title card burned into a Clip's opening frames, from the Clip's headline.
+_Avoid_: title card, intro
+
+**Focus prompt**:
+Optional free-text direction ("clips about pricing") that steers LLM candidate selection; the heuristic fallback matches keywords instead.
+_Avoid_: topic filter
+
+**Platform target**:
+The destination platform a project optimizes for, picked at upload (Any / TikTok / Reels / Shorts). Re-centers the duration window the Composite score's sweet-spot nudge rewards — TikTok 25–35s, Reels 35–45s, Shorts 45–60s, Any 25–60s — and adds a preference hint to the selector's window prompt. A ranking preference only: the validator's accept bounds never move.
+_Avoid_: export preset, publish target
+
+**Sample episode**:
+The bundled `assets/sample-episode.mp4` (regenerable via `evals/make_sample_episode.py`) powering zero-input first run via `POST /api/projects/sample`.
+_Avoid_: demo, fixture

@@ -89,6 +89,11 @@ pub struct SourceInfo {
     pub video_codec: String,
     pub audio_codec: String,
     pub size_bytes: u64,
+    /// Scene-boundary timestamps (ms) detected once during inspection via
+    /// ffmpeg `scdet`. Empty when detection ran before this field existed or
+    /// failed — the validator then applies no transition guard.
+    #[serde(default)]
+    pub scene_boundaries_ms: Vec<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -101,19 +106,35 @@ pub struct Project {
     pub stages: Vec<StageRecord>,
     /// Top-level error message when status == Failed.
     pub error: Option<String>,
-    /// Which selector produced candidates: "openai" | "anthropic" | "offline heuristic".
+    /// Which selector produced candidates: "openai" | "anthropic" | "local" | "offline heuristic".
     pub selector: Option<String>,
     /// Non-fatal warning surfaced in the UI (e.g. low transcription confidence).
     pub warning: Option<String>,
-    /// Caption style for this project: "impact" (default) or "clean".
+    /// Caption style for this project: "impact" (default), "clean", "pop",
+    /// or "cinema".
     #[serde(default)]
     pub caption_style: Option<String>,
     /// Accent color for the active caption word, as #RRGGBB.
     #[serde(default)]
     pub accent_color: Option<String>,
+    /// Opt-in emoji accents flashed above the caption block.
+    #[serde(default)]
+    pub emoji_overlay: Option<bool>,
     /// Output composition selected before upload.
     #[serde(default)]
     pub framing_mode: FramingMode,
+    /// Whisper language code picked at upload (`None`/`"auto"` = auto-detect).
+    #[serde(default)]
+    pub language: Option<String>,
+    /// Free-text focus from project setup ("clips about pricing"). Steers
+    /// candidate selection toward the topic; `None` keeps generic ranking.
+    #[serde(default)]
+    pub focus_prompt: Option<String>,
+    /// Short-form platform the clips are being cut for. Re-centers the
+    /// validator's duration sweet spot — a ranking preference only, never
+    /// an accept bound. `Generic` keeps the original 25–60 s window.
+    #[serde(default)]
+    pub platform: Platform,
 }
 
 impl Project {
@@ -130,7 +151,11 @@ impl Project {
             warning: None,
             caption_style: None,
             accent_color: None,
+            emoji_overlay: None,
             framing_mode: FramingMode::default(),
+            language: None,
+            focus_prompt: None,
+            platform: Platform::default(),
         }
     }
 
@@ -225,6 +250,57 @@ pub struct SelectionReport {
     pub rejected: Vec<RejectedCandidate>,
 }
 
+/// The short-form platform a project optimizes for. Each platform rewards a
+/// different clip length, so the choice re-centers the validator's duration
+/// sweet spot (a ranking nudge only — the accept bounds never move) and adds
+/// a hint to the selector's window prompt. `Generic` keeps the original
+/// 25–60 s window.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Platform {
+    /// No specific destination — the original 25–60 s sweet spot.
+    #[default]
+    Generic,
+    TikTok,
+    Reels,
+    Shorts,
+}
+
+impl Platform {
+    /// Parse an upload/API value; "any"/"generic"/blank all select the
+    /// default, anything unrecognized returns `None`.
+    pub fn parse(input: &str) -> Option<Self> {
+        match input.trim().to_lowercase().as_str() {
+            "" | "any" | "generic" => Some(Self::Generic),
+            "tiktok" => Some(Self::TikTok),
+            "reels" => Some(Self::Reels),
+            "shorts" => Some(Self::Shorts),
+            _ => None,
+        }
+    }
+
+    /// Display name used in provider prompts.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Generic => "generic short-form",
+            Self::TikTok => "TikTok",
+            Self::Reels => "Reels",
+            Self::Shorts => "Shorts",
+        }
+    }
+
+    /// The duration window ranked as the sweet spot (ms): TikTok favors
+    /// ~25–35 s hooks, Reels ~35–45 s, Shorts tolerates ~45–60 s.
+    pub fn sweet_spot_ms(&self) -> (u64, u64) {
+        match self {
+            Self::Generic => (25_000, 60_000),
+            Self::TikTok => (25_000, 35_000),
+            Self::Reels => (35_000, 45_000),
+            Self::Shorts => (45_000, 60_000),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Layout & rendering
 // ---------------------------------------------------------------------------
@@ -243,8 +319,17 @@ impl FramingMode {
     pub fn apply(self, analyzed: LayoutPlan) -> LayoutPlan {
         match (self, analyzed) {
             (FramingMode::Fill, tracked @ LayoutPlan::FaceCrop { .. }) => tracked,
+            // Speaker-aware layouts still fill the canvas, just around two
+            // faces — a user asking to fill never wants them flattened to
+            // BlurPad or collapsed to one face.
+            (FramingMode::Fill, planned @ LayoutPlan::Split { .. }) => planned,
+            (FramingMode::Fill, planned @ LayoutPlan::SpeakerCrop { .. }) => planned,
             (FramingMode::Fill, LayoutPlan::BlurPad) => LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+                keyframes: vec![CropKey {
+                    t_ms: 0,
+                    cx: 0.5,
+                    dy: 0.0,
+                }],
             },
             (FramingMode::Background, _) => LayoutPlan::BlurPad,
         }
@@ -256,14 +341,40 @@ impl FramingMode {
 pub enum LayoutPlan {
     /// Smoothed vertical crop that follows one persistent face.
     FaceCrop { keyframes: Vec<CropKey> },
+    /// Two-person interview shot: the frame split into two stacked panels,
+    /// each a crop centered on one face. `top`/`bottom` are the face anchors
+    /// in normalized source coordinates (left face renders on top).
+    Split { top: FaceAnchor, bottom: FaceAnchor },
+    /// Locked crop that cuts between faces at speaker-turn boundaries.
+    /// Unlike FaceCrop keyframes (piecewise-linear legacy pans), every
+    /// keyframe here applies instantly at its `t_ms` — a hard cut, matching
+    /// the no-camera-motion rule (ADR-0001, amended by ADR-0004).
+    SpeakerCrop { keyframes: Vec<CropKey> },
     /// Uncropped source centered over a blurred, darkened background.
     BlurPad,
+}
+
+/// A face position in normalized source coordinates — the anchor a crop
+/// window or split panel is centered on.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct FaceAnchor {
+    /// Normalized horizontal center (0–1).
+    pub cx: f32,
+    /// Normalized vertical center (0–1).
+    pub cy: f32,
+    /// The panel's eye-line offset in normalized panel heights: >0 slides
+    /// the column down (blurred underlay fills above), <0 lifts it, 0 keeps
+    /// the column centered (the framing used before eye-line anchoring).
+    #[serde(default)]
+    pub dy: f32,
 }
 
 impl LayoutPlan {
     pub fn label(&self) -> &'static str {
         match self {
             LayoutPlan::FaceCrop { .. } => "face_crop",
+            LayoutPlan::Split { .. } => "split",
+            LayoutPlan::SpeakerCrop { .. } => "speaker_crop",
             LayoutPlan::BlurPad => "blur_pad",
         }
     }
@@ -275,6 +386,80 @@ pub struct CropKey {
     pub t_ms: u64,
     /// Normalized horizontal face center in the source frame (0–1).
     pub cx: f32,
+    /// Eye-line offset in normalized canvas heights: >0 slides the crop down
+    /// over a blurred underlay (blurred band fills above the frame), <0 lifts
+    /// it, 0 keeps the frame centered (the framing used before eye-line
+    /// anchoring and whenever face metadata lacks a usable vertical extent.
+    #[serde(default)]
+    pub dy: f32,
+}
+
+// ---------------------------------------------------------------------------
+// Speaker diarization
+// ---------------------------------------------------------------------------
+
+/// One diarized speaker turn: the span of audio assigned to one voice.
+/// `speaker` indexes `Diarization::labels`. Turn boundaries sit in silence
+/// gaps — a turn never starts mid-word, so crop switches keyed to turns
+/// cannot land mid-sentence.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SpeakerTurn {
+    pub start_ms: u64,
+    pub end_ms: u64,
+    /// Index into `Diarization::labels`.
+    pub speaker: u8,
+}
+
+/// Project-level diarization persisted as `speakers.json`: who speaks when,
+/// across the whole source. Produced once per project (not per clip) so
+/// every clip sees the same voice → name mapping.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Diarization {
+    /// Display names indexed by `SpeakerTurn::speaker`, in first-appearance
+    /// order ("S1" is whoever talks first).
+    pub labels: Vec<String>,
+    /// Speaker turns sorted by `start_ms`, non-overlapping.
+    pub turns: Vec<SpeakerTurn>,
+}
+
+impl Diarization {
+    /// The speaker whose turn covers `t_ms`, when one does.
+    pub fn speaker_at(&self, t_ms: u64) -> Option<u8> {
+        self.turns
+            .iter()
+            .find(|t| t.start_ms <= t_ms && t_ms < t.end_ms)
+            .map(|t| t.speaker)
+    }
+
+    /// Speaker label for a word: the turn covering the word's midpoint.
+    /// Words sit inside speech spans by construction, and turn boundaries
+    /// fall in the gaps between spans — so a word can never straddle a
+    /// boundary. Midpoint lookup is the whole attribution rule.
+    pub fn word_speaker(&self, word: &Word) -> Option<u8> {
+        self.speaker_at(word.start_ms + word.end_ms.saturating_sub(word.start_ms) / 2)
+    }
+
+    /// Distinct speakers heard inside `[start_ms, end_ms)`.
+    pub fn speakers_in(&self, start_ms: u64, end_ms: u64) -> Vec<u8> {
+        let mut seen: Vec<u8> = self
+            .turns
+            .iter()
+            .filter(|t| t.start_ms < end_ms && t.end_ms > start_ms)
+            .map(|t| t.speaker)
+            .collect();
+        seen.sort_unstable();
+        seen.dedup();
+        seen
+    }
+
+    /// Turns overlapping `[start_ms, end_ms)`, in order.
+    pub fn turns_in(&self, start_ms: u64, end_ms: u64) -> Vec<SpeakerTurn> {
+        self.turns
+            .iter()
+            .filter(|t| t.start_ms < end_ms && t.end_ms > start_ms)
+            .copied()
+            .collect()
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -284,6 +469,30 @@ pub enum ClipStatus {
     Rendering,
     Ready,
     Failed,
+}
+
+/// One removed source interval, absolute milliseconds. Auto-cut stores the
+/// spans it actually removed so restyle/retry can reproduce the same cut
+/// without re-detecting silence.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CutSpan {
+    pub start_ms: u64,
+    pub end_ms: u64,
+}
+
+impl CutSpan {
+    pub fn len_ms(&self) -> u64 {
+        self.end_ms.saturating_sub(self.start_ms)
+    }
+}
+
+/// One zoom keyframe: magnification `z` at `t_ms` on the clip's output
+/// (post-cut) timeline. `z` is 1.0 at rest; a beat bumps it to a small peak
+/// and returns to 1.0, so there is never net motion between beats.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct ZoomKey {
+    pub t_ms: u64,
+    pub z: f32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -297,13 +506,19 @@ pub struct ClipRecord {
     pub duration_ms: u64,
     pub selection_reason: String,
     pub scores: Scores,
+    /// The validator's composite quality score for the Candidate behind this
+    /// Clip — the same number that set `rank`. `None` on caption-only
+    /// projects and manifests written before scores were surfaced.
+    #[serde(default)]
+    pub score: Option<f32>,
     pub layout: LayoutPlan,
     pub status: ClipStatus,
     pub error: Option<String>,
     /// True when transcription confidence inside this interval was low (PRD §10).
     pub low_confidence: bool,
-    /// Caption style burned into the current render: "impact" or "clean".
-    /// `None` on manifests written before post-render restyling existed.
+    /// Caption style burned into the current render: "impact", "clean",
+    /// "pop", or "cinema". `None` on manifests written before post-render
+    /// restyling existed.
     #[serde(default)]
     pub caption_style: Option<String>,
     /// Accent color burned into the current render, as `#RRGGBB`.
@@ -315,6 +530,10 @@ pub struct ClipRecord {
     /// Editable caption wording. Word timings are preserved when possible.
     #[serde(default)]
     pub caption_text: Option<String>,
+    /// Whether the emoji accent overlay was burned into the current render.
+    /// `None` on manifests written before the overlay existed.
+    #[serde(default)]
+    pub emoji_overlay: Option<bool>,
     /// Rendered output size of this clip (ADR-0002). `None` on manifests
     /// written before downscale-only output — those bases are fixed
     /// 1080×1920, which is what the render and restyle paths assume for them.
@@ -322,6 +541,83 @@ pub struct ClipRecord {
     pub width: Option<u32>,
     #[serde(default)]
     pub height: Option<u32>,
+    /// Opt-in auto-cut: remove silence gaps and filler words at render time.
+    /// Default off — a Clip is otherwise one continuous faithful excerpt.
+    #[serde(default)]
+    pub auto_cut: bool,
+    /// The removed spans the current base was rendered with. `None` while
+    /// auto-cut is on but the cut list has not been computed yet; `Some([])`
+    /// means detection ran and found nothing to remove.
+    #[serde(default)]
+    pub cut_spans: Option<Vec<CutSpan>>,
+    /// Opt-in zoom cuts: subtle punch-in/out on emphasis beats at render
+    /// time. Default off — the Locked crop never moves on its own.
+    #[serde(default)]
+    pub zoom_cuts: bool,
+    /// The zoom keyframes the current base was rendered with, on the
+    /// post-cut output timeline. `None` while zoom cuts are on but the key
+    /// list has not been planned yet; `Some([])` means planning ran and
+    /// found no beats.
+    #[serde(default)]
+    pub zoom_keys: Option<Vec<ZoomKey>>,
+    /// Opt-in end card: a short "Made with Clipping Factory" tail appended
+    /// after the clip's audio fade. Default off.
+    #[serde(default)]
+    pub end_card: bool,
+    /// Opt-in progress bar: a thin accent-colored strip along the bottom
+    /// edge filling over the clip's duration. Default off.
+    #[serde(default)]
+    pub progress_bar: bool,
+    /// Opt-in hook title: the clip's headline burned as a title card over
+    /// the opening beat, upper-third. Default off.
+    #[serde(default)]
+    pub hook_title: bool,
+}
+
+impl ClipRecord {
+    /// The removals that apply to the current render: the stored cut list
+    /// when auto-cut is on, otherwise nothing.
+    pub fn effective_removals(&self) -> &[CutSpan] {
+        if self.auto_cut {
+            self.cut_spans.as_deref().unwrap_or(&[])
+        } else {
+            &[]
+        }
+    }
+
+    /// The zoom keyframes that apply to the current render: the stored
+    /// key list when zoom cuts are on, otherwise nothing.
+    pub fn effective_zoom_keys(&self) -> &[ZoomKey] {
+        if self.zoom_cuts {
+            self.zoom_keys.as_deref().unwrap_or(&[])
+        } else {
+            &[]
+        }
+    }
+
+    /// The base-intermediate key for this clip's current render state. Each
+    /// render-affecting variant gets its own base (`<id>.cut`, `<id>.zoom`)
+    /// so toggling never destroys the plain base — and a feature that
+    /// planned nothing shares it, since the frames are identical.
+    pub fn base_key(&self) -> String {
+        let mut key = self.id.clone();
+        if !self.effective_removals().is_empty() {
+            key.push_str(".cut");
+        }
+        if !self.effective_zoom_keys().is_empty() {
+            key.push_str(".zoom");
+        }
+        if self.end_card {
+            key.push_str(".card");
+        }
+        if self.progress_bar {
+            key.push_str(".bar");
+        }
+        if self.hook_title {
+            key.push_str(".hook");
+        }
+        key
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -349,7 +645,11 @@ mod tests {
     #[test]
     fn fill_framing_keeps_face_tracking_when_available() {
         let tracked = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey { t_ms: 0, cx: 0.42 }],
+            keyframes: vec![CropKey {
+                t_ms: 0,
+                cx: 0.42,
+                dy: 0.0,
+            }],
         };
         assert_eq!(FramingMode::Fill.apply(tracked.clone()), tracked);
     }
@@ -359,7 +659,11 @@ mod tests {
         assert_eq!(
             FramingMode::Fill.apply(LayoutPlan::BlurPad),
             LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey { t_ms: 0, cx: 0.5 }],
+                keyframes: vec![CropKey {
+                    t_ms: 0,
+                    cx: 0.5,
+                    dy: 0.0
+                }],
             }
         );
     }
@@ -367,7 +671,11 @@ mod tests {
     #[test]
     fn background_framing_always_preserves_the_full_source() {
         let tracked = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey { t_ms: 0, cx: 0.42 }],
+            keyframes: vec![CropKey {
+                t_ms: 0,
+                cx: 0.42,
+                dy: 0.0,
+            }],
         };
         assert_eq!(FramingMode::Background.apply(tracked), LayoutPlan::BlurPad);
     }
@@ -391,10 +699,53 @@ mod tests {
         }"#;
         let m: RenderManifest = serde_json::from_str(old).expect("old manifest must load");
         assert_eq!(m.clips.len(), 1);
+        assert_eq!(m.clips[0].score, None);
         assert_eq!(m.clips[0].caption_style, None);
         assert_eq!(m.clips[0].accent_color, None);
         assert_eq!(m.clips[0].caption_font, None);
+        assert_eq!(m.clips[0].caption_text, None);
+        assert_eq!(m.clips[0].emoji_overlay, None);
         assert_eq!(m.clips[0].width, None);
         assert_eq!(m.clips[0].height, None);
+        // Auto-cut and zoom cuts default off for manifests written before
+        // they existed.
+        assert!(!m.clips[0].auto_cut);
+        assert_eq!(m.clips[0].cut_spans, None);
+        assert!(!m.clips[0].zoom_cuts);
+        assert_eq!(m.clips[0].zoom_keys, None);
+        assert_eq!(m.clips[0].base_key(), "c1");
+    }
+
+    #[test]
+    fn platform_parses_upload_values() {
+        assert_eq!(Platform::parse("tiktok"), Some(Platform::TikTok));
+        assert_eq!(Platform::parse(" Reels "), Some(Platform::Reels));
+        assert_eq!(Platform::parse("SHORTS"), Some(Platform::Shorts));
+        // "Any"/blank select the default rather than failing.
+        assert_eq!(Platform::parse("any"), Some(Platform::Generic));
+        assert_eq!(Platform::parse("  "), Some(Platform::Generic));
+        assert_eq!(Platform::parse("myspace"), None);
+    }
+
+    /// Projects written before platform targeting must still load.
+    #[test]
+    fn project_without_a_platform_field_deserializes_as_generic() {
+        let p = Project::new("p1".into(), PathBuf::from("source.mp4"));
+        let mut v: serde_json::Value = serde_json::to_value(&p).unwrap();
+        v.as_object_mut().unwrap().remove("platform");
+        let loaded: Project = serde_json::from_value(v).unwrap();
+        assert_eq!(loaded.platform, Platform::Generic);
+        assert_eq!(
+            serde_json::to_value(Platform::Shorts).unwrap(),
+            serde_json::json!("shorts")
+        );
+    }
+
+    #[test]
+    fn each_platform_maps_to_its_target_window() {
+        assert_eq!(Platform::Generic.sweet_spot_ms(), (25_000, 60_000));
+        assert_eq!(Platform::TikTok.sweet_spot_ms(), (25_000, 35_000));
+        assert_eq!(Platform::Reels.sweet_spot_ms(), (35_000, 45_000));
+        assert_eq!(Platform::Shorts.sweet_spot_ms(), (45_000, 60_000));
     }
 }

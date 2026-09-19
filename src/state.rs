@@ -13,8 +13,22 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone, Serialize, Debug)]
 pub struct LiveStage {
     pub stage: String,
+    /// 0.0–1.0 measured fraction of this stage's own work.
     pub progress: f32,
     pub detail: Option<String>,
+    /// Wall-clock milliseconds since this stage began.
+    pub elapsed_ms: u64,
+    /// Modelled full cost of this stage (ms). A calibration estimate, not a
+    /// measurement — the UI leans on it only until real progress exists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage_estimate_ms: Option<u64>,
+    /// 0.0–1.0 fraction of the whole run's estimated work, weighted by each
+    /// stage's modelled cost for this source.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_progress: Option<f32>,
+    /// Estimated ms of work queued behind the current stage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_ms: Option<u64>,
 }
 
 pub struct ProjectHandle {
@@ -60,12 +74,8 @@ impl ProjectHandle {
         let _ = self.events.send(value.to_string());
     }
 
-    pub fn set_live(&self, stage: &str, progress: f32, detail: Option<String>) {
-        *self.live.lock().unwrap() = Some(LiveStage {
-            stage: stage.to_string(),
-            progress,
-            detail,
-        });
+    pub fn set_live(&self, live: LiveStage) {
+        *self.live.lock().unwrap() = Some(live);
     }
 
     pub fn clear_live(&self) {
@@ -150,6 +160,12 @@ impl AppState {
         map.entry(id.to_string())
             .or_insert_with(ProjectHandle::new)
             .clone()
+    }
+
+    /// Forget a project's runtime handle once its data is gone, so broadcast
+    /// and live-progress state don't outlive the project on disk.
+    pub fn drop_handle(&self, id: &str) {
+        self.handles.lock().unwrap().remove(id);
     }
 
     /// Claim the restyle lock for one clip. Returns false when a restyle for

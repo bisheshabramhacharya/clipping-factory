@@ -24,17 +24,23 @@ Two accuracy notes before you install:
 - **The transcription model is a separate download.** `brew install whisper-cpp`
   gives you the `whisper-cli` binary but no weights.
 
-Download the base English model once:
+Download the base model once (multilingual — covers ~99 languages):
 
 ```bash
 mkdir -p ~/.clipping-factory/models
-curl -L -o ~/.clipping-factory/models/ggml-base.en.bin \
-  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+curl -L -o ~/.clipping-factory/models/ggml-base.bin \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
 ```
 
-`ggml-base.en` is the fast default. For tougher audio, put `ggml-small.en.bin` in
+`ggml-base` is the fast default. For tougher audio, put `ggml-small.bin` in
 `~/.clipping-factory/models/` or point `CF_WHISPER_MODEL` at another compatible
-ggml model.
+ggml model. English-only weights (`ggml-*.en.bin`) are slightly stronger on
+English but cannot transcribe other languages or auto-detect; the transcribe
+stage swaps to a multilingual model in the usual locations when the project's
+language needs one.
+
+Each project's language is picked at upload — **Auto-detect** is the default,
+and any of the ~99 whisper languages can be locked in explicitly.
 
 ## Build and run
 
@@ -64,7 +70,7 @@ On startup the server prints a first-run report that verifies every dependency:
   ├─ ASS captions  ok
   ├─ ffprobe       ok
   ├─ whisper-cli   MISSING (brew install whisper-cpp, or set CF_WHISPER_BIN)
-  ├─ whisper model MISSING — download ggml-base.en.bin (~148 MB) to ~/.clipping-factory/models/
+  ├─ whisper model MISSING — download ggml-base.bin (~148 MB) to ~/.clipping-factory/models/
   ├─ face model    missing (optional — clips fall back to blur-pad layout)
   ├─ caption font  ...
   ├─ disk free     ...
@@ -92,7 +98,7 @@ All configuration is via environment variables. There is no config file.
 | `CF_FFMPEG` | `ffmpeg-full` if present, else `ffmpeg` on PATH | FFmpeg binary override |
 | `CF_FFPROBE` | `ffprobe` on PATH | FFprobe binary override |
 | `CF_WHISPER_BIN` | `whisper-cli`/`whisper-cpp` on PATH, then common build locations | Transcription binary override |
-| `CF_WHISPER_MODEL` | `ggml-base.en.bin` in the data dir's `models/` | ggml model path |
+| `CF_WHISPER_MODEL` | `ggml-base.en.bin` or a multilingual model in the data dir's `models/` | ggml model path |
 | `CF_FONTS_DIR` | bundled `assets/fonts` | Directory containing caption fonts |
 | `CF_FACE_MODEL` | bundled model | rustface seeta model path (optional) |
 | `CF_THREADS` | physical cores | Transcription thread count |
@@ -108,7 +114,9 @@ CF_PORT=4572 CF_CAPTION_STYLE=clean CF_NO_OPEN=1 ./target/release/clipping-facto
 The whisper binary is located in this order: `CF_WHISPER_BIN`, then `whisper-cli`
 or `whisper-cpp` on PATH, then common local build locations. The model is located
 in this order: `CF_WHISPER_MODEL`, then the data dir's `models/` folder, then
-common local locations.
+common local locations. English-only weights (`ggml-*.en.bin`) are preferred when
+several are present; if the project's language needs more than English, the
+transcribe stage falls back to a multilingual `ggml-*.bin` in the same locations.
 
 Security note: the studio has **no authentication** because it is designed for
 localhost. API keys for the optional AI providers are stored in
@@ -178,7 +186,8 @@ launchctl kickstart -k gui/$(id -u)/com.clipping-factory.server
 | Symptom | Cause and fix |
 |---|---|
 | `address already in use` on startup | Something else owns the port. Find it with `lsof -nP -iTCP:4571 -sTCP:LISTEN`, or run on another port with `CF_PORT=4572`. |
-| First-run report shows `whisper model MISSING` | No model weights installed. Download `ggml-base.en.bin` to `~/.clipping-factory/models/` (or set `CF_WHISPER_MODEL`). |
+| First-run report shows `whisper model MISSING` | No model weights installed. Download `ggml-base.bin` to `~/.clipping-factory/models/` (or set `CF_WHISPER_MODEL`). |
+| Transcribe fails with "needs a multilingual whisper model" | The project picked a non-English language but the configured model is English-only (`ggml-*.en.bin`). Download a multilingual model like `ggml-base.bin` into `~/.clipping-factory/models/` or point `CF_WHISPER_MODEL` at one, then retry. |
 | First-run report shows `whisper-cli MISSING` | `brew install whisper-cpp`, or set `CF_WHISPER_BIN` to your `whisper-cli` build. |
 | First-run report shows `ASS captions MISSING` | Plain `ffmpeg` lacks libass. `brew install ffmpeg-full`, or point `CF_FFMPEG` at a build with libass. |
 | Rendering fails mid-project | Check the log first; the most common cause is a full disk. Uploads reserve 1 GiB based on free space at upload start. Free space and retry. |

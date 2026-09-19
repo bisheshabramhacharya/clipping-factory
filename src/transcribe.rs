@@ -8,12 +8,166 @@ use crate::config::Config;
 use crate::domain::{Sentence, Transcript, Word};
 use crate::util::run_streaming;
 use anyhow::{anyhow, Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
+
+/// Languages whisper.cpp's multilingual models understand
+/// (`whisper_lang_str` order): `(code, display name)`. The picker treats the
+/// stored value `auto` (not a code) as whisper's own language detection.
+pub const WHISPER_LANGUAGES: &[(&str, &str)] = &[
+    ("en", "English"),
+    ("zh", "Chinese"),
+    ("de", "German"),
+    ("es", "Spanish"),
+    ("ru", "Russian"),
+    ("ko", "Korean"),
+    ("fr", "French"),
+    ("ja", "Japanese"),
+    ("pt", "Portuguese"),
+    ("tr", "Turkish"),
+    ("pl", "Polish"),
+    ("ca", "Catalan"),
+    ("nl", "Dutch"),
+    ("ar", "Arabic"),
+    ("sv", "Swedish"),
+    ("it", "Italian"),
+    ("id", "Indonesian"),
+    ("hi", "Hindi"),
+    ("fi", "Finnish"),
+    ("vi", "Vietnamese"),
+    ("he", "Hebrew"),
+    ("uk", "Ukrainian"),
+    ("el", "Greek"),
+    ("ms", "Malay"),
+    ("cs", "Czech"),
+    ("ro", "Romanian"),
+    ("da", "Danish"),
+    ("hu", "Hungarian"),
+    ("ta", "Tamil"),
+    ("no", "Norwegian"),
+    ("th", "Thai"),
+    ("ur", "Urdu"),
+    ("hr", "Croatian"),
+    ("bg", "Bulgarian"),
+    ("lt", "Lithuanian"),
+    ("la", "Latin"),
+    ("mi", "Maori"),
+    ("ml", "Malayalam"),
+    ("cy", "Welsh"),
+    ("sk", "Slovak"),
+    ("te", "Telugu"),
+    ("fa", "Persian"),
+    ("lv", "Latvian"),
+    ("bn", "Bengali"),
+    ("sr", "Serbian"),
+    ("az", "Azerbaijani"),
+    ("sl", "Slovenian"),
+    ("kn", "Kannada"),
+    ("et", "Estonian"),
+    ("mk", "Macedonian"),
+    ("br", "Breton"),
+    ("eu", "Basque"),
+    ("is", "Icelandic"),
+    ("hy", "Armenian"),
+    ("ne", "Nepali"),
+    ("mn", "Mongolian"),
+    ("bs", "Bosnian"),
+    ("kk", "Kazakh"),
+    ("sq", "Albanian"),
+    ("sw", "Swahili"),
+    ("gl", "Galician"),
+    ("mr", "Marathi"),
+    ("pa", "Punjabi"),
+    ("si", "Sinhala"),
+    ("km", "Khmer"),
+    ("sn", "Shona"),
+    ("yo", "Yoruba"),
+    ("so", "Somali"),
+    ("af", "Afrikaans"),
+    ("oc", "Occitan"),
+    ("ka", "Georgian"),
+    ("be", "Belarusian"),
+    ("tg", "Tajik"),
+    ("sd", "Sindhi"),
+    ("gu", "Gujarati"),
+    ("am", "Amharic"),
+    ("yi", "Yiddish"),
+    ("lo", "Lao"),
+    ("uz", "Uzbek"),
+    ("fo", "Faroese"),
+    ("ht", "Haitian Creole"),
+    ("ps", "Pashto"),
+    ("tk", "Turkmen"),
+    ("nn", "Nynorsk"),
+    ("mt", "Maltese"),
+    ("sa", "Sanskrit"),
+    ("lb", "Luxembourgish"),
+    ("my", "Myanmar"),
+    ("bo", "Tibetan"),
+    ("tl", "Tagalog"),
+    ("mg", "Malagasy"),
+    ("as", "Assamese"),
+    ("tt", "Tatar"),
+    ("haw", "Hawaiian"),
+    ("ln", "Lingala"),
+    ("ha", "Hausa"),
+    ("ba", "Bashkir"),
+    ("jw", "Javanese"),
+    ("su", "Sundanese"),
+    ("yue", "Cantonese"),
+];
+
+pub fn language_name(code: &str) -> Option<&'static str> {
+    WHISPER_LANGUAGES
+        .iter()
+        .find(|(c, _)| *c == code)
+        .map(|(_, name)| *name)
+}
+
+/// Pick the `-l` argument and, when the requested language outgrows an
+/// English-only model, the model to run with. Returns the resolved model path
+/// and language code ("auto" = whisper's own detection, which needs
+/// multilingual weights).
+fn resolve_language(
+    cfg: &Config,
+    requested: &str,
+    model_dirs: &[PathBuf],
+) -> Result<(PathBuf, String)> {
+    let model = cfg
+        .whisper_model
+        .as_ref()
+        .ok_or_else(|| anyhow!("Transcription model missing. Download ggml-base.bin (~148MB) into <data-dir>/models or set CF_WHISPER_MODEL."))?;
+    let code = requested.trim().to_lowercase();
+    let code = code.as_str();
+    if code != "auto" && language_name(code).is_none() {
+        return Err(anyhow!(
+            "Unknown transcription language \"{code}\". Pick a language from the list."
+        ));
+    }
+    if crate::config::model_is_multilingual(model) {
+        return Ok((model.clone(), code.to_string()));
+    }
+    // English-only weights can neither detect a language nor transcribe
+    // non-English — swap to a multilingual model on disk when one exists.
+    if code != "en" {
+        if let Some(alt) = crate::config::find_multilingual_model(model_dirs) {
+            return Ok((alt, code.to_string()));
+        }
+        if code != "auto" {
+            let name = language_name(code).unwrap_or(code);
+            return Err(anyhow!(
+                "Transcribing in {name} needs a multilingual whisper model (e.g. ggml-base.bin in <data-dir>/models or CF_WHISPER_MODEL). The configured model is English-only."
+            ));
+        }
+    }
+    // `auto` with no multilingual model on disk keeps the historical `-l en`.
+    Ok((model.clone(), "en".into()))
+}
 
 pub async fn transcribe<F>(
     cfg: &Config,
     wav: &Path,
+    language: Option<&str>,
     cancel: &CancellationToken,
     mut on_progress: F,
 ) -> Result<Transcript>
@@ -24,10 +178,9 @@ where
         .whisper_bin
         .as_ref()
         .ok_or_else(|| anyhow!("whisper-cli not found. Install whisper.cpp (macOS: `brew install whisper-cpp`) or set CF_WHISPER_BIN."))?;
-    let model = cfg
-        .whisper_model
-        .as_ref()
-        .ok_or_else(|| anyhow!("Transcription model missing. Download ggml-base.en.bin (~148MB) into <data-dir>/models or set CF_WHISPER_MODEL."))?;
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let model_dirs = crate::config::model_search_dirs(&cfg.data_dir, &cwd);
+    let (model, whisper_lang) = resolve_language(cfg, language.unwrap_or("auto"), &model_dirs)?;
 
     // Never let whisper write directly to a retry-visible name. A cancelled
     // process may leave a JSON prefix that looks parseable on the next run.
@@ -42,7 +195,7 @@ where
         "-f".into(),
         wav.to_string_lossy().into_owned(),
         "-l".into(),
-        "en".into(),
+        whisper_lang,
         "-t".into(),
         cfg.threads.to_string(),
         "--output-json-full".into(),
@@ -146,6 +299,9 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
 
     for segment in segments {
         let mut pending: Option<PendingWord> = None;
+        // Non-lexical symbols before the next word (¿, ¡, quotes, dashes) —
+        // attached to the word they open so captions keep them.
+        let mut prefix = String::new();
         let Some(tokens) = segment["tokens"].as_array() else {
             continue;
         };
@@ -163,7 +319,11 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
             let lexical = part.chars().any(char::is_alphanumeric);
             let annotation = (part.starts_with('[') && part.ends_with(']'))
                 || (part.starts_with('(') && part.ends_with(')'));
-            if annotation || (!lexical && pending.is_none()) {
+            if annotation {
+                continue;
+            }
+            if !lexical && pending.is_none() {
+                prefix.push_str(part);
                 continue;
             }
 
@@ -180,7 +340,7 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
                     continue;
                 }
                 pending = Some(PendingWord {
-                    text: part.to_string(),
+                    text: std::mem::take(&mut prefix) + part,
                     start_ms: from,
                     end_ms: to,
                     p_sum: token["p"].as_f64().unwrap_or(0.5),
@@ -290,6 +450,13 @@ fn parse_words(v: &serde_json::Value) -> Vec<Word> {
     words
 }
 
+/// Does this word's text end a sentence (terminal punctuation, allowing
+/// closing quotes/brackets after the mark)?
+pub fn terminal_word(text: &str) -> bool {
+    text.trim_end_matches(['"', '\'', ')', ']'])
+        .ends_with(['.', '?', '!', '…'])
+}
+
 /// Group words into sentence-like segments: break after terminal punctuation,
 /// on long pauses, or when a segment grows unreasonably large.
 pub fn build_sentences(words: &[Word]) -> Vec<Sentence> {
@@ -299,10 +466,7 @@ pub fn build_sentences(words: &[Word]) -> Vec<Sentence> {
 
     for i in 0..words.len() {
         char_len += words[i].text.len() + 1;
-        let terminal = words[i]
-            .text
-            .trim_end_matches(['"', '\'', ')', ']'])
-            .ends_with(['.', '?', '!', '…']);
+        let terminal = terminal_word(&words[i].text);
         let long_pause = words
             .get(i + 1)
             .map(|next| next.start_ms.saturating_sub(words[i].end_ms) >= 1000)
@@ -418,6 +582,116 @@ mod tests {
                 ("words.", 1800, 2200),
             ]
         );
+    }
+
+    fn cfg_with_model(path: &Path) -> Config {
+        let mut cfg = Config::resolve();
+        cfg.whisper_model = Some(path.to_path_buf());
+        cfg
+    }
+
+    #[test]
+    fn language_table_is_unique_and_covers_whisper_languages() {
+        assert_eq!(WHISPER_LANGUAGES.len(), 100);
+        let mut codes: Vec<&str> = WHISPER_LANGUAGES.iter().map(|(c, _)| *c).collect();
+        codes.sort_unstable();
+        codes.dedup();
+        assert_eq!(codes.len(), WHISPER_LANGUAGES.len());
+        assert_eq!(language_name("es"), Some("Spanish"));
+        assert_eq!(language_name("yue"), Some("Cantonese"));
+        assert_eq!(language_name("xx"), None);
+    }
+
+    #[test]
+    fn auto_language_detects_only_on_multilingual_weights() {
+        let multi = cfg_with_model(Path::new("models/ggml-base.bin"));
+        let en_only = cfg_with_model(Path::new("models/ggml-base.en.bin"));
+        let no_dirs: &[PathBuf] = &[];
+        // English-only weights keep the historical `-l en` for auto-detect.
+        assert_eq!(resolve_language(&en_only, "auto", no_dirs).unwrap().1, "en");
+        assert_eq!(resolve_language(&en_only, "en", no_dirs).unwrap().1, "en");
+        assert_eq!(
+            resolve_language(&en_only, "es", no_dirs).unwrap_err().to_string(),
+            "Transcribing in Spanish needs a multilingual whisper model (e.g. ggml-base.bin in <data-dir>/models or CF_WHISPER_MODEL). The configured model is English-only."
+        );
+        // ...unless a multilingual model is on disk to swap in.
+        let dir = std::env::temp_dir().join(format!("cf-lang-test-{}", crate::util::short_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let alt = dir.join("ggml-base.bin");
+        std::fs::write(&alt, b"multi").unwrap();
+        assert_eq!(
+            resolve_language(&en_only, "auto", std::slice::from_ref(&dir)).unwrap(),
+            (alt.clone(), "auto".into())
+        );
+        assert_eq!(
+            resolve_language(&en_only, "es", std::slice::from_ref(&dir)).unwrap(),
+            (alt, "es".into())
+        );
+        std::fs::remove_dir_all(dir).ok();
+
+        assert_eq!(resolve_language(&multi, "auto", no_dirs).unwrap().1, "auto");
+        assert_eq!(resolve_language(&multi, "es", no_dirs).unwrap().1, "es");
+        assert_eq!(resolve_language(&multi, "EN", no_dirs).unwrap().1, "en");
+        assert!(resolve_language(&multi, "klingon", no_dirs).is_err());
+    }
+
+    /// Spanish fixture: whisper token offsets survive parsing and the words
+    /// reach the ASS untouched — accents, inverted punctuation and all.
+    #[test]
+    fn spanish_words_render_into_captions() {
+        let parsed = serde_json::json!({
+            "result": {"language": "es"},
+            "transcription": [{
+                "offsets": {"from": 0, "to": 3000},
+                "text": " ¿Qué hacemos con los niños esta noche?",
+                "tokens": [
+                    {"text": "[_BEG_]", "offsets": {"from": 0, "to": 0}, "p": 1.0},
+                    {"text": " ¿", "offsets": {"from": 100, "to": 160}, "p": 0.95},
+                    {"text": "Qu", "offsets": {"from": 160, "to": 260}, "p": 0.95},
+                    {"text": "é", "offsets": {"from": 260, "to": 340}, "p": 0.95},
+                    {"text": " hacemos", "offsets": {"from": 400, "to": 900}, "p": 0.92},
+                    {"text": " con", "offsets": {"from": 900, "to": 1100}, "p": 0.94},
+                    {"text": " los", "offsets": {"from": 1100, "to": 1300}, "p": 0.94},
+                    {"text": " niños", "offsets": {"from": 1300, "to": 1700}, "p": 0.96},
+                    {"text": " esta", "offsets": {"from": 1700, "to": 2000}, "p": 0.93},
+                    {"text": " noche", "offsets": {"from": 2000, "to": 2500}, "p": 0.95},
+                    {"text": "?", "offsets": {"from": 2500, "to": 2600}, "p": 0.9}
+                ]
+            }]
+        });
+        let words = parse_words(&parsed);
+        let texts: Vec<&str> = words.iter().map(|w| w.text.as_str()).collect();
+        // "¿" is non-lexical punctuation: it attaches to the word it opens,
+        // and sub-word tokens ("Qu" + "é") merge into one word.
+        assert!(texts.contains(&"¿Qué"), "{texts:?}");
+        assert!(texts.contains(&"niños"), "{texts:?}");
+        assert!(texts.contains(&"hacemos"), "{texts:?}");
+        assert!(!texts.iter().any(|t| t.contains('_')), "{texts:?}");
+
+        let sentences = build_sentences(&words);
+        assert_eq!(sentences.len(), 1);
+        assert_eq!(sentences[0].text, "¿Qué hacemos con los niños esta noche?");
+
+        let input = crate::captions::CaptionInput {
+            words: &words,
+            clip_start_ms: 0,
+            clip_end_ms: 3000,
+            headline: "",
+            font: "Inter",
+            accent_bgr: crate::captions::accent_bgr_for(
+                crate::captions::CaptionStyle::Impact,
+                None,
+            ),
+            emoji_overlay: false,
+            out_w: crate::render::OUT_W,
+            out_h: crate::render::OUT_H,
+            diarization: None,
+        };
+        let impact = crate::captions::build_ass(&input, crate::captions::CaptionStyle::Impact);
+        assert!(impact.contains("NIÑOS"), "{impact}");
+        let clean = crate::captions::build_ass(&input, crate::captions::CaptionStyle::Clean);
+        assert!(clean.contains("niños"), "{clean}");
+        assert!(clean.contains("noche"), "{clean}");
     }
 
     #[test]

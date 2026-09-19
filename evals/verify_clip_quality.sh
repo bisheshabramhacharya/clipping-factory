@@ -12,7 +12,12 @@
 #   encoder       the H.264 bitstream carries the libx264 SEI (no VideoToolbox)
 #   first frames  the first frame of every clip is extracted into evidence/
 #                 for visual review (face-first openings)
-#   captions      a mid-clip frame is extracted alongside (caption scale)
+#   captions      a mid-clip frame is extracted alongside (caption scale);
+#                 when the clip record carries a caption style, the caption
+#                 band's luma spread must show burned text
+#   cut guard     scdet boundaries in the rendered clip must not sit within
+#                 +/-500ms of the opening or closing cut (spec #54 scene guard)
+#   clip count    ready-clip count must sit inside --min-clips..--max-clips
 #   health stack  cargo check / clippy / fmt / test, bash -n evals/run.sh
 #
 # Artifacts land in <run-dir>/report/ (default: evals/results/verify-<UTC>,
@@ -26,6 +31,8 @@
 #   --poll-seconds N     status poll interval (default 5)
 #   --reuse PROJECT_ID   skip build/render; re-check a project already inside
 #                        --run-dir (requires a run dir made by this script)
+#   --min-clips N        assert at least N ready clips (default 0)
+#   --max-clips N        assert at most N ready clips (default unbounded)
 #   --skip-health        skip the cargo health stack
 #   --keep-server        leave the spawned studio running (debugging)
 
@@ -38,14 +45,16 @@ PORT=4573
 POLL=5
 TIMEOUT=5400
 REUSE=""
+MIN_CLIPS=0
+MAX_CLIPS=999
 SKIP_HEALTH=false
 KEEP_SERVER=false
 
-usage() { sed -n '2,30p' "$0"; }
+usage() { sed -n '2,37p' "$0"; }
 
 while (($#)); do
   case "$1" in
-    --source|--run-dir|--port|--timeout-seconds|--poll-seconds|--reuse)
+    --source|--run-dir|--port|--timeout-seconds|--poll-seconds|--reuse|--min-clips|--max-clips)
       (($# >= 2)) || { echo "$1 requires a value" >&2; exit 1; }
       option="$1"; value="$2"; shift 2
       case "$option" in
@@ -55,6 +64,8 @@ while (($#)); do
         --timeout-seconds) TIMEOUT="$value" ;;
         --poll-seconds) POLL="$value" ;;
         --reuse) REUSE="$value" ;;
+        --min-clips) MIN_CLIPS="$value" ;;
+        --max-clips) MAX_CLIPS="$value" ;;
       esac
       ;;
     --skip-health) SKIP_HEALTH=true; shift ;;
@@ -67,6 +78,9 @@ done
 [[ "$POLL" =~ ^[1-9][0-9]*$ ]] || { echo "--poll-seconds must be a positive integer" >&2; exit 1; }
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo "--timeout-seconds must be a positive integer" >&2; exit 1; }
 [[ "$PORT" =~ ^[0-9]+$ ]] || { echo "--port must be an integer" >&2; exit 1; }
+[[ "$MIN_CLIPS" =~ ^[0-9]+$ ]] || { echo "--min-clips must be a non-negative integer" >&2; exit 1; }
+[[ "$MAX_CLIPS" =~ ^[0-9]+$ ]] || { echo "--max-clips must be a non-negative integer" >&2; exit 1; }
+(( MIN_CLIPS <= MAX_CLIPS )) || { echo "--min-clips exceeds --max-clips" >&2; exit 1; }
 for cmd in curl jq python3 cargo ffmpeg ffprobe; do
   command -v "$cmd" >/dev/null || { echo "$cmd is required" >&2; exit 1; }
 done
@@ -194,10 +208,12 @@ fi
 # --------------------------------------------------------------------------
 CHECKS_JSON="$REPORT/checks.json"
 if [[ -n "$MANIFEST" ]]; then
-python3 - "$MANIFEST" "$DATA_DIR/projects/$PROJECT/clips" "$SOURCE" "$EVIDENCE" "$CHECKS_JSON" "$FFMPEG" "$FFPROBE" <<'PY'
+python3 - "$MANIFEST" "$DATA_DIR/projects/$PROJECT/clips" "$SOURCE" "$EVIDENCE" "$CHECKS_JSON" "$FFMPEG" "$FFPROBE" "$MIN_CLIPS" "$MAX_CLIPS" "$ROOT" <<'PY'
 import json, os, re, subprocess, sys, tempfile
 
-manifest_path, clips_dir, source, evidence_dir, out_json, FFMPEG, FFPROBE = sys.argv[1:]
+manifest_path, clips_dir, source, evidence_dir, out_json, FFMPEG, FFPROBE, MIN_CLIPS, MAX_CLIPS, root = sys.argv[1:]
+sys.path.insert(0, os.path.join(root, "evals"))
+import clip_checks
 manifest = json.load(open(manifest_path))
 
 def run(cmd):
@@ -223,6 +239,22 @@ def grab(video, t_s, out_png):
 def scaled_source_frame(t_s, w, h, out_png):
     run([FFMPEG, "-y", "-v", "error", "-ss", f"{t_s:.3f}", "-i", source,
          "-vf", f"scale={w}:{h}", "-frames:v", "1", out_png])
+
+def scdet_boundaries(path):
+    """Detected scene boundaries (ms) inside a rendered clip — the same
+    filter pipeline media.rs runs on the source."""
+    p = run([FFMPEG, "-hide_banner", "-nostats", "-i", path,
+             "-vf", "scale=320:-2,scdet", "-f", "null", "-"])
+    return [ms for ms in
+            (clip_checks.parse_scdet_ms(l) for l in p.stderr.decode(errors="replace").splitlines())
+            if ms is not None]
+
+def caption_band_stats(png):
+    """(YAVG, luma spread) of the lower-middle band where captions sit."""
+    p = run([FFMPEG, "-i", png,
+             "-vf", "crop=iw:ih*0.30:0:ih*0.55,signalstats,metadata=mode=print",
+             "-f", "null", "-"])
+    return clip_checks.parse_signalstats_y(p.stderr.decode(errors="replace"))
 
 PSNR_RE = re.compile(rb"average:(\d+\.\d+|inf)")
 def psnr_at(src_png, clip_png, w, h, x):
@@ -342,6 +374,23 @@ for clip in manifest.get("clips", []):
     entry["first_frame"] = os.path.relpath(first_png, os.path.dirname(out_json))
     entry["caption_frame"] = os.path.relpath(cap_png, os.path.dirname(out_json))
 
+    # Cut guard: no detected boundary may sit on the opening or closing cut.
+    boundaries = scdet_boundaries(path)
+    entry["scene_boundaries_ms"] = boundaries
+    entry["cut_violations"] = clip_checks.cut_violations(
+        boundaries, int(round(entry["duration_s"] * 1000)))
+    entry["cut_guard_ok"] = not entry["cut_violations"]
+
+    # Caption presence is asserted only when the clip record actually
+    # selected a style — tone-only or captionless runs keep it informational.
+    if clip.get("caption_style"):
+        yavg, yspread = caption_band_stats(cap_png)
+        entry["caption_band"] = {"yavg": yavg, "yspread": yspread}
+        entry["caption_ok"] = (yavg is not None and yspread is not None
+                               and clip_checks.caption_band_ok(yavg, yspread))
+    else:
+        entry["caption_ok"] = None
+
     if entry["layout"] == "face_crop":
         with tempfile.TemporaryDirectory() as tmp:
             samples, note = measure_crop_x(path, clip.get("start_ms", 0),
@@ -359,11 +408,16 @@ for clip in manifest.get("clips", []):
         entry["crop_ok"] = None  # no crop window in blur_pad
     entry["checks_ok"] = bool(
         entry["resolution_ok"] and entry["encoder_ok"]
-        and entry["crop_ok"] is not False)
+        and entry["crop_ok"] is not False
+        and entry["cut_guard_ok"]
+        and entry["caption_ok"] is not False)
     all_ok = all_ok and entry["checks_ok"]
     report["clips"].append(entry)
 
-report["clips_ok"] = all_ok and bool(report["clips"])
+ready = sum(1 for c in report["clips"] if c.get("status") == "ready")
+report["clip_count"] = {"ready": ready, "min": int(MIN_CLIPS), "max": int(MAX_CLIPS)}
+report["clip_count_ok"] = clip_checks.clip_count_ok(ready, int(MIN_CLIPS), int(MAX_CLIPS))
+report["clips_ok"] = all_ok and bool(report["clips"]) and report["clip_count_ok"]
 json.dump(report, open(out_json, "w"), indent=2)
 print(json.dumps({"clips": len(report["clips"]), "clips_ok": report["clips_ok"]}))
 PY
@@ -417,10 +471,13 @@ s = data.get("source", {})
 L.append(f"- source: `{s.get('path')}` ({s.get('width')}x{s.get('height')}, {s.get('codec')})")
 ew = data.get("expected_window", {})
 L.append(f"- native 9:16 window (downscale cap): {ew.get('w')}x{ew.get('h')}")
-L.append(f"- clips in manifest: {len(clips)}\n")
+cc = data.get("clip_count", {})
+L.append(f"- clips in manifest: {len(clips)} (ready {cc.get('ready')}, "
+         f"bounds {cc.get('min')}..{cc.get('max')}: "
+         f"{'ok' if data.get('clip_count_ok') else 'OUT OF RANGE'})\n")
 
-L.append("| clip | layout | keyframes | out size | codec / x264 SEI | crop x samples | verdict |")
-L.append("|---|---|---|---|---|---|---|")
+L.append("| clip | layout | keyframes | out size | codec / x264 SEI | cut guard | caption | crop x samples | verdict |")
+L.append("|---|---|---|---|---|---|---|---|---|")
 for c in clips:
     kf = c.get("keyframes") or []
     kf_desc = f"{len(kf)} keys" if len(kf) != 1 else "1 key @t=0 (locked)"
@@ -436,12 +493,16 @@ for c in clips:
     if c.get("motion_free") is False: fails.append("crop moves")
     if c.get("resolution_ok") is False: fails.append("wrong size")
     if c.get("encoder_ok") is False: fails.append("not libx264")
+    if c.get("cut_guard_ok") is False: fails.append("cut on transition")
+    if c.get("caption_ok") is False: fails.append("no caption text")
     if fails: verdict += ": " + ", ".join(fails)
-    L.append("| {} | {} | {} | {}x{} | {} / {} | {} | {} |".format(
+    cut = "clean" if c.get("cut_guard_ok") else "; ".join(c.get("cut_violations") or ["n/a"])
+    cap = {True: "text present", False: "no text", None: "n/a"}[c.get("caption_ok")]
+    L.append("| {} | {} | {} | {}x{} | {} / {} | {} | {} | {} | {} |".format(
         c.get("filename"), c.get("layout"), kf_desc,
         c.get("width", "?"), c.get("height", "?"),
         c.get("codec", "?"), "x264" if c.get("x264_sei") else "no SEI",
-        samples, verdict))
+        cut, cap, samples, verdict))
 L.append("")
 L.append("## Health stack\n")
 L.append("| result | command |")

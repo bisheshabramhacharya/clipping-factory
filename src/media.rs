@@ -99,7 +99,86 @@ pub async fn probe(
             .unwrap_or("unknown")
             .to_string(),
         size_bytes,
+        scene_boundaries_ms: Vec::new(),
     })
+}
+
+/// Detect scene-boundary timestamps once per Source during inspection.
+///
+/// Runs ffmpeg `scdet` over a downscaled copy of the video — cheap enough
+/// for a multi-hour source yet still catches the hard cuts and crossfades a
+/// Clip must not open or close on. Advisory like the energy profile:
+/// callers degrade to "no boundaries".
+///
+/// `on_progress` gets the real fraction of the source scanned: `-progress`
+/// reports `out_time_ms` on stdout while the scdet detections arrive on
+/// stderr.
+pub async fn scene_boundaries<F>(
+    cfg: &Config,
+    src: &Path,
+    duration_ms: u64,
+    cancel: &CancellationToken,
+    mut on_progress: F,
+) -> Result<Vec<u64>>
+where
+    F: FnMut(f32),
+{
+    let args: Vec<String> = vec![
+        "-hide_banner".into(),
+        "-nostats".into(),
+        "-i".into(),
+        src.to_string_lossy().into_owned(),
+        "-an".into(),
+        "-vf".into(),
+        "scale=320:-2,scdet".into(),
+        "-progress".into(),
+        "pipe:1".into(),
+        "-f".into(),
+        "null".into(),
+        "-".into(),
+    ];
+    let mut boundaries: Vec<u64> = Vec::new();
+    let dur_us = (duration_ms as f64) * 1000.0;
+    run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
+        if !is_err {
+            if let Some(us) = line
+                .strip_prefix("out_time_ms=")
+                .and_then(|v| v.parse::<f64>().ok())
+            {
+                if dur_us > 0.0 {
+                    on_progress((us / dur_us).clamp(0.0, 1.0) as f32);
+                }
+            }
+            return;
+        }
+        if let Some(ms) = parse_scdet_time_ms(line) {
+            boundaries.push(ms);
+        }
+    })
+    .await?;
+    boundaries.sort_unstable();
+    boundaries.dedup();
+    Ok(boundaries)
+}
+
+/// Parse one scdet detection line into milliseconds. ffmpeg ≥5 reports
+/// `lavfi.scdet.time=12.34` (metadata=print) or `lavfi.scdet.time: 12.34`
+/// (the filter's own log line); 4.x names the same key `lavfi.scd.time`.
+fn parse_scdet_time_ms(line: &str) -> Option<u64> {
+    let value = ["lavfi.scdet.time", "lavfi.scd.time"]
+        .iter()
+        .find_map(|key| line.find(key).map(|i| &line[i + key.len()..]))?;
+    let secs: f64 = value
+        .trim_start_matches(['=', ':'])
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()?;
+    if secs.is_finite() && secs >= 0.0 {
+        Some((secs * 1000.0).round() as u64)
+    } else {
+        None
+    }
 }
 
 fn parse_rate(s: &str) -> Option<f64> {
@@ -166,4 +245,26 @@ where
         }
     })?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_scdet_time_across_ffmpeg_versions() {
+        // ffmpeg 4.x scdet log line (metadata key `lavfi.scd.time`).
+        assert_eq!(
+            parse_scdet_time_ms("[scdet @ 0x0] lavfi.scd.score: 15.625, lavfi.scd.time: 4.2"),
+            Some(4_200)
+        );
+        // ffmpeg ≥5 metadata=print output (metadata key `lavfi.scdet.time`).
+        assert_eq!(
+            parse_scdet_time_ms("[Parsed_metadata_2 @ 0x0] lavfi.scdet.time=12.345"),
+            Some(12_345)
+        );
+        assert_eq!(parse_scdet_time_ms("lavfi.scdet.time: 0"), Some(0));
+        assert_eq!(parse_scdet_time_ms("frame=  100 fps=30"), None);
+        assert_eq!(parse_scdet_time_ms("lavfi.scdet.time=abc"), None);
+    }
 }

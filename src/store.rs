@@ -7,6 +7,7 @@
 //!   transcript.json
 //!   candidates-raw.json      (selector proposals, pre-validation)
 //!   candidates.json          (validated SelectionReport)
+//!   speakers.json            (diarized speaker turns, when a model ran)
 //!   render-manifest.json
 //!   source.mp4
 //!   audio.wav                (temporary; deleted after transcription)
@@ -59,8 +60,20 @@ impl Store {
         let bytes = tokio::fs::read(self.energy_path(id)).await.ok()?;
         serde_json::from_slice(&bytes).ok()
     }
+    pub async fn save_diarization(&self, id: &str, d: &crate::domain::Diarization) -> Result<()> {
+        atomic_write_json(&self.speakers_path(id), d).await
+    }
+    /// Diarization is advisory state: absent or unreadable means "no speaker
+    /// info", never an error worth failing a stage over.
+    pub async fn load_diarization(&self, id: &str) -> Option<crate::domain::Diarization> {
+        let bytes = tokio::fs::read(self.speakers_path(id)).await.ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
     pub fn candidates_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("candidates.json")
+    }
+    pub fn speakers_path(&self, id: &str) -> PathBuf {
+        self.project_dir(id).join("speakers.json")
     }
     pub fn manifest_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("render-manifest.json")
@@ -108,6 +121,37 @@ impl Store {
     pub async fn create_dirs(&self, id: &str) -> Result<()> {
         tokio::fs::create_dir_all(self.base_dir(id)).await?;
         Ok(())
+    }
+
+    /// On-disk footprint of the project's working directory as
+    /// `(file_count, total_bytes)`. Best-effort: unreadable entries are
+    /// skipped and symlinks are never followed outside the directory.
+    pub async fn dir_stats(&self, id: &str) -> (u64, u64) {
+        let dir = self.project_dir(id);
+        tokio::task::spawn_blocking(move || {
+            let mut files = 0u64;
+            let mut bytes = 0u64;
+            let mut stack = vec![dir];
+            while let Some(dir) = stack.pop() {
+                let Ok(entries) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
+                for entry in entries.flatten() {
+                    let Ok(kind) = entry.file_type() else {
+                        continue;
+                    };
+                    if kind.is_dir() {
+                        stack.push(entry.path());
+                    } else if kind.is_file() {
+                        files += 1;
+                        bytes += entry.metadata().map(|m| m.len()).unwrap_or(0);
+                    }
+                }
+            }
+            (files, bytes)
+        })
+        .await
+        .unwrap_or((0, 0))
     }
 
     /// A base clip is reusable only when its completed media and promotion
@@ -175,6 +219,12 @@ impl Store {
                 }
             }
         }
+        // A clip's export sidecars share its MP4 stem, so the sweep below
+        // keeps or drops the whole pack as one unit.
+        let ready_stems: HashSet<String> = ready_names
+            .iter()
+            .filter_map(|n| crate::export::pack_stem(n).map(str::to_string))
+            .collect();
 
         let mut root = tokio::fs::read_dir(&project_dir).await?;
         while let Some(entry) = root.next_entry().await? {
@@ -205,11 +255,12 @@ impl Store {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if name.ends_with(".ass")
-                    || name.contains(".part-")
-                    || (name.ends_with(".mp4") && !ready_names.contains(&name))
-                {
+                if name.ends_with(".ass") || name.contains(".part-") {
                     tokio::fs::remove_file(path).await.ok();
+                } else if let Some(stem) = crate::export::pack_stem(&name) {
+                    if !ready_stems.contains(stem) {
+                        tokio::fs::remove_file(path).await.ok();
+                    }
                 } else if let Some(clip_id) = name.strip_suffix(".ready") {
                     if !ready_ids.contains(clip_id) {
                         tokio::fs::remove_file(path).await.ok();
@@ -341,6 +392,7 @@ mod tests {
                 duration_ms: 30000,
                 selection_reason: "why".into(),
                 scores: Scores::default(),
+                score: Some(21.5),
                 layout: LayoutPlan::BlurPad,
                 status: ClipStatus::Ready,
                 error: None,
@@ -349,8 +401,16 @@ mod tests {
                 accent_color: Some("#FFDD00".into()),
                 caption_font: Some("Inter".into()),
                 caption_text: None,
+                emoji_overlay: None,
                 width: Some(608),
                 height: Some(1080),
+                auto_cut: false,
+                cut_spans: None,
+                zoom_cuts: false,
+                zoom_keys: None,
+                end_card: false,
+                progress_bar: false,
+                hook_title: false,
             }],
             output_dir: Some("/tmp/out".into()),
         };
@@ -359,6 +419,7 @@ mod tests {
         assert_eq!(loaded.clips.len(), 1);
         assert_eq!(loaded.clips[0].layout, LayoutPlan::BlurPad);
         assert_eq!(loaded.clips[0].status, ClipStatus::Ready);
+        assert_eq!(loaded.clips[0].score, Some(21.5));
 
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
@@ -380,6 +441,7 @@ mod tests {
             duration_ms: 20_000,
             selection_reason: "test".into(),
             scores: Scores::default(),
+            score: None,
             layout: LayoutPlan::BlurPad,
             status: ClipStatus::Ready,
             error: None,
@@ -388,8 +450,16 @@ mod tests {
             caption_text: None,
             accent_color: None,
             caption_font: None,
+            emoji_overlay: None,
             width: None,
             height: None,
+            auto_cut: false,
+            cut_spans: None,
+            zoom_cuts: false,
+            zoom_keys: None,
+            end_card: false,
+            progress_bar: false,
+            hook_title: false,
         };
         store
             .save_manifest(
@@ -421,6 +491,18 @@ mod tests {
         tokio::fs::write(store.clips_dir(id).join("ready1.ass"), b"partial")
             .await
             .unwrap();
+        // Export pack sidecars follow their MP4's fate: a ready clip keeps
+        // its pack, a stale clip's pack is dropped.
+        for name in ["01-ready.srt", "01-ready.vtt", "01-ready.meta.json"] {
+            tokio::fs::write(store.clips_dir(id).join(name), b"sidecar")
+                .await
+                .unwrap();
+        }
+        for name in ["02-stale.srt", "02-stale.vtt", "02-stale.meta.json"] {
+            tokio::fs::write(store.clips_dir(id).join(name), b"stale")
+                .await
+                .unwrap();
+        }
         tokio::fs::write(store.base_clip_path(id, "ready1"), b"complete")
             .await
             .unwrap();
@@ -441,6 +523,12 @@ mod tests {
         assert!(!store.project_dir(id).join(".whisper-old.json").is_file());
         assert!(!store.clips_dir(id).join("02-stale.mp4").is_file());
         assert!(!store.clips_dir(id).join("ready1.ass").is_file());
+        for name in ["01-ready.srt", "01-ready.vtt", "01-ready.meta.json"] {
+            assert!(store.clips_dir(id).join(name).is_file(), "{name} kept");
+        }
+        for name in ["02-stale.srt", "02-stale.vtt", "02-stale.meta.json"] {
+            assert!(!store.clips_dir(id).join(name).is_file(), "{name} dropped");
+        }
         assert!(!store.base_clip_path(id, "stale1").is_file());
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
@@ -467,6 +555,7 @@ mod tests {
                         duration_ms: 20_000,
                         selection_reason: "test".into(),
                         scores: Scores::default(),
+                        score: None,
                         layout: LayoutPlan::BlurPad,
                         status: ClipStatus::Ready,
                         error: None,
@@ -475,8 +564,16 @@ mod tests {
                         caption_text: None,
                         accent_color: None,
                         caption_font: None,
+                        emoji_overlay: None,
                         width: None,
                         height: None,
+                        auto_cut: false,
+                        cut_spans: None,
+                        zoom_cuts: false,
+                        zoom_keys: None,
+                        end_card: false,
+                        progress_bar: false,
+                        hook_title: false,
                     }],
                     output_dir: None,
                 },

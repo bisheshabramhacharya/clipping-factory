@@ -30,8 +30,10 @@
         <h2 id="upload-title" class="sr-only">Create clips</h2>
         <div id="drop" class="upload">
           <strong>Drop one podcast MP4 here</strong>
+          <p class="promise">No account. No upload. No watermark. Your file never leaves this machine.</p>
           <p class="muted">The original stays on this computer. Clips keep the original conversation intact. Each clip is one continuous excerpt with no invented speech.</p>
           <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+          <button id="sample-btn" class="secondary" type="button">Try the sample episode</button>
           <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
           <fieldset class="framing-choice">
             <legend>Output framing</legend>
@@ -64,6 +66,32 @@
               <span><strong>Optimized</strong><small>Matches the video palette</small></span>
             </label>
           </fieldset>
+          <label class="emoji-option">
+            <input id="upload-emoji" type="checkbox">
+            <span><strong>Emoji accents</strong><small>Flash a matching emoji over caption keywords</small></span>
+          </label>
+          <fieldset class="language-choice">
+            <legend>Transcription language</legend>
+            <select id="upload-language" aria-label="Transcription language">
+              <option value="auto" selected>Auto-detect</option>
+            </select>
+            <small id="upload-language-note">Auto-detect identifies the spoken language. Picking a language skips detection.</small>
+          </fieldset>
+          <label class="focus-field" for="focus-prompt">
+            <span class="focus-label">Focus <small>optional</small></span>
+            <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
+              placeholder="e.g. clips about pricing, or where they argue">
+          </label>
+          <fieldset class="platform-choice">
+            <legend>Optimize for</legend>
+            <select id="upload-platform" aria-label="Platform to optimize clip length for">
+              <option value="any" selected>Any</option>
+              <option value="tiktok">TikTok</option>
+              <option value="reels">Reels</option>
+              <option value="shorts">Shorts</option>
+            </select>
+            <small>Ranks each platform's favored length first — TikTok 25–35s, Reels 35–45s, Shorts 45–60s. Never a hard limit.</small>
+          </fieldset>
           <p class="muted small">MP4 with an audio stream, up to 4 hours long. Captions, highlight color, and font stay editable on each finished clip.</p>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
@@ -84,10 +112,20 @@
           <div>
             <span id="source-name" class="source-name"></span>
             <span id="source-meta" class="muted"></span>
+            <span id="source-focus" class="muted"></span>
           </div>
           <button id="cancel-btn" type="button">Cancel</button>
         </div>
         <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
+        <div id="overall" class="overall hidden">
+          <div class="overall-head">
+            <strong>Overall</strong>
+            <span id="overall-text" class="muted" role="status" aria-live="polite"></span>
+          </div>
+          <div class="bar overall-bar" role="progressbar" aria-label="Overall progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="overall-bar" class="bar-fill"></div>
+          </div>
+        </div>
         <div id="current-op" class="current-op hidden">
           <span class="spinner"></span>
           <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>
@@ -122,11 +160,22 @@
         <div id="empty-results" class="empty-results hidden">
           <strong>No excerpt passed the quality bar.</strong>
           <p class="muted">This source didn’t contain a moment that stands alone at the required quality. Clipping Factory returns fewer clips rather than bad ones. Try a longer or more speech-led recording.</p>
+          <div class="empty-actions">
+            <button id="empty-sample-btn" type="button" class="primary">Try the sample episode</button>
+            <button id="empty-choose-btn" type="button">Choose another MP4</button>
+          </div>
         </div>
         <details id="rejected-details" class="rejected hidden">
           <summary>What was considered and rejected</summary>
           <div id="rejected-list"></div>
         </details>
+      </section>
+
+      <!-- Library: every project on this computer; open or delete -->
+      <section id="library-state" class="hidden" aria-labelledby="library-title">
+        <h2 id="library-title">Library</h2>
+        <p class="muted small">Past projects live on this machine. Open one to pick it back up, or delete it to reclaim the disk.</p>
+        <div id="library-list" class="library-list"></div>
       </section>
     </main>
 
@@ -144,20 +193,37 @@
         <select id="provider">
           <option value="openai">OpenAI</option>
           <option value="anthropic">Anthropic</option>
+          <option value="local">Local endpoint (Ollama, LM Studio)</option>
           <option value="offline">Local ranking (no key)</option>
         </select>
       </label>
       <label id="model-row">Model
         <input id="model" type="text" placeholder="gpt-4o-mini">
       </label>
+      <label id="base-url-row" class="hidden">Base URL
+        <input id="base-url" type="text" placeholder="http://localhost:11434/v1">
+      </label>
       <label id="key-row">API key
         <input id="api-key" type="password" placeholder="sk-…" autocomplete="off">
       </label>
       <p id="offline-note" class="muted small hidden">Local ranking scans the full transcript for strong openings, reactions, repeated claims, clean endings, and standalone clarity. No model or API key is required.</p>
+      <p id="local-note" class="muted small hidden">An OpenAI-compatible server running on this machine — Ollama at http://localhost:11434/v1, LM Studio at http://localhost:1234/v1, or llama.cpp. The model name must be one the server already has (e.g. <code>ollama pull qwen2.5:7b</code>). No API key needed; if the endpoint is down, selection falls back to local ranking.</p>
       <p id="test-result" class="small hidden"></p>
       <div class="modal-actions">
         <button id="modal-close" type="button" aria-label="Close AI connection dialog">Close</button>
         <button id="test-save" class="primary" type="button">Test &amp; save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation -->
+  <div id="delete-backdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" aria-describedby="delete-modal-description">
+      <h3 id="delete-modal-title">Delete project?</h3>
+      <p id="delete-modal-description" class="muted small"></p>
+      <div class="modal-actions">
+        <button id="delete-cancel" type="button">Cancel</button>
+        <button id="delete-confirm" class="danger" type="button">Delete</button>
       </div>
     </div>
   </div>
@@ -172,12 +238,14 @@
       <button id="review-close" class="review-close" type="button">Close (Esc)</button>
     </div>
     <div class="review-stage">
-      <video id="review-video" controls playsinline></video>
+      <video id="review-video" controls playsinline muted></video>
       <div class="review-copy">
         <h2 id="review-title"></h2>
+        <p id="review-meta" class="review-meta"></p>
         <p id="review-reason"></p>
+        <a id="review-download" class="review-download" href="#">Download MP4</a>
         <div class="review-kbd">
-          <kbd>←→</kbd> navigate, <kbd>Space</kbd> play/pause, <kbd>1</kbd> Keep, <kbd>2</kbd> Maybe, <kbd>3</kbd> Skip
+          <kbd>←→</kbd>/<kbd>jk</kbd> navigate · <kbd>Space</kbd> play/pause · <kbd>1</kbd> Keep · <kbd>2</kbd> Maybe · <kbd>3</kbd> Skip · <kbd>Esc</kbd> close
         </div>
       </div>
     </div>
@@ -187,8 +255,17 @@
         <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
         <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
       </div>
-      <span class="review-counts">Decide and jump to the next clip</span>
+      <div class="review-nav">
+        <button id="review-prev" type="button" aria-label="Previous clip">← Prev</button>
+        <button id="review-next" type="button" aria-label="Next clip">Next →</button>
+      </div>
     </div>
+  </div>
+
+  <!-- Toast offering the theater when the first clip lands mid-run -->
+  <div id="review-toast" class="review-toast" role="status" hidden>
+    <span id="review-toast-text"></span>
+    <button id="review-toast-open" type="button">Review</button>
   </div>
 
   <script src="/app.js"></script>
