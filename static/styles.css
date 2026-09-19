@@ -633,12 +633,32 @@ body.modal-open { overflow: hidden; }
   font-size: clamp(20px, 2.4vw, 28px); font-weight: 650;
   letter-spacing: -0.02em; line-height: 1.2;
 }
+.review-meta {
+  margin: -8px 0 14px;
+  font-size: 13px; color: rgba(236, 234, 228, .55);
+}
 #review-reason {
   margin: 0 0 16px; padding-left: 12px;
   border-left: 3px solid rgba(236, 234, 228, .25);
   font-size: 14px; line-height: 1.55; color: rgba(236, 234, 228, .72);
 }
+.review-download {
+  display: inline-flex; align-items: center;
+  margin: 0 0 18px; padding: 6px 14px;
+  border: 1px solid rgba(236, 234, 228, .25); border-radius: var(--r-pill);
+  color: var(--theater-text); font-size: 13px; text-decoration: none;
+}
+.review-download:hover { background: rgba(236, 234, 228, .08); border-color: rgba(236, 234, 228, .4); text-decoration: none; }
 .review-kbd { font-size: 12px; color: rgba(236, 234, 228, .6); }
+.review-nav { display: flex; gap: 10px; }
+.review-nav button {
+  min-height: 44px; min-width: 96px; padding: 8px 16px;
+  background: transparent;
+  border: 1px solid rgba(236, 234, 228, .25); border-radius: var(--r-pill);
+  color: var(--theater-text); font-size: 14px; font-weight: 500;
+}
+.review-nav button:hover { background: rgba(236, 234, 228, .08); border-color: rgba(236, 234, 228, .4); }
+.review-nav button:disabled { opacity: .4; }
 .review-kbd kbd, .review-decisions kbd {
   font: inherit; font-size: 12px; font-weight: 600;
   min-width: 20px; padding: 2px 6px; text-align: center;
@@ -669,6 +689,24 @@ body.modal-open { overflow: hidden; }
 .review-badge[data-decision="skip"] { color: var(--ink-2); border-color: var(--hairline-strong); }
 .clip.review-skip { opacity: .5; transition: opacity var(--t-fast) ease-out; }
 
+/* First-clip toast: a quiet nudge toward the theater, never steals focus */
+.review-toast[hidden] { display: none; }
+.review-toast {
+  position: fixed; right: 20px; bottom: 20px; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 8px 8px 16px;
+  background: var(--ink); color: var(--surface);
+  border-radius: var(--r-pill);
+  box-shadow: 0 12px 32px rgba(31, 30, 29, .28);
+  font-size: 13px;
+}
+.review-toast button {
+  min-height: 30px; padding: 4px 14px;
+  background: var(--surface); color: var(--ink); border: 0;
+  border-radius: var(--r-pill); font-size: 12px; font-weight: 600;
+}
+.review-toast button:hover { background: var(--surface-2); }
+
 /* ---- Motion ---- */
 @keyframes rise-in { from { opacity: 0; transform: translateY(10px); } }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.99); } }
@@ -685,6 +723,7 @@ body.modal-open { overflow: hidden; }
 .modal-backdrop:not(.hidden) { animation: fade-in var(--t-med) ease-out both; }
 .modal-backdrop:not(.hidden) .modal { animation: rise-in var(--t-slow) var(--spring) both; }
 .review-theater:not([hidden]) { animation: review-in 280ms var(--spring) both; }
+.review-toast:not([hidden]) { animation: rise-in var(--t-med) var(--ease) both; }
 
 .source-meta, .times, .step .status, #elapsed, .review-counts, #review-progress {
   font-variant-numeric: tabular-nums;
@@ -705,6 +744,9 @@ body.modal-open { overflow: hidden; }
   .review-copy h2 { font-size: 20px; }
   .review-decisions { flex-wrap: nowrap; width: 100%; }
   .review-decisions button { flex: 1; min-width: 0; justify-content: center; }
+  .review-nav { width: 100%; }
+  .review-nav button { flex: 1; min-width: 0; }
+  .review-toast { left: 16px; right: 16px; justify-content: space-between; }
 }
 @media (max-width: 720px) {
   .framing-choice, .accent-choice { grid-template-columns: 1fr; }

@@ -209,12 +209,14 @@
       <button id="review-close" class="review-close" type="button">Close (Esc)</button>
     </div>
     <div class="review-stage">
-      <video id="review-video" controls playsinline></video>
+      <video id="review-video" controls playsinline muted></video>
       <div class="review-copy">
         <h2 id="review-title"></h2>
+        <p id="review-meta" class="review-meta"></p>
         <p id="review-reason"></p>
+        <a id="review-download" class="review-download" href="#">Download MP4</a>
         <div class="review-kbd">
-          <kbd>←→</kbd> navigate, <kbd>Space</kbd> play/pause, <kbd>1</kbd> Keep, <kbd>2</kbd> Maybe, <kbd>3</kbd> Skip
+          <kbd>←→</kbd>/<kbd>jk</kbd> navigate · <kbd>Space</kbd> play/pause · <kbd>1</kbd> Keep · <kbd>2</kbd> Maybe · <kbd>3</kbd> Skip · <kbd>Esc</kbd> close
         </div>
       </div>
     </div>
@@ -224,8 +226,17 @@
         <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
         <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
       </div>
-      <span class="review-counts">Decide and jump to the next clip</span>
+      <div class="review-nav">
+        <button id="review-prev" type="button" aria-label="Previous clip">← Prev</button>
+        <button id="review-next" type="button" aria-label="Next clip">Next →</button>
+      </div>
     </div>
+  </div>
+
+  <!-- Toast offering the theater when the first clip lands mid-run -->
+  <div id="review-toast" class="review-toast" role="status" hidden>
+    <span id="review-toast-text"></span>
+    <button id="review-toast-open" type="button">Review</button>
   </div>
 
   <script src="/app.js"></script>
