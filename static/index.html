@@ -82,6 +82,16 @@
             <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
               placeholder="e.g. clips about pricing, or where they argue">
           </label>
+          <fieldset class="platform-choice">
+            <legend>Optimize for</legend>
+            <select id="upload-platform" aria-label="Platform to optimize clip length for">
+              <option value="any" selected>Any</option>
+              <option value="tiktok">TikTok</option>
+              <option value="reels">Reels</option>
+              <option value="shorts">Shorts</option>
+            </select>
+            <small>Ranks each platform's favored length first — TikTok 25–35s, Reels 35–45s, Shorts 45–60s. Never a hard limit.</small>
+          </fieldset>
           <p class="muted small">MP4 with an audio stream, up to 4 hours long. Captions, highlight color, and font stay editable on each finished clip.</p>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">

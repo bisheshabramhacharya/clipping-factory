@@ -905,6 +905,7 @@ async fn run(
                         &source,
                         energy.as_ref(),
                         p.focus_prompt.as_deref(),
+                        p.platform,
                         |pct| prog(pct, None),
                     ) => result,
                 };
@@ -938,6 +939,7 @@ async fn run(
                 source.duration_ms,
                 selector,
                 &source.scene_boundaries_ms,
+                p.platform,
             );
             let detail = format!(
                 "{} passed · {} rejected",

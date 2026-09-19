@@ -14,7 +14,7 @@ pub mod heuristic;
 pub mod local;
 pub mod openai;
 
-use crate::domain::{fmt_ms, Candidate, Scores, SourceInfo, Transcript};
+use crate::domain::{fmt_ms, Candidate, Platform, Scores, SourceInfo, Transcript};
 use crate::settings::{AiSettings, Provider};
 use anyhow::{anyhow, Result};
 
@@ -43,13 +43,15 @@ pub struct SelectionOutcome {
 /// `focus` is the project's optional free-text steering prompt ("clips about
 /// pricing"). Providers receive it as a rubric directive; the offline tier
 /// falls back to keyword matching. Blank or absent focus keeps generic
-/// best-moments ranking.
+/// best-moments ranking. `platform` re-centers the preferred clip length in
+/// the window prompt; `Platform::Generic` adds no hint.
 pub async fn propose(
     settings: &AiSettings,
     transcript: &Transcript,
     source: &SourceInfo,
     energy: Option<&crate::energy::EnergyProfile>,
     focus: Option<&str>,
+    platform: Platform,
     mut on_progress: impl FnMut(f32),
 ) -> Result<SelectionOutcome> {
     let (target, proposals) = plan_counts(source.duration_ms);
@@ -86,7 +88,8 @@ pub async fn propose(
             // One provider request per window — the loop count is the work.
             for (i, win) in windows.iter().enumerate() {
                 on_progress(i as f32 / windows.len() as f32);
-                let user_prompt = window_prompt(win, source, target, per_window.max(2), focus);
+                let user_prompt =
+                    window_prompt(win, source, target, per_window.max(2), focus, platform);
                 match local::complete(&base_url, &model, SYSTEM_PROMPT, &user_prompt)
                     .await
                     .and_then(|raw| parse_candidates(&raw))
@@ -140,7 +143,8 @@ pub async fn propose(
             // One provider request per window — the loop count is the work.
             for (i, win) in windows.iter().enumerate() {
                 on_progress(i as f32 / windows.len() as f32);
-                let user_prompt = window_prompt(win, source, target, per_window.max(2), focus);
+                let user_prompt =
+                    window_prompt(win, source, target, per_window.max(2), focus, platform);
                 let raw = match provider {
                     Provider::Anthropic => {
                         anthropic::complete(&key, &model, SYSTEM_PROMPT, &user_prompt).await?
@@ -313,8 +317,9 @@ fn window_prompt(
     target: usize,
     per_window: usize,
     focus: Option<&str>,
+    platform: Platform,
 ) -> String {
-    let directive = focus
+    let mut directive = focus
         .map(|f| f.split_whitespace().collect::<Vec<_>>().join(" "))
         .filter(|f| !f.is_empty())
         .map(|f| {
@@ -323,6 +328,15 @@ fn window_prompt(
             )
         })
         .unwrap_or_default();
+    if platform != Platform::Generic {
+        let (min_ms, max_ms) = platform.sweet_spot_ms();
+        directive.push_str(&format!(
+            "\n\nPLATFORM TARGET\nThese clips are destined for {} — prefer {}–{} s moments when candidates are otherwise comparable. The hard duration rules are unchanged; never stretch or pad a moment to fit the window.",
+            platform.label(),
+            min_ms / 1000,
+            max_ms / 1000
+        ));
+    }
     format!(
         "Source: \"{}\" — total duration {} ({} ms). Planning target for the whole source: about {} clip(s); this is guidance, not a quota.{}\n\nTranscript window ({} → {}), one sentence per line as [start --> end] text:\n\n{}\n\nPropose up to {} strong candidates from THIS window only. Timestamps are absolute source milliseconds. Remember: return only the JSON object.",
         source.filename,
@@ -549,7 +563,7 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, None, |_| {})
+        let outcome = propose(&settings, &t, &src, None, None, Platform::Generic, |_| {})
             .await
             .unwrap();
         assert_eq!(outcome.selector, "local · qwen2.5:7b");
@@ -573,7 +587,7 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, None, |_| {})
+        let outcome = propose(&settings, &t, &src, None, None, Platform::Generic, |_| {})
             .await
             .unwrap();
         assert_eq!(outcome.selector, "local ranking (local endpoint failed)");
@@ -584,13 +598,35 @@ mod tests {
     fn window_prompt_carries_the_focus_directive() {
         let (t, src) = tiny_fixture();
         let windows = build_windows(&t, src.duration_ms);
-        let focused = window_prompt(&windows[0], &src, 1, 2, Some("clips about pricing"));
+        let focused = window_prompt(
+            &windows[0],
+            &src,
+            1,
+            2,
+            Some("clips about pricing"),
+            Platform::Generic,
+        );
         assert!(focused.contains("EDITORIAL FOCUS"));
         assert!(focused.contains("clips about pricing"));
-        let plain = window_prompt(&windows[0], &src, 1, 2, None);
+        let plain = window_prompt(&windows[0], &src, 1, 2, None, Platform::Generic);
         assert!(!plain.contains("EDITORIAL FOCUS"));
-        let blank = window_prompt(&windows[0], &src, 1, 2, Some("   "));
+        let blank = window_prompt(&windows[0], &src, 1, 2, Some("   "), Platform::Generic);
         assert_eq!(blank, plain);
+    }
+
+    #[test]
+    fn window_prompt_carries_the_platform_target() {
+        let (t, src) = tiny_fixture();
+        let windows = build_windows(&t, src.duration_ms);
+        let tiktok = window_prompt(&windows[0], &src, 1, 2, None, Platform::TikTok);
+        assert!(tiktok.contains("PLATFORM TARGET"));
+        assert!(tiktok.contains("TikTok"));
+        assert!(tiktok.contains("25–35 s"));
+        // Generic keeps the prompt identical to no platform line at all.
+        let generic = window_prompt(&windows[0], &src, 1, 2, None, Platform::Generic);
+        assert!(!generic.contains("PLATFORM TARGET"));
+        let reels = window_prompt(&windows[0], &src, 1, 2, None, Platform::Reels);
+        assert!(reels.contains("35–45 s"));
     }
 
     #[tokio::test]
@@ -613,6 +649,7 @@ mod tests {
             &src,
             None,
             Some("clips about pricing"),
+            Platform::Generic,
             |_| {},
         )
         .await

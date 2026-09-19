@@ -15,9 +15,6 @@ const MAX_MS: u64 = 90_000;
 const EXC_MIN_MS: u64 = 15_000;
 const EXC_MAX_MS: u64 = 110_000;
 const MAX_OVERLAP: f64 = 0.30;
-/// Ranking sweet spot (not a bound): durations platforms actually reward.
-const SWEET_MIN_MS: u64 = 25_000;
-const SWEET_MAX_MS: u64 = 60_000;
 /// Half-width of the transition around a detected scene boundary (ms): a cut
 /// inside this window lands on the crossfade itself.
 const TRANSITION_HALF_MS: u64 = 500;
@@ -118,13 +115,18 @@ fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
     None
 }
 
+/// `platform` re-centers the sweet-spot ranking nudge (`Platform::Generic`
+/// keeps 25–60 s). It is a ranking preference only — the accept bounds and
+/// the exception path are identical under every target.
 pub fn validate(
     candidates: Vec<Candidate>,
     transcript: &Transcript,
     source_duration_ms: u64,
     selector: String,
     scene_boundaries: &[u64],
+    platform: Platform,
 ) -> SelectionReport {
+    let (sweet_min_ms, sweet_max_ms) = platform.sweet_spot_ms();
     let mut evaluated: Vec<Result<(Candidate, bool, f32), RejectedCandidate>> = Vec::new();
     let mut scene_bounds = scene_boundaries.to_vec();
     scene_bounds.sort_unstable();
@@ -303,10 +305,11 @@ pub fn validate(
         }
 
         if reasons.is_empty() {
-            // Ranking nudge only: 25–60s is the short-form sweet spot
-            // (Shorts cap 60s; viral clips cluster under ~45s). Bounds
-            // and the exception path above are untouched.
-            let duration_bonus = if (SWEET_MIN_MS..=SWEET_MAX_MS).contains(&dur) {
+            // Ranking nudge only: the project's Platform target window is
+            // the sweet spot (Generic keeps 25–60 s — Shorts cap 60 s;
+            // viral clips cluster under ~45 s). Bounds and the exception
+            // path above are untouched.
+            let duration_bonus = if (sweet_min_ms..=sweet_max_ms).contains(&dur) {
                 0.75
             } else {
                 0.0
@@ -564,7 +567,7 @@ mod tests {
     fn accepts_a_good_candidate() {
         let t = transcript(1500, 400); // 600s of words
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "test".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "test".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 1);
         assert_eq!(r.rejected.len(), 0);
         assert_eq!(r.accepted[0].rank, 1);
@@ -596,6 +599,7 @@ mod tests {
                 SRC,
                 "test".into(),
                 &[],
+                Platform::Generic,
             );
             assert_eq!(r.accepted.len(), 0, "{} should reject", field);
             assert!(
@@ -617,6 +621,7 @@ mod tests {
             SRC,
             "t".into(),
             &[],
+            Platform::Generic,
         );
         assert_eq!(r.accepted.len(), 0);
         // 150s — too long even for the exception.
@@ -626,6 +631,7 @@ mod tests {
             SRC,
             "t".into(),
             &[],
+            Platform::Generic,
         );
         assert_eq!(r.accepted.len(), 0);
     }
@@ -640,13 +646,21 @@ mod tests {
             SRC,
             "t".into(),
             &[],
+            Platform::Generic,
         );
         assert_eq!(r.accepted.len(), 1);
         assert!(r.accepted[0].duration_exception);
         // 17s, mediocre payoff → rejected.
         let mut s = good_scores();
         s.payoff = 3;
-        let r = validate(vec![cand(&t, 10_000, 27_000, s)], &t, SRC, "t".into(), &[]);
+        let r = validate(
+            vec![cand(&t, 10_000, 27_000, s)],
+            &t,
+            SRC,
+            "t".into(),
+            &[],
+            Platform::Generic,
+        );
         assert_eq!(r.accepted.len(), 0);
     }
 
@@ -654,7 +668,7 @@ mod tests {
     fn rejects_timestamps_outside_source() {
         let t = transcript(1500, 400);
         let c = cand(&t, 590_000, 640_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0].reasons[0].contains("outside the source"));
     }
@@ -663,7 +677,7 @@ mod tests {
     fn rejects_inverted_interval() {
         let t = transcript(1500, 400);
         let c = cand(&t, 50_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
     }
 
@@ -672,7 +686,7 @@ mod tests {
         let t = transcript(1500, 400);
         // Propose an interval starting mid-word: word at 10_000..10_350.
         let c = cand(&t, 10_133, 50_177, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 1);
         let a = &r.accepted[0].candidate;
         assert_eq!(
@@ -692,7 +706,7 @@ mod tests {
         let t = transcript(1500, 400);
         let mut c = cand(&t, 10_000, 50_000, good_scores());
         c.opening_quote = "words that were never spoken".into();
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0].reasons[0].contains("opening quote"));
     }
@@ -708,7 +722,7 @@ mod tests {
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let mut c = cand(&t, 0, 80_000, good_scores());
         c.closing_quote = "we finally got there".into();
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
@@ -721,7 +735,7 @@ mod tests {
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let mut c = cand(&t, 0, 80_000, good_scores());
         c.closing_quote = "we finally got there".into();
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -739,7 +753,14 @@ mod tests {
         let overlapping = cand(&t, 40_000, 80_000, weaker_scores);
         // Distant candidate survives.
         let distant = cand(&t, 200_000, 250_000, weaker_scores);
-        let r = validate(vec![strong, overlapping, distant], &t, SRC, "t".into(), &[]);
+        let r = validate(
+            vec![strong, overlapping, distant],
+            &t,
+            SRC,
+            "t".into(),
+            &[],
+            Platform::Generic,
+        );
         assert_eq!(r.accepted.len(), 2);
         assert_eq!(r.rejected.len(), 1);
         assert!(r.rejected[0].reasons[0].contains("overlaps"));
@@ -756,7 +777,7 @@ mod tests {
         s2.tension_or_novelty = 3;
         // 60s candidate sharing 10s with `a` → 16% overlap → allowed.
         let b = cand(&t, 60_000, 120_000, s2);
-        let r = validate(vec![a, b], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![a, b], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 2);
     }
 
@@ -779,7 +800,14 @@ mod tests {
         let mut weaker_scores = good_scores();
         weaker_scores.tension_or_novelty = 3;
         let containing = cand(&t, containing_start, containing_end, weaker_scores);
-        let r = validate(vec![strong, containing], &t, SRC, "t".into(), &[]);
+        let r = validate(
+            vec![strong, containing],
+            &t,
+            SRC,
+            "t".into(),
+            &[],
+            Platform::Generic,
+        );
         assert_eq!(r.accepted.len(), 1);
         assert_eq!(r.rejected.len(), 1);
         assert!(r.rejected[0].reasons[0].contains("overlaps"));
@@ -792,7 +820,14 @@ mod tests {
         let mut weaker_scores = good_scores();
         weaker_scores.tension_or_novelty = 3;
         let mostly_distinct = cand(&t, 23_000, 113_000, weaker_scores);
-        let r = validate(vec![strong, mostly_distinct], &t, SRC, "t".into(), &[]);
+        let r = validate(
+            vec![strong, mostly_distinct],
+            &t,
+            SRC,
+            "t".into(),
+            &[],
+            Platform::Generic,
+        );
         assert_eq!(r.accepted.len(), 2, "reasons: {:?}", r.rejected);
     }
 
@@ -807,7 +842,14 @@ mod tests {
         let t = transcript(1500, 400);
         let short = cand(&t, 10_000, 40_000, good_scores()); // 30s
         let long = cand(&t, 200_000, 280_000, good_scores()); // 80s, still in bounds
-        let r = validate(vec![long, short], &t, SRC, "test".into(), &[]);
+        let r = validate(
+            vec![long, short],
+            &t,
+            SRC,
+            "test".into(),
+            &[],
+            Platform::Generic,
+        );
         assert_eq!(r.accepted.len(), 2);
         let dur = |i: usize| r.accepted[i].candidate.end_ms - r.accepted[i].candidate.start_ms;
         assert!(
@@ -819,9 +861,64 @@ mod tests {
     }
 
     #[test]
+    fn platform_window_shifts_which_equal_scored_candidate_ranks_first() {
+        let t = transcript(1500, 400);
+        let thirty = cand(&t, 10_000, 40_000, good_scores()); // ~30s
+        let forty = cand(&t, 200_000, 240_000, good_scores()); // ~40s
+        let first_dur =
+            |r: &SelectionReport| r.accepted[0].candidate.end_ms - r.accepted[0].candidate.start_ms;
+        // TikTok favors 25–35 s: the ~30 s clip outranks the ~40 s one.
+        let r = validate(
+            vec![forty.clone(), thirty.clone()],
+            &t,
+            SRC,
+            "t".into(),
+            &[],
+            Platform::TikTok,
+        );
+        assert_eq!(r.accepted.len(), 2);
+        assert!(
+            first_dur(&r) < 40_000,
+            "TikTok target should rank ~30s first, got {}ms",
+            first_dur(&r)
+        );
+        // Reels favors 35–45 s: the same pair flips.
+        let r = validate(
+            vec![thirty, forty],
+            &t,
+            SRC,
+            "t".into(),
+            &[],
+            Platform::Reels,
+        );
+        assert_eq!(r.accepted.len(), 2);
+        assert!(
+            first_dur(&r) > 35_000,
+            "Reels target should rank ~40s first, got {}ms",
+            first_dur(&r)
+        );
+    }
+
+    #[test]
+    fn platform_target_never_moves_the_accept_bounds() {
+        let t = transcript(1500, 400);
+        // 70 s is outside TikTok's 25–35 s window but inside the 20–90 s
+        // accept bounds — still accepted, just without the sweet-spot nudge.
+        let c = cand(&t, 10_000, 80_000, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::TikTok);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+        assert!(!r.accepted[0].duration_exception);
+        assert_eq!(
+            r.accepted[0].composite,
+            composite_score(&r.accepted[0].candidate.scores),
+            "outside the platform window earns no bonus"
+        );
+    }
+
+    #[test]
     fn zero_candidates_yields_clean_empty_report() {
         let t = transcript(100, 400);
-        let r = validate(vec![], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![], &t, SRC, "t".into(), &[], Platform::Generic);
         assert!(r.accepted.is_empty());
         assert!(r.rejected.is_empty());
     }
@@ -832,7 +929,7 @@ mod tests {
     fn a_candidate_spanning_a_scene_boundary_is_rejected() {
         let t = transcript(1500, 400);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[30_000]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[30_000], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -848,7 +945,7 @@ mod tests {
         // word starting after the window: word 27 at 10_800.
         let mut c = cand(&t, 10_000, 50_000, good_scores());
         c.opening_quote = excerpt_head(&t, 10_800, 50_000, 5);
-        let r = validate(vec![c], &t, SRC, "t".into(), &[10_100]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[10_100], Platform::Generic);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
         let a = &r.accepted[0].candidate;
         assert_eq!(a.start_ms, 10_800 - 30);
@@ -872,7 +969,7 @@ mod tests {
         // before the window: word 121 ends at 48_750.
         let mut c = cand(&t, 10_000, 50_000, good_scores());
         c.closing_quote = excerpt_tail(&t, 10_000, 48_750, 5);
-        let r = validate(vec![c], &t, SRC, "t".into(), &[49_500]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[49_500], Platform::Generic);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
         assert_eq!(r.accepted[0].candidate.end_ms, 48_750 + 30);
     }
@@ -883,7 +980,7 @@ mod tests {
         // Only 700 ms of room before the transition: no word past it can keep
         // the interval non-empty.
         let c = cand(&t, 200, 700, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[300]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[300], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -893,7 +990,7 @@ mod tests {
         // Symmetric case on the closing cut: the last word ending before the
         // window (word 23 at 9_550) is not past the already-placed start.
         let c = cand(&t, 9_600, 10_300, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[10_300]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[10_300], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -907,7 +1004,14 @@ mod tests {
         // 50_600 is just past the snapped end (49_950) and 300_000 is far away;
         // unsorted input is fine.
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[300_000, 50_600]);
+        let r = validate(
+            vec![c],
+            &t,
+            SRC,
+            "t".into(),
+            &[300_000, 50_600],
+            Platform::Generic,
+        );
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
         assert_eq!(r.accepted[0].candidate.start_ms, 10_000 - 30);
         assert_eq!(r.accepted[0].candidate.end_ms, 49_950 + 30);
@@ -923,7 +1027,7 @@ mod tests {
         t.words[124].text = "word124".into();
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -940,7 +1044,7 @@ mod tests {
         }
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -954,7 +1058,7 @@ mod tests {
         t.words[25].text = "um".into();
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -969,7 +1073,7 @@ mod tests {
         t.words[25].text = "so".into();
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
@@ -993,7 +1097,7 @@ mod tests {
         }
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_000, 49_600, good_scores()); // ends on the CTA word
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 0);
         assert!(r.rejected[0]
             .reasons
@@ -1005,7 +1109,7 @@ mod tests {
     fn a_content_word_close_is_allowed() {
         let t = transcript(1500, 400);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
@@ -1021,7 +1125,7 @@ mod tests {
         }
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_000, 48_400, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
@@ -1030,7 +1134,7 @@ mod tests {
         // 50 ms inter-word gaps clamp both pads to 30 ms.
         let t = transcript(1500, 400);
         let c = cand(&t, 10_000, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         let a = &r.accepted[0].candidate;
         assert_eq!(a.start_ms, 10_000 - 30);
         assert_eq!(a.end_ms, 49_950 + 30);
@@ -1052,7 +1156,7 @@ mod tests {
         }
         t.sentences = crate::transcribe::build_sentences(&t.words);
         let c = cand(&t, 10_400, 30_350, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         let a = &r.accepted[0].candidate;
         assert_eq!(a.start_ms, 10_500 - 80);
         assert_eq!(a.end_ms, 30_450 + 250);
@@ -1062,7 +1166,7 @@ mod tests {
     fn the_first_word_of_the_source_gets_no_leading_pad_before_zero() {
         let t = transcript(1500, 400);
         let c = cand(&t, 0, 50_000, good_scores());
-        let r = validate(vec![c], &t, SRC, "t".into(), &[]);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
         assert_eq!(r.accepted[0].candidate.start_ms, 0);
     }
 }

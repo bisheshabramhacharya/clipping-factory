@@ -130,6 +130,11 @@ pub struct Project {
     /// candidate selection toward the topic; `None` keeps generic ranking.
     #[serde(default)]
     pub focus_prompt: Option<String>,
+    /// Short-form platform the clips are being cut for. Re-centers the
+    /// validator's duration sweet spot — a ranking preference only, never
+    /// an accept bound. `Generic` keeps the original 25–60 s window.
+    #[serde(default)]
+    pub platform: Platform,
 }
 
 impl Project {
@@ -150,6 +155,7 @@ impl Project {
             framing_mode: FramingMode::default(),
             language: None,
             focus_prompt: None,
+            platform: Platform::default(),
         }
     }
 
@@ -242,6 +248,57 @@ pub struct SelectionReport {
     pub selector: String,
     pub accepted: Vec<ValidatedCandidate>,
     pub rejected: Vec<RejectedCandidate>,
+}
+
+/// The short-form platform a project optimizes for. Each platform rewards a
+/// different clip length, so the choice re-centers the validator's duration
+/// sweet spot (a ranking nudge only — the accept bounds never move) and adds
+/// a hint to the selector's window prompt. `Generic` keeps the original
+/// 25–60 s window.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Platform {
+    /// No specific destination — the original 25–60 s sweet spot.
+    #[default]
+    Generic,
+    TikTok,
+    Reels,
+    Shorts,
+}
+
+impl Platform {
+    /// Parse an upload/API value; "any"/"generic"/blank all select the
+    /// default, anything unrecognized returns `None`.
+    pub fn parse(input: &str) -> Option<Self> {
+        match input.trim().to_lowercase().as_str() {
+            "" | "any" | "generic" => Some(Self::Generic),
+            "tiktok" => Some(Self::TikTok),
+            "reels" => Some(Self::Reels),
+            "shorts" => Some(Self::Shorts),
+            _ => None,
+        }
+    }
+
+    /// Display name used in provider prompts.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Generic => "generic short-form",
+            Self::TikTok => "TikTok",
+            Self::Reels => "Reels",
+            Self::Shorts => "Shorts",
+        }
+    }
+
+    /// The duration window ranked as the sweet spot (ms): TikTok favors
+    /// ~25–35 s hooks, Reels ~35–45 s, Shorts tolerates ~45–60 s.
+    pub fn sweet_spot_ms(&self) -> (u64, u64) {
+        match self {
+            Self::Generic => (25_000, 60_000),
+            Self::TikTok => (25_000, 35_000),
+            Self::Reels => (35_000, 45_000),
+            Self::Shorts => (45_000, 60_000),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -657,5 +714,38 @@ mod tests {
         assert!(!m.clips[0].zoom_cuts);
         assert_eq!(m.clips[0].zoom_keys, None);
         assert_eq!(m.clips[0].base_key(), "c1");
+    }
+
+    #[test]
+    fn platform_parses_upload_values() {
+        assert_eq!(Platform::parse("tiktok"), Some(Platform::TikTok));
+        assert_eq!(Platform::parse(" Reels "), Some(Platform::Reels));
+        assert_eq!(Platform::parse("SHORTS"), Some(Platform::Shorts));
+        // "Any"/blank select the default rather than failing.
+        assert_eq!(Platform::parse("any"), Some(Platform::Generic));
+        assert_eq!(Platform::parse("  "), Some(Platform::Generic));
+        assert_eq!(Platform::parse("myspace"), None);
+    }
+
+    /// Projects written before platform targeting must still load.
+    #[test]
+    fn project_without_a_platform_field_deserializes_as_generic() {
+        let p = Project::new("p1".into(), PathBuf::from("source.mp4"));
+        let mut v: serde_json::Value = serde_json::to_value(&p).unwrap();
+        v.as_object_mut().unwrap().remove("platform");
+        let loaded: Project = serde_json::from_value(v).unwrap();
+        assert_eq!(loaded.platform, Platform::Generic);
+        assert_eq!(
+            serde_json::to_value(Platform::Shorts).unwrap(),
+            serde_json::json!("shorts")
+        );
+    }
+
+    #[test]
+    fn each_platform_maps_to_its_target_window() {
+        assert_eq!(Platform::Generic.sweet_spot_ms(), (25_000, 60_000));
+        assert_eq!(Platform::TikTok.sweet_spot_ms(), (25_000, 35_000));
+        assert_eq!(Platform::Reels.sweet_spot_ms(), (35_000, 45_000));
+        assert_eq!(Platform::Shorts.sweet_spot_ms(), (45_000, 60_000));
     }
 }

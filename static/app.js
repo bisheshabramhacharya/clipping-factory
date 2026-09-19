@@ -256,6 +256,15 @@
       swatch.addEventListener("click", () => selectColor(swatch.dataset.color));
     }
     selectColor(accentColor);
+    // Platform target is a UI pref like caption style: restore the last pick.
+    const platformSelect = $("upload-platform");
+    const savedPlatform = localStorage.getItem("cf-platform");
+    if (savedPlatform && [...platformSelect.options].some((o) => o.value === savedPlatform)) {
+      platformSelect.value = savedPlatform;
+    }
+    platformSelect.addEventListener("change", () => {
+      localStorage.setItem("cf-platform", platformSelect.value);
+    });
   }
 
   function uploadFile(file) {
@@ -280,6 +289,7 @@
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
     if ($("upload-emoji").checked) form.append("emoji_overlay", "1");
     form.append("language", $("upload-language").value || "auto");
+    form.append("platform", $("upload-platform").value || "any");
     const focusPrompt = $("focus-prompt").value.trim();
     if (focusPrompt) form.append("focus_prompt", focusPrompt);
     form.append("file", file, file.name);

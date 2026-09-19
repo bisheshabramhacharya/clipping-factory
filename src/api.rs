@@ -328,6 +328,7 @@ struct UploadFields {
     framing_mode: FramingMode,
     language: Option<String>,
     focus_prompt: Option<String>,
+    platform: Platform,
 }
 
 const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -441,6 +442,7 @@ async fn receive_upload(
     let mut framing_mode = FramingMode::default();
     let mut language: Option<String> = None;
     let mut focus_prompt: Option<String> = None;
+    let mut platform = Platform::default();
     let mut saw_file = false;
 
     while let Some(mut field) = multipart
@@ -502,6 +504,12 @@ async fn receive_upload(
         if field.name() == Some("focus_prompt") {
             let v = read_multipart_text(field).await?;
             focus_prompt = Some(v.trim().to_string()).filter(|s| !s.is_empty());
+            continue;
+        }
+        if field.name() == Some("platform") {
+            let v = read_multipart_text(field).await?;
+            platform = Platform::parse(&v)
+                .ok_or_else(|| bad_request("platform must be any, tiktok, reels, or shorts"))?;
             continue;
         }
         if field.name() != Some("file") {
@@ -582,6 +590,7 @@ async fn receive_upload(
         framing_mode,
         language,
         focus_prompt,
+        platform,
     })
 }
 
@@ -607,6 +616,7 @@ async fn create_project(
     project.framing_mode = fields.framing_mode;
     project.language = fields.language;
     project.focus_prompt = fields.focus_prompt;
+    project.platform = fields.platform;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
         cleanup.disarm();
@@ -2107,6 +2117,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn upload_accepts_an_optional_platform() {
+        let (state, tmp) = test_state();
+        let boundary = "cf-platform-upload";
+        let build = |platform: Option<&str>| {
+            let field = platform
+                .map(|p| {
+                    format!("--{boundary}\r\nContent-Disposition: form-data; name=\"platform\"\r\n\r\n{p}\r\n")
+                })
+                .unwrap_or_default();
+            Request::builder()
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(format!(
+                    "{field}--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\nx\r\n--{boundary}--\r\n"
+                )))
+                .unwrap()
+        };
+
+        // A known platform parses.
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build(Some("tiktok")), &())
+            .await
+            .unwrap();
+        let fields = receive_upload(&state, &id, multipart).await.unwrap();
+        assert_eq!(fields.platform, Platform::TikTok);
+
+        // Absent and "any" both mean Generic.
+        for absent in [None, Some("any")] {
+            let id = crate::util::short_id();
+            let multipart = Multipart::from_request(build(absent), &()).await.unwrap();
+            let fields = receive_upload(&state, &id, multipart).await.unwrap();
+            assert_eq!(fields.platform, Platform::Generic);
+        }
+
+        // An unknown platform is a bad request, not a silent default.
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build(Some("myspace")), &())
+            .await
+            .unwrap();
+        let error = receive_upload(&state, &id, multipart).await.unwrap_err();
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
     async fn video_range_response_caps_end_and_streams_only_requested_bytes() {
         let tmp = std::env::temp_dir().join(format!("cf-range-{}", crate::util::short_id()));
         tokio::fs::create_dir_all(&tmp).await.unwrap();
@@ -2381,6 +2438,7 @@ mod tests {
             600_000,
             "test".into(),
             &[],
+            Platform::Generic,
         );
         assert_eq!(report.accepted.len(), 2, "reasons: {:?}", report.rejected);
         assert_eq!(report.rejected.len(), 1);

@@ -64,7 +64,7 @@ The vertical anchor of a Locked crop: the face's estimated eye height (face cent
 _Avoid_: headroom rule, vertical tracking
 
 **Composite score**:
-The weighted sum of a Candidate's seven validator scores (self-contained ×2, payoff ×1.6, opening strength ×1.4, clarity ×1.2, tension/novelty, specificity, minus context-dependency and slop-risk), plus a 25–60s duration nudge. Surfaced on every Clip card and in the rejected list.
+The weighted sum of a Candidate's seven validator scores (self-contained ×2, payoff ×1.6, opening strength ×1.4, clarity ×1.2, tension/novelty, specificity, minus context-dependency and slop-risk), plus a duration nudge inside the Platform target's sweet-spot window (25–60s under Any). Surfaced on every Clip card and in the rejected list.
 _Avoid_: virality score, AI score
 
 **Scene guard**:
@@ -102,6 +102,10 @@ _Avoid_: title card, intro
 **Focus prompt**:
 Optional free-text direction ("clips about pricing") that steers LLM candidate selection; the heuristic fallback matches keywords instead.
 _Avoid_: topic filter
+
+**Platform target**:
+The destination platform a project optimizes for, picked at upload (Any / TikTok / Reels / Shorts). Re-centers the duration window the Composite score's sweet-spot nudge rewards — TikTok 25–35s, Reels 35–45s, Shorts 45–60s, Any 25–60s — and adds a preference hint to the selector's window prompt. A ranking preference only: the validator's accept bounds never move.
+_Avoid_: export preset, publish target
 
 **Sample episode**:
 The bundled `assets/sample-episode.mp4` (regenerable via `evals/make_sample_episode.py`) powering zero-input first run via `POST /api/projects/sample`.
