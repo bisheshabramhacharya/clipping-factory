@@ -109,11 +109,20 @@ pub async fn probe(
 /// for a multi-hour source yet still catches the hard cuts and crossfades a
 /// Clip must not open or close on. Advisory like the energy profile:
 /// callers degrade to "no boundaries".
-pub async fn scene_boundaries(
+///
+/// `on_progress` gets the real fraction of the source scanned: `-progress`
+/// reports `out_time_ms` on stdout while the scdet detections arrive on
+/// stderr.
+pub async fn scene_boundaries<F>(
     cfg: &Config,
     src: &Path,
+    duration_ms: u64,
     cancel: &CancellationToken,
-) -> Result<Vec<u64>> {
+    mut on_progress: F,
+) -> Result<Vec<u64>>
+where
+    F: FnMut(f32),
+{
     let args: Vec<String> = vec![
         "-hide_banner".into(),
         "-nostats".into(),
@@ -122,12 +131,26 @@ pub async fn scene_boundaries(
         "-an".into(),
         "-vf".into(),
         "scale=320:-2,scdet".into(),
+        "-progress".into(),
+        "pipe:1".into(),
         "-f".into(),
         "null".into(),
         "-".into(),
     ];
     let mut boundaries: Vec<u64> = Vec::new();
-    run_streaming(&cfg.ffmpeg, &args, cancel, |_is_err, line| {
+    let dur_us = (duration_ms as f64) * 1000.0;
+    run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
+        if !is_err {
+            if let Some(us) = line
+                .strip_prefix("out_time_ms=")
+                .and_then(|v| v.parse::<f64>().ok())
+            {
+                if dur_us > 0.0 {
+                    on_progress((us / dur_us).clamp(0.0, 1.0) as f32);
+                }
+            }
+            return;
+        }
         if let Some(ms) = parse_scdet_time_ms(line) {
             boundaries.push(ms);
         }

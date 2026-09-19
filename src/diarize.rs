@@ -61,12 +61,17 @@ const PCM_SLACK_SAMPLES: usize = SAMPLE_RATE; // ±1 s
 /// Run diarization over the project's extracted 16 kHz mono WAV.
 /// `Ok(None)` when there is no model configured — callers treat None as
 /// "no speaker info" and continue with speaker-free layouts.
-pub async fn diarize(
+/// `on_progress` gets a 0–1 fraction: one unit per planned embedding window.
+pub async fn diarize<F>(
     cfg: &Config,
     wav: &Path,
     words: &[Word],
     cancel: &CancellationToken,
-) -> Result<Option<Diarization>> {
+    on_progress: F,
+) -> Result<Option<Diarization>>
+where
+    F: FnMut(f32) + Send + 'static,
+{
     let Some(model) = cfg.speaker_model.clone() else {
         return Ok(None);
     };
@@ -99,9 +104,10 @@ pub async fn diarize(
         watcher_flag.store(true, Ordering::Relaxed);
     });
     let worker_flag = cancelled.clone();
-    let result =
-        tokio::task::spawn_blocking(move || embed_spans(&model, &pcm, &windows, &worker_flag))
-            .await;
+    let result = tokio::task::spawn_blocking(move || {
+        embed_spans(&model, &pcm, &windows, &worker_flag, on_progress)
+    })
+    .await;
     watcher.abort();
     let span_embeddings: Vec<(usize, Vec<f32>)> = result??;
     if cancelled.load(Ordering::Relaxed) || cancel.is_cancelled() {
@@ -191,11 +197,14 @@ async fn read_wav_f32(path: &Path) -> Result<Vec<f32>> {
 
 /// Embed every planned window through the ONNX model and mean-pool per
 /// span. Synchronous CPU inference — callers wrap this in `spawn_blocking`.
+/// `on_progress` fires once per window — inference cost is uniform, so the
+/// window index is the honest fraction.
 fn embed_spans(
     model: &Path,
     pcm: &[f32],
     windows: &[(usize, u64, u64)],
     cancelled: &AtomicBool,
+    mut on_progress: impl FnMut(f32),
 ) -> Result<Vec<(usize, Vec<f32>)>> {
     let mut session = ort::session::Session::builder()
         .and_then(|mut b| b.commit_from_file(model))
@@ -208,7 +217,8 @@ fn embed_spans(
 
     let mut sums: std::collections::HashMap<usize, Vec<f32>> = std::collections::HashMap::new();
     let mut counts: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-    for &(si, start_ms, len_ms) in windows {
+    for (i, &(si, start_ms, len_ms)) in windows.iter().enumerate() {
+        on_progress(i as f32 / windows.len() as f32);
         if cancelled.load(Ordering::Relaxed) {
             anyhow::bail!("cancelled");
         }

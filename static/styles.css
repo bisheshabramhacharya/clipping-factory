@@ -315,6 +315,24 @@ a:hover { text-decoration: underline; }
   transform: scaleX(0); transform-origin: left;
   transition: transform 300ms var(--ease);
 }
+.step .step-meta {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.overall {
+  max-width: 640px;
+  margin-top: 10px;
+}
+.overall-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+  font-size: 13px;
+}
+.overall-head strong { font-size: 14px; font-weight: 600; }
+.overall-head .muted { font-variant-numeric: tabular-nums; }
+.overall-bar { margin-top: 6px; }
 
 .current-op {
   display: flex; align-items: center; gap: 10px;
