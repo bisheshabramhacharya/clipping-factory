@@ -10,7 +10,7 @@ A local-first podcast clipping studio with full-transcript ranking, face-aware r
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
 ![Local first](https://img.shields.io/badge/processing-local--first-1f6feb)
 ![Output](https://img.shields.io/badge/output-1080%C3%971920-7c3aed)
-![Tests](https://img.shields.io/badge/tests-123%20passing-238636)
+![Tests](https://img.shields.io/badge/tests-256%20passing-238636)
 
 </div>
 
@@ -29,7 +29,10 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 | **More useful candidates** | Keeps every strong, distinct moment instead of stopping at an arbitrary quota. |
 | **Faithful excerpts** | Never rewrites, reorders, splices, or invents speech. |
 | **Feed-ready video** | Produces H.264/AAC MP4s at 1080×1920. |
-| **Word-accurate captions** | Offers Impact and Clean styles with per-clip restyling. |
+| **Word-accurate captions** | Impact, Clean, Pop, and Cinema styles with per-clip restyling in seconds, plus optional emoji accents. |
+| **Clip controls** | Opt-in per clip: auto-cut silence/filler, zoom cuts on emphasis beats, hook title, progress bar, end card. |
+| **Export pack** | Every clip ships with .srt, .vtt, .meta.json (title/description/hashtags), and a poster still. |
+| **Honest ranking** | Composite score and selection reason on every clip, plus what was rejected and why. |
 | **~99 languages** | Whisper transcription auto-detects the language, or you pick it per project. |
 | **Private by default** | Keeps video, audio, transcripts, project state, and rendering on your machine. |
 
@@ -62,7 +65,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
 cargo run --release
 ```
 
-The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-moments ranking.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts — or hit **Try the sample episode** to run the bundled 150 s sample end-to-end without finding a file first. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-moments ranking.
 
 ### Linux
 
@@ -117,7 +120,9 @@ Finding a possible moment is not enough. Every proposed clip must pass the same 
 - Boundaries snap to real word timestamps instead of trusting model-generated milliseconds.
 - A clip cannot overlap more than 30% with a higher-ranked result.
 - Timestamps must stay inside the source duration.
-- Normal duration is 20–90 seconds, with a narrow exception for unusually strong moments.
+- A clip may not span a detected scene transition; cuts near one snap to word boundaries.
+- A clip may not open on a greeting or filler word, or close on outro/CTA bait ("like and subscribe").
+- Normal duration is 20–90 seconds, with a narrow exception for unusually strong moments; clips in the 25–60s short-form sweet spot rank ahead of equal-scored longer ones.
 
 Zero clips is a valid result. The studio shows what it considered, what it rejected, and which rule rejected it.
 
@@ -127,18 +132,34 @@ Clips render with the default style first. Each finished clip can then be restyl
 
 - **Impact** uses tight, kinetic stacks with one dominant word and a restrained active-word accent.
 - **Clean** uses compact conversational groups in the lower safe area with a softer active-word accent.
+- **Pop** pops each active word up and holds a keyword accent for the whole phrase.
+- **Cinema** sets lowercase letterspaced lines that fade in like subtitle cards.
 
-You can switch styles, choose an accent color, and apply the change from the result card. Clipping Factory re-burns captions from the cached base render in seconds.
+You can switch styles, choose an accent color, tune the caption text, and apply the change from the result card. Clipping Factory re-burns captions from the cached base render in seconds.
+
+## Per-clip garnishes
+
+Every rendered clip carries opt-in toggles — each re-renders just that clip:
+
+- **Auto-cut** removes silence gaps and filler words ("um", "uh") via a keep-list concat; captions stay in sync.
+- **Zoom cuts** add `zoompan` punch-ins on energy and emphasis beats, inside the locked crop.
+- **Hook title** burns the clip's headline as an ALL-CAPS card over the first ~1.8 s.
+- **Progress bar** draws a thin accent-colored fill along the bottom edge.
+- **End card** appends a 1.2 s "Made with Clipping Factory" tail.
+
+## Speaker-aware framing
+
+When a speaker-embedding model is configured (`CF_SPEAKER_MODEL`), two-person sources get extra layouts: **Split** stacks both faces when two people share a wide shot, and **SpeakerCrop** hard-cuts the locked crop between faces at speaker-turn boundaries. Captions get `S1:`/`S2:` tags and the .srt sidecar is speaker-labeled. Without the model nothing changes — the layouts stay single-face.
 
 ## House rendering rules
 
-- 1080×1920 H.264/AAC output.
+- H.264/AAC output at the native crop size, capped at 1080×1920 — never upscaled.
 - Source frame rate is preserved, with a 30 fps fallback.
-- One persistent face gets a smoothed, face-tracked vertical crop.
+- One persistent face gets a locked 9:16 crop that never pans or eases.
 - Multiple faces or no reliable face gets a centered source over a darkened blur background.
 - Captions use short conversational groups in the lower safe area.
-- A headline appears briefly only when it adds context beyond the opening words.
-- No B-roll, emojis, music, transitions, or automatic zoom patterns.
+- Audio is loudness-normalized to −16 LUFS with short edge fades on every clip.
+- Defaults stay clean: no B-roll, music, or transitions — motion options (zoom cuts, emoji) are opt-in per clip.
 
 ## Outputs and local state
 
