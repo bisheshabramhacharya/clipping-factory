@@ -1,3 +1,5 @@
+![banner](assets/banner.webp)
+
 <div align="center">
 
 # Clipping Factory
