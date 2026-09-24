@@ -461,10 +461,6 @@ pub struct ClipRecord {
     /// found no beats.
     #[serde(default)]
     pub zoom_keys: Option<Vec<ZoomKey>>,
-    /// Opt-in end card: a short "Made with Clipping Factory" tail appended
-    /// after the clip's audio fade. Default off.
-    #[serde(default)]
-    pub end_card: bool,
     /// Opt-in progress bar: a thin accent-colored strip along the bottom
     /// edge filling over the clip's duration. Default off.
     #[serde(default)]
@@ -507,9 +503,6 @@ impl ClipRecord {
         }
         if !self.effective_zoom_keys().is_empty() {
             key.push_str(".zoom");
-        }
-        if self.end_card {
-            key.push_str(".card");
         }
         if self.progress_bar {
             key.push_str(".bar");

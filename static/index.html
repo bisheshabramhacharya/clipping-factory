@@ -33,7 +33,6 @@
           <p class="promise">No account. No upload. No watermark. Your file never leaves this machine.</p>
           <p class="muted">The original stays on this computer. Clips keep the original conversation intact. Each clip is one continuous excerpt with no invented speech.</p>
           <button id="choose-btn" class="primary" type="button">Choose MP4</button>
-          <button id="sample-btn" class="secondary" type="button">Try the sample episode</button>
           <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
           <fieldset class="framing-choice">
             <legend>Output framing</legend>
@@ -161,8 +160,7 @@
           <strong>No excerpt passed the quality bar.</strong>
           <p class="muted">This source didn’t contain a moment that stands alone at the required quality. Clipping Factory returns fewer clips rather than bad ones. Try a longer or more speech-led recording.</p>
           <div class="empty-actions">
-            <button id="empty-sample-btn" type="button" class="primary">Try the sample episode</button>
-            <button id="empty-choose-btn" type="button">Choose another MP4</button>
+            <button id="empty-choose-btn" type="button" class="primary">Choose another MP4</button>
           </div>
         </div>
         <details id="rejected-details" class="rejected hidden">

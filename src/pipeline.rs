@@ -957,7 +957,6 @@ async fn run(
                     cut_spans: None,
                     zoom_cuts: false,
                     zoom_keys: None,
-                    end_card: false,
                     progress_bar: false,
                     hook_title: false,
                 });
@@ -1046,10 +1045,7 @@ async fn run(
     // is its output duration (frames written is the cost driver), so a
     // 90 s clip moves the bar three times further than a 30 s one — and on
     // resume, clips already on disk count as done from the start.
-    let clip_weight = |c: &ClipRecord| -> f64 {
-        c.end_ms.saturating_sub(c.start_ms).max(1) as f64
-            + crate::render::end_card_ms(cfg, c.end_card) as f64
-    };
+    let clip_weight = |c: &ClipRecord| -> f64 { c.end_ms.saturating_sub(c.start_ms).max(1) as f64 };
     let total_w: f64 = manifest
         .clips
         .iter()
@@ -1142,9 +1138,6 @@ async fn run(
         let removals = clip.effective_removals();
         let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
         let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
-        // The end card lengthens the file but not the caption timeline —
-        // keep it out of zoom planning, count it in progress and duration.
-        let card_ms = crate::render::end_card_ms(cfg, clip.end_card);
         // Zoom cuts (opt-in): plan the keyframes once and persist them on
         // the clip so restyle/retry reproduce the identical zoom without
         // re-running beat detection. Beats land on the post-cut timeline,
@@ -1210,7 +1203,6 @@ async fn run(
                     clip.end_ms,
                     &keeps,
                     clip.effective_zoom_keys(),
-                    clip.end_card,
                     clip.progress_bar.then_some(accent_hex.as_str()),
                     clip.hook_title.then_some(crate::render::HookSpec {
                         headline: &clip.headline,
@@ -1263,7 +1255,7 @@ async fn run(
                 &base_path,
                 &ass_path,
                 &out_temp,
-                out_dur_ms + card_ms,
+                out_dur_ms,
                 &ctx.cancel,
                 |pct| {
                     prog(
@@ -1343,7 +1335,7 @@ async fn run(
                 manifest.clips[i].height = Some(out_h);
                 // Auto-cut shortens the clip — the manifest reports the
                 // rendered length, not the source interval.
-                manifest.clips[i].duration_ms = out_dur_ms + card_ms;
+                manifest.clips[i].duration_ms = out_dur_ms;
                 // Copy into the user-facing output folder (best-effort).
                 if tokio::fs::create_dir_all(&output_dir).await.is_ok() {
                     let dest = output_dir.join(&clip.filename);

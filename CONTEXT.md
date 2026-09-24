@@ -75,9 +75,6 @@ _Avoid_: template, preset
 The per-Clip share bundle: `.srt`, `.vtt`, and `.meta.json` (title/description/hashtags) beside the rendered MP4.
 _Avoid_: publish, distribution
 
-**End card**:
-Opt-in 1.2 s "Made with Clipping Factory" tail appended to a Clip's render.
-_Avoid_: outro, watermark
 
 **Progress bar**:
 Opt-in thin accent-colored fill strip along a Clip's bottom edge.
@@ -94,7 +91,3 @@ _Avoid_: topic filter
 **Platform target**:
 The destination platform a project optimizes for, picked at upload (Any / TikTok / Reels / Shorts). Re-centers the duration window the Composite score's sweet-spot nudge rewards — TikTok 25–35s, Reels 35–45s, Shorts 45–60s, Any 25–60s — and adds a preference hint to the selector's window prompt. A ranking preference only: the validator's accept bounds never move.
 _Avoid_: export preset, publish target
-
-**Sample episode**:
-The bundled `assets/sample-episode.mp4` (regenerable via `evals/make_sample_episode.py`) powering zero-input first run via `POST /api/projects/sample`.
-_Avoid_: demo, fixture

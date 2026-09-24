@@ -46,7 +46,6 @@ pub fn router(state: AppState) -> Router {
         .route("/app.js", get(app_js))
         .route("/review.js", get(review_js))
         .route("/api/setup", get(setup_status))
-        .route("/api/stats", get(get_stats))
         .route("/api/settings/ai", get(get_settings).post(set_settings))
         .route("/api/settings/ai/test", post(test_settings))
         .route(
@@ -55,7 +54,6 @@ pub fn router(state: AppState) -> Router {
                 .post(create_project)
                 .layer(DefaultBodyLimit::disable()),
         )
-        .route("/api/projects/sample", post(create_sample_project))
         .route(
             "/api/projects/{id}",
             get(get_project).delete(delete_project),
@@ -639,101 +637,6 @@ async fn create_project(
     Ok(Json(view))
 }
 
-/// POST /api/projects/sample — the zero-input first run: make a project from
-/// the bundled sample episode and start the pipeline immediately.
-async fn create_sample_project(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let sample = state
-        .cfg
-        .sample_episode
-        .clone()
-        .ok_or_else(|| bad_request("No bundled sample episode on this install."))?;
-
-    let id = crate::util::short_id();
-    let mut cleanup = UploadCleanupGuard::new(state.store.project_dir(&id));
-    if let Err(error) = state.store.create_dirs(&id).await {
-        cleanup.disarm();
-        return Err(ApiError::from(error));
-    }
-    if let Err(error) = tokio::fs::copy(&sample, state.store.source_path(&id)).await {
-        cleanup_upload(&state, &id).await;
-        cleanup.disarm();
-        return Err(ApiError::from(anyhow::Error::from(error)));
-    }
-
-    let mut project = Project::new(id.clone(), state.store.source_path(&id));
-    // The sample's speech is synthesized English — skip auto-detect.
-    project.language = Some("en".into());
-    if let Err(error) = state.store.save_project(&project).await {
-        cleanup_upload(&state, &id).await;
-        cleanup.disarm();
-        return Err(ApiError::from(error));
-    }
-    cleanup.disarm();
-    tokio::fs::write(
-        state.store.project_dir(&id).join("original-name.txt"),
-        "sample-episode.mp4",
-    )
-    .await
-    .ok();
-
-    pipeline::start(state.clone(), id.clone()).await.ok();
-    let view = project_view(&state, &id).await.map_err(ApiError::from)?;
-    Ok(Json(view))
-}
-
-/// GET /api/stats — build-in-public numbers computed from saved project
-/// state: hours processed, clips rendered, validator accept/reject counts.
-async fn get_stats(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let mut projects = 0u64;
-    let mut processed_ms: u64 = 0;
-    let mut clips_rendered = 0u64;
-    let mut accepted = 0u64;
-    let mut rejected = 0u64;
-
-    for id in state.store.project_ids().await {
-        let Ok(project) = state.store.load_project(&id).await else {
-            continue;
-        };
-        projects += 1;
-        if let Some(source) = &project.source {
-            processed_ms += source.duration_ms;
-        }
-        if let Ok(manifest) = state.store.load_manifest(&id).await {
-            clips_rendered += manifest
-                .clips
-                .iter()
-                .filter(|c| c.status == ClipStatus::Ready)
-                .count() as u64;
-        }
-        if let Ok(raw) = tokio::fs::read(state.store.candidates_path(&id)).await {
-            if let Ok(report) = serde_json::from_slice::<SelectionReport>(&raw) {
-                accepted += report.accepted.len() as u64;
-                rejected += report.rejected.len() as u64;
-            }
-        }
-    }
-
-    let evaluated = accepted + rejected;
-    Json(json!({
-        "projects": projects,
-        "hours_processed": (processed_ms as f64 / 36_000.0).round() / 100.0,
-        "clips_rendered": clips_rendered,
-        "validator": {
-            "accepted": accepted,
-            "rejected": rejected,
-            // Share of candidates that failed the bar — null until the first
-            // selection run exists.
-            "rejection_rate_pct": if evaluated > 0 {
-                Some((rejected as f64 / evaluated as f64 * 1000.0).round() / 10.0)
-            } else {
-                None
-            },
-        },
-    }))
-}
-
 async fn get_project(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
@@ -1025,8 +928,6 @@ struct RestyleIn {
     /// Locked crop. Omitted = keep the clip's current setting.
     #[serde(default)]
     zoom_cuts: Option<bool>,
-    /// Opt-in "Made with Clipping Factory" tail — flips re-render.
-    end_card: Option<bool>,
     /// Opt-in accent progress bar — flips re-render.
     progress_bar: Option<bool>,
     /// Opt-in hook title card over the clip's opening — flips re-render.
@@ -1116,11 +1017,6 @@ async fn restyle_clip(
             clip.zoom_keys = None;
         }
     }
-    // End card: deterministic tail — nothing to replan, the key just moves
-    // this variant to its own base.
-    if let Some(on) = body.end_card {
-        clip.end_card = on;
-    }
     if let Some(on) = body.progress_bar {
         clip.progress_bar = on;
     }
@@ -1201,9 +1097,6 @@ async fn restyle_clip(
     let removals = clip.effective_removals();
     let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
     let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
-    // The end card lengthens the file but not the caption timeline — keep
-    // it out of zoom planning, count it in render progress and duration.
-    let card_ms = crate::render::end_card_ms(cfg, clip.end_card);
     // Zoom cuts: the key list is planned once and stored on the clip, so a
     // later restyle reproduces the identical zoom. Beats land on the
     // post-cut timeline, so this runs after the removals above are known.
@@ -1280,7 +1173,6 @@ async fn restyle_clip(
             clip.end_ms,
             &keeps,
             clip.effective_zoom_keys(),
-            clip.end_card,
             clip.progress_bar.then_some(accent_hex.as_str()),
             clip.hook_title.then_some(crate::render::HookSpec {
                 headline: &clip.headline,
@@ -1340,7 +1232,7 @@ async fn restyle_clip(
         &base_path,
         &ass_path,
         &tmp_out,
-        out_dur_ms + card_ms,
+        out_dur_ms,
         &cancel,
         |_| {},
     )
@@ -1420,11 +1312,10 @@ async fn restyle_clip(
     manifest.clips[idx].cut_spans = clip.cut_spans.clone();
     manifest.clips[idx].zoom_cuts = clip.zoom_cuts;
     manifest.clips[idx].zoom_keys = clip.zoom_keys.clone();
-    manifest.clips[idx].end_card = clip.end_card;
     manifest.clips[idx].progress_bar = clip.progress_bar;
     manifest.clips[idx].hook_title = clip.hook_title;
     // Auto-cut shortens the clip — report the rendered length.
-    manifest.clips[idx].duration_ms = out_dur_ms + card_ms;
+    manifest.clips[idx].duration_ms = out_dur_ms;
     state
         .store
         .save_manifest(&id, &manifest)
@@ -1913,154 +1804,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stats_endpoint_aggregates_projects_clips_and_validator_counts() {
-        let (state, tmp) = test_state();
-        let store = &state.store;
-        // One project with a probed source, one ready clip, and a selection
-        // report that rejected half its candidates.
-        store.create_dirs("stats-p").await.unwrap();
-        let mut p = Project::new("stats-p".into(), store.source_path("stats-p"));
-        p.source = Some(SourceInfo {
-            filename: "ep.mp4".into(),
-            duration_ms: 3_600_000,
-            width: 1280,
-            height: 720,
-            fps: 30.0,
-            video_codec: "h264".into(),
-            audio_codec: "aac".into(),
-            size_bytes: 1,
-            scene_boundaries_ms: Vec::new(),
-        });
-        store.save_project(&p).await.unwrap();
-        store
-            .save_manifest(
-                "stats-p",
-                &RenderManifest {
-                    clips: vec![ClipRecord {
-                        id: "c1".into(),
-                        rank: 1,
-                        headline: "h".into(),
-                        filename: "c1.mp4".into(),
-                        start_ms: 0,
-                        end_ms: 30_000,
-                        duration_ms: 30_000,
-                        selection_reason: "r".into(),
-                        scores: Scores {
-                            self_contained: 5,
-                            opening_strength: 5,
-                            specificity: 5,
-                            tension_or_novelty: 5,
-                            payoff: 5,
-                            clarity: 5,
-                            context_dependency: 0,
-                            slop_risk: 0,
-                        },
-                        score: Some(20.0),
-                        layout: LayoutPlan::BlurPad,
-                        status: ClipStatus::Ready,
-                        error: None,
-                        low_confidence: false,
-                        caption_style: None,
-                        accent_color: None,
-                        caption_font: None,
-                        caption_text: None,
-                        emoji_overlay: None,
-                        width: None,
-                        height: None,
-                        auto_cut: false,
-                        cut_spans: None,
-                        zoom_cuts: false,
-                        zoom_keys: None,
-                        end_card: false,
-                        progress_bar: false,
-                        hook_title: false,
-                    }],
-                    output_dir: None,
-                },
-            )
-            .await
-            .unwrap();
-        let cand = || {
-            serde_json::json!({
-                "start_ms": 0, "end_ms": 30_000, "headline": "h",
-                "opening_quote": "a", "closing_quote": "b",
-                "selection_reason": "r",
-                "scores": { "self_contained": 5, "opening_strength": 5,
-                            "specificity": 5, "tension_or_novelty": 5,
-                            "payoff": 5, "clarity": 5,
-                            "context_dependency": 0, "slop_risk": 0 },
-            })
-        };
-        let report = serde_json::json!({
-            "selector": "test",
-            "accepted": [{ "rank": 1, "candidate": cand(), "composite": 1.0, "duration_exception": false }],
-            "rejected": [{ "candidate": cand(), "reasons": ["x"] }],
-        });
-        tokio::fs::write(store.candidates_path("stats-p"), report.to_string())
-            .await
-            .unwrap();
-
-        let app = router(state);
-        let res = app
-            .oneshot(
-                Request::get("/api/stats")
-                    .header(header::HOST, "localhost:4571")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(res.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
-            .await
-            .unwrap();
-        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(v["projects"].as_u64().unwrap(), 1);
-        assert_eq!(v["hours_processed"].as_f64().unwrap(), 1.0);
-        assert_eq!(v["clips_rendered"].as_u64().unwrap(), 1);
-        assert_eq!(v["validator"]["accepted"].as_u64().unwrap(), 1);
-        assert_eq!(v["validator"]["rejected"].as_u64().unwrap(), 1);
-        assert_eq!(v["validator"]["rejection_rate_pct"].as_f64().unwrap(), 50.0);
-        tokio::fs::remove_dir_all(tmp).await.ok();
-    }
-
-    #[tokio::test]
-    async fn sample_project_copies_the_bundled_episode_and_starts() {
-        let (state, tmp) = {
-            let tmp = std::env::temp_dir().join(format!("cf-api-{}", crate::util::short_id()));
-            std::fs::create_dir_all(&tmp).unwrap();
-            let mut cfg = crate::config::Config::resolve();
-            cfg.data_dir = tmp.join("data");
-            cfg.output_root = tmp.join("output");
-            let sample = tmp.join("sample-episode.mp4");
-            std::fs::write(&sample, b"fake mp4 bytes").unwrap();
-            cfg.sample_episode = Some(sample);
-            (AppState::new(cfg), tmp)
-        };
-        let app = router(state);
-        let res = app
-            .oneshot(
-                Request::post("/api/projects/sample")
-                    .header(header::HOST, "localhost:4571")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(res.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
-            .await
-            .unwrap();
-        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let id = v["project"]["id"].as_str().unwrap();
-        let store = crate::store::Store::new(&tmp.join("data"));
-        let project = store.load_project(id).await.unwrap();
-        assert_eq!(project.language.as_deref(), Some("en"));
-        assert!(tokio::fs::metadata(store.source_path(id)).await.is_ok());
-        tokio::fs::remove_dir_all(tmp).await.ok();
-    }
-
-    #[tokio::test]
     async fn local_provider_saves_and_tests_against_the_endpoint() {
         let (state, tmp) = test_state();
         let base_url =
@@ -2334,7 +2077,6 @@ mod tests {
                         cut_spans: None,
                         zoom_cuts: false,
                         zoom_keys: None,
-                        end_card: false,
                         progress_bar: false,
                         hook_title: false,
                         score: None,
@@ -2492,7 +2234,6 @@ mod tests {
             cut_spans: None,
             zoom_cuts: false,
             zoom_keys: None,
-            end_card: false,
             progress_bar: false,
             hook_title: false,
         }

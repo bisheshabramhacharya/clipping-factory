@@ -30,7 +30,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 | **Faithful excerpts** | Never rewrites, reorders, splices, or invents speech. |
 | **Feed-ready video** | Produces H.264/AAC MP4s at 1080×1920. |
 | **Word-accurate captions** | Impact, Clean, Pop, and Cinema styles with per-clip restyling in seconds, plus optional emoji accents. |
-| **Clip controls** | Opt-in per clip: auto-cut silence/filler, zoom cuts on emphasis beats, hook title, progress bar, end card. |
+| **Clip controls** | Opt-in per clip: auto-cut silence/filler, zoom cuts on emphasis beats, hook title, progress bar. |
 | **Export pack** | Every clip ships with .srt, .vtt, .meta.json (title/description/hashtags), and a poster still. |
 | **Honest ranking** | Composite score and selection reason on every clip, plus what was rejected and why. |
 | **~99 languages** | Whisper transcription auto-detects the language, or you pick it per project. |
@@ -65,7 +65,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
 cargo run --release
 ```
 
-The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts — or hit **Try the sample episode** to run the bundled 150 s sample end-to-end without finding a file first. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-moments ranking.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-moments ranking.
 
 ### Linux
 
@@ -145,7 +145,6 @@ Every rendered clip carries opt-in toggles — each re-renders just that clip:
 - **Zoom cuts** add `zoompan` punch-ins on energy and emphasis beats, inside the locked crop.
 - **Hook title** burns the clip's headline as an ALL-CAPS card over the first ~1.8 s.
 - **Progress bar** draws a thin accent-colored fill along the bottom edge.
-- **End card** appends a 1.2 s "Made with Clipping Factory" tail.
 
 ## House rendering rules
 

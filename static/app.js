@@ -206,35 +206,6 @@
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (f) uploadFile(f);
     });
-    $("sample-btn").addEventListener("click", startSample);
-  }
-
-  // Zero-input first run: the bundled sample episode becomes the project's
-  // source server-side, then the normal progress flow takes over.
-  async function startSample() {
-    if (uploadXhr) return;
-    firstClipAnnounced = false;
-    $("drop").classList.add("hidden");
-    $("upload-progress").classList.remove("hidden");
-    $("cancel-upload-btn").disabled = true;
-    setUploadPhase("Preparing the sample episode…", null);
-    try {
-      const res = await fetch("/api/projects/sample", { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Could not start the sample episode.");
-      }
-      const v = await res.json();
-      if (!v.project || !PROJECT_ID_RE.test(v.project.id)) throw new Error("invalid project id");
-      projectId = v.project.id;
-      localStorage.setItem("cf-project", projectId);
-      view = v;
-      clearActionMessage();
-      connectSse();
-      render();
-    } catch (e) {
-      resetToEmpty({ message: e.message || "Could not start the sample episode." });
-    }
   }
 
   function wireUploadOptions() {
@@ -1152,7 +1123,6 @@
       emoji: Boolean(c.emoji_overlay),
       autoCut: Boolean(c.auto_cut),
       zoomCuts: Boolean(c.zoom_cuts),
-      endCard: Boolean(c.end_card),
       progressBar: Boolean(c.progress_bar),
       hookTitle: Boolean(c.hook_title),
     };
@@ -1324,26 +1294,6 @@
     zoomCuts.appendChild(zoomCutsBox);
     zoomCuts.appendChild(zoomCutsText);
 
-    // Opt-in end card: a short "Made with Clipping Factory" tail appended
-    // after the audio fade. Default off — the clip ends on content.
-    const endCard = document.createElement("label");
-    endCard.className = "auto-cut-toggle";
-    endCard.title = "Append a 1.2 s 'Made with Clipping Factory' card after the clip — re-renders this clip";
-    const endCardBox = document.createElement("input");
-    endCardBox.type = "checkbox";
-    endCardBox.checked = state.draft.endCard;
-    endCardBox.setAttribute("aria-label", `Append an end card for ${c.headline}`);
-    endCardBox.addEventListener("change", () => {
-      state.draft.endCard = endCardBox.checked;
-      state.kind = "dirty";
-      state.message = "End card change re-renders this clip";
-      sync();
-    });
-    const endCardText = document.createElement("span");
-    endCardText.textContent = "End card";
-    endCard.appendChild(endCardBox);
-    endCard.appendChild(endCardText);
-
     const progBar = document.createElement("label");
     progBar.className = "auto-cut-toggle";
     progBar.title = "Draw a thin accent-colored progress bar along the bottom edge — re-renders this clip";
@@ -1399,7 +1349,6 @@
         Boolean(state.draft.emoji) !== applied.emoji ||
         state.draft.autoCut !== applied.autoCut ||
         state.draft.zoomCuts !== applied.zoomCuts ||
-        state.draft.endCard !== applied.endCard ||
         state.draft.progressBar !== applied.progressBar ||
         state.draft.hookTitle !== applied.hookTitle
       );
@@ -1425,7 +1374,6 @@
       emojiBox.checked = Boolean(state.draft.emoji);
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
-      endCardBox.checked = Boolean(state.draft.endCard);
       progBarBox.checked = Boolean(state.draft.progressBar);
       hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
@@ -1452,7 +1400,6 @@
         if (state.draft.textPresent) payload.caption_text = state.draft.text;
         if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
         if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
-        if (state.draft.endCard !== applied.endCard) payload.end_card = state.draft.endCard;
         if (state.draft.progressBar !== applied.progressBar) payload.progress_bar = state.draft.progressBar;
         if (state.draft.hookTitle !== applied.hookTitle) payload.hook_title = state.draft.hookTitle;
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
@@ -1482,7 +1429,6 @@
           emoji: Boolean(updated.emoji_overlay),
           autoCut: Boolean(updated.auto_cut),
           zoomCuts: Boolean(updated.zoom_cuts),
-          endCard: Boolean(updated.end_card),
           progressBar: Boolean(updated.progress_bar),
           hookTitle: Boolean(updated.hook_title),
         };
@@ -1505,7 +1451,6 @@
     box.appendChild(emojiToggle);
     box.appendChild(autoCut);
     box.appendChild(zoomCuts);
-    box.appendChild(endCard);
     box.appendChild(progBar);
     box.appendChild(hookTitle);
     box.appendChild(apply);
@@ -1738,7 +1683,6 @@
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
     $("choose-another-btn").addEventListener("click", resetToEmpty);
-    $("empty-sample-btn").addEventListener("click", startSample);
     $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);

@@ -26,8 +26,6 @@ pub struct Config {
     pub whisper_bin: Option<PathBuf>,
     pub whisper_model: Option<PathBuf>,
     pub fonts_dir: Option<PathBuf>,
-    /// Bundled "try it now" episode for the first-run path.
-    pub sample_episode: Option<PathBuf>,
     pub caption_font: String,
     /// Default caption style when a project doesn't specify one: "impact" | "clean".
     pub caption_style: String,
@@ -156,15 +154,6 @@ impl Config {
                 None
             }
         });
-        // Bundled sample episode: env → repo assets → data dir.
-        let sample_episode = env_path("CF_SAMPLE_EPISODE")
-            .filter(|p| p.is_file())
-            .or_else(|| {
-                first_existing(vec![
-                    cwd.join("assets/sample-episode.mp4"),
-                    data_dir.join("sample-episode.mp4"),
-                ])
-            });
 
         let caption_font = if fonts_dir
             .as_ref()
@@ -217,7 +206,6 @@ impl Config {
             whisper_bin,
             whisper_model,
             fonts_dir,
-            sample_episode,
             caption_font,
             caption_style: std::env::var("CF_CAPTION_STYLE").unwrap_or_else(|_| "impact".into()),
             face_model,

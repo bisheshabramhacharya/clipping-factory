@@ -686,7 +686,6 @@ mod tests {
             cut_spans: None,
             zoom_cuts: false,
             zoom_keys: None,
-            end_card: false,
             progress_bar: false,
             hook_title: false,
             score: None,
