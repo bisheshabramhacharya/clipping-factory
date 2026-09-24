@@ -1536,6 +1536,11 @@ async fn open_output_folder(
     let dir = manifest
         .and_then(|m| m.output_dir)
         .unwrap_or_else(|| state.cfg.output_root.to_string_lossy().into_owned());
+    if !std::path::Path::new(&dir).is_dir() {
+        return Err(not_found(
+            "The output folder for this project no longer exists on disk.",
+        ));
+    }
     let opener = if cfg!(target_os = "macos") {
         "open"
     } else {
@@ -2344,6 +2349,31 @@ mod tests {
             .iter()
             .any(|r| r.as_str().unwrap().contains("slop_risk")));
 
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn open_output_folder_returns_not_found_for_deleted_directory() {
+        let (state, tmp) = test_state();
+        let id = "projopen01";
+        state.store.create_dirs(id).await.unwrap();
+        let missing = tmp.join("output").join("gone");
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![],
+                    output_dir: Some(missing.to_string_lossy().into_owned()),
+                },
+            )
+            .await
+            .unwrap();
+        let error = match open_output_folder(State(state), AxPath(id.to_string())).await {
+            Ok(_) => panic!("missing output dir must not reach the opener"),
+            Err(error) => error,
+        };
+        assert_eq!(error.0, StatusCode::NOT_FOUND);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

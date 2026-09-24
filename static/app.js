@@ -202,9 +202,48 @@
     ["dragleave", "drop"].forEach((ev) =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("dragover"); })
     );
-    drop.addEventListener("drop", (e) => {
+  }
+
+  // The upload box only exists on the empty state, so the window itself is the
+  // drop target — dropping a file from any view offers a new project.
+  function wireGlobalDrop() {
+    const overlay = $("drop-overlay");
+    const isFileDrag = (e) => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+    const theaterOpen = () => !$("review-theater").hidden;
+    const hide = () => overlay.classList.add("hidden");
+
+    window.addEventListener("dragenter", (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      if (!theaterOpen()) overlay.classList.remove("hidden");
+    });
+    window.addEventListener("dragover", (e) => {
+      if (isFileDrag(e)) e.preventDefault();
+    });
+    window.addEventListener("dragleave", (e) => {
+      if (isFileDrag(e) && e.relatedTarget === null) hide();
+    });
+    window.addEventListener("drop", (e) => {
+      hide();
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      if (theaterOpen()) return;
+      if (uploadXhr) {
+        showActionMessage("Wait for the current upload to finish.", "notice");
+        return;
+      }
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) uploadFile(f);
+      if (!f) return;
+      if (view && isProcessing(view.project.status)) {
+        showActionMessage("Cancel or finish the current project before dropping a new MP4.", "notice");
+        return;
+      }
+      if (Object.values(restyleState).some((state) => state.busy)) {
+        showActionMessage("Wait for the caption update to finish before starting another project.", "notice");
+        return;
+      }
+      if (view) resetToEmpty();
+      uploadFile(f);
     });
   }
 
@@ -1675,6 +1714,7 @@
   // ------------------------------------------------------------------ boot
   function boot() {
     wireUpload();
+    wireGlobalDrop();
     wireUploadOptions();
     wireModal();
     wireDeleteModal();

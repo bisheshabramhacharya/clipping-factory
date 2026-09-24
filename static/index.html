@@ -266,6 +266,14 @@
     <button id="review-toast-open" type="button">Review</button>
   </div>
 
+  <!-- Window-wide drop target: works from any state, not just the empty screen -->
+  <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
+    <div class="drop-overlay-box">
+      <strong>Drop an MP4 to start a new project</strong>
+      <p class="muted small">The project on screen stays saved on disk.</p>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
   <script src="/review.js"></script>
 </body>
