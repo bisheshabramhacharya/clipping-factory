@@ -3,7 +3,7 @@
 //! 1. [`render_base_clip`] — one continuous source interval → framed
 //!    vertical H.264/AAC MP4 **without captions**, sized by [`output_size`]
 //!    (native crop window, capped at 1080×1920 — ADR-0002). This is the
-//!    expensive pass (decode, scale, blur or face-tracked crop, encode). The
+//!    expensive pass (decode, scale, blur or locked face crop, encode). The
 //!    base is kept on disk so caption styling can change later without
 //!    re-doing it.
 //! 2. [`burn_captions`] — base MP4 + generated ASS → final captioned MP4.

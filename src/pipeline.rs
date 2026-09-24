@@ -977,7 +977,7 @@ async fn run(
                         )
                         .await?;
                     Ok(format!(
-                        "{} layout(s) planned · {} face-tracked",
+                        "{} layout(s) planned · {} face-locked",
                         total, face_crops
                     ))
                 }
