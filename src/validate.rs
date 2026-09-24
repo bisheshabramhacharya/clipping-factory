@@ -166,6 +166,11 @@ pub fn validate(
             continue;
         }
 
+        // The selector's quotes are verified against its own (word-snapped)
+        // interval: the scene guard may trim an edge off a transition,
+        // which must not read as a hallucinated quote.
+        let quoted = (cand.start_ms, cand.end_ms);
+
         // --- Scene-transition guard ---------------------------------------
         if let Err(reason) = clear_scene_transitions(transcript, &scene_bounds, &mut cand) {
             evaluated.push(Err(RejectedCandidate {
@@ -264,7 +269,7 @@ pub fn validate(
         }
 
         // --- Verbatim quote matching (PRD §9.3) ---------------------------
-        let excerpt = excerpt_text(transcript, cand.start_ms, cand.end_ms);
+        let excerpt = excerpt_text(transcript, quoted.0, quoted.1);
         let excerpt_norm = normalize(&excerpt);
         for (label, quote, near_start) in [
             ("opening", &cand.opening_quote, true),
@@ -952,6 +957,18 @@ mod tests {
             0,
             "end snapped to a word end plus tail pad"
         );
+    }
+
+    #[test]
+    fn a_guard_trimmed_opening_still_matches_the_selector_quote() {
+        // The quote names the words the guard trims away; it was true of
+        // the proposed interval, so it must not fail verification.
+        let t = transcript(1500, 400);
+        let mut c = cand(&t, 10_000, 50_000, good_scores());
+        c.opening_quote = excerpt_head(&t, 10_000, 50_000, 5);
+        let r = validate(vec![c], &t, SRC, "t".into(), &[10_100], Platform::Generic);
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
+        assert_eq!(r.accepted[0].candidate.start_ms, 10_800 - 30);
     }
 
     #[test]
