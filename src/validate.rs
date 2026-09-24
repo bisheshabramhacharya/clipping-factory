@@ -405,8 +405,10 @@ pub fn snap_to_words(t: &Transcript, start: u64, end: u64) -> Option<(u64, u64)>
     Some((first, last))
 }
 
-/// Scene-transition guard: a Clip may neither open/close inside a detected
-/// transition nor span a boundary mid-interval. A cut inside a transition
+/// Scene-transition guard: a Clip may not open or close inside a detected
+/// transition. Spanning a boundary is fine — multi-cam podcasts cut between
+/// cameras constantly, and rejecting those would reject nearly every clip.
+/// A cut inside a transition
 /// window is moved to the nearest word boundary clear of it — the same
 /// word-timestamp snapping rules as `snap_to_words` (open on a word start,
 /// close on a word end). Returns the rejection reason when the interval
@@ -443,12 +445,6 @@ fn clear_scene_transitions(
                 return Err(format!("closes inside a scene transition at {}", fmt_ms(b)));
             }
         }
-    }
-    if let Some(&b) = boundaries
-        .iter()
-        .find(|&&b| cand.start_ms < b && b < cand.end_ms)
-    {
-        return Err(format!("spans a scene transition at {}", fmt_ms(b)));
     }
     Ok(())
 }
@@ -926,15 +922,12 @@ mod tests {
     // --- Scene-transition guard -------------------------------------------
 
     #[test]
-    fn a_candidate_spanning_a_scene_boundary_is_rejected() {
+    fn a_candidate_spanning_a_scene_boundary_is_kept() {
+        // Multi-cam camera switches mid-clip are normal podcast footage.
         let t = transcript(1500, 400);
         let c = cand(&t, 10_000, 50_000, good_scores());
         let r = validate(vec![c], &t, SRC, "t".into(), &[30_000], Platform::Generic);
-        assert_eq!(r.accepted.len(), 0);
-        assert!(r.rejected[0]
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("spans a scene transition")));
+        assert_eq!(r.accepted.len(), 1, "reasons: {:?}", r.rejected);
     }
 
     #[test]

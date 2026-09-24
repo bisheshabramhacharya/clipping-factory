@@ -68,7 +68,7 @@ The weighted sum of a Candidate's seven validator scores (self-contained ×2, pa
 _Avoid_: virality score, AI score
 
 **Scene guard**:
-The validation rule that a Clip may not span a detected scene transition: cuts inside ±500 ms of a boundary snap to word boundaries or the Candidate is rejected.
+The validation rule that a Clip may not open or close inside a detected scene transition: cuts inside ±500 ms of a boundary snap to word boundaries or the Candidate is rejected. Spanning a boundary (a multi-cam camera switch) is allowed.
 _Avoid_: shot detection
 
 **Cold-open guard**:

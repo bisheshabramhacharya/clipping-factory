@@ -120,7 +120,7 @@ Finding a possible moment is not enough. Every proposed clip must pass the same 
 - Boundaries snap to real word timestamps instead of trusting model-generated milliseconds.
 - A clip cannot overlap more than 30% with a higher-ranked result.
 - Timestamps must stay inside the source duration.
-- A clip may not span a detected scene transition; cuts near one snap to word boundaries.
+- A clip may not open or close on a detected scene transition; cuts near one snap to word boundaries.
 - A clip may not open on a greeting or filler word, or close on outro/CTA bait ("like and subscribe").
 - Normal duration is 20–90 seconds, with a narrow exception for unusually strong moments; clips in the 25–60s short-form sweet spot rank ahead of equal-scored longer ones.
 
