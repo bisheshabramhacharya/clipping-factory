@@ -147,10 +147,6 @@ Every rendered clip carries opt-in toggles — each re-renders just that clip:
 - **Progress bar** draws a thin accent-colored fill along the bottom edge.
 - **End card** appends a 1.2 s "Made with Clipping Factory" tail.
 
-## Speaker-aware framing
-
-When a speaker-embedding model is configured (`CF_SPEAKER_MODEL`), two-person sources get extra layouts: **Split** stacks both faces when two people share a wide shot, and **SpeakerCrop** hard-cuts the locked crop between faces at speaker-turn boundaries. Captions get `S1:`/`S2:` tags and the .srt sidecar is speaker-labeled. Without the model nothing changes — the layouts stay single-face.
-
 ## House rendering rules
 
 - H.264/AAC output at the native crop size, capped at 1080×1920 — never upscaled.

@@ -10,15 +10,11 @@
 //!    Fast: the video is re-encoded at output size with only the subtitle
 //!    filter, and the audio stream is copied bit-for-bit.
 //!
-//! Layouts (house style, §11.2/11.3; ADR-0004 for the two-person forms):
+//! Two layouts (house style, §11.2/11.3):
 //! - BlurPad:  source centered over a blurred, darkened copy of itself.
 //! - FaceCrop: vertical crop locked on the dominant face — a constant x.
 //!   Manifests written before ADR-0001 may carry several keyframes; those
 //!   still render as a piecewise-linear x(t) crop expression.
-//! - Split:    two stacked panels, each a locked crop on one face — the
-//!   wide two-shot's answer.
-//! - SpeakerCrop: the FaceCrop window, but it hard-cuts between faces at
-//!   speaker-turn boundaries — a cut, never a pan.
 
 use crate::config::Config;
 use crate::domain::{CropKey, CutSpan, LayoutPlan, SourceInfo, ZoomKey};
@@ -37,28 +33,17 @@ pub const OUT_H: u32 = 1920;
 /// The clip's rendered size (ADR-0002): the native crop window, capped at
 /// OUT_W×OUT_H and even-dimensioned for yuv420p — never upscaled.
 ///
-/// - FaceCrop / SpeakerCrop: `source_h × 9/16` wide × `source_h` tall,
-///   capped. (SpeakerCrop is the same window; only its x behaves
-///   differently.)
-/// - Split: same window — each half-height panel holds a face-anchored
-///   crop of matching aspect.
+/// - FaceCrop: `source_h × 9/16` wide × `source_h` tall, capped.
 /// - BlurPad: the largest 9:16 canvas inscribed in the source, capped.
 pub fn output_size(source: &SourceInfo, layout: &LayoutPlan) -> (u32, u32) {
     let (sw, sh) = (source.width as f64, source.height as f64);
     match layout {
-        LayoutPlan::FaceCrop { .. } | LayoutPlan::SpeakerCrop { .. }
-            if face_window_fits(source) =>
-        {
+        LayoutPlan::FaceCrop { .. } if face_window_fits(source) => {
             let h = source.height.min(OUT_H) & !1;
             let w = even_round(h as f64 * 9.0 / 16.0).min(OUT_W);
             (w, h)
         }
-        LayoutPlan::Split { .. } if split_window_fits(source) => {
-            let h = source.height.min(OUT_H) & !1;
-            let w = even_round(h as f64 * 9.0 / 16.0).min(OUT_W);
-            (w, h)
-        }
-        // BlurPad, or a crop window that cannot fit the source.
+        // BlurPad, or a FaceCrop window that cannot fit the source.
         _ => {
             let h = even_floor(sh.min(sw * 16.0 / 9.0)).min(OUT_H);
             let w = even_round(h as f64 * 9.0 / 16.0)
@@ -73,12 +58,6 @@ pub fn output_size(source: &SourceInfo, layout: &LayoutPlan) -> (u32, u32) {
 /// Integer compare, so portrait-ish sources degrade to BlurPad exactly.
 fn face_window_fits(source: &SourceInfo) -> bool {
     source.width as u64 * 16 >= source.height as u64 * 9
-}
-
-/// True when each Split panel's 9:8 source window fits — the source must
-/// be at least 9:8 wide to give each face a full-height column.
-fn split_window_fits(source: &SourceInfo) -> bool {
-    source.width as u64 * 8 >= source.height as u64 * 9
 }
 
 /// Nearest even value (yuv420p needs even dimensions).
@@ -118,20 +97,6 @@ pub async fn render_base_clip<F>(
 where
     F: FnMut(f32),
 {
-    // Speaker-crop keys live on the clip's source timeline; when auto-cut
-    // has removed spans, move each cut onto the post-cut output timeline —
-    // a boundary inside a removal lands exactly on the cut seam.
-    let mapped_layout;
-    let layout = match (layout, keeps.len() > 1) {
-        (LayoutPlan::SpeakerCrop { keyframes }, true) => {
-            mapped_layout = LayoutPlan::SpeakerCrop {
-                keyframes: crop_keys_to_output(keyframes, start_ms, keeps),
-            };
-            &mapped_layout
-        }
-        _ => layout,
-    };
-
     // One surviving span only needs the input window re-aimed at it; several
     // spans keep the full clip read and let the graph pick them out.
     let (in_start_ms, in_dur_ms) = if keeps.len() == 1 {
@@ -469,18 +434,9 @@ fn build_graph_from(
     let (w, h) = output_size(source, layout);
     let hook_step = hook_title_step(garnish.hook, dur_ms, w, h);
     let crop = match layout {
-        LayoutPlan::FaceCrop { keyframes } | LayoutPlan::SpeakerCrop { keyframes }
-            if face_window_fits(source) =>
-        {
-            Some(keyframes)
-        }
+        LayoutPlan::FaceCrop { keyframes } if face_window_fits(source) => Some(keyframes),
         _ => None,
     };
-    // Split renders on its own graph — two locked crops stacked, not one
-    // crop following a position.
-    if let (LayoutPlan::Split { top, bottom }, true) = (layout, split_window_fits(source)) {
-        return split_graph(source, *top, *bottom, w, h, subs, &hook_step, vpad, apad);
-    }
     match crop {
         None => format!(
             "[{vpad}]setpts=PTS-STARTPTS,split=2[bga][fga];\
@@ -529,12 +485,7 @@ fn build_graph_from(
                     garnish,
                 );
             }
-            let expr = match layout {
-                // SpeakerCrop: hard cuts at key times — value steps, never
-                // interpolates (ADR-0004).
-                LayoutPlan::SpeakerCrop { .. } => crop_x_expr_stepped(keyframes, frame_w, w as u64),
-                _ => crop_x_expr(keyframes, frame_w, w as u64),
-            };
+            let expr = crop_x_expr(keyframes, frame_w, w as u64);
             // Zoom cuts: a post-scale punch inside the locked window (the
             // crop's x never moves). zoompan re-scales a centered subregion
             // of the cropped frame back to output size; between keys the
@@ -557,10 +508,7 @@ fn build_graph_from(
             // band, same recipe as BlurPad). dy=0 keeps the bare crop,
             // pixel-identical to the framing before eye-line anchoring.
             if keyframes.iter().any(|k| k.dy != 0.0) {
-                let y_expr = match layout {
-                    LayoutPlan::SpeakerCrop { .. } => overlay_y_expr_stepped(keyframes, h as u64),
-                    _ => overlay_y_expr(keyframes, h as u64),
-                };
+                let y_expr = overlay_y_expr(keyframes, h as u64);
                 format!(
                     "[{vpad}]setpts=PTS-STARTPTS,split=2[bga][fga];\
                      [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
@@ -993,121 +941,6 @@ pub fn zoom_z_expr(keys: &[ZoomKey]) -> String {
     }
 }
 
-/// Split-screen graph: two full-height source columns, each a locked crop
-/// centered on its face's x, stacked (left face on top) into the 9:16
-/// canvas. A panel with a nonzero `dy` slides over a blurred underlay of
-/// its own column, the same eye-line offset the FaceCrop path applies.
-/// Panel crops keep the w:(h/2) aspect and are only ever scaled DOWN;
-/// the native-window ceiling still applies.
-#[allow(clippy::too_many_arguments)]
-fn split_graph(
-    source: &SourceInfo,
-    top: crate::domain::FaceAnchor,
-    bottom: crate::domain::FaceAnchor,
-    w: u32,
-    h: u32,
-    subs: Option<&str>,
-    hook_step: &str,
-    vpad: &str,
-    apad: &str,
-) -> String {
-    let subs_step = subs.map(|s| format!("{},", s)).unwrap_or_default();
-    // Render space mirrors the FaceCrop path: source scaled to output
-    // height when it exceeds the ceiling, native otherwise.
-    let (scale_step, frame_w, frame_h) = if source.height > OUT_H {
-        let scaled_w = even_round(source.width as f64 * h as f64 / source.height as f64) as u64;
-        (
-            format!("scale=-2:{h}:force_divisible_by=2,"),
-            scaled_w,
-            h as u64,
-        )
-    } else {
-        (String::new(), source.width as u64, source.height as u64)
-    };
-    let crop_h = frame_h;
-    let crop_w = (crop_h as f64 * (2.0 * w as f64 / h as f64)).round() as u64;
-    let max_x = frame_w.saturating_sub(crop_w);
-    let x_at = |cx: f32| -> u64 {
-        ((cx as f64 * frame_w as f64) - crop_w as f64 / 2.0)
-            .round()
-            .clamp(0.0, max_x as f64) as u64
-    };
-    let ph = h / 2;
-    // One panel's filter chain: column crop scaled to panel size; when the
-    // anchor carries an eye-line offset, a blurred copy of the column fills
-    // the vacated band.
-    let panel = |a: &crate::domain::FaceAnchor, src_pad: &str, out_pad: &str| -> String {
-        let x = x_at(a.cx);
-        let base =
-            format!("[{src_pad}]crop={crop_w}:{crop_h}:{x}:0,scale={w}:{ph}:force_divisible_by=2");
-        if a.dy == 0.0 {
-            format!("{base}[{out_pad}]")
-        } else {
-            format!(
-                "{base},split=2[{out_pad}bg][{out_pad}fg];\
-                 [{out_pad}bg]gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[{out_pad}bb];\
-                 [{out_pad}bb][{out_pad}fg]overlay=0:{y:.1}[{out_pad}]",
-                y = a.dy as f64 * ph as f64,
-            )
-        }
-    };
-    let top_chain = panel(&top, "spa", "spt");
-    let bottom_chain = panel(&bottom, "spb", "spq");
-    format!(
-        "[{vpad}]setpts=PTS-STARTPTS,{scale}split=2[spa][spb];\
-         {top_chain};\
-         {bottom_chain};\
-         [spt][spq]vstack=2,scale={w}:{h}:force_divisible_by=2,{subs}{hook_step}format=yuv420p[v];\
-         [{apad}]asetpts=PTS-STARTPTS[a]",
-        vpad = vpad,
-        apad = apad,
-        scale = scale_step,
-        top_chain = top_chain,
-        bottom_chain = bottom_chain,
-        w = w,
-        h = h,
-        subs = subs_step,
-        hook_step = hook_step
-    )
-}
-
-/// Remap clip-relative crop keys onto the post-cut output timeline, using
-/// the keep list (the surviving spans of the source interval). A key inside
-/// a removed gap lands on the seam where the next keep begins — crop cuts
-/// only ever ride on real cut points.
-fn crop_keys_to_output(keys: &[CropKey], clip_start_ms: u64, keeps: &[CutSpan]) -> Vec<CropKey> {
-    let mut out: Vec<CropKey> = Vec::with_capacity(keys.len());
-    for k in keys {
-        let abs = clip_start_ms + k.t_ms;
-        let mut t = 0u64;
-        for keep in keeps {
-            if keep.end_ms <= abs {
-                t += keep.len_ms();
-            } else if keep.start_ms <= abs {
-                t += abs - keep.start_ms;
-                break;
-            } else {
-                break;
-            }
-        }
-        // Equal times collapse — the later face wins, matching the
-        // speaker-cut intent.
-        match out.last_mut() {
-            Some(prev) if prev.t_ms == t => {
-                prev.cx = k.cx;
-                prev.dy = k.dy;
-                continue;
-            }
-            _ => out.push(CropKey {
-                t_ms: t,
-                cx: k.cx,
-                dy: k.dy,
-            }),
-        }
-    }
-    out
-}
-
 /// Piecewise-linear y(t) for the eye-line composite: each keyframe's `dy`
 /// (a fraction of the canvas height) becomes the overlay's pixel offset.
 /// Mirrors [`crop_x_expr`]: same interpolation, just vertical.
@@ -1133,62 +966,6 @@ fn overlay_y_expr(keyframes: &[CropKey], canvas_h: u64) -> String {
                     y1 = y1,
                     t0 = t0,
                     dt = t1 - t0,
-                    rest = expr
-                );
-            }
-            expr
-        }
-    }
-}
-
-/// Stepped y(t) over `dy`: hard vertical cuts matching the SpeakerCrop x
-/// steps, same shape as [`crop_x_expr_stepped`].
-fn overlay_y_expr_stepped(keyframes: &[CropKey], canvas_h: u64) -> String {
-    let ch = canvas_h as f64;
-    let py = |dy: f32| -> f64 { (dy as f64 * ch).clamp(-ch, ch) };
-    match keyframes.len() {
-        0 => "0.0".to_string(),
-        1 => format!("{:.1}", py(keyframes[0].dy)),
-        _ => {
-            let mut expr = format!("{:.1}", py(keyframes[keyframes.len() - 1].dy));
-            for pair in keyframes.windows(2).rev() {
-                let (a, b) = (&pair[0], &pair[1]);
-                let t1 = b.t_ms as f64 / 1000.0;
-                if t1 <= a.t_ms as f64 / 1000.0 {
-                    continue;
-                }
-                expr = format!(
-                    "if(lt(t\\,{t1:.3})\\,{y:.1}\\,{rest})",
-                    y = py(a.dy),
-                    rest = expr
-                );
-            }
-            expr
-        }
-    }
-}
-
-/// Stepped x(t): hold each keyframe's x until the next key's time — a hard
-/// cut at the boundary, no interpolation (SpeakerCrop only).
-pub fn crop_x_expr_stepped(keyframes: &[CropKey], frame_w: u64, crop_w: u64) -> String {
-    let max_x = frame_w.saturating_sub(crop_w) as f64;
-    let px = |cx: f32| -> f64 {
-        ((cx as f64) * frame_w as f64 - (crop_w as f64) / 2.0).clamp(0.0, max_x)
-    };
-    match keyframes.len() {
-        0 => format!("{:.1}", max_x / 2.0),
-        1 => format!("{:.1}", px(keyframes[0].cx)),
-        _ => {
-            let mut expr = format!("{:.1}", px(keyframes[keyframes.len() - 1].cx));
-            for pair in keyframes.windows(2).rev() {
-                let (a, b) = (&pair[0], &pair[1]);
-                let t1 = b.t_ms as f64 / 1000.0;
-                if t1 <= a.t_ms as f64 / 1000.0 {
-                    continue;
-                }
-                expr = format!(
-                    "if(lt(t\\,{t1:.3})\\,{x:.1}\\,{rest})",
-                    x = px(a.cx),
                     rest = expr
                 );
             }
@@ -1468,81 +1245,6 @@ mod tests {
     }
 
     #[test]
-    fn speaker_crop_offsets_step_at_each_keyframe() {
-        let g = build_graph(
-            &source(1920, 1080),
-            &LayoutPlan::SpeakerCrop {
-                keyframes: vec![
-                    CropKey {
-                        t_ms: 0,
-                        cx: 0.3,
-                        dy: 0.1,
-                    },
-                    CropKey {
-                        t_ms: 4_000,
-                        cx: 0.7,
-                        dy: -0.05,
-                    },
-                ],
-            },
-            None,
-            &[],
-            10_000,
-            Garnish::default(),
-        );
-        // y steps between the two offsets: 108px, then -54px of the 1080
-        // canvas; a hard cut like the x steps, never interpolated.
-        assert!(
-            g.contains("overlay=(W-w)/2:'if(lt(t\\,4.000)\\,108.0\\,-54.0)'"),
-            "{g}"
-        );
-        assert!(!g.contains("*(t-"), "{g}");
-    }
-
-    #[test]
-    fn eye_line_offsets_survive_the_auto_cut_remap() {
-        let keeps = vec![keep(10_000, 20_000), keep(24_000, 40_000)];
-        let keys = vec![
-            CropKey {
-                t_ms: 0,
-                cx: 0.3,
-                dy: 0.1,
-            },
-            CropKey {
-                t_ms: 15_000,
-                cx: 0.7,
-                dy: -0.2,
-            },
-        ];
-        let out = crop_keys_to_output(&keys, 10_000, &keeps);
-        assert_eq!(out.len(), 2);
-        assert_eq!(out[0].dy, 0.1);
-        assert_eq!(out[1].t_ms, 11_000);
-        assert_eq!(out[1].dy, -0.2);
-        // Keys collapsing onto the same seam take the later face's dy too.
-        let keys2 = vec![
-            CropKey {
-                t_ms: 0,
-                cx: 0.3,
-                dy: 0.1,
-            },
-            CropKey {
-                t_ms: 11_000,
-                cx: 0.5,
-                dy: 0.05,
-            },
-            CropKey {
-                t_ms: 12_000,
-                cx: 0.7,
-                dy: -0.2,
-            },
-        ];
-        let out2 = crop_keys_to_output(&keys2, 10_000, &keeps);
-        assert_eq!(out2.len(), 2);
-        assert_eq!(out2[1].dy, -0.2);
-    }
-
-    #[test]
     fn layouts_without_eye_line_offsets_still_deserialize() {
         // Manifests written before eye-line framing carry no `dy` key.
         let plan: LayoutPlan =
@@ -1557,35 +1259,6 @@ mod tests {
                     dy: 0.0,
                 }],
             }
-        );
-    }
-
-    #[test]
-    fn split_panels_slide_on_their_own_eye_line_offsets() {
-        let g = build_graph(
-            &source(1920, 1080),
-            &LayoutPlan::Split {
-                top: crate::domain::FaceAnchor {
-                    cx: 0.3,
-                    cy: 0.3,
-                    dy: 0.2,
-                },
-                bottom: crate::domain::FaceAnchor {
-                    cx: 0.7,
-                    cy: 0.7,
-                    dy: -0.1,
-                },
-            },
-            None,
-            &[],
-            10_000,
-            Garnish::default(),
-        );
-        // Panels are 608x540; offsets land as +108px top, -54px bottom.
-        assert!(g.contains("[sptbb][sptfg]overlay=0:108.0[spt]"), "top: {g}");
-        assert!(
-            g.contains("[spqbb][spqfg]overlay=0:-54.0[spq]"),
-            "bottom: {g}"
         );
     }
 
@@ -1892,173 +1565,6 @@ mod tests {
     fn subtitles_filter_escapes_fonts_dir() {
         let s = subtitles_filter(Some(Path::new("/a'b")), Path::new("/tmp/c.ass"));
         assert!(s.contains("fontsdir='/a'\\''b'"));
-    }
-
-    #[test]
-    fn speaker_crop_steps_instead_of_interpolating() {
-        // Two cuts: x holds each face's position until the next key time —
-        // no ramp term anywhere in the expression.
-        let e = crop_x_expr_stepped(
-            &[
-                CropKey {
-                    t_ms: 0,
-                    cx: 0.3,
-                    dy: 0.0,
-                },
-                CropKey {
-                    t_ms: 5_000,
-                    cx: 0.7,
-                    dy: 0.0,
-                },
-            ],
-            1920,
-            608,
-        );
-        // x(0.3) = 272, x(0.7) = 1040 — stepped: hold 272 until t=5s, then 1040.
-        assert_eq!(e, "if(lt(t\\,5.000)\\,272.0\\,1040.0)", "{e}");
-        assert!(!e.contains("(t-"), "stepped expr must not interpolate: {e}");
-    }
-
-    #[test]
-    fn crop_keys_retime_onto_the_output_timeline() {
-        // Clip 10–40 s; a 4 s removal at 20–24 s. A speaker cut at source
-        // 25 s (clip-relative 15 s) lands at 11 s output.
-        let keeps = vec![
-            CutSpan {
-                start_ms: 10_000,
-                end_ms: 20_000,
-            },
-            CutSpan {
-                start_ms: 24_000,
-                end_ms: 40_000,
-            },
-        ];
-        let keys = vec![
-            CropKey {
-                t_ms: 0,
-                cx: 0.3,
-                dy: 0.0,
-            },
-            CropKey {
-                t_ms: 15_000,
-                cx: 0.7,
-                dy: 0.0,
-            },
-        ];
-        let out = crop_keys_to_output(&keys, 10_000, &keeps);
-        assert_eq!(out.len(), 2);
-        assert_eq!(out[0].t_ms, 0);
-        assert_eq!(out[1].t_ms, 11_000);
-    }
-
-    #[test]
-    fn crop_key_inside_a_removal_lands_on_the_seam() {
-        // Speaker cut at source 21 s sits inside the 20–24 s removal → it
-        // rides onto the seam (10 s output), right where the auto-cut seam
-        // already switches content.
-        let keeps = vec![
-            CutSpan {
-                start_ms: 10_000,
-                end_ms: 20_000,
-            },
-            CutSpan {
-                start_ms: 24_000,
-                end_ms: 40_000,
-            },
-        ];
-        let keys = vec![
-            CropKey {
-                t_ms: 0,
-                cx: 0.3,
-                dy: 0.0,
-            },
-            CropKey {
-                t_ms: 11_000,
-                cx: 0.7,
-                dy: 0.0,
-            },
-        ];
-        let out = crop_keys_to_output(&keys, 10_000, &keeps);
-        assert_eq!(out.len(), 2, "{out:?}");
-        assert_eq!(out[1].t_ms, 10_000);
-        assert!((out[1].cx - 0.7).abs() < 1e-6);
-        // Two keys inside the same removal collapse onto the seam — the
-        // later face wins, matching the speaker-cut intent.
-        let keys2 = vec![
-            CropKey {
-                t_ms: 0,
-                cx: 0.3,
-                dy: 0.0,
-            },
-            CropKey {
-                t_ms: 11_000,
-                cx: 0.5,
-                dy: 0.0,
-            },
-            CropKey {
-                t_ms: 12_000,
-                cx: 0.7,
-                dy: 0.0,
-            },
-        ];
-        let out2 = crop_keys_to_output(&keys2, 10_000, &keeps);
-        assert_eq!(out2.len(), 2, "{out2:?}");
-        assert!((out2[1].cx - 0.7).abs() < 1e-6);
-    }
-
-    #[test]
-    fn split_graph_stacks_two_face_columns() {
-        let g = build_graph(
-            &source(1920, 1080),
-            &LayoutPlan::Split {
-                top: crate::domain::FaceAnchor {
-                    cx: 0.3,
-                    cy: 0.45,
-                    dy: 0.0,
-                },
-                bottom: crate::domain::FaceAnchor {
-                    cx: 0.7,
-                    cy: 0.45,
-                    dy: 0.0,
-                },
-            },
-            None,
-            &[],
-            10_000,
-            Garnish::default(),
-        );
-        // Panel crop = 1080 tall × 1216 wide (9:8) around each face's x.
-        assert!(g.contains("vstack=2"), "{g}");
-        assert!(g.contains("crop=1216:1080:0:0"), "left face column: {g}");
-        assert!(g.contains("crop=1216:1080:704:0"), "right face column: {g}");
-        assert!(g.contains("scale=608:540"), "{g}");
-    }
-
-    #[test]
-    fn speaker_crop_uses_the_stepped_expression() {
-        let g = build_graph(
-            &source(1920, 1080),
-            &LayoutPlan::SpeakerCrop {
-                keyframes: vec![
-                    CropKey {
-                        t_ms: 0,
-                        cx: 0.3,
-                        dy: 0.0,
-                    },
-                    CropKey {
-                        t_ms: 4_000,
-                        cx: 0.7,
-                        dy: 0.0,
-                    },
-                ],
-            },
-            None,
-            &[],
-            10_000,
-            Garnish::default(),
-        );
-        assert!(g.contains("if(lt(t\\,4.000)\\,272.0\\,1040.0)"), "{g}");
-        assert!(!g.contains("*(t-"), "{g}");
     }
 
     #[test]

@@ -43,21 +43,9 @@ _Avoid_: upscale, fit-to-canvas, normalize to 1080
 A per-Clip opt-in that removes silence gaps and filler words ("um", "uh") at render time via a keep-list concat in the base render. Off by default — a Clip is otherwise one continuous faithful excerpt.
 _Avoid_: smart trim, jump cut, edit decision
 
-**Diarization**:
-Per-project record of who speaks when (`speakers.json`): speaker turns built from transcript speech spans + ONNX speaker embeddings, fully offline. Advisory — without a speaker model nothing is diarized and layouts/captions are unchanged.
-_Avoid_: speaker detection, voice ID
 
-**Speaker turn**:
-A span of audio attributed to one voice. Turns split only at silence-gap midpoints, so a cut keyed to a turn boundary never lands mid-sentence.
-_Avoid_: utterance, segment
 
-**Split**:
-Two-person layout for a wide two-shot: two stacked panels, each a locked crop on one face (left face on top). Chosen when two substantial persistent faces co-exist in the same frames and the clip holds two voices.
-_Avoid_: side-by-side, grid
 
-**SpeakerCrop**:
-The Locked crop window hard-cutting between faces at Speaker-turn boundaries — for multi-cam sources where each speaker has their own shot. A cut, never a pan.
-_Avoid_: auto-switching crop, face-follow
 
 **Eye line**:
 The vertical anchor of a Locked crop: the face's estimated eye height (face center minus ~15% of the face-box height) is placed near 35% of the output height by sliding the crop window over a blurred underlay. The window itself never resizes and never pans; faces already near the line keep the centered crop.

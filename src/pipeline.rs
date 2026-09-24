@@ -190,7 +190,6 @@ pub async fn retry(state: AppState, id: String) -> Result<(), String> {
 const INSPECT_PER_SRC_S: f64 = 0.02; // scdet scan ≈ 50× realtime
 const EXTRACT_PER_SRC_S: f64 = 0.012; // audio decode ≈ 80× realtime
 const TRANSCRIBE_PER_SRC_S: f64 = 0.35; // whisper.cpp base ≈ 3× realtime
-const DIARIZE_PER_SRC_S: f64 = 0.12; // speaker embeddings ≈ 8× realtime
 const ANALYZE_PER_OUT_S: f64 = 0.8; // frame sampling + face detect
 const RENDER_PER_OUT_S: f64 = 1.9; // base encode ≈1.1× + caption burn ≈0.8×
 const RENDER_PER_CLIP_S: f64 = 3.0; // cut/zoom planning + export pack + copies
@@ -205,7 +204,7 @@ const RENDER_BASE_SHARE: f64 = 1.1 / 1.9;
 
 /// Per-run progress model for the overall bar. Each stage's weight is an
 /// estimated cost in seconds derived from the real inputs: source duration
-/// for inspect/extract/transcribe/speaker analysis, expected output duration
+/// for inspect/extract/transcribe, expected output duration
 /// for layout and render. A stage that is skipped or already complete on a
 /// resumed run carries zero weight — the bar measures only the work this run
 /// actually performs, so zero-clip projects and retries never fake progress.
@@ -222,7 +221,6 @@ struct ProgressModel {
     /// first, real manifest durations once known.
     expected_output_ms: Option<u64>,
     clip_count: usize,
-    diarize_planned: bool,
     remote_selection: bool,
 }
 
@@ -238,7 +236,6 @@ impl ProgressModel {
             caption_only: source_ms.map(is_caption_only).unwrap_or(false),
             expected_output_ms: None,
             clip_count: 0,
-            diarize_planned: false,
             remote_selection: false,
         }
     }
@@ -274,20 +271,6 @@ impl ProgressModel {
         }
     }
 
-    /// Diarization's share of the layout stage's own fraction: the
-    /// embedding pass runs inside `analyzing_layout`, so its modelled cost
-    /// divides that stage's progress between "who speaks when" and
-    /// per-clip framing analysis.
-    fn diarize_share(&self) -> f32 {
-        if !self.diarize_planned {
-            return 0.0;
-        }
-        let src_s = self.source_ms.unwrap_or(0) as f64 / 1000.0;
-        let d = src_s * DIARIZE_PER_SRC_S;
-        let a = self.expected_output_s() * ANALYZE_PER_OUT_S;
-        (d / (d + a).max(f64::EPSILON)) as f32
-    }
-
     /// Estimated seconds for a stage under this run's real inputs.
     fn estimate(&self, stage: &str) -> f64 {
         let src_s = self.source_ms.unwrap_or(0) as f64 / 1000.0;
@@ -313,14 +296,7 @@ impl ProgressModel {
                     VALIDATE_S
                 }
             }
-            "analyzing_layout" => {
-                out_s * ANALYZE_PER_OUT_S
-                    + if self.diarize_planned {
-                        src_s * DIARIZE_PER_SRC_S
-                    } else {
-                        0.0
-                    }
-            }
+            "analyzing_layout" => out_s * ANALYZE_PER_OUT_S,
             "rendering" => {
                 out_s * RENDER_PER_OUT_S + self.clip_count.max(1) as f64 * RENDER_PER_CLIP_S
             }
@@ -549,94 +525,6 @@ fn is_cancelled(e: &anyhow::Error, token: &CancellationToken) -> bool {
     token.is_cancelled() || e.to_string().contains("cancelled")
 }
 
-/// Load the project's diarization, or produce it once. Advisory by design:
-/// no speaker model → `Ok(None)`; a model/diarization failure logs and
-/// also yields `None` — framing falls back to speaker-free layouts. Only a
-/// cancellation propagates (as `Err`).
-///
-/// Needs 16 kHz mono PCM — the same `audio.wav` whisper consumed. That file
-/// is deleted after transcription (PRD §13), so a resumed project
-/// re-extracts it to a temp sibling and cleans up afterwards.
-///
-/// `on_progress` gets a 0–1 fraction of the diarization work: the audio
-/// re-extract covers the first 10%, speaker embeddings the rest.
-#[allow(clippy::too_many_arguments)]
-async fn ensure_diarization<F>(
-    cfg: &crate::config::Config,
-    store: &crate::store::Store,
-    id: &str,
-    src: &std::path::Path,
-    source: &SourceInfo,
-    transcript: &Transcript,
-    cancel: &CancellationToken,
-    mut on_progress: F,
-) -> Result<Option<Diarization>>
-where
-    F: FnMut(f32) + Send + 'static,
-{
-    /// Share of the diarization work the audio re-extract accounts for
-    /// (embedding inference dominates).
-    const EXTRACT_SHARE: f32 = 0.1;
-    if cfg.speaker_model.is_none() {
-        return Ok(None);
-    }
-    if let Some(d) = store.load_diarization(id).await {
-        return Ok(Some(d));
-    }
-
-    let wav = store.audio_path(id);
-    let mut temp_wav: Option<PathBuf> = None;
-    let wav_path = if wav.is_file() {
-        on_progress(EXTRACT_SHARE);
-        wav
-    } else {
-        let tmp = unique_temp_path(&wav);
-        if let Err(e) =
-            crate::media::extract_audio(cfg, src, &tmp, source.duration_ms, cancel, |p| {
-                on_progress(p * EXTRACT_SHARE)
-            })
-            .await
-        {
-            tokio::fs::remove_file(&tmp).await.ok();
-            if is_cancelled(&e, cancel) {
-                return Err(e);
-            }
-            tracing::warn!("diarization skipped: audio re-extract failed: {e:#}");
-            return Ok(None);
-        }
-        temp_wav = Some(tmp.clone());
-        tmp
-    };
-
-    let out = match crate::diarize::diarize(cfg, &wav_path, &transcript.words, cancel, move |p| {
-        on_progress(EXTRACT_SHARE + p * (1.0 - EXTRACT_SHARE))
-    })
-    .await
-    {
-        Ok(Some(d)) => {
-            if let Err(e) = store.save_diarization(id, &d).await {
-                tracing::warn!("diarization not persisted: {e:#}");
-            }
-            Some(d)
-        }
-        Ok(None) => None,
-        Err(e) => {
-            if is_cancelled(&e, cancel) {
-                if let Some(t) = &temp_wav {
-                    tokio::fs::remove_file(t).await.ok();
-                }
-                return Err(e);
-            }
-            tracing::warn!("diarization failed; continuing without speakers: {e:#}");
-            None
-        }
-    };
-    if let Some(t) = temp_wav {
-        tokio::fs::remove_file(t).await.ok();
-    }
-    Ok(out)
-}
-
 fn full_video_candidate(transcript: &Transcript, duration_ms: u64) -> Candidate {
     let caption = words_to_text(&transcript.words);
     Candidate {
@@ -851,10 +739,6 @@ async fn run(
         });
     }
     let transcript = store.load_transcript(&id).await?;
-    // A speaker model with no persisted diarization means the layout stage
-    // will run embedding inference — fold its cost into the overall weights.
-    ctx.model.lock().unwrap().diarize_planned =
-        cfg.speaker_model.is_some() && store.load_diarization(&id).await.is_none();
 
     // ---- 4–5. Select and validate -----------------------------------------
     // Short videos are caption-only jobs: preserve the entire source instead
@@ -997,30 +881,6 @@ async fn run(
     } else {
         let mut prog = ctx.progress_fn("analyzing_layout");
         stage!("analyzing_layout", {
-            // Speaker diarization is per-project and advisory: it runs once
-            // here (the only stage that consumes it), persists to
-            // speakers.json, and any absence simply means speaker-free
-            // layouts and unlabeled captions. Its share of the stage's own
-            // fraction matches its modelled cost share — on a long source
-            // the embedding pass is most of this stage.
-            let diar_share = ctx.model.lock().unwrap().diarize_share();
-            let mut diar_prog = ctx.progress_fn("analyzing_layout");
-            let diarization = ensure_diarization(
-                cfg,
-                store,
-                &id,
-                &src,
-                &source,
-                &transcript,
-                &ctx.cancel,
-                move |p| {
-                    diar_prog(
-                        p * diar_share,
-                        Some("Identifying speakers from audio".into()),
-                    )
-                },
-            )
-            .await?;
             let mut clips: Vec<ClipRecord> = Vec::new();
             let total = report.accepted.len();
             let total_ms: u64 = report
@@ -1033,8 +893,7 @@ async fn run(
             let mut analyzed_ms: u64 = 0;
             let mut result: anyhow::Result<String> = Ok(String::new());
             for (i, vc) in report.accepted.iter().enumerate() {
-                let clip_frac =
-                    diar_share + (analyzed_ms as f32 / total_ms.max(1) as f32) * (1.0 - diar_share);
+                let clip_frac = analyzed_ms as f32 / total_ms.max(1) as f32;
                 prog(
                     clip_frac,
                     Some(format!("Analyzing framing for clip {} of {}", i + 1, total)),
@@ -1047,7 +906,6 @@ async fn run(
                     &source,
                     vc.candidate.start_ms,
                     vc.candidate.end_ms,
-                    diarization.as_ref(),
                     &frames_dir,
                     &ctx.cancel,
                 )
@@ -1108,14 +966,7 @@ async fn run(
                 Ok(_) => {
                     let face_crops = clips
                         .iter()
-                        .filter(|c| {
-                            matches!(
-                                c.layout,
-                                LayoutPlan::FaceCrop { .. }
-                                    | LayoutPlan::Split { .. }
-                                    | LayoutPlan::SpeakerCrop { .. }
-                            )
-                        })
+                        .filter(|c| matches!(c.layout, LayoutPlan::FaceCrop { .. }))
                         .count();
                     store
                         .save_manifest(
@@ -1150,9 +1001,6 @@ async fn run(
         .lock()
         .unwrap()
         .set_expected_output(manifest_ms, manifest.clips.len());
-    // Speaker labels for captions/SRT ride on the same diarization the
-    // layout pass produced; it may not exist — that's fine.
-    let diarization = store.load_diarization(&id).await;
     if ctx.cancel.is_cancelled() {
         ctx.mark_cancelled(&mut p, "rendering").await?;
         return Ok(());
@@ -1394,12 +1242,6 @@ async fn run(
                 &crate::export::caption_words(&transcript, &clip),
                 clip.effective_removals(),
             );
-            // Speaker turns move onto the output timeline alongside the
-            // words so a caption tag and a speaker-crop cut agree.
-            let clip_diar = diarization.as_ref().map(|d| Diarization {
-                labels: d.labels.clone(),
-                turns: crate::autocut::retime_turns(&d.turns, clip.effective_removals()),
-            });
             let caption_input = CaptionInput {
                 words: &words,
                 clip_start_ms: clip.start_ms,
@@ -1410,15 +1252,9 @@ async fn run(
                 emoji_overlay,
                 out_w,
                 out_h,
-                diarization: clip_diar.as_ref(),
             };
             let ass = build_ass(&caption_input, caption_style);
             tokio::fs::write(&ass_path, &ass).await?;
-            // Speaker-labeled subtitle sidecar beside the clip.
-            let srt = crate::captions::build_srt(&caption_input);
-            tokio::fs::write(out_path.with_extension("srt"), srt)
-                .await
-                .ok();
             if ctx.cancel.is_cancelled() {
                 return Err(anyhow::anyhow!("cancelled"));
             }
@@ -1513,10 +1349,6 @@ async fn run(
                     let dest = output_dir.join(&clip.filename);
                     if tokio::fs::copy(&out_path, &dest).await.is_ok() {
                         manifest.output_dir = Some(output_dir.to_string_lossy().into_owned());
-                        let srt = out_path.with_extension("srt");
-                        if srt.is_file() {
-                            tokio::fs::copy(&srt, dest.with_extension("srt")).await.ok();
-                        }
                     }
                     // The export pack travels with the MP4 — same best-effort copy.
                     for name in [

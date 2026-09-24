@@ -1315,16 +1315,6 @@ async fn restyle_clip(
         ),
         clip.effective_removals(),
     );
-    // Speaker tags ride along when the project was diarized (turns shift to
-    // the output timeline with the words).
-    let clip_diar = state
-        .store
-        .load_diarization(&id)
-        .await
-        .map(|d| Diarization {
-            labels: d.labels,
-            turns: crate::autocut::retime_turns(&d.turns, clip.effective_removals()),
-        });
     let caption_input = CaptionInput {
         words: &words,
         clip_start_ms: clip.start_ms,
@@ -1335,10 +1325,8 @@ async fn restyle_clip(
         emoji_overlay,
         out_w: out_dims.0,
         out_h: out_dims.1,
-        diarization: clip_diar.as_ref(),
     };
     let ass = build_ass(&caption_input, style);
-    let srt = crate::captions::build_srt(&caption_input);
     let clips_dir = state.store.clips_dir(&id);
     let final_path = clips_dir.join(&clip.filename);
     let ass_path =
@@ -1368,9 +1356,6 @@ async fn restyle_clip(
     crate::util::promote_atomic(&tmp_out, &final_path)
         .await
         .map_err(ApiError::from)?;
-    tokio::fs::write(final_path.with_extension("srt"), &srt)
-        .await
-        .ok();
     state
         .store
         .mark_final_ready(&id, &clip.id)
