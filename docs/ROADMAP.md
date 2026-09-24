@@ -7,21 +7,29 @@ to inflate counts.
 ## Done
 
 - CI runs fmt, clippy, tests, and eval fixture tests on every push and PR.
-- Two-pass rendering with post-render caption restyling.
-- Face tracking with outlier rejection and pan-speed clamp.
+- Two-pass rendering with post-render caption restyling (Impact, Clean, Pop,
+  Cinema) that never blocks the server.
+- Locked face crop with eye-line offset and opening face gate; BlurPad
+  fallback. Downscale-only libx264 output, loudness-normalized audio.
+- Validator with composite scores, scene-edge, cold-open, and outro-CTA
+  guards; platform duration targets.
+- Selection via hosted provider, local OpenAI-compatible endpoint, or local
+  ranking; optional focus prompt; multi-language transcription.
+- Opt-in per clip: auto-cut, zoom cuts, hook title, progress bar, emoji.
+- Export pack (.srt, .vtt, .meta.json, poster) beside every clip.
+- Review theater, project library with delete, interrupted-run recovery.
 - Loopback-only API with Host/Origin checks, bounded uploads, atomic state.
 - Eval harness (`evals/`) with fail-closed baseline comparison.
-- Project library: list and delete past projects.
 
 ## Next
 
-1. Commit one real-media eval baseline from one owned episode (#3).
-2. Review candidates before rendering; render only the kept ones (#5).
-3. Caption restyle must not block the server (#39).
-4. Ctrl+C must not leave a project stuck in `rendering` (#40).
+1. Commit one real-media eval baseline from one owned episode.
+2. Review candidates before rendering; render only the kept ones.
+3. Multi-cam openings: a clip can open on up to ~2 s of a wide shot before
+   the locked face appears (the opening face gate's tolerance).
 
 ## Not doing
 
 Transcript editing, manual framing, presets, batch queues, search, hosted
-selection, desktop packaging. Reopen only after the four items above are on
+selection, desktop packaging. Reopen only after the items above are on
 `main`.
