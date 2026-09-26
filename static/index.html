@@ -10,12 +10,16 @@
   <div class="shell">
     <header>
       <div class="brand">
-        <h1>Clipping Factory</h1>
-        <p class="muted tagline">One podcast in. A few faithful clips out.</p>
+        <h1><span class="logo" aria-hidden="true"></span>Clipping Factory</h1>
       </div>
-      <button id="ai-btn" type="button">
-        <span id="ai-label">AI connection</span>
-      </button>
+      <div class="header-actions">
+        <button id="library-btn" class="ghost" type="button" aria-controls="library-drawer" aria-expanded="false">
+          Library <span id="library-count" class="count hidden"></span>
+        </button>
+        <button id="ai-btn" class="ghost" type="button">
+          <span class="ai-dot" aria-hidden="true"></span><span id="ai-label">AI connection</span>
+        </button>
+      </div>
     </header>
 
     <div class="banners">
@@ -29,69 +33,65 @@
       <section id="upload-state" aria-labelledby="upload-title">
         <h2 id="upload-title" class="sr-only">Create clips</h2>
         <div id="drop" class="upload">
-          <strong>Drop one podcast MP4 here</strong>
-          <p class="promise">No account. No upload. No watermark. Your file never leaves this machine.</p>
-          <p class="muted">The original stays on this computer. Clips keep the original conversation intact. Each clip is one continuous excerpt with no invented speech.</p>
-          <button id="choose-btn" class="primary" type="button">Choose MP4</button>
-          <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
-          <fieldset class="framing-choice">
-            <legend>Output framing</legend>
-            <label>
-              <input type="radio" name="framing-mode" value="fill" checked>
-              <span><strong>Fill 9:16</strong><small>Vertical crop locked on the main face</small></span>
-            </label>
-            <label>
-              <input type="radio" name="framing-mode" value="background">
-              <span><strong>Fit with background</strong><small>Keep the full frame over blur</small></span>
-            </label>
-          </fieldset>
-          <fieldset class="accent-choice">
-            <legend>Caption highlight</legend>
-            <div class="accent-option accent-palette">
-              <input type="radio" name="accent-mode" value="manual" aria-label="Choose a caption highlight color" checked>
-              <div>
-                <strong>Choose a color</strong>
-                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Caption highlight colors"></div>
-                <small id="upload-accent-hex">#FFDD00 selected</small>
-                <input id="upload-accent-color" type="hidden" value="#FFDD00">
+          <div class="drop-target">
+            <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <strong>Drop a podcast</strong>
+            <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+            <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
+          </div>
+          <div class="upload-options">
+            <div class="opt">
+              <span class="opt-label">Framing</span>
+              <div class="choice-seg" role="radiogroup" aria-label="Framing">
+                <label title="Vertical crop locked on the speaker">
+                  <input type="radio" name="framing-mode" value="fill" checked>
+                  <span>Fill</span>
+                </label>
+                <label title="Full frame over a blurred background">
+                  <input type="radio" name="framing-mode" value="background">
+                  <span>Fit</span>
+                </label>
               </div>
             </div>
-            <label class="accent-option">
-              <input type="radio" name="accent-mode" value="random">
-              <span><strong>Random</strong><small>A fresh readable color</small></span>
+            <div class="opt">
+              <span class="opt-label">Highlight</span>
+              <div class="accent-row">
+                <label class="sr-only"><input type="radio" name="accent-mode" value="manual" checked>Choose a color</label>
+                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Highlight color"></div>
+                <input id="upload-accent-color" type="hidden" value="#FFDD00">
+                <div class="choice-seg small-seg" role="radiogroup" aria-label="Automatic highlight">
+                  <label title="A fresh readable color"><input type="radio" name="accent-mode" value="random"><span>Random</span></label>
+                  <label title="Matched to the video"><input type="radio" name="accent-mode" value="optimized"><span>Auto</span></label>
+                </div>
+                <small id="upload-accent-hex" class="sr-only" aria-live="polite"></small>
+              </div>
+            </div>
+            <label class="opt">
+              <span class="opt-label">Language</span>
+              <select id="upload-language" aria-label="Language">
+                <option value="auto" selected>Auto-detect</option>
+              </select>
+              <small id="upload-language-note" class="sr-only"></small>
             </label>
-            <label class="accent-option">
-              <input type="radio" name="accent-mode" value="optimized">
-              <span><strong>Optimized</strong><small>Matches the video palette</small></span>
+            <label class="opt">
+              <span class="opt-label">Length</span>
+              <select id="upload-platform" aria-label="Clip length">
+                <option value="any" selected>Any</option>
+                <option value="tiktok">TikTok · 25–35s</option>
+                <option value="reels">Reels · 35–45s</option>
+                <option value="shorts">Shorts · 45–60s</option>
+              </select>
             </label>
-          </fieldset>
-          <label class="emoji-option">
-            <input id="upload-emoji" type="checkbox">
-            <span><strong>Emoji accents</strong><small>Flash a matching emoji over caption keywords</small></span>
-          </label>
-          <fieldset class="language-choice">
-            <legend>Transcription language</legend>
-            <select id="upload-language" aria-label="Transcription language">
-              <option value="auto" selected>Auto-detect</option>
-            </select>
-            <small id="upload-language-note">Auto-detect identifies the spoken language. Picking a language skips detection.</small>
-          </fieldset>
-          <label class="focus-field" for="focus-prompt">
-            <span class="focus-label">Focus <small>optional</small></span>
-            <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
-              placeholder="e.g. clips about pricing, or where they argue">
-          </label>
-          <fieldset class="platform-choice">
-            <legend>Optimize for</legend>
-            <select id="upload-platform" aria-label="Platform to optimize clip length for">
-              <option value="any" selected>Any</option>
-              <option value="tiktok">TikTok</option>
-              <option value="reels">Reels</option>
-              <option value="shorts">Shorts</option>
-            </select>
-            <small>Ranks each platform's favored length first — TikTok 25–35s, Reels 35–45s, Shorts 45–60s. Never a hard limit.</small>
-          </fieldset>
-          <p class="muted small">MP4 with an audio stream, up to 4 hours long. Captions, highlight color, and font stay editable on each finished clip.</p>
+            <label class="opt opt-wide" for="focus-prompt">
+              <span class="opt-label">Focus</span>
+              <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
+                placeholder="Optional — e.g. pricing, or where they disagree">
+            </label>
+            <label class="opt opt-switch" title="Flash an emoji over caption keywords">
+              <span class="opt-label">Emoji</span>
+              <input id="upload-emoji" class="switch" type="checkbox">
+            </label>
+          </div>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
           <div class="upload-progress-head">
@@ -145,42 +145,52 @@
       <!-- Results state -->
       <section id="results-state" class="hidden" aria-labelledby="results-title">
         <div class="results-head">
-          <div>
+          <div class="results-title-wrap">
             <h2 id="results-title" aria-live="polite"></h2>
-            <p class="muted" id="results-sub">Ranked by self-contained opening, tension, payoff, and clarity.</p>
+            <p class="muted small" id="results-sub"></p>
           </div>
           <div class="results-actions">
-            <button id="review-clips-btn" type="button" hidden>Review clips</button>
-            <button id="open-folder-btn" type="button">Open output folder</button>
+            <button id="review-clips-btn" class="primary" type="button" hidden>Review clips <kbd>R</kbd></button>
+            <button id="open-folder-btn" type="button">Open folder</button>
             <button id="new-project-btn" type="button">New project</button>
           </div>
         </div>
-        <div id="clips"></div>
-        <div id="empty-results" class="empty-results hidden">
-          <strong>No excerpt passed the quality bar.</strong>
-          <p class="muted">This source didn’t contain a moment that stands alone at the required quality. Clipping Factory returns fewer clips rather than bad ones. Try a longer or more speech-led recording.</p>
-          <div class="empty-actions">
-            <button id="empty-choose-btn" type="button" class="primary">Choose another MP4</button>
+        <div class="studio">
+          <nav class="clip-rail" aria-label="Clips">
+            <div id="clip-rail-list" class="clip-rail-list"></div>
+            <details id="rejected-details" class="rejected hidden">
+              <summary>Rejected</summary>
+              <div id="rejected-list"></div>
+            </details>
+          </nav>
+          <div id="clips" class="clip-stage"></div>
+          <div id="empty-results" class="empty-results hidden">
+            <strong>No clips this time</strong>
+            <p class="muted">Nothing here stood on its own well enough. Try a longer, more conversational recording.</p>
+            <div class="empty-actions">
+              <button id="empty-choose-btn" type="button" class="primary">Choose another MP4</button>
+            </div>
           </div>
         </div>
-        <details id="rejected-details" class="rejected hidden">
-          <summary>What was considered and rejected</summary>
-          <div id="rejected-list"></div>
-        </details>
-      </section>
-
-      <!-- Library: every project on this computer; open or delete -->
-      <section id="library-state" class="hidden" aria-labelledby="library-title">
-        <h2 id="library-title">Library</h2>
-        <p class="muted small">Past projects live on this machine. Open one to pick it back up, or delete it to reclaim the disk.</p>
-        <div id="library-list" class="library-list"></div>
       </section>
     </main>
 
-    <footer class="muted small">
-      Processing happens locally. Only transcript text ever reaches your AI provider. The video never leaves this machine.
-    </footer>
   </div>
+
+  <!-- Library drawer: past projects, hidden until asked for -->
+  <div id="library-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+  <aside id="library-drawer" class="drawer" aria-labelledby="library-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <div>
+        <h2 id="library-title">Library</h2>
+      </div>
+      <button id="library-close" type="button" class="ghost" aria-label="Close library">Close</button>
+    </div>
+    <section id="library-state">
+      <div id="library-list" class="library-list"></div>
+      <p id="library-empty" class="muted small library-empty hidden">No projects yet. Drop an MP4 to start one.</p>
+    </section>
+  </aside>
 
   <!-- AI connection modal -->
   <div id="modal-backdrop" class="modal-backdrop hidden" aria-hidden="true">
@@ -226,36 +236,44 @@
     </div>
   </div>
 
-  <!-- Swipe Review theater: keyboard-first triage over rendered clips -->
-  <div id="review-theater" class="review-theater" role="dialog" aria-modal="true" aria-label="Clip review theater" hidden>
+  <!-- Review theater: keyboard-first triage over rendered clips -->
+  <div id="review-theater" class="review-theater" role="dialog" aria-modal="true" aria-label="Clip review" hidden>
     <div class="review-top">
-      <div>
+      <div class="review-status">
         <strong id="review-progress" aria-live="polite"></strong>
+        <div id="review-dots" class="review-dots" aria-hidden="true"></div>
         <span id="review-counts" class="review-counts"></span>
       </div>
-      <button id="review-close" class="review-close" type="button">Close (Esc)</button>
+      <button id="review-close" class="review-close" type="button">Close <kbd>Esc</kbd></button>
     </div>
     <div class="review-stage">
-      <video id="review-video" controls playsinline muted></video>
+      <button id="review-prev" class="review-arrow" type="button" aria-label="Previous clip">‹</button>
+      <div class="review-phone"><video id="review-video" controls playsinline muted></video></div>
+      <button id="review-next" class="review-arrow" type="button" aria-label="Next clip">›</button>
       <div class="review-copy">
-        <h2 id="review-title"></h2>
         <p id="review-meta" class="review-meta"></p>
+        <h2 id="review-title"></h2>
         <p id="review-reason"></p>
-        <a id="review-download" class="review-download" href="#">Download MP4</a>
-        <div class="review-kbd">
-          <kbd>←→</kbd>/<kbd>jk</kbd> navigate · <kbd>Space</kbd> play/pause · <kbd>1</kbd> Keep · <kbd>2</kbd> Maybe · <kbd>3</kbd> Skip · <kbd>Esc</kbd> close
+        <div class="review-decisions">
+          <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
+          <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
+          <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
         </div>
+        <a id="review-download" class="review-download" href="#">Download MP4</a>
+        <p class="review-kbd"><kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> play</p>
       </div>
     </div>
-    <div class="review-bottom">
-      <div class="review-decisions">
-        <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
-        <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
-        <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
-      </div>
-      <div class="review-nav">
-        <button id="review-prev" type="button" aria-label="Previous clip">← Prev</button>
-        <button id="review-next" type="button" aria-label="Next clip">Next →</button>
+    <div id="review-done" class="review-done" hidden>
+      <div class="review-done-card">
+        <p class="review-done-kicker">Review complete</p>
+        <h2 id="review-done-title"></h2>
+        <div id="review-done-stats" class="review-done-stats"></div>
+        <div id="review-done-kept" class="review-done-kept"></div>
+        <div class="review-done-actions">
+          <button id="review-done-download" class="primary" type="button">Download kept clips</button>
+          <button id="review-done-again" type="button">Review again</button>
+          <button id="review-done-close" type="button">Back to studio</button>
+        </div>
       </div>
     </div>
   </div>

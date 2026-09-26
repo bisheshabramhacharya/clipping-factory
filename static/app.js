@@ -36,7 +36,8 @@
   let liveProgress = null; // LiveStage + receivedAt (client receipt time)
   // Progress samples for the active stage — the ETA's rolling-rate window.
   let liveSamples = { stage: null, pts: [] };
-  let firstClipAnnounced = false; // scroll to the first ready clip once per run
+  let firstClipAnnounced = false; // jump to the first ready clip once per run
+  let selectedClipId = null; // the clip shown in the studio player
   // Last style/color the user applied — the starting point for new restyles.
   let captionStyle = localStorage.getItem("cf-caption-style") || "impact";
   let accentColor = localStorage.getItem("cf-accent-color") || "#FFDD00";
@@ -178,6 +179,7 @@
       if (s.provider === "offline") { $("ai-label").textContent = "Local ranking"; }
       else if (s.connected) { $("ai-label").textContent = `${s.provider} · ${s.model}`; }
       else { $("ai-label").textContent = "AI connection"; }
+      document.querySelector(".ai-dot").classList.toggle("on", s.provider === "offline" || Boolean(s.connected));
       $("provider").value = s.provider || "openai";
       $("model").value = s.model || "";
       $("base-url").value = s.base_url || "";
@@ -276,6 +278,16 @@
     }
     for (const swatch of swatches) {
       swatch.addEventListener("click", () => selectColor(swatch.dataset.color));
+    }
+    // Random / Auto replace the swatch pick: show no swatch as chosen.
+    for (const auto of document.querySelectorAll('input[name="accent-mode"]:not([value="manual"])')) {
+      auto.addEventListener("change", () => {
+        for (const swatch of swatches) {
+          swatch.classList.remove("active");
+          swatch.setAttribute("aria-pressed", "false");
+        }
+        $("upload-accent-hex").textContent = auto.value === "random" ? "random color" : "matched to the video";
+      });
     }
     selectColor(accentColor);
     // Platform target is a UI pref like caption style: restore the last pick.
@@ -395,6 +407,7 @@
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
     for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
+    selectedClipId = null;
     const warning = $("warning-banner");
     warning.textContent = "";
     warning.classList.add("hidden");
@@ -473,9 +486,11 @@
     if (sig === librarySig) return;
     librarySig = sig;
 
-    const section = $("library-state");
     const list = $("library-list");
-    section.classList.toggle("hidden", library.length === 0);
+    const count = $("library-count");
+    count.textContent = String(library.length);
+    count.classList.toggle("hidden", library.length === 0);
+    $("library-empty").classList.toggle("hidden", library.length > 0);
     list.innerHTML = "";
     for (const entry of library) {
       const isOpen = entry.id === projectId;
@@ -485,7 +500,7 @@
         : "";
       const bits = [date, libraryStatus(entry)];
       if (entry.clips_ready) bits.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
-      bits.push(`${fmtBytes(entry.size_bytes)} on disk`);
+      bits.push(fmtBytes(entry.size_bytes));
 
       const card = document.createElement("div");
       card.className = `library-card${isOpen ? " open" : ""}`;
@@ -549,9 +564,43 @@
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
     for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
+    selectedClipId = null;
+    closeLibrary();
     clearActionMessage();
     render();
     refetch().then(() => connectSse());
+  }
+
+  function openLibrary() {
+    loadLibrary();
+    const drawer = $("library-drawer");
+    drawer.inert = false;
+    drawer.setAttribute("aria-hidden", "false");
+    drawer.classList.add("open");
+    $("library-backdrop").classList.remove("hidden");
+    $("library-btn").setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => $("library-close").focus());
+  }
+
+  function closeLibrary() {
+    const drawer = $("library-drawer");
+    if (!drawer.classList.contains("open")) return;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.inert = true;
+    $("library-backdrop").classList.add("hidden");
+    $("library-btn").setAttribute("aria-expanded", "false");
+    if (drawer.contains(document.activeElement)) $("library-btn").focus();
+  }
+
+  function wireLibrary() {
+    $("library-btn").addEventListener("click", () =>
+      $("library-drawer").classList.contains("open") ? closeLibrary() : openLibrary());
+    $("library-close").addEventListener("click", closeLibrary);
+    $("library-backdrop").addEventListener("click", closeLibrary);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && $("delete-backdrop").classList.contains("hidden")) closeLibrary();
+    });
   }
 
   function openDeleteModal() {
@@ -692,6 +741,8 @@
     renderLibrary();
     $("upload-state").classList.toggle("hidden", !!p);
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
+    // Once clips exist the studio owns the screen; progress shrinks to a strip.
+    $("processing-state").classList.toggle("compact", !!p && (view.clips || []).length > 0);
     if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
     if (!isProcessing(p.status)) {
       if (cancellationPending) {
@@ -902,8 +953,7 @@
     // results into view once so the user notices without hunting for it.
     if (ready.length > 0 && !firstClipAnnounced && isProcessing(p.status)) {
       firstClipAnnounced = true;
-      section.classList.remove("hidden");
-      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      selectedClipId = ready[0].id;
     }
     const failed = clips.filter((c) => c.status === "failed");
     const showResults = clips.length > 0 || p.status === "complete";
@@ -915,20 +965,17 @@
       $("results-title").textContent = p.status === "complete"
         ? "Captioned video ready"
         : "Captioning full video";
-      $("results-sub").textContent = "The full video is preserved without selecting or cutting clips.";
+      $("results-sub").textContent = view.original_name || "";
     } else {
       $("results-title").textContent =
         total === 0 ? "No clips produced" :
         failed.length > 0
           ? `${ready.length} of ${total} clips ready · ${failed.length} failed`
           : p.status === "complete"
-          ? `${ready.length} strong clip${ready.length === 1 ? "" : "s"} found`
+          ? `${ready.length} clip${ready.length === 1 ? "" : "s"}`
           : `${ready.length} of ${total} clips ready`;
 
-      const sel = view.selector ? ` Selected by ${view.selector}.` : "";
-      const count = total > 0 ? ` ${ready.length} ready${failed.length ? `, ${failed.length} failed` : ""}.` : "";
-      $("results-sub").textContent =
-        `Ranked by self-contained opening, tension, payoff, and clarity.${count}${sel}`;
+      $("results-sub").textContent = view.original_name || "";
     }
 
     const openFolder = $("open-folder-btn");
@@ -988,6 +1035,21 @@
       const current = wrap.children[i];
       if (current !== row) wrap.insertBefore(row, current || null);
     });
+    if (!ranked.some((c) => c.id === selectedClipId)) {
+      const firstReady = ranked.find((c) => c.status === "ready");
+      selectedClipId = (firstReady || ranked[0] || {}).id || null;
+    }
+    ranked.forEach((c, i) => {
+      const active = c.id === selectedClipId;
+      const row = rows[i];
+      if (row.classList.contains("is-active") !== active) {
+        row.classList.toggle("is-active", active);
+        // A hidden clip must not keep playing behind the selected one.
+        if (!active) row.querySelectorAll("video").forEach((v) => v.pause());
+      }
+    });
+    wrap.classList.toggle("hidden", ranked.length === 0);
+    renderRail(ranked);
 
     // Rejected transparency
     const rej = view.rejected_summary || [];
@@ -1005,6 +1067,60 @@
         list.appendChild(d);
       }
     }
+  }
+
+  function selectClip(id) {
+    if (id === selectedClipId || !view) return;
+    selectedClipId = id;
+    renderResults(view.project);
+  }
+
+  // Left rail: one compact card per clip — poster, rank, headline, score.
+  function renderRail(ranked) {
+    const list = $("clip-rail-list");
+    list.innerHTML = "";
+    const captionOnly = view.caption_only === true;
+    ranked.forEach((c) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `rail-item${c.id === selectedClipId ? " active" : ""} ${c.status}`;
+      b.dataset.reviewKey = apiPath("projects", projectId, "clips", c.id);
+      b.setAttribute("aria-current", c.id === selectedClipId ? "true" : "false");
+      const thumb = document.createElement("span");
+      thumb.className = "rail-thumb";
+      if (c.status === "ready") {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.loading = "lazy";
+        img.src = apiPath("projects", projectId, "clips", c.id, "export", "poster") +
+          (clipRev[c.id] ? `?rev=${clipRev[c.id]}` : "");
+        img.addEventListener("error", () => img.remove(), { once: true });
+        thumb.appendChild(img);
+      } else {
+        thumb.innerHTML = c.status === "rendering" ? `<span class="spinner"></span>` : "";
+      }
+      const dur = document.createElement("span");
+      dur.className = "rail-dur";
+      dur.textContent = fmtMs(c.duration_ms);
+      thumb.appendChild(dur);
+      const text = document.createElement("span");
+      text.className = "rail-text";
+      const top = document.createElement("span");
+      top.className = "rail-rank";
+      top.textContent = captionOnly ? "Full video" : `#${c.rank}` +
+        (typeof c.score === "number" ? ` · ${c.score.toFixed(1)}` : "") +
+        (c.status === "rendering" ? " · rendering" : c.status === "failed" ? " · failed" : c.status === "ready" ? "" : " · queued");
+      const title = document.createElement("span");
+      title.className = "rail-title";
+      title.textContent = captionOnly ? "Captioned video" : c.headline;
+      text.appendChild(top);
+      text.appendChild(title);
+      b.appendChild(thumb);
+      b.appendChild(text);
+      b.addEventListener("click", () => selectClip(c.id));
+      list.appendChild(b);
+    });
+    document.dispatchEvent(new CustomEvent("cf-rail-rendered"));
   }
 
   // Everything a clip card renders, as one string: the clip record itself,
@@ -1048,7 +1164,7 @@
           if (!state || !state.awaitingPreview) return;
           state.awaitingPreview = false;
           state.kind = "success";
-          state.message = "Captions applied";
+          state.message = "Applied";
           const status = row.querySelector(".restyle-status");
           if (status) {
             status.className = "small restyle-status success";
@@ -1078,34 +1194,32 @@
     }
 
     const body = document.createElement("div");
+    body.className = "clip-info";
     const captionOnly = view.caption_only === true;
     const rankLabel = captionOnly
       ? "Full video"
-      : (c.rank === 1 ? "Best candidate" : `Candidate ${c.rank}`);
+      : (c.rank === 1 ? "Best clip" : `Clip ${c.rank}`);
     const badges = [];
     if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
-    if (c.layout && c.layout.mode === "face_crop") badges.push(`<span class="badge">locked face crop</span>`);
-    else badges.push(`<span class="badge">blur-pad layout</span>`);
-    if (c.width && c.height) badges.push(`<span class="badge">${c.width}×${c.height}</span>`);
-    if (c.low_confidence) badges.push(`<span class="badge warn">low transcription confidence</span>`);
+    if (c.low_confidence) badges.push(`<span class="badge warn">unclear audio</span>`);
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     body.innerHTML = `
       <div class="rank"></div>
       <h3></h3>
       <p class="times"></p>
-      <p class="why"></p>
-      <div class="badges">${badges.join("")}</div>`;
+      <div class="badges">${badges.join("")}</div>
+      <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
     body.querySelector(".rank").textContent = `${rankLabel} · ${fmtMs(c.duration_ms)}`;
     body.querySelector("h3").textContent = captionOnly ? "Captioned video" : `“${c.headline}”`;
     body.querySelector(".times").textContent =
       captionOnly
-        ? `The complete ${fmtMs(c.duration_ms)} video is preserved without clipping.`
-        : `Starts at ${fmtMs(c.start_ms)} and ends at ${fmtMs(c.end_ms)}. One continuous excerpt from the podcast.`;
+        ? `Full ${fmtMs(c.duration_ms)} video`
+        : `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)}`;
     body.querySelector(".why").textContent = c.status === "failed" && c.error
       ? `Render error: ${c.error}`
-      : (captionOnly ? "Captions cover the entire video." : `Why it works: ${c.selection_reason}`);
-    if (c.status === "ready") body.appendChild(restyleControls(c));
+      : (captionOnly ? "Captions cover the entire video." : c.selection_reason);
+    if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -1122,7 +1236,7 @@
       const pack = document.createElement("div");
       pack.className = "export-links";
       pack.setAttribute("aria-label", "Export pack files");
-      for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta JSON", "meta", "meta.json"], ["Poster", "poster", "jpg"]]) {
+      for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta", "meta", "meta.json"], ["Poster", "poster", "jpg"]]) {
         const link = document.createElement("a");
         link.className = "export-link";
         link.href = apiPath("projects", projectId, "clips", c.id, "export", kind);
@@ -1140,9 +1254,14 @@
       actions.appendChild(b);
     }
 
+    const inspector = document.createElement("div");
+    inspector.className = "inspector";
+    inspector.appendChild(body);
+    inspector.appendChild(actions);
+    if (c.status === "ready") inspector.appendChild(restyleControls(c));
+
     row.appendChild(preview);
-    row.appendChild(body);
-    row.appendChild(actions);
+    row.appendChild(inspector);
     return row;
   }
 
@@ -1179,13 +1298,9 @@
       state.draft.text = captionText.value;
       state.draft.textPresent = true;
       state.kind = "dirty";
-      state.message = "Unsaved caption changes";
+      state.message = "Unsaved changes";
       sync();
     });
-
-    const label = document.createElement("span");
-    label.className = "muted small restyle-label";
-    label.textContent = "Caption settings";
 
     const seg = document.createElement("div");
     seg.className = "seg";
@@ -1201,7 +1316,7 @@
       b.addEventListener("click", () => {
         state.draft.style = s;
         state.kind = "dirty";
-        state.message = "Unsaved caption changes";
+        state.message = "Unsaved changes";
         sync();
       });
       seg.appendChild(b);
@@ -1223,7 +1338,7 @@
       b.addEventListener("click", () => {
         state.draft.color = color;
         state.kind = "dirty";
-        state.message = "Unsaved caption changes";
+        state.message = "Unsaved changes";
         sync();
       });
       swatches.appendChild(b);
@@ -1232,7 +1347,7 @@
     const customPicker = document.createElement("label");
     customPicker.className = "custom-color-picker";
     const customLabel = document.createElement("span");
-    customLabel.textContent = "Custom";
+    customLabel.textContent = "";
     const custom = document.createElement("input");
     custom.type = "color";
     custom.className = "custom-color";
@@ -1242,7 +1357,7 @@
     custom.addEventListener("input", (e) => {
       state.draft.color = e.target.value.toUpperCase();
       state.kind = "dirty";
-      state.message = "Unsaved caption changes";
+      state.message = "Unsaved changes";
       sync();
     });
     customPicker.appendChild(customLabel);
@@ -1266,7 +1381,7 @@
     font.addEventListener("change", () => {
       state.draft.font = font.value;
       state.kind = "dirty";
-      state.message = "Unsaved caption changes";
+      state.message = "Unsaved changes";
       sync();
     });
     const fontPicker = document.createElement("label");
@@ -1278,6 +1393,7 @@
 
     const emojiToggle = document.createElement("label");
     emojiToggle.className = "emoji-toggle";
+    emojiToggle.title = "Flash a matching emoji over caption keywords";
     const emojiBox = document.createElement("input");
     emojiBox.type = "checkbox";
     emojiBox.checked = state.draft.emoji;
@@ -1285,11 +1401,11 @@
     emojiBox.addEventListener("change", () => {
       state.draft.emoji = emojiBox.checked;
       state.kind = "dirty";
-      state.message = "Unsaved caption changes";
+      state.message = "Unsaved changes";
       sync();
     });
     const emojiText = document.createElement("span");
-    emojiText.textContent = "Emoji accents";
+    emojiText.innerHTML = `<strong>Emoji accents</strong><small>Emoji over keywords</small>`;
     emojiToggle.appendChild(emojiBox);
     emojiToggle.appendChild(emojiText);
 
@@ -1305,11 +1421,11 @@
     autoCutBox.addEventListener("change", () => {
       state.draft.autoCut = autoCutBox.checked;
       state.kind = "dirty";
-      state.message = "Auto-cut change re-renders this clip";
+      state.message = "Re-renders this clip";
       sync();
     });
     const autoCutText = document.createElement("span");
-    autoCutText.textContent = "Auto-cut";
+    autoCutText.innerHTML = `<strong>Auto-cut</strong><small>Remove silences &amp; ums</small>`;
     autoCut.appendChild(autoCutBox);
     autoCut.appendChild(autoCutText);
 
@@ -1325,11 +1441,11 @@
     zoomCutsBox.addEventListener("change", () => {
       state.draft.zoomCuts = zoomCutsBox.checked;
       state.kind = "dirty";
-      state.message = "Zoom cuts change re-renders this clip";
+      state.message = "Re-renders this clip";
       sync();
     });
     const zoomCutsText = document.createElement("span");
-    zoomCutsText.textContent = "Zoom cuts";
+    zoomCutsText.innerHTML = `<strong>Zoom cuts</strong><small>Punch in on emphasis</small>`;
     zoomCuts.appendChild(zoomCutsBox);
     zoomCuts.appendChild(zoomCutsText);
 
@@ -1345,7 +1461,7 @@
       sync();
     });
     const progBarText = document.createElement("span");
-    progBarText.textContent = "Progress bar";
+    progBarText.innerHTML = `<strong>Progress bar</strong><small>Thin bar along the bottom</small>`;
     progBar.appendChild(progBarBox);
     progBar.appendChild(progBarText);
 
@@ -1361,18 +1477,18 @@
     hookTitleBox.addEventListener("change", () => {
       state.draft.hookTitle = hookTitleBox.checked;
       state.kind = "dirty";
-      state.message = "Hook title change re-renders this clip";
+      state.message = "Re-renders this clip";
       sync();
     });
     const hookTitleText = document.createElement("span");
-    hookTitleText.textContent = "Hook title";
+    hookTitleText.innerHTML = `<strong>Hook title</strong><small>Headline over the opening</small>`;
     hookTitle.appendChild(hookTitleBox);
     hookTitle.appendChild(hookTitleText);
 
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "apply-captions";
-    apply.textContent = "Apply captions";
+    apply.textContent = "Apply changes";
     const status = document.createElement("span");
     status.className = "muted small restyle-status";
     status.setAttribute("role", "status");
@@ -1417,7 +1533,7 @@
       hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
-      apply.textContent = state.busy ? "Applying…" : "Apply captions";
+      apply.textContent = state.busy ? "Applying…" : "Apply changes";
       status.className = `small restyle-status ${state.kind || ""}`;
       status.textContent = state.message || "";
     }
@@ -1426,7 +1542,7 @@
       if (state.busy || !state.dirty) return;
       state.busy = true;
       state.kind = "busy";
-      state.message = "Applying captions…";
+      state.message = "Applying…";
       sync();
       try {
         const requestProjectId = projectId;
@@ -1458,7 +1574,7 @@
         state.dirty = false;
         state.awaitingPreview = true;
         state.kind = "busy";
-        state.message = "Captions saved. Refreshing preview…";
+        state.message = "Loading preview…";
         state.draft = {
           style: updated.caption_style || state.draft.style,
           color: (updated.accent_color || state.draft.color).toUpperCase(),
@@ -1482,18 +1598,43 @@
       }
     });
 
-    box.appendChild(label);
-    box.appendChild(captionText);
-    box.appendChild(seg);
-    box.appendChild(swatches);
-    box.appendChild(fontPicker);
-    box.appendChild(emojiToggle);
-    box.appendChild(autoCut);
-    box.appendChild(zoomCuts);
-    box.appendChild(progBar);
-    box.appendChild(hookTitle);
-    box.appendChild(apply);
-    box.appendChild(status);
+    // Grouped: look (style, color, font) · edits (render toggles) · text.
+    const section = (title, ...children) => {
+      const el = document.createElement("div");
+      el.className = "restyle-section";
+      const h = document.createElement("span");
+      h.className = "restyle-label";
+      h.textContent = title;
+      el.appendChild(h);
+      for (const child of children) el.appendChild(child);
+      return el;
+    };
+    const toggles = document.createElement("div");
+    toggles.className = "toggle-grid";
+    for (const t of [hookTitle, progBar, emojiToggle, autoCut, zoomCuts]) {
+      t.className = "switch-row compact";
+      t.querySelector("input").classList.add("switch");
+      t.appendChild(t.querySelector("input"));
+      toggles.appendChild(t);
+    }
+    const textWrap = document.createElement("details");
+    textWrap.className = "caption-text-wrap";
+    const textSummary = document.createElement("summary");
+    textSummary.textContent = "Edit text";
+    textWrap.appendChild(textSummary);
+    textWrap.appendChild(captionText);
+    const footer = document.createElement("div");
+    footer.className = "restyle-footer";
+    footer.appendChild(status);
+    footer.appendChild(apply);
+
+    const scroll = document.createElement("div");
+    scroll.className = "restyle-scroll";
+    scroll.appendChild(section("Captions", seg, swatches, fontPicker));
+    scroll.appendChild(section("Extras", toggles));
+    scroll.appendChild(textWrap);
+    box.appendChild(scroll);
+    box.appendChild(footer);
     sync();
     return box;
   }
@@ -1718,6 +1859,7 @@
     wireUploadOptions();
     wireModal();
     wireDeleteModal();
+    wireLibrary();
     loadLibrary();
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);

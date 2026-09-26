@@ -59,11 +59,11 @@ impl CaptionStyle {
         matches!(self, CaptionStyle::Impact | CaptionStyle::Pop)
     }
     /// The display-face name this style writes for `family` — Impact and
-    /// Pop wear Inter's ExtraBold face; the rest name the family itself.
+    /// Pop wear Inter's Bold face; the rest name the family itself.
     /// Used when a hook title must resolve a font name without a file.
     pub fn face<'a>(&self, family: &'a str) -> &'a str {
         match self {
-            CaptionStyle::Impact | CaptionStyle::Pop if family == "Inter" => "Inter ExtraBold",
+            CaptionStyle::Impact | CaptionStyle::Pop if family == "Inter" => "Inter Bold",
             _ => family,
         }
     }
@@ -238,18 +238,21 @@ fn relative_words(input: &CaptionInput) -> (Vec<Word>, u64) {
 // ===========================================================================
 
 /// Sizes for the two tiers. The emphasis word is fit-clamped to the frame.
-const SMALL_FS: f32 = 70.0;
-const EMPH_FS: f32 = 150.0;
-const EMPH_FS_FLOOR: f32 = 92.0;
-/// Uppercase Inter ExtraBold ≈ 0.62 em/char; lowercase ≈ 0.55.
+const SMALL_FS: f32 = 64.0;
+const EMPH_FS: f32 = 124.0;
+const EMPH_FS_FLOOR: f32 = 84.0;
+/// Uppercase Inter Bold ≈ 0.62 em/char; lowercase ≈ 0.55.
 const CHAR_EM_UPPER: f32 = 0.62;
 const CHAR_EM_LOWER: f32 = 0.55;
 const MAX_LINE_W: f32 = 940.0;
-/// Stroke/drop-shadow references at the 1080×1920 canvas — the punchy looks
-/// sit inside the ~8–12px pro short-form band; `border_scale` shrinks them
-/// with the clip's real output size.
-const PRO_OUTLINE: f32 = 10.0;
-const PRO_SHADOW: f32 = 4.0;
+/// Stroke/drop-shadow references at the 1080×1920 canvas: a thin outline
+/// plus a soft blurred shadow keeps words legible on any frame without the
+/// heavy sticker-stroke look. `border_scale` shrinks them with the clip's
+/// real output size.
+const PRO_OUTLINE: f32 = 3.0;
+const PRO_SHADOW: f32 = 3.0;
+/// Edge blur at the 1080×1920 canvas — softens outline and shadow into a halo.
+const SOFT_BLUR: f32 = 2.2;
 /// Vertical center of the lockup and its allowed band.
 const BLOCK_ANCHOR_Y: f32 = 1270.0;
 const BLOCK_TOP_MIN: f32 = 920.0;
@@ -418,7 +421,7 @@ pub fn layout_lockup(words: &[Word], page_no: usize, out_w: u32, out_h: u32) -> 
 
 fn build_impact(input: &CaptionInput) -> String {
     let (rel, clip_len) = relative_words(input);
-    let blur = 0.6 * input.out_h as f32 / OUT_H as f32;
+    let blur = SOFT_BLUR * input.out_h as f32 / OUT_H as f32;
     let mut ass = String::new();
     ass.push_str(&impact_header(
         input.font,
@@ -548,7 +551,7 @@ fn build_impact(input: &CaptionInput) -> String {
 
 fn impact_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
     let face = if font == "Inter" {
-        "Inter ExtraBold".to_string()
+        "Inter Bold".to_string()
     } else {
         font.to_string()
     };
@@ -565,7 +568,7 @@ fn impact_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
          \n\
          [V4+ Styles]\n\
          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Impact,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H00000000,&H9C000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
+         Style: Impact,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H40000000,&H78000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
          \n\
          [Events]\n\
          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
@@ -759,8 +762,8 @@ fn clean_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         out_w = out_w,
         out_h = out_h,
         cfs = 66.0 * s,
-        co = 6.4 * b,
-        cs = 1.8 * b,
+        co = 3.0 * b,
+        cs = 2.4 * b,
         cml = 90.0 * s,
         cmr = 90.0 * s,
         cmv = CLEAN_BOTTOM_SAFE * s,
@@ -849,7 +852,7 @@ fn build_pop(input: &CaptionInput) -> String {
     let s = input.out_h as f32 / OUT_H as f32;
     let sx = input.out_w as f32 / OUT_W as f32;
     let cx = input.out_w as f32 / 2.0;
-    let blur = 0.6 * s;
+    let blur = SOFT_BLUR * s;
     let mut ass = String::new();
     ass.push_str(&pop_header(
         input.font,
@@ -916,7 +919,7 @@ fn build_pop(input: &CaptionInput) -> String {
 
 fn pop_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
     let face = if font == "Inter" {
-        "Inter ExtraBold".to_string()
+        "Inter Bold".to_string()
     } else {
         font.to_string()
     };
@@ -933,7 +936,7 @@ fn pop_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
          \n\
          [V4+ Styles]\n\
          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Pop,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H00000000,&H9C000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
+         Style: Pop,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H40000000,&H78000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
          \n\
          [Events]\n\
          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
@@ -1586,7 +1589,7 @@ mod tests {
             .unwrap_or_else(|| panic!("{style} field {index} not numeric: {ass}"))
     }
 
-    /// Spec A3: the pro short-form stroke (~8–12px at 1080×1920) is a function
+    /// Spec A3: the caption stroke is a function
     /// of the output geometry — a 608×1080 render keeps the same visual weight
     /// by shrinking with the canvas instead of burning a fixed 1080p border.
     #[test]
@@ -1615,15 +1618,16 @@ mod tests {
                 );
             }
         }
-        // The punchy looks land inside the ~8–12px band at full size.
+        // The punchy looks keep a thin stroke (a soft halo, not a sticker
+        // outline) at full size.
         for (style, ass) in [
             ("Impact", impact_header("Inter", OUT_W, OUT_H, false)),
             ("Pop", pop_header("Inter", OUT_W, OUT_H, false)),
         ] {
             let outline = style_field(&ass, style, ASS_OUTLINE_FIELD);
             assert!(
-                (8.0..=12.0).contains(&outline),
-                "{style} outline {outline}px outside the pro band at 1080×1920"
+                (2.0..=4.0).contains(&outline),
+                "{style} outline {outline}px outside the thin-stroke band at 1080×1920"
             );
         }
     }
@@ -1683,12 +1687,12 @@ mod tests {
         );
         let impact = impact_header("Inter", w, h, false);
         assert!(
-            impact.contains(&format!("Style: Impact,Inter ExtraBold,{:.1}", 84.0 * s)),
+            impact.contains(&format!("Style: Impact,Inter Bold,{:.1}", 84.0 * s)),
             "{impact}"
         );
         let pop = pop_header("Inter", w, h, false);
         assert!(
-            pop.contains(&format!("Style: Pop,Inter ExtraBold,{:.1}", POP_FS * s)),
+            pop.contains(&format!("Style: Pop,Inter Bold,{:.1}", POP_FS * s)),
             "{pop}"
         );
         let cinema = cinema_header("Inter", w, h, false);

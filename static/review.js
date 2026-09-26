@@ -23,6 +23,14 @@
   const toastOpen = document.getElementById("review-toast-open");
   const shell = document.querySelector(".shell");
   const aiBackdrop = document.getElementById("modal-backdrop");
+  const dots = document.getElementById("review-dots");
+  const done = document.getElementById("review-done");
+  const doneTitle = document.getElementById("review-done-title");
+  const doneStats = document.getElementById("review-done-stats");
+  const doneKept = document.getElementById("review-done-kept");
+  const doneDownload = document.getElementById("review-done-download");
+  const doneAgain = document.getElementById("review-done-again");
+  const doneClose = document.getElementById("review-done-close");
   let items = [], index = 0, decisions = load(), lastFocused = null;
   let announced = false, toastTimer = null;
 
@@ -95,14 +103,35 @@
       const rank = item.card.querySelector(".rank");
       if (rank) rank.appendChild(badge);
     }
+    // Mirror decisions onto the studio's clip rail.
+    for (const rail of document.querySelectorAll(".rail-item[data-review-key]")) {
+      const decision = decisions[rail.dataset.reviewKey];
+      if (decision) rail.dataset.decision = decision;
+      else delete rail.dataset.decision;
+    }
+  }
+  function tally() {
+    const t = { keep: 0, maybe: 0, skip: 0 };
+    for (const item of items) { const d = decisions[item.key]; if (d in t) t[d]++; }
+    return t;
+  }
+  function paintDots() {
+    dots.innerHTML = "";
+    items.forEach((item, i) => {
+      const dot = document.createElement("span");
+      dot.className = "review-dot" + (i === index ? " current" : "");
+      if (decisions[item.key]) dot.dataset.decision = decisions[item.key];
+      dots.appendChild(dot);
+    });
   }
   function updateCounts() {
     const keys = new Set(items.map((i) => i.key));
     const total = root.querySelectorAll("article.clip").length;
     const t = { keep: 0, maybe: 0, skip: 0 };
     for (const [k, v] of Object.entries(decisions)) if (keys.has(k) && v in t) t[v]++;
-    const readyText = total > items.length ? `${items.length} of ${total} ready` : `${items.length} ready`;
-    counts.textContent = ` · ${readyText} · ${t.keep} keep · ${t.maybe} maybe · ${t.skip} skip`;
+    const readyText = total > items.length ? `${items.length} of ${total} ready · ` : "";
+    counts.textContent = `${readyText}${t.keep} keep · ${t.maybe} maybe · ${t.skip} skip`;
+    paintDots();
   }
   function show(autoplay = true) {
     const item = items[index];
@@ -121,7 +150,7 @@
     } else {
       download.classList.add("hidden");
     }
-    progress.textContent = `${index + 1} / ${items.length}`;
+    progress.textContent = `Clip ${index + 1} of ${items.length}`;
     prevBtn.disabled = index === 0;
     nextBtn.disabled = index === items.length - 1;
     updateCounts();
@@ -148,6 +177,7 @@
     collect();
     if (!items.length) return;
     hideToast();
+    hideDone();
     lastFocused = document.activeElement;
     const first = items.findIndex((i) => !decisions[i.key]);
     index = first < 0 ? 0 : first;
@@ -160,6 +190,7 @@
   }
   function closeReview() {
     video.pause();
+    hideDone();
     theater.hidden = true;
     shell.inert = false;
     aiBackdrop.inert = false;
@@ -173,8 +204,52 @@
     decisions[item.key] = value;
     save();
     paint();
-    if (index < items.length - 1) { index++; show(true); }
-    else show(false);
+    // Next undecided clip after this one, wrapping; none left → summary.
+    const order = items.map((_, i) => (index + 1 + i) % items.length);
+    const next = order.find((i) => !decisions[items[i].key]);
+    if (next === undefined) { show(false); showDone(); return; }
+    index = next;
+    show(true);
+  }
+  function showDone() {
+    video.pause();
+    const t = tally();
+    const kept = items.filter((i) => decisions[i.key] === "keep");
+    doneTitle.textContent = kept.length
+      ? `${kept.length} clip${kept.length === 1 ? "" : "s"} worth posting`
+      : "Nothing kept this time";
+    doneStats.innerHTML = "";
+    for (const [label, n] of [["Keep", t.keep], ["Maybe", t.maybe], ["Skip", t.skip]]) {
+      const stat = document.createElement("div");
+      stat.className = "review-done-stat";
+      stat.dataset.decision = label.toLowerCase();
+      stat.innerHTML = "<strong></strong><span></span>";
+      stat.firstChild.textContent = String(n);
+      stat.lastChild.textContent = label;
+      doneStats.appendChild(stat);
+    }
+    doneKept.innerHTML = "";
+    for (const item of kept) {
+      const row = document.createElement("div");
+      row.className = "review-done-row";
+      row.textContent = item.title;
+      doneKept.appendChild(row);
+    }
+    doneDownload.hidden = kept.length === 0;
+    done.hidden = false;
+    (kept.length ? doneDownload : doneClose).focus();
+  }
+  function hideDone() { done.hidden = true; }
+  function downloadKept() {
+    const kept = items.filter((i) => decisions[i.key] === "keep" && i.downloadHref);
+    kept.forEach((item, n) => setTimeout(() => {
+      const a = document.createElement("a");
+      a.href = item.downloadHref;
+      a.download = item.downloadName || "";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }, n * 400));
   }
   function move(delta) {
     const next = Math.max(0, Math.min(items.length - 1, index + delta));
@@ -194,6 +269,10 @@
   nextBtn.addEventListener("click", () => move(1));
   toastOpen.addEventListener("click", openReview);
   for (const b of buttons) b.addEventListener("click", () => decide(b.dataset.reviewDecision));
+  doneDownload.addEventListener("click", downloadKept);
+  doneAgain.addEventListener("click", () => { hideDone(); index = 0; show(true); });
+  doneClose.addEventListener("click", closeReview);
+  document.addEventListener("cf-rail-rendered", paint);
 
   document.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return; // don't eat browser shortcuts (Ctrl+R refresh, etc.)
@@ -217,7 +296,8 @@
       return;
     }
     if (typing(event.target)) return;
-    if (event.key === "Escape") closeReview();
+    if (event.key === "Escape") { closeReview(); return; }
+    if (!done.hidden) return;
     else if (event.key === "ArrowLeft" || event.key === "k" || event.key === "K") { event.preventDefault(); move(-1); }
     else if (event.key === "ArrowRight" || event.key === "j" || event.key === "J") { event.preventDefault(); move(1); }
     else if (event.key === " ") { event.preventDefault(); video.paused ? video.play().catch(() => {}) : video.pause(); }
