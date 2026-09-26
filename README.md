@@ -10,7 +10,6 @@ A local-first podcast clipping studio with full-transcript ranking, face-aware r
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
 ![Local first](https://img.shields.io/badge/processing-local--first-1f6feb)
 ![Output](https://img.shields.io/badge/output-1080%C3%971920-7c3aed)
-![Tests](https://img.shields.io/badge/tests-256%20passing-238636)
 
 </div>
 
@@ -37,7 +36,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 | **Private by default** | Keeps video, audio, transcripts, project state, and rendering on your machine. |
 
 <p align="center">
-  <img src="docs/assets/clip-details.png" alt="Rendered clip cards with captions and face tracking" width="620">
+  <img src="docs/assets/clip-details.png" alt="Rendered clip cards with captions and speaker framing" width="620">
 </p>
 
 ```text
@@ -184,7 +183,7 @@ Clipping Factory is a browser-based studio backed by one Rust binary. There is n
 | Transcription | whisper.cpp with word timestamps |
 | Editorial selection | Local ranker, optional local endpoint (Ollama/llama.cpp/LM Studio), optional OpenAI, optional Anthropic |
 | Quality gate | Pure Rust deterministic validator |
-| Framing | rustface detections with smoothing and crop clamping |
+| Framing | ffmpeg `scdet` shot cuts, rustface detections pooled per shot, mouth-motion active speaker |
 | Captions | Generated ASS subtitles burned by libass |
 | State | Atomic filesystem JSON writes |
 
@@ -197,7 +196,7 @@ src/
   transcribe.rs    whisper.cpp integration
   select/          local and optional model-assisted selection
   validate.rs      deterministic quality gate
-  frame.rs         face detection and layout decisions
+  frame.rs         shot detection, active speaker, and framing views
   captions.rs      caption grouping and ASS generation
   render.rs        FFmpeg filter graphs
   store.rs         project persistence
@@ -231,12 +230,12 @@ For build, run, keep-alive (launchd), and troubleshooting details, see the [runb
 ```bash
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
-cargo test --locked   # 123 tests: every validator rule, caption pagination, crop math,
-                       # face-track smoothing & pan clamping, layout decisions, restyle
-                       # plumbing, selector parsing, state recovery
+cargo test --locked
 ```
 
-Unit tests cover validation rules, selector parsing, caption timing and pagination, framing decisions, crop smoothing, rendering filters, restyling, persistence, and recovery.
+Unit tests cover validation rules, selector parsing, caption timing and pagination, shot framing and speaker turns, rendering filters, restyling, persistence, and recovery.
+
+`bash evals/verify_clip_quality.sh --source <episode.mp4>` renders a real episode in an isolated studio and checks every clip: output size, encoder, cut edges, burned captions, and whether each crop view actually shows a centered face at head-and-shoulders size.
 
 Selection and rendering quality also need real media. The [evaluation harness](evals/README.md) defines the golden-set workflow used to catch regressions that unit tests cannot see.
 

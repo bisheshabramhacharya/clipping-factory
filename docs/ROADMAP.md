@@ -9,8 +9,8 @@ to inflate counts.
 - CI runs fmt, clippy, tests, and eval fixture tests on every push and PR.
 - Two-pass rendering with post-render caption restyling (Impact, Clean, Pop,
   Cinema) that never blocks the server.
-- Locked face crop with eye-line offset and opening face gate; BlurPad
-  fallback. Downscale-only libx264 output, loudness-normalized audio.
+- Speaker framing: one static view per camera shot, cut to the active
+  speaker, BlurPad for shots with nobody in frame (ADR-0004). Downscale-only libx264 output, loudness-normalized audio.
 - Validator with composite scores, scene-edge, cold-open, and outro-CTA
   guards; platform duration targets.
 - Selection via hosted provider, local OpenAI-compatible endpoint, or local
@@ -25,8 +25,6 @@ to inflate counts.
 
 1. Commit one real-media eval baseline from one owned episode.
 2. Review candidates before rendering; render only the kept ones.
-3. Multi-cam openings: a clip can open on up to ~2 s of a wide shot before
-   the locked face appears (the opening face gate's tolerance).
 
 ## Not doing
 
