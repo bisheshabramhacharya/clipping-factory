@@ -924,8 +924,8 @@ struct RestyleIn {
     /// Omitted = keep the clip's current setting.
     #[serde(default)]
     auto_cut: Option<bool>,
-    /// Zoom cuts toggle: subtle punch-in/out on emphasis beats inside the
-    /// Locked crop. Omitted = keep the clip's current setting.
+    /// Zoom cuts toggle: subtle punch-in/out on emphasis beats over the
+    /// framed clip. Omitted = keep the clip's current setting.
     #[serde(default)]
     zoom_cuts: Option<bool>,
     /// Opt-in accent progress bar — flips re-render.

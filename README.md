@@ -142,16 +142,17 @@ You can switch styles, choose an accent color, tune the caption text, and apply 
 Every rendered clip carries opt-in toggles — each re-renders just that clip:
 
 - **Auto-cut** removes silence gaps and filler words ("um", "uh") via a keep-list concat; captions stay in sync.
-- **Zoom cuts** add `zoompan` punch-ins on energy and emphasis beats, inside the locked crop.
+- **Zoom cuts** add `zoompan` punch-ins on energy and emphasis beats.
 - **Hook title** burns the clip's headline as an ALL-CAPS card over the first ~1.8 s.
 - **Progress bar** draws a thin accent-colored fill along the bottom edge.
 
 ## House rendering rules
 
-- H.264/AAC output at the native crop size, capped at 1080×1920 — never upscaled.
+- H.264/AAC output at the native 9:16 window size, capped at 1080×1920. The only upscaling is a zoomed-in view, at most 1.6×.
 - Source frame rate is preserved, with a 30 fps fallback.
-- One persistent face gets a locked 9:16 crop that never pans or eases.
-- Multiple faces or no reliable face gets a centered source over a darkened blur background.
+- Each camera shot gets one static view that never pans or eases, and the clip hard-cuts where the source cuts.
+- The view frames the person speaking at head-and-shoulders size. When several people share a shot, it cuts to whoever is talking on turns longer than about 2 s.
+- A shot with nobody usable in it shows the full frame over a darkened blur, never a crop aimed at empty space.
 - Captions use short conversational groups in the lower safe area.
 - Audio is loudness-normalized to −16 LUFS with short edge fades on every clip.
 - Defaults stay clean: no B-roll, music, or transitions — motion options (zoom cuts, emoji) are opt-in per clip.

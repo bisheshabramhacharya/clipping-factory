@@ -164,7 +164,7 @@ where
 /// Parse one scdet detection line into milliseconds. ffmpeg ≥5 reports
 /// `lavfi.scdet.time=12.34` (metadata=print) or `lavfi.scdet.time: 12.34`
 /// (the filter's own log line); 4.x names the same key `lavfi.scd.time`.
-fn parse_scdet_time_ms(line: &str) -> Option<u64> {
+pub(crate) fn parse_scdet_time_ms(line: &str) -> Option<u64> {
     let value = ["lavfi.scdet.time", "lavfi.scd.time"]
         .iter()
         .find_map(|key| line.find(key).map(|i| &line[i + key.len()..]))?;

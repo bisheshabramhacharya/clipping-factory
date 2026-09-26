@@ -899,14 +899,13 @@ async fn run(
                     Some(format!("Analyzing framing for clip {} of {}", i + 1, total)),
                 );
                 analyzed_ms += vc.candidate.end_ms.saturating_sub(vc.candidate.start_ms);
-                let frames_dir = store.frames_dir(&id);
                 let analyzed_layout = match crate::frame::analyze_layout(
                     cfg,
                     &src,
                     &source,
                     vc.candidate.start_ms,
                     vc.candidate.end_ms,
-                    &frames_dir,
+                    &transcript.words,
                     &ctx.cancel,
                 )
                 .await
@@ -977,7 +976,7 @@ async fn run(
                         )
                         .await?;
                     Ok(format!(
-                        "{} layout(s) planned · {} face-locked",
+                        "{} layout(s) planned · {} framed on speakers",
                         total, face_crops
                     ))
                 }

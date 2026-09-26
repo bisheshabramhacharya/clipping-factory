@@ -14,13 +14,12 @@
 //! times stored on the ClipRecord line up with what the rendered file
 //! actually plays.
 //!
-//! The zoom is a post-scale inside the Locked crop — ADR-0001 stands: the
-//! crop position never moves; only magnification breathes in and settles
-//! back to exactly 1.0×, so between beats there is no net motion.
+//! The zoom is a post-scale over the framed canvas — the views never move
+//! (ADR-0004); only magnification breathes in and settles back to exactly
+//! 1.0×, so between beats there is no net motion.
 //! Amplitude is small and beats are sparse (content-driven, never
 //! periodic), which keeps PRD §11.3's "no repeated punch-in zoom pattern"
-//! intact. FaceCrop only — a BlurPad composite has no locked crop to zoom
-//! inside of.
+//! intact. FaceCrop only — a whole-clip BlurPad has no face to zoom on.
 
 use crate::domain::{CutSpan, Word, ZoomKey};
 use crate::energy::EnergyProfile;

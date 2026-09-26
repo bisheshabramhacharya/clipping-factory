@@ -3,7 +3,7 @@
 //! 1. [`render_base_clip`] — one continuous source interval → framed
 //!    vertical H.264/AAC MP4 **without captions**, sized by [`output_size`]
 //!    (native crop window, capped at 1080×1920 — ADR-0002). This is the
-//!    expensive pass (decode, scale, blur or locked face crop, encode). The
+//!    expensive pass (decode, crop or blur per shot, encode). The
 //!    base is kept on disk so caption styling can change later without
 //!    re-doing it.
 //! 2. [`burn_captions`] — base MP4 + generated ASS → final captioned MP4.
@@ -12,9 +12,9 @@
 //!
 //! Two layouts (house style, §11.2/11.3):
 //! - BlurPad:  source centered over a blurred, darkened copy of itself.
-//! - FaceCrop: vertical crop locked on the dominant face — a constant x.
-//!   Manifests written before ADR-0001 may carry several keyframes; those
-//!   still render as a piecewise-linear x(t) crop expression.
+//! - FaceCrop: one static view per shot (ADR-0004) — a crop on the person
+//!   speaking, or the BlurPad treatment for a shot with nobody in it —
+//!   joined with hard cuts. Nothing ever pans.
 
 use crate::config::Config;
 use crate::domain::{CropKey, CutSpan, LayoutPlan, SourceInfo, ZoomKey};
@@ -75,7 +75,7 @@ fn even_floor(v: f64) -> u32 {
 /// continuous excerpt exactly as before; two or more spans go through a
 /// trim+concat stage that lifts the cut out of the stream before framing.
 /// `zoom` is zoom cuts' keyframe list on the post-cut timeline — a punch
-/// inside the Locked crop, applied only by the FaceCrop path.
+/// over the framed canvas, applied only by the FaceCrop path.
 /// (The argument list mirrors the render inputs one-to-one on purpose.)
 #[allow(clippy::too_many_arguments)]
 pub async fn render_base_clip<F>(
@@ -112,6 +112,7 @@ where
         in_dur_ms
     };
     let out_dur_s = clip_dur_ms as f64 / 1000.0;
+    let layout = &retime_layout(layout, start_ms, keeps);
     // The hook title's wrapped lines and resolved face are owned here and
     // borrowed by the garnish for the graph build below.
     let hook_lines = hook
@@ -434,41 +435,12 @@ fn build_graph_from(
             bar_step = bar_step
         ),
         Some(keyframes) => {
-            // Downscale only when the source is taller than the ceiling;
-            // at or under it the native window is cropped directly — the
-            // pixels pass through unresampled.
-            let (scale_step, frame_w) = if source.height > OUT_H {
-                let scaled_w =
-                    even_round(source.width as f64 * h as f64 / source.height as f64) as u64;
-                (format!("scale=-2:{h}:force_divisible_by=2,"), scaled_w)
-            } else {
-                (String::new(), source.width as u64)
-            };
-            if frame_w < w as u64 {
-                // Shouldn't happen (face_window_fits ran above), but stay
-                // safe — and BlurPad has no Locked crop for zoom to live in.
-                return build_graph_from(
-                    source,
-                    &LayoutPlan::BlurPad,
-                    subs,
-                    &[],
-                    dur_ms,
-                    Pads {
-                        in_v: vpad,
-                        in_a: apad,
-                        out_v: vout,
-                        out_a: aout,
-                    },
-                    garnish,
-                );
-            }
-            let expr = crop_x_expr(keyframes, frame_w, w as u64);
-            // Zoom cuts: a post-scale punch inside the locked window (the
-            // crop's x never moves). zoompan re-scales a centered subregion
-            // of the cropped frame back to output size; between keys the
-            // expression is exactly 1.0, i.e. pixel-identical to no zoom.
-            // fps must follow the source — zoompan defaults to 25 and would
-            // otherwise retime the video out of sync with the audio.
+            // Zoom cuts: a punch inside the framed canvas (the views never
+            // move). zoompan re-scales a centered subregion back to output
+            // size; between keys the expression is exactly 1.0, i.e.
+            // pixel-identical to no zoom. fps must follow the source —
+            // zoompan defaults to 25 and would otherwise retime the video
+            // out of sync with the audio.
             let zoom_step = if zoom.is_empty() || !(source.fps > 0.0 && source.fps.is_finite()) {
                 String::new()
             } else {
@@ -480,55 +452,161 @@ fn build_graph_from(
                     h = h,
                 )
             };
-            // Eye-line offset: a nonzero dy slides the cropped frame over
-            // a blurred copy of the source (the underlay fills the vacated
-            // band, same recipe as BlurPad). dy=0 keeps the bare crop,
-            // pixel-identical to the framing before eye-line anchoring.
-            if keyframes.iter().any(|k| k.dy != 0.0) {
-                let y_expr = overlay_y_expr(keyframes, h as u64);
-                format!(
-                    "[{vpad}]setpts=PTS-STARTPTS,split=2[bga][fga];\
-                     [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
-                     crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
-                     [fga]{scale}crop={w}:{h}:x='{expr}':y=0[fg];\
-                     [bg][fg]overlay=(W-w)/2:'{y}',{zoom}{subs}{hook}{bar_step}format=yuv420p[{vout}];\
-                     [{apad}]{audio}[{aout}]",
-                    vpad = vpad,
-                    apad = apad,
-                    w = w,
-                    h = h,
-                    scale = scale_step,
-                    expr = expr,
-                    y = y_expr,
-                    zoom = zoom_step,
-                    subs = subs_step,
-                    hook = hook_step,
-                    bar_step = bar_step,
-                    audio = audio,
-                    vout = vout,
-                    aout = aout
-                )
+            let views = shot_views(keyframes, dur_ms);
+            let mut g = format!("[{vpad}]setpts=PTS-STARTPTS");
+            if views.len() == 1 {
+                g.push_str("[fin];");
+                g.push_str(&view_graph(source, views[0].2, (w, h), "fin", "framed"));
             } else {
-                format!(
-                    "[{vpad}]setpts=PTS-STARTPTS,{scale}crop={w}:{h}:x='{expr}':y=0,\
-                     {zoom}{subs}{hook}{bar_step}format=yuv420p[{vout}];\
-                     [{apad}]{audio}[{aout}]",
-                    scale = scale_step,
-                    vpad = vpad,
-                    apad = apad,
-                    w = w,
-                    h = h,
-                    expr = expr,
-                    zoom = zoom_step,
-                    subs = subs_step,
-                    hook = hook_step,
-                    bar_step = bar_step,
-                    audio = audio,
-                    vout = vout,
-                    aout = aout
-                )
+                // One trimmed branch per view, each framed statically, then
+                // joined: the view changes are hard cuts on exact frames.
+                g.push_str(&format!(",split={}", views.len()));
+                for i in 0..views.len() {
+                    g.push_str(&format!("[fin{i}]"));
+                }
+                g.push(';');
+                for (i, (start, end, key)) in views.iter().enumerate() {
+                    let end = end.map(|e| format!(":end={e:.3}")).unwrap_or_default();
+                    g.push_str(&format!(
+                        "[fin{i}]trim=start={start:.3}{end},setpts=PTS-STARTPTS[fcut{i}];"
+                    ));
+                    g.push_str(&view_graph(
+                        source,
+                        key,
+                        (w, h),
+                        &format!("fcut{i}"),
+                        &format!("fv{i}"),
+                    ));
+                    g.push(';');
+                }
+                for i in 0..views.len() {
+                    g.push_str(&format!("[fv{i}]"));
+                }
+                g.push_str(&format!("concat=n={}:v=1:a=0[framed]", views.len()));
             }
+            g.push_str(&format!(
+                ";[framed]{zoom_step}{subs_step}{hook_step}{bar_step}format=yuv420p[{vout}];\
+                 [{apad}]{audio}[{aout}]"
+            ));
+            g
         }
+    }
+}
+
+/// The views of a FaceCrop plan as (start s, end s, key) on the output
+/// timeline; the last view runs to the end. Views that start past the end
+/// or last under a frame are dropped, and the first always starts at 0.
+fn shot_views(keyframes: &[CropKey], dur_ms: u64) -> Vec<(f64, Option<f64>, &CropKey)> {
+    let mut keys: Vec<&CropKey> = Vec::new();
+    for k in keyframes {
+        if k.t_ms + MIN_VIEW_MS > dur_ms && !keys.is_empty() {
+            break;
+        }
+        match keys.last() {
+            Some(prev) if k.t_ms < prev.t_ms + MIN_VIEW_MS => {
+                *keys.last_mut().expect("non-empty") = k;
+            }
+            _ => keys.push(k),
+        }
+    }
+    if keys.is_empty() {
+        return vec![(0.0, None, &DEFAULT_VIEW)];
+    }
+    (0..keys.len())
+        .map(|i| {
+            let at = |k: &CropKey| k.t_ms.saturating_sub(CUT_SLACK_MS) as f64 / 1000.0;
+            let start = if i == 0 { 0.0 } else { at(keys[i]) };
+            let end = keys.get(i + 1).map(|&n| at(n));
+            (start, end, keys[i])
+        })
+        .collect()
+}
+
+/// A view shorter than this (about one frame) is dropped.
+const MIN_VIEW_MS: u64 = 40;
+/// View boundaries land this much early: a cut's time is rounded to the
+/// ms, and rounding past the first frame of the new shot would show that
+/// frame with the previous view. Frames are ≥16 ms apart, so this never
+/// pulls in a frame from before the cut.
+const CUT_SLACK_MS: u64 = 5;
+
+const DEFAULT_VIEW: CropKey = CropKey {
+    t_ms: 0,
+    cx: 0.5,
+    cy: 0.5,
+    zoom: 1.0,
+    pad: false,
+};
+
+/// Frame one view from `[input]` to `[output]` at the `w`×`h` canvas: a
+/// static crop of the source, resized only when the window differs from
+/// the canvas, or — for a pad view — the full frame over a blurred copy.
+fn view_graph(
+    source: &SourceInfo,
+    key: &CropKey,
+    (w, h): (u32, u32),
+    input: &str,
+    output: &str,
+) -> String {
+    if key.pad {
+        return format!(
+            "[{input}]split=2[{output}b][{output}f];\
+             [{output}b]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
+             crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[{output}bg];\
+             [{output}f]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[{output}fg];\
+             [{output}bg][{output}fg]overlay=(W-w)/2:(H-h)/2,setsar=1[{output}]"
+        );
+    }
+    let (cw, ch, x, y) = crop_window(source, key);
+    let scale = if (cw, ch) == (w, h) {
+        String::new()
+    } else {
+        format!(",scale={w}:{h}:flags=lanczos")
+    };
+    format!("[{input}]crop={cw}:{ch}:{x}:{y}{scale},setsar=1[{output}]")
+}
+
+/// A view's crop window in source pixels: 9:16, `source_h / zoom` tall,
+/// centered on the key and clamped inside the frame.
+fn crop_window(source: &SourceInfo, key: &CropKey) -> (u32, u32, u32, u32) {
+    let (sw, sh) = (source.width, source.height);
+    let ch = even_floor(sh as f64 / (key.zoom as f64).max(1.0)).max(2);
+    let cw = even_round(ch as f64 * 9.0 / 16.0).min(sw & !1);
+    let place = |c: f32, full: u32, win: u32| -> u32 {
+        let max = full.saturating_sub(win) as f64;
+        (c as f64 * full as f64 - win as f64 / 2.0)
+            .clamp(0.0, max)
+            .round() as u32
+    };
+    (cw, ch, place(key.cx, sw, cw), place(key.cy, sh, ch))
+}
+
+/// Move a plan's view times from the clip's source timeline onto the
+/// rendered one: auto-cut removes time, and a single kept span starts
+/// the input late. A view that starts inside removed time starts where
+/// the next kept span does.
+fn retime_layout(layout: &LayoutPlan, clip_start_ms: u64, keeps: &[CutSpan]) -> LayoutPlan {
+    let LayoutPlan::FaceCrop { keyframes } = layout else {
+        return layout.clone();
+    };
+    if keeps.is_empty() {
+        return layout.clone();
+    }
+    let out = |t_rel: u64| -> u64 {
+        let t = clip_start_ms + t_rel;
+        keeps
+            .iter()
+            .map(|k| t.clamp(k.start_ms, k.end_ms) - k.start_ms)
+            .sum()
+    };
+    LayoutPlan::FaceCrop {
+        keyframes: keyframes
+            .iter()
+            .map(|k| CropKey {
+                t_ms: out(k.t_ms),
+                ..k.clone()
+            })
+            .collect(),
     }
 }
 
@@ -783,45 +861,7 @@ fn audio_chain(dur_ms: u64) -> String {
     )
 }
 
-/// Piecewise-linear x(t) between keyframes, clamped so the `crop_w`-wide
-/// window stays inside the `frame_w`-wide (possibly scaled) frame.
-/// `t` in the crop filter is the output timestamp in seconds (0 at clip start).
-pub fn crop_x_expr(keyframes: &[CropKey], frame_w: u64, crop_w: u64) -> String {
-    let max_x = frame_w.saturating_sub(crop_w) as f64;
-    let px = |cx: f32| -> f64 {
-        ((cx as f64) * frame_w as f64 - (crop_w as f64) / 2.0).clamp(0.0, max_x)
-    };
-
-    match keyframes.len() {
-        0 => format!("{:.1}", max_x / 2.0),
-        1 => format!("{:.1}", px(keyframes[0].cx)),
-        _ => {
-            // Innermost value: hold the last keyframe.
-            let mut expr = format!("{:.1}", px(keyframes[keyframes.len() - 1].cx));
-            for pair in keyframes.windows(2).rev() {
-                let (a, b) = (&pair[0], &pair[1]);
-                let (t0, t1) = (a.t_ms as f64 / 1000.0, b.t_ms as f64 / 1000.0);
-                let (x0, x1) = (px(a.cx), px(b.cx));
-                if t1 <= t0 {
-                    continue;
-                }
-                expr = format!(
-                    "if(lt(t\\,{t1:.3})\\,{x0:.1}+({x1:.1}-{x0:.1})*(t-{t0:.3})/{dt:.3}\\,{rest})",
-                    t1 = t1,
-                    x0 = x0,
-                    x1 = x1,
-                    t0 = t0,
-                    dt = t1 - t0,
-                    rest = expr
-                );
-            }
-            expr
-        }
-    }
-}
-
-/// Piecewise-linear z(t) for zoompan, built like [`crop_x_expr`] but over
-/// `time` — zoompan's per-frame timestamp in seconds on the (post-cut,
+/// Piecewise-linear z(t) for zoompan, over `time` — zoompan's per-frame timestamp in seconds on the (post-cut,
 /// PTS-reset) output stream. Keys always open and close at z=1.0, so the
 /// image only magnifies inside each bump and rests otherwise.
 pub fn zoom_z_expr(keys: &[ZoomKey]) -> String {
@@ -841,39 +881,6 @@ pub fn zoom_z_expr(keys: &[ZoomKey]) -> String {
                     t1 = t1,
                     z0 = a.z,
                     z1 = b.z,
-                    t0 = t0,
-                    dt = t1 - t0,
-                    rest = expr
-                );
-            }
-            expr
-        }
-    }
-}
-
-/// Piecewise-linear y(t) for the eye-line composite: each keyframe's `dy`
-/// (a fraction of the canvas height) becomes the overlay's pixel offset.
-/// Mirrors [`crop_x_expr`]: same interpolation, just vertical.
-fn overlay_y_expr(keyframes: &[CropKey], canvas_h: u64) -> String {
-    let ch = canvas_h as f64;
-    let py = |dy: f32| -> f64 { (dy as f64 * ch).clamp(-ch, ch) };
-    match keyframes.len() {
-        0 => "0.0".to_string(),
-        1 => format!("{:.1}", py(keyframes[0].dy)),
-        _ => {
-            let mut expr = format!("{:.1}", py(keyframes[keyframes.len() - 1].dy));
-            for pair in keyframes.windows(2).rev() {
-                let (a, b) = (&pair[0], &pair[1]);
-                let (t0, t1) = (a.t_ms as f64 / 1000.0, b.t_ms as f64 / 1000.0);
-                let (y0, y1) = (py(a.dy), py(b.dy));
-                if t1 <= t0 {
-                    continue;
-                }
-                expr = format!(
-                    "if(lt(t\\,{t1:.3})\\,{y0:.1}+({y1:.1}-{y0:.1})*(t-{t0:.3})/{dt:.3}\\,{rest})",
-                    t1 = t1,
-                    y0 = y0,
-                    y1 = y1,
                     t0 = t0,
                     dt = t1 - t0,
                     rest = expr
@@ -911,83 +918,12 @@ mod tests {
         }
     }
 
-    #[test]
-    fn single_keyframe_is_constant() {
-        // 1080p native crop: window 608 wide inside the 1920-wide frame.
-        // 0.5*1920 - 304 = 656
-        let e = crop_x_expr(
-            &[CropKey {
-                t_ms: 0,
-                cx: 0.5,
-                dy: 0.0,
-            }],
-            1920,
-            608,
-        );
-        assert_eq!(e, "656.0");
-    }
-
-    #[test]
-    fn keyframes_clamp_to_frame_edges() {
-        let e = crop_x_expr(
-            &[CropKey {
-                t_ms: 0,
-                cx: 0.02,
-                dy: 0.0,
-            }],
-            3414,
-            1080,
-        );
-        assert_eq!(e, "0.0");
-        let e = crop_x_expr(
-            &[CropKey {
-                t_ms: 0,
-                cx: 0.99,
-                dy: 0.0,
-            }],
-            3414,
-            1080,
-        );
-        assert_eq!(e, format!("{:.1}", (3414 - 1080) as f64));
-    }
-
-    #[test]
-    fn multi_keyframe_builds_piecewise_expression() {
-        let e = crop_x_expr(
-            &[
-                CropKey {
-                    t_ms: 0,
-                    cx: 0.4,
-                    dy: 0.0,
-                },
-                CropKey {
-                    t_ms: 2000,
-                    cx: 0.5,
-                    dy: 0.0,
-                },
-                CropKey {
-                    t_ms: 4000,
-                    cx: 0.45,
-                    dy: 0.0,
-                },
-            ],
-            3414,
-            1080,
-        );
-        assert!(e.starts_with("if(lt(t\\,2.000)"));
-        assert!(e.contains("if(lt(t\\,4.000)"));
-    }
-
     // ---- Downscale-only output sizing (ADR-0002) ----
 
     #[test]
     fn face_crop_size_is_the_native_window_capped() {
         let face = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey {
-                t_ms: 0,
-                cx: 0.5,
-                dy: 0.0,
-            }],
+            keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
         };
         // 1080p: window 607.5×1080 → even-rounded 608×1080 (zero resampling).
         assert_eq!(output_size(&source(1920, 1080), &face), (608, 1080));
@@ -1020,11 +956,7 @@ mod tests {
     #[test]
     fn output_never_exceeds_source_or_ceiling() {
         let face = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey {
-                t_ms: 0,
-                cx: 0.5,
-                dy: 0.0,
-            }],
+            keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
         };
         for (w, h) in [
             (1920, 1080),
@@ -1049,21 +981,16 @@ mod tests {
         let g = build_graph(
             &source(1920, 1080),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             &[],
             10_000,
             Garnish::default(),
         );
-        assert!(g.contains("crop=608:1080:"), "{g}");
-        assert!(!g.contains("scale"), "native window crops directly: {g}");
         // The crop window centers in the real 1920-wide frame.
-        assert!(g.contains("x='656.0'"), "{g}");
+        assert!(g.contains("crop=608:1080:656:0,setsar=1"), "{g}");
+        assert!(!g.contains("scale"), "native window crops directly: {g}");
     }
 
     #[test]
@@ -1071,105 +998,113 @@ mod tests {
         let g = build_graph(
             &source(3840, 2160),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             &[],
             10_000,
             Garnish::default(),
         );
-        assert!(g.contains("scale=-2:1920"), "{g}");
-        assert!(g.contains("crop=1080:1920:"), "{g}");
+        assert!(g.contains("crop=1216:2160:1312:0,scale=1080:1920"), "{g}");
     }
 
-    // ---- eye-line offset ----
-
     #[test]
-    fn centered_eye_line_keeps_the_bare_crop_graph() {
-        // dy=0 renders exactly the graph used before eye-line anchoring:
-        // one crop, no underlay composite.
+    fn a_zoomed_view_crops_tighter_and_scales_to_the_canvas() {
+        // zoom 1.5 on 1080p: a 720-tall window placed by cx/cy, sized back
+        // up to the 608×1080 canvas.
         let g = build_graph(
             &source(1920, 1080),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.4, 1.5)],
             },
             None,
             &[],
             10_000,
             Garnish::default(),
         );
-        assert!(g.contains("crop=608:1080:"), "{g}");
-        assert!(!g.contains("overlay"), "{g}");
+        assert!(
+            g.contains("crop=406:720:757:72,scale=608:1080:flags=lanczos"),
+            "{g}"
+        );
     }
 
     #[test]
-    fn nonzero_eye_line_offset_composites_over_a_blurred_underlay() {
-        // dy=0.175 of the 1080-tall canvas = 189px: the crop slides down.
+    fn views_hard_cut_on_their_start_times_and_never_pan() {
         let g = build_graph(
             &source(1920, 1080),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.175,
-                }],
+                keyframes: vec![
+                    CropKey::crop(0, 0.3, 0.5, 1.0),
+                    CropKey::pad(2_500),
+                    CropKey::crop(6_000, 0.7, 0.5, 1.0),
+                ],
             },
             None,
             &[],
             10_000,
             Garnish::default(),
         );
-        assert!(g.contains("gblur"), "{g}");
-        assert!(g.contains("crop=608:1080:x='656.0':y=0"), "{g}");
-        assert!(g.contains("overlay=(W-w)/2:'189.0'"), "{g}");
+        assert!(g.contains("split=3[fin0][fin1][fin2]"), "{g}");
+        assert!(g.contains("[fin0]trim=start=0.000:end=2.495,"), "{g}");
+        assert!(g.contains("[fin1]trim=start=2.495:end=5.995,"), "{g}");
+        assert!(g.contains("[fin2]trim=start=5.995,"), "{g}");
+        // Each view is a constant crop; the pad view blurs the full frame.
+        assert!(
+            g.contains("[fcut0]crop=608:1080:272:0,setsar=1[fv0]"),
+            "{g}"
+        );
+        assert!(
+            g.contains("[fcut2]crop=608:1080:1040:0,setsar=1[fv2]"),
+            "{g}"
+        );
+        assert!(g.contains("[fv1bg][fv1fg]overlay"), "{g}");
+        assert!(
+            g.contains("[fv0][fv1][fv2]concat=n=3:v=1:a=0[framed]"),
+            "{g}"
+        );
+        assert!(!g.contains("if(lt(t"), "no time-varying crop: {g}");
     }
 
     #[test]
-    fn eye_line_offset_downscales_only_past_the_ceiling() {
-        let g = build_graph(
-            &source(3840, 2160),
-            &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: -0.1,
-                }],
-            },
-            None,
-            &[],
-            10_000,
-            Garnish::default(),
-        );
-        assert!(g.contains("scale=-2:1920"), "{g}");
-        assert!(g.contains("crop=1080:1920:x="), "{g}");
-        // -0.1 of the 1920-tall output canvas.
-        assert!(g.contains("overlay=(W-w)/2:'-192.0'"), "{g}");
+    fn views_past_the_end_or_under_a_frame_are_dropped() {
+        let keys = [
+            CropKey::crop(0, 0.3, 0.5, 1.0),
+            CropKey::crop(10, 0.4, 0.5, 1.0),
+            CropKey::crop(5_000, 0.6, 0.5, 1.0),
+            CropKey::crop(12_000, 0.7, 0.5, 1.0),
+        ];
+        let views = shot_views(&keys, 10_000);
+        assert_eq!(views.len(), 2, "{views:?}");
+        assert_eq!(views[0].0, 0.0);
+        assert_eq!(views[0].1, Some(4.995));
+        assert_eq!(views[0].2.cx, 0.4);
+        assert_eq!(views[1].1, None);
     }
 
     #[test]
-    fn layouts_without_eye_line_offsets_still_deserialize() {
-        // Manifests written before eye-line framing carry no `dy` key.
-        let plan: LayoutPlan =
-            serde_json::from_str(r#"{"mode":"face_crop","keyframes":[{"t_ms":0,"cx":0.5}]}"#)
-                .unwrap();
-        assert_eq!(
-            plan,
-            LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
-            }
-        );
+    fn auto_cut_moves_views_onto_the_rendered_timeline() {
+        let layout = LayoutPlan::FaceCrop {
+            keyframes: vec![
+                CropKey::crop(0, 0.3, 0.5, 1.0),
+                CropKey::crop(5_000, 0.7, 0.5, 1.0),
+                CropKey::crop(8_000, 0.5, 0.5, 1.0),
+            ],
+        };
+        // Clip at 60 s; 2 s removed at 62–64 s, so 65 s renders at 3 s.
+        let keeps = [keep(60_000, 62_000), keep(64_000, 70_000)];
+        let LayoutPlan::FaceCrop { keyframes } = retime_layout(&layout, 60_000, &keeps) else {
+            panic!("layout kind changed");
+        };
+        let times: Vec<u64> = keyframes.iter().map(|k| k.t_ms).collect();
+        assert_eq!(times, vec![0, 3_000, 6_000]);
+        // One kept span that starts late shifts every view with it.
+        let LayoutPlan::FaceCrop { keyframes } =
+            retime_layout(&layout, 60_000, &[keep(61_000, 70_000)])
+        else {
+            panic!("layout kind changed");
+        };
+        let times: Vec<u64> = keyframes.iter().map(|k| k.t_ms).collect();
+        assert_eq!(times, vec![0, 4_000, 7_000]);
     }
 
     #[test]
@@ -1215,11 +1150,7 @@ mod tests {
         for layout in [
             LayoutPlan::BlurPad,
             LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
         ] {
             let g = build_graph(
@@ -1323,11 +1254,7 @@ mod tests {
         let g = build_cut_graph(
             &source(1920, 1080),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             CutSpec {
@@ -1389,11 +1316,7 @@ mod tests {
         let g = build_graph(
             &source(1920, 1080),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
@@ -1401,8 +1324,8 @@ mod tests {
             Garnish::default(),
         );
         // The zoom sits between the crop and the pixel-format fix, sizing
-        // back to the output window — the crop's locked x is untouched.
-        assert!(g.contains("crop=608:1080:x='656.0':y=0,zoompan="), "{g}");
+        // back to the output window — the crop itself is untouched.
+        assert!(g.contains("[framed]zoompan="), "{g}");
         assert!(g.contains("zoompan=z='"), "{g}");
         assert!(g.contains(":s=608x1080:"), "{g}");
         // fps follows the source — the default 25 would retime the video
@@ -1425,8 +1348,8 @@ mod tests {
 
     #[test]
     fn zoom_is_skipped_for_blurpad_and_empty_key_lists() {
-        // BlurPad composites its own canvas — there is no Locked crop to
-        // punch inside, so zoom keys never reach the graph.
+        // A whole-clip BlurPad has no face to punch in on, so zoom keys
+        // never reach the graph.
         let g = build_graph(
             &source(1920, 1080),
             &LayoutPlan::BlurPad,
@@ -1439,11 +1362,7 @@ mod tests {
         let g = build_graph(
             &source(1920, 1080),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             &[],
@@ -1457,11 +1376,7 @@ mod tests {
         let g = build_graph(
             &no_fps,
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             &[zk(0, 1.0), zk(1_000, 1.07), zk(2_000, 1.0)],
@@ -1483,11 +1398,7 @@ mod tests {
         let g = build_graph(
             &source(540, 1280),
             &LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
             },
             None,
             &[],

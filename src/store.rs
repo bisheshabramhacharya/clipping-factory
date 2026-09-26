@@ -82,9 +82,6 @@ impl Store {
     pub fn final_ready_marker(&self, id: &str, clip_id: &str) -> PathBuf {
         self.clips_dir(id).join(format!("{clip_id}.ready"))
     }
-    pub fn frames_dir(&self, id: &str) -> PathBuf {
-        self.project_dir(id).join("frames")
-    }
 
     pub fn exists(&self, id: &str) -> bool {
         self.project_json(id).is_file()

@@ -1429,8 +1429,8 @@
     autoCut.appendChild(autoCutBox);
     autoCut.appendChild(autoCutText);
 
-    // Opt-in zoom cuts: subtle punch-in/out on emphasis beats inside the
-    // locked crop. Default off — the crop otherwise never moves.
+    // Opt-in zoom cuts: subtle punch-in/out on emphasis beats. Default off —
+    // the framing otherwise never moves.
     const zoomCuts = document.createElement("label");
     zoomCuts.className = "auto-cut-toggle";
     zoomCuts.title = "Punch in slightly on loud moments and stressed words — re-renders this clip";

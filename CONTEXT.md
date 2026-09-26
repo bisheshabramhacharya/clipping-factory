@@ -19,36 +19,32 @@ _Avoid_: highlight, segment
 **Base clip**:
 The framed, uncaptioned intermediate MP4 kept on disk so caption restyling doesn't re-run the expensive render pass.
 
-**Dominant face**:
-The single face cluster that is largest/most persistent across a Clip's sampled frames. The lock target for framing.
-_Avoid_: active speaker, main face
+**Shot**:
+A stretch of a Clip between two camera cuts in the Source. The camera holds still within a Shot, so face detections are pooled across it.
+_Avoid_: scene, segment
 
-**Locked crop**:
-The 9:16 crop window fixed at the Dominant face's position for the entire Clip. Never pans, never eases — the camera does not move.
-_Avoid_: face-tracked crop, smoothed crop, pan (all removed concepts)
+**View**:
+The static framing for one Shot, or for one speaker turn inside a Shot: a 9:16 crop window (position plus zoom), or BlurPad when nobody usable is in frame. A View never pans or eases; the frame hard-cuts from one View to the next (ADR-0004).
+_Avoid_: locked crop, keyframe, pan, face tracking
+
+**Active speaker**:
+In a Shot with several people, the one whose mouth moves most while words are spoken. The View switches people only on turns long enough to beat the switching cost (~2 s), on the first word of the turn.
+_Avoid_: dominant face, diarization
 
 **BlurPad**:
-Fallback layout: the full Source frame centered over a blurred, darkened copy of itself. Used when there is no reliable single face.
+The full Source frame centered over a blurred, darkened copy of itself. Used for a View with no usable face, and for a whole Clip under Fit framing or with no faces at all.
 _Avoid_: letterbox, padded layout
 
-**Opening face gate**:
-The rule that a Clip must open on the Dominant face already in frame — never on an empty room, table, or transition.
-_Avoid_: leading-gap guard
-
 **Downscale-only output**:
-The rule that rendered pixels are never upscaled. Output size equals the native crop window, capped at 1080×1920; smaller sources produce smaller (sharp) output rather than stretched output.
-_Avoid_: upscale, fit-to-canvas, normalize to 1080
+Output size equals the native full-height 9:16 window, capped at 1080×1920; smaller sources produce smaller output rather than stretched output. The only upscaling is a zoomed View, at most 1.6×.
+_Avoid_: fit-to-canvas, normalize to 1080
 
 **Auto-cut**:
 A per-Clip opt-in that removes silence gaps and filler words ("um", "uh") at render time via a keep-list concat in the base render. Off by default — a Clip is otherwise one continuous faithful excerpt.
 _Avoid_: smart trim, jump cut, edit decision
 
-
-
-
-
 **Eye line**:
-The vertical anchor of a Locked crop: the face's estimated eye height (face center minus ~15% of the face-box height) is placed near 35% of the output height by sliding the crop window over a blurred underlay. The window itself never resizes and never pans; faces already near the line keep the centered crop.
+Where a zoomed View places the face: the estimated eye height (face center minus ~15% of the face-box height) lands near 36% of the output height. Full-height Views have no vertical room and stay exact crops.
 _Avoid_: headroom rule, vertical tracking
 
 **Composite score**:
@@ -64,7 +60,7 @@ The validation rule that a Clip may not open on a greeting, housekeeping line, o
 _Avoid_: hook check
 
 **Zoom cuts**:
-Per-Clip opt-in `zoompan` punch-ins on energy/emphasis beats inside the Locked crop. Zoom rests at 1.0 outside rise/fall; retimed through Auto-cut removals.
+Per-Clip opt-in `zoompan` punch-ins on energy/emphasis beats over the framed canvas. Zoom rests at 1.0 outside rise/fall; retimed through Auto-cut removals.
 _Avoid_: ken burns, animated crop
 
 **Caption style**:

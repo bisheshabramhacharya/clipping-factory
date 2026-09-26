@@ -308,7 +308,8 @@ impl Platform {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FramingMode {
-    /// Fill the 9:16 canvas, following a face when one can be tracked.
+    /// Fill the 9:16 canvas with a crop on whoever is speaking; shots with
+    /// no usable face keep the full frame over a blurred copy.
     #[default]
     Fill,
     /// Preserve the full source over a blurred background.
@@ -317,16 +318,9 @@ pub enum FramingMode {
 
 impl FramingMode {
     pub fn apply(self, analyzed: LayoutPlan) -> LayoutPlan {
-        match (self, analyzed) {
-            (FramingMode::Fill, tracked @ LayoutPlan::FaceCrop { .. }) => tracked,
-            (FramingMode::Fill, LayoutPlan::BlurPad) => LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0,
-                }],
-            },
-            (FramingMode::Background, _) => LayoutPlan::BlurPad,
+        match self {
+            FramingMode::Fill => analyzed,
+            FramingMode::Background => LayoutPlan::BlurPad,
         }
     }
 }
@@ -334,7 +328,8 @@ impl FramingMode {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum LayoutPlan {
-    /// Smoothed vertical crop that follows one persistent face.
+    /// One static view per shot (ADR-0004): each key holds until the next,
+    /// so the frame hard-cuts between views and never pans.
     FaceCrop { keyframes: Vec<CropKey> },
     /// Uncropped source centered over a blurred, darkened background.
     BlurPad,
@@ -351,16 +346,52 @@ impl LayoutPlan {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CropKey {
-    /// Milliseconds relative to clip start.
+    /// When this view starts, in ms relative to clip start. It holds until
+    /// the next key.
     pub t_ms: u64,
-    /// Normalized horizontal face center in the source frame (0–1).
+    /// Normalized horizontal center of the crop window in the source (0–1).
     pub cx: f32,
-    /// Eye-line offset in normalized canvas heights: >0 slides the crop down
-    /// over a blurred underlay (blurred band fills above the frame), <0 lifts
-    /// it, 0 keeps the frame centered (the framing used before eye-line
-    /// anchoring and whenever face metadata lacks a usable vertical extent.
+    /// Normalized vertical center of the crop window. Only matters when
+    /// `zoom` > 1; a full-height window has nowhere to move.
+    #[serde(default = "half")]
+    pub cy: f32,
+    /// Magnification over the full-height 9:16 window (1.0 = full height).
+    #[serde(default = "one")]
+    pub zoom: f32,
+    /// No usable face in this shot: show the full frame over a blurred copy
+    /// instead of a crop.
     #[serde(default)]
-    pub dy: f32,
+    pub pad: bool,
+}
+
+fn half() -> f32 {
+    0.5
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+impl CropKey {
+    pub fn crop(t_ms: u64, cx: f32, cy: f32, zoom: f32) -> Self {
+        CropKey {
+            t_ms,
+            cx,
+            cy,
+            zoom,
+            pad: false,
+        }
+    }
+
+    pub fn pad(t_ms: u64) -> Self {
+        CropKey {
+            t_ms,
+            cx: 0.5,
+            cy: 0.5,
+            zoom: 1.0,
+            pad: true,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -452,7 +483,7 @@ pub struct ClipRecord {
     #[serde(default)]
     pub cut_spans: Option<Vec<CutSpan>>,
     /// Opt-in zoom cuts: subtle punch-in/out on emphasis beats at render
-    /// time. Default off — the Locked crop never moves on its own.
+    /// time. Default off — views never move on their own.
     #[serde(default)]
     pub zoom_cuts: bool,
     /// The zoom keyframes the current base was rendered with, on the
@@ -537,41 +568,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn fill_framing_keeps_face_tracking_when_available() {
+    fn fill_framing_keeps_the_analyzed_plan() {
         let tracked = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey {
-                t_ms: 0,
-                cx: 0.42,
-                dy: 0.0,
-            }],
+            keyframes: vec![CropKey::crop(0, 0.42, 0.5, 1.0)],
         };
         assert_eq!(FramingMode::Fill.apply(tracked.clone()), tracked);
     }
 
     #[test]
-    fn fill_framing_uses_center_crop_when_tracking_is_unavailable() {
+    fn fill_framing_never_aims_a_blind_crop_at_a_faceless_clip() {
+        // A center crop on a clip with no detected face is how the frame
+        // ended up staring at a table; keep the full frame instead.
         assert_eq!(
             FramingMode::Fill.apply(LayoutPlan::BlurPad),
-            LayoutPlan::FaceCrop {
-                keyframes: vec![CropKey {
-                    t_ms: 0,
-                    cx: 0.5,
-                    dy: 0.0
-                }],
-            }
+            LayoutPlan::BlurPad
         );
     }
 
     #[test]
     fn background_framing_always_preserves_the_full_source() {
         let tracked = LayoutPlan::FaceCrop {
-            keyframes: vec![CropKey {
-                t_ms: 0,
-                cx: 0.42,
-                dy: 0.0,
-            }],
+            keyframes: vec![CropKey::crop(0, 0.42, 0.5, 1.0)],
         };
         assert_eq!(FramingMode::Background.apply(tracked), LayoutPlan::BlurPad);
+    }
+
+    #[test]
+    fn crop_keys_written_before_shot_framing_still_load() {
+        // Older manifests carry `dy` and no cy/zoom/pad.
+        let key: CropKey = serde_json::from_str(r#"{"t_ms":0,"cx":0.4,"dy":0.1}"#).unwrap();
+        assert_eq!(key, CropKey::crop(0, 0.4, 0.5, 1.0));
     }
 
     /// Manifests written before per-clip caption styling must still load.

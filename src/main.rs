@@ -37,6 +37,18 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cfg = Config::resolve();
+
+    // Eval hook for evals/verify_clip_quality.sh: print the faces the
+    // framing detector sees in a rendered clip, as JSON.
+    let args: Vec<String> = std::env::args().collect();
+    if let [_, cmd, path] = args.as_slice() {
+        if cmd == "probe-faces" {
+            let report = frame::probe_faces(&cfg, std::path::Path::new(path)).await?;
+            println!("{report}");
+            return Ok(());
+        }
+    }
+
     std::fs::create_dir_all(cfg.projects_dir()).ok();
 
     first_run_report(&cfg).await;
