@@ -67,12 +67,11 @@ _SHIGH = re.compile(r"YHIGH[=:]([\d.]+)")
 _SLOW = re.compile(r"YLOW[=:]([\d.]+)")
 
 
-def caption_band_ok(yavg: float, yspread: float, floor_avg: float = 10.0,
-                    floor_spread: float = 60.0) -> bool:
-    """A burned caption band shows contrast: blurred-pad video stays soft,
-    text pushes the YLOW..YHIGH luma range wide open. Floors are generous —
-    the assert is 'something bright and structured is there', not OCR."""
-    return yavg > floor_avg and yspread > floor_spread
+def caption_band_ok(band_diff: float, floor: float = 1.0) -> bool:
+    """Captions are burned in when the caption band differs from the
+    uncaptioned base render: a mean luma difference above `floor` means
+    text is there. Not OCR — just 'something was drawn'."""
+    return band_diff > floor
 
 
 def parse_signalstats_y(stderr: str) -> tuple[float | None, float | None]:

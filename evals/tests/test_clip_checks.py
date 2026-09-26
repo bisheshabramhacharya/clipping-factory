@@ -84,12 +84,12 @@ class CaptionBandTests(unittest.TestCase):
         )
         self.assertEqual(clip_checks.parse_signalstats_y("nothing"), (None, None))
 
-    def test_flat_black_band_fails(self):
-        self.assertFalse(clip_checks.caption_band_ok(0.0, 0.0))
-        self.assertFalse(clip_checks.caption_band_ok(111.0, 5.0))
+    def test_band_identical_to_the_base_render_fails(self):
+        self.assertFalse(clip_checks.caption_band_ok(0.0))
+        self.assertFalse(clip_checks.caption_band_ok(0.4))
 
-    def test_text_like_band_passes(self):
-        self.assertTrue(clip_checks.caption_band_ok(111.0, 198.0))
+    def test_band_with_burned_text_passes(self):
+        self.assertTrue(clip_checks.caption_band_ok(6.5))
 
 
 if __name__ == "__main__":

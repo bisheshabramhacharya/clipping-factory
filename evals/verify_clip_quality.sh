@@ -5,8 +5,12 @@
 # own CF_DATA_DIR/CF_OUTPUT_DIR under the run dir, on its own port), then
 # checks the rendered clips against the quality contract from spec #43:
 #
-#   locked crop   FaceCrop layouts carry one keyframe at t=0 AND the measured
-#                 crop x stays constant across frames sampled through the clip
+#   framing       FaceCrop views start at t=0 and strictly increase (ADR-0004:
+#                 one static view per shot), and in the rendered clip every
+#                 crop view shows a face: `clipping-factory probe-faces` runs
+#                 the framing detector over the output, and at least 80% of
+#                 crop-view samples must hold a face near the horizontal
+#                 center at a head-and-shoulders size
 #   honest size   ffprobe output dims equal the native 9:16 crop window —
 #                 downscale-only, capped at 1080x1920, never stretched up
 #   encoder       the H.264 bitstream carries the libx264 SEI (no VideoToolbox)
@@ -152,7 +156,7 @@ if [[ -z "$REUSE" ]]; then
   (
     cd "$ROOT"
     CF_NO_OPEN=1 CF_PORT="$PORT" CF_DATA_DIR="$DATA_DIR" CF_OUTPUT_DIR="$OUTPUT_DIR" \
-      ./target/release/clipping-factory >"$RUN_DIR/studio.log" 2>&1
+      exec ./target/release/clipping-factory >"$RUN_DIR/studio.log" 2>&1
   ) &
   SERVER_PID=$!
 
@@ -203,13 +207,13 @@ if [[ -n "$PROJECT" && -f "$DATA_DIR/projects/$PROJECT/render-manifest.json" ]];
 fi
 
 # --------------------------------------------------------------------------
-# Clip checks: ffprobe dims/codec, libx264 SEI, locked-crop (manifest + measured
-# crop x over sampled frames), first-frame and caption-frame grabs.
+# Clip checks: ffprobe dims/codec, libx264 SEI, framing (manifest views +
+# faces probed in the rendered clip), first-frame and caption-frame grabs.
 # --------------------------------------------------------------------------
 CHECKS_JSON="$REPORT/checks.json"
 if [[ -n "$MANIFEST" ]]; then
 python3 - "$MANIFEST" "$DATA_DIR/projects/$PROJECT/clips" "$SOURCE" "$EVIDENCE" "$CHECKS_JSON" "$FFMPEG" "$FFPROBE" "$MIN_CLIPS" "$MAX_CLIPS" "$ROOT" <<'PY'
-import json, os, re, subprocess, sys, tempfile
+import json, os, subprocess, sys
 
 manifest_path, clips_dir, source, evidence_dir, out_json, FFMPEG, FFPROBE, MIN_CLIPS, MAX_CLIPS, root = sys.argv[1:]
 sys.path.insert(0, os.path.join(root, "evals"))
@@ -236,10 +240,6 @@ def grab(video, t_s, out_png):
     run([FFMPEG, "-y", "-v", "error", "-ss", f"{t_s:.3f}", "-i", video,
          "-frames:v", "1", out_png])
 
-def scaled_source_frame(t_s, w, h, out_png):
-    run([FFMPEG, "-y", "-v", "error", "-ss", f"{t_s:.3f}", "-i", source,
-         "-vf", f"scale={w}:{h}", "-frames:v", "1", out_png])
-
 def scdet_boundaries(path):
     """Detected scene boundaries (ms) inside a rendered clip — the same
     filter pipeline media.rs runs on the source."""
@@ -249,61 +249,52 @@ def scdet_boundaries(path):
             (clip_checks.parse_scdet_ms(l) for l in p.stderr.decode(errors="replace").splitlines())
             if ms is not None]
 
-def caption_band_stats(png):
-    """(YAVG, luma spread) of the lower-middle band where captions sit."""
-    p = run([FFMPEG, "-i", png,
-             "-vf", "crop=iw:ih*0.30:0:ih*0.55,signalstats,metadata=mode=print",
-             "-f", "null", "-"])
-    return clip_checks.parse_signalstats_y(p.stderr.decode(errors="replace"))
+def caption_band_diff(clip, base, t_s):
+    """Mean luma difference between the captioned clip and its uncaptioned
+    base render over the lower-middle band where captions sit: burned text
+    is the only thing that differs."""
+    band = "crop=iw:ih*0.30:0:ih*0.55"
+    p = run([FFMPEG, "-ss", f"{t_s:.3f}", "-i", clip, "-ss", f"{t_s:.3f}", "-i", base,
+             "-filter_complex",
+             f"[0:v]{band}[a];[1:v]{band}[b];[a][b]blend=all_mode=difference,"
+             "signalstats,metadata=mode=print",
+             "-frames:v", "1", "-f", "null", "-"])
+    return clip_checks.parse_signalstats_y(p.stderr.decode(errors="replace"))[0]
 
-PSNR_RE = re.compile(rb"average:(\d+\.\d+|inf)")
-def psnr_at(src_png, clip_png, w, h, x):
-    # Compare a caption-free top band: captions occupy the lower-middle of the
-    # canvas, so matching the top 40% isolates the crop window position.
-    fc = (f"[0:v]crop={w}:{h}:{x}:0[s];"
-          f"[1:v]crop={w}:{h}:0:0[c];[s][c]psnr")
-    p = run([FFMPEG, "-i", src_png, "-i", clip_png,
-             "-filter_complex", fc, "-f", "null", "-"])
-    m = PSNR_RE.search(p.stderr)
-    return float("inf") if (m and m.group(1) == b"inf") else (float(m.group(1)) if m else 0.0)
+BIN = os.path.join(root, "target", "release", "clipping-factory")
 
-def measure_crop_x(clip_path, start_ms, dur_s, out_w, out_h, src_w, src_h, tmp):
-    """Best-match crop x at sampled clip times via template matching against
-    the source scaled to output height (the same math render.rs uses)."""
-    scaled_h = out_h
-    scaled_w = int(round(src_w * scaled_h / src_h / 2)) * 2
-    reach = scaled_w - out_w
-    if reach <= 0:
-        return [], "clip as wide as scaled source; nothing to sweep"
-    band_h = int(out_h * 0.40) // 2 * 2
-    if band_h < 64:
-        band_h = out_h // 2 * 2
-    coarse = max(16, int(round(reach / 40 / 2)) * 2)
-    times = [max(0.4, dur_s * f) for f in (0.05, 0.275, 0.5, 0.725)]
-    times.append(max(0.4, min(dur_s - 0.4, dur_s * 0.95)))
-    samples = []
-    for t in times:
-        cpng = os.path.join(tmp, f"c{len(samples)}.png")
-        spng = os.path.join(tmp, f"s{len(samples)}.png")
-        grab(clip_path, t, cpng)
-        scaled_source_frame(start_ms / 1000.0 + t, scaled_w, scaled_h, spng)
-        if not (os.path.isfile(cpng) and os.path.isfile(spng)):
-            samples.append({"t_s": round(t, 2), "error": "frame extraction failed"})
+def probe_faces(path):
+    p = subprocess.run([BIN, "probe-faces", path], cwd=root,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return json.loads(p.stdout) if p.returncode == 0 else None
+
+def framing_check(keyframes, probe, dur_s):
+    """Share of crop-view samples (away from view edges) with a centered,
+    well-sized face, plus the share of the clip shown as a padded frame."""
+    views = []
+    for i, k in enumerate(keyframes):
+        end = keyframes[i + 1]["t_ms"] if i + 1 < len(keyframes) else int(dur_s * 1000)
+        views.append((k["t_ms"], end, bool(k.get("pad"))))
+    pad_ms = sum(e - s for s, e, pad in views if pad)
+    framed = total = 0
+    sizes = []
+    for f in probe["frames"]:
+        t = f["t_ms"]
+        view = next((v for v in views if v[0] + 300 <= t < v[1] - 300), None)
+        if view is None or view[2]:
             continue
-        best_x, best_p = 0, -1.0
-        for x in range(0, reach + 1, coarse):
-            p = psnr_at(spng, cpng, out_w, band_h, x)
-            if p > best_p:
-                best_x, best_p = x, p
-        lo = max(0, best_x - coarse)
-        hi = min(reach, best_x + coarse)
-        for x in range(lo, hi + 1, 6):
-            p = psnr_at(spng, cpng, out_w, band_h, x)
-            if p > best_p:
-                best_x, best_p = x, p
-        samples.append({"t_s": round(t, 2), "x": best_x,
-                        "psnr_db": (None if best_p == float("inf") else round(best_p, 2))})
-    return samples, None
+        total += 1
+        good = [x for x in f["faces"] if 0.2 <= x["cx"] <= 0.8]
+        if good:
+            framed += 1
+            sizes.append(max(x["h"] for x in good))
+    sizes.sort()
+    return {
+        "crop_samples": total,
+        "framed_ratio": round(framed / total, 3) if total else None,
+        "median_face_h": round(sizes[len(sizes) // 2], 3) if sizes else None,
+        "pad_share": round(pad_ms / max(1, dur_s * 1000), 3),
+    }
 
 def even(x):
     return int(round(x / 2)) * 2
@@ -327,13 +318,15 @@ if not src_w or not src_h:
     sys.exit(0)
 exp_w, exp_h = native_window(src_w, src_h)
 
-X_SPREAD_TOL = 16  # px — measurement noise is a few px; real pans move hundreds
+FRAMED_MIN = 0.8
+FACE_H_RANGE = (0.10, 0.45)
 
 report = {
     "source": {"path": source, "width": src_w, "height": src_h,
                "codec": sv.get("codec_name"), "fps": sv.get("avg_frame_rate")},
     "expected_window": {"w": exp_w, "h": exp_h},
-    "x_spread_tolerance_px": X_SPREAD_TOL,
+    "framed_min": FRAMED_MIN,
+    "face_h_range": FACE_H_RANGE,
     "clips": [],
 }
 all_ok = True
@@ -343,9 +336,11 @@ for clip in manifest.get("clips", []):
              "start_ms": clip.get("start_ms"), "end_ms": clip.get("end_ms")}
     keyframes = clip.get("layout", {}).get("keyframes") or []
     entry["keyframes"] = keyframes
-    entry["manifest_locked"] = (
-        entry["layout"] == "face_crop" and len(keyframes) == 1
-        and keyframes[0].get("t_ms") == 0)
+    times = [k.get("t_ms") for k in keyframes]
+    entry["views_ok"] = (
+        entry["layout"] != "face_crop"
+        or (bool(times) and times[0] == 0
+            and all(a < b for a, b in zip(times, times[1:]))))
     path = os.path.join(clips_dir, clip.get("filename") or "")
     if clip.get("status") != "ready" or not os.path.isfile(path):
         entry["error"] = "clip not rendered"
@@ -384,26 +379,27 @@ for clip in manifest.get("clips", []):
     # Caption presence is asserted only when the clip record actually
     # selected a style — tone-only or captionless runs keep it informational.
     if clip.get("caption_style"):
-        yavg, yspread = caption_band_stats(cap_png)
-        entry["caption_band"] = {"yavg": yavg, "yspread": yspread}
-        entry["caption_ok"] = (yavg is not None and yspread is not None
-                               and clip_checks.caption_band_ok(yavg, yspread))
+        base = os.path.join(clips_dir, "base", f"{clip.get('id')}.mp4")
+        diff = caption_band_diff(path, base, entry["duration_s"] * 0.4) \
+            if os.path.isfile(base) else None
+        entry["caption_band_diff"] = diff
+        entry["caption_ok"] = diff is not None and clip_checks.caption_band_ok(diff)
     else:
         entry["caption_ok"] = None
 
     if entry["layout"] == "face_crop":
-        with tempfile.TemporaryDirectory() as tmp:
-            samples, note = measure_crop_x(path, clip.get("start_ms", 0),
-                                           entry["duration_s"], w, h,
-                                           src_w, src_h, tmp)
-        entry["motion_samples"] = samples
-        if note:
-            entry["motion_note"] = note
-        good = [s["x"] for s in samples if "x" in s]
-        entry["x_spread"] = (max(good) - min(good)) if len(good) >= 2 else None
-        entry["motion_free"] = (entry["x_spread"] is not None
-                                and entry["x_spread"] <= X_SPREAD_TOL)
-        entry["crop_ok"] = bool(entry["manifest_locked"] and entry["motion_free"])
+        probe_json = probe_faces(path)
+        if probe_json is None:
+            entry["framing"] = {"error": "probe-faces failed"}
+            entry["crop_ok"] = False
+        else:
+            fr = framing_check(keyframes, probe_json, entry["duration_s"])
+            entry["framing"] = fr
+            ratio, size = fr["framed_ratio"], fr["median_face_h"]
+            entry["crop_ok"] = bool(
+                entry["views_ok"]
+                and (ratio is None or ratio >= FRAMED_MIN)
+                and (size is None or FACE_H_RANGE[0] <= size <= FACE_H_RANGE[1]))
     else:
         entry["crop_ok"] = None  # no crop window in blur_pad
     entry["checks_ok"] = bool(
@@ -476,21 +472,19 @@ L.append(f"- clips in manifest: {len(clips)} (ready {cc.get('ready')}, "
          f"bounds {cc.get('min')}..{cc.get('max')}: "
          f"{'ok' if data.get('clip_count_ok') else 'OUT OF RANGE'})\n")
 
-L.append("| clip | layout | keyframes | out size | codec / x264 SEI | cut guard | caption | crop x samples | verdict |")
+L.append("| clip | layout | views | out size | codec / x264 SEI | cut guard | caption | framing | verdict |")
 L.append("|---|---|---|---|---|---|---|---|---|")
 for c in clips:
     kf = c.get("keyframes") or []
-    kf_desc = f"{len(kf)} keys" if len(kf) != 1 else "1 key @t=0 (locked)"
-    samples = ", ".join(
-        f"x={m['x']}@{m['t_s']}s" if "x" in m else "err"
-        for m in c.get("motion_samples", [])) or "—"
-    if c.get("x_spread") is not None:
-        samples += f" (spread {c['x_spread']}px)"
+    kf_desc = f"{len(kf)} views" if kf else "—"
+    fr = c.get("framing") or {}
+    samples = (fr.get("error") or
+               f"face in {fr.get('framed_ratio')} of {fr.get('crop_samples')} crop samples, "
+               f"face h {fr.get('median_face_h')}, padded {fr.get('pad_share')}") if fr else "—"
     verdict = ("PASS" if c.get("checks_ok") else "FAIL")
     fails = []
-    if c.get("layout") == "face_crop" and c.get("manifest_locked") is False:
-        fails.append("crop not locked")
-    if c.get("motion_free") is False: fails.append("crop moves")
+    if c.get("views_ok") is False: fails.append("views out of order")
+    if c.get("crop_ok") is False: fails.append("speaker not framed")
     if c.get("resolution_ok") is False: fails.append("wrong size")
     if c.get("encoder_ok") is False: fails.append("not libx264")
     if c.get("cut_guard_ok") is False: fails.append("cut on transition")
