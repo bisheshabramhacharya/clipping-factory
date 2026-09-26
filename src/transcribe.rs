@@ -451,10 +451,44 @@ fn parse_words(v: &serde_json::Value) -> Vec<Word> {
 }
 
 /// Does this word's text end a sentence (terminal punctuation, allowing
-/// closing quotes/brackets after the mark)?
+/// closing quotes/brackets after the mark)? Abbreviations like "U.S." or
+/// "Dr." don't: splitting there broke "three times U.S. electricity output"
+/// into two fragments.
 pub fn terminal_word(text: &str) -> bool {
-    text.trim_end_matches(['"', '\'', ')', ']'])
-        .ends_with(['.', '?', '!', '…'])
+    let t = text.trim_end_matches(['"', '\'', ')', ']']);
+    t.ends_with(['.', '?', '!', '…']) && !is_title(t) && !is_initialism(t)
+}
+
+fn is_title(word: &str) -> bool {
+    const TITLES: &[&str] = &[
+        "mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "jr.", "sr.", "prof.",
+    ];
+    TITLES.contains(&word.to_lowercase().as_str())
+}
+
+/// Dotted initialisms: "U.S.", "e.g.", "A.I." — letters alternating with dots.
+fn is_initialism(word: &str) -> bool {
+    word.len() >= 4
+        && word.chars().enumerate().all(|(i, c)| {
+            if i % 2 == 0 {
+                c.is_alphabetic()
+            } else {
+                c == '.'
+            }
+        })
+}
+
+/// Whether a sentence ends after `words[i]`. An initialism ends one only
+/// when the next word is capitalized: "…out of the U.S. Reading between the
+/// lines" breaks, "three times U.S. electricity output" doesn't.
+pub fn ends_sentence(words: &[Word], i: usize) -> bool {
+    let text = words[i].text.trim_end_matches(['"', '\'', ')', ']']);
+    terminal_word(text)
+        || is_initialism(text)
+            && words
+                .get(i + 1)
+                .and_then(|n| n.text.chars().next())
+                .is_some_and(char::is_uppercase)
 }
 
 /// Group words into sentence-like segments: break after terminal punctuation,
@@ -466,7 +500,7 @@ pub fn build_sentences(words: &[Word]) -> Vec<Sentence> {
 
     for i in 0..words.len() {
         char_len += words[i].text.len() + 1;
-        let terminal = terminal_word(&words[i].text);
+        let terminal = ends_sentence(words, i);
         let long_pause = words
             .get(i + 1)
             .map(|next| next.start_ms.saturating_sub(words[i].end_ms) >= 1000)
@@ -498,6 +532,45 @@ pub fn build_sentences(words: &[Word]) -> Vec<Sentence> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_initialism_ends_a_sentence_only_before_a_capital() {
+        let w = |text: &str, start_ms: u64| Word {
+            text: text.into(),
+            start_ms,
+            end_ms: start_ms + 200,
+            p: 1.0,
+        };
+        let words = vec![
+            w("three", 0),
+            w("times", 300),
+            w("U.S.", 600),
+            w("output", 900),
+            w("in", 1200),
+            w("the", 1500),
+            w("U.S.", 1800),
+            w("Reading", 2100),
+            w("on.", 2400),
+        ];
+        let texts: Vec<String> = build_sentences(&words)
+            .into_iter()
+            .map(|s| s.text)
+            .collect();
+        assert_eq!(
+            texts,
+            vec!["three times U.S. output in the U.S.", "Reading on."]
+        );
+    }
+
+    #[test]
+    fn abbreviations_do_not_end_a_sentence() {
+        assert!(!terminal_word("U.S."));
+        assert!(!terminal_word("Dr."));
+        assert!(!terminal_word("e.g."));
+        assert!(terminal_word("output."));
+        assert!(terminal_word("US."));
+        assert!(terminal_word("why?"));
+    }
 
     fn w(text: &str, start: u64, end: u64) -> Word {
         Word {

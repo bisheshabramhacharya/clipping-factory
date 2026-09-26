@@ -79,24 +79,63 @@ const CTA_CLOSERS: &[&str] = &[
     "don t forget to subscribe",
     "dont forget to like",
     "don t forget to like",
+    "and subscribe",
+    "subscribe to the channel",
+    "watch the full episode",
+    "full episode here",
+    "if you enjoyed this",
 ];
 
-/// Returns a reason when the clip's last words are an outro CTA.
+/// Returns a reason when the clip's closing stretch carries an outro CTA —
+/// anywhere in the last 30 words, since an outro pitch usually runs a
+/// sentence or two ("if you enjoyed this, watch the full episode…").
 fn cta_close_reason(last_words: &[crate::domain::Word]) -> Option<String> {
     let tail: Vec<&str> = last_words
         .iter()
         .rev()
-        .take(10)
+        .take(30)
         .map(|w| w.text.as_str())
         .collect();
     let joined = normalize(&tail.into_iter().rev().collect::<Vec<_>>().join(" "));
     CTA_CLOSERS
         .iter()
-        .find(|c| joined.ends_with(*c))
+        .find(|c| joined.contains(*c))
         .map(|c| format!("closes on outro/CTA '{c}'"))
 }
 
-fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
+/// The rubric bar (PRD §9.3): why these scores fail it, if they do. The
+/// local selector checks it too, so a doomed window never takes the slot
+/// of an overlapping one that would pass.
+pub fn score_reasons(s: &Scores) -> Vec<String> {
+    let mut reasons = Vec::new();
+    if s.self_contained < 4 {
+        reasons.push(format!("self_contained {} is below 4", s.self_contained));
+    }
+    if s.opening_strength < 4 {
+        reasons.push(format!(
+            "opening_strength {} is below 4",
+            s.opening_strength
+        ));
+    }
+    if s.payoff < 3 {
+        reasons.push(format!("payoff {} is below 3", s.payoff));
+    }
+    if s.clarity < 4 {
+        reasons.push(format!("clarity {} is below 4", s.clarity));
+    }
+    if s.context_dependency > 2 {
+        reasons.push(format!(
+            "context_dependency {} is above 2",
+            s.context_dependency
+        ));
+    }
+    if s.slop_risk > 2 {
+        reasons.push(format!("slop_risk {} is above 2", s.slop_risk));
+    }
+    reasons
+}
+
+pub(crate) fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
     let joined = normalize(
         &first_words
             .iter()
@@ -228,30 +267,7 @@ pub fn validate(
 
         // --- Score thresholds (PRD §9.3) ---------------------------------
         let s = cand.scores;
-        if s.self_contained < 4 {
-            reasons.push(format!("self_contained {} is below 4", s.self_contained));
-        }
-        if s.opening_strength < 4 {
-            reasons.push(format!(
-                "opening_strength {} is below 4",
-                s.opening_strength
-            ));
-        }
-        if s.payoff < 3 {
-            reasons.push(format!("payoff {} is below 3", s.payoff));
-        }
-        if s.clarity < 4 {
-            reasons.push(format!("clarity {} is below 4", s.clarity));
-        }
-        if s.context_dependency > 2 {
-            reasons.push(format!(
-                "context_dependency {} is above 2",
-                s.context_dependency
-            ));
-        }
-        if s.slop_risk > 2 {
-            reasons.push(format!("slop_risk {} is above 2", s.slop_risk));
-        }
+        reasons.extend(score_reasons(&s));
 
         // --- Duration with explicit exception path ------------------------
         let dur = cand.end_ms - cand.start_ms;
@@ -1113,6 +1129,32 @@ mod tests {
             .reasons
             .iter()
             .any(|reason| reason.contains("outro/CTA")));
+    }
+
+    #[test]
+    fn rejects_an_outro_pitch_that_is_not_the_very_last_words() {
+        // "…watch the full episode here. Thanks, Elon." — the pitch sits a
+        // few words before the cut.
+        let mut t = transcript(1500, 400);
+        let outro = [
+            "you",
+            "can",
+            "watch",
+            "the",
+            "full",
+            "episode",
+            "here.",
+            "Great",
+            "talk",
+            "everyone.",
+        ];
+        for (i, text) in outro.iter().enumerate() {
+            t.words[114 + i].text = (*text).into();
+        }
+        t.sentences = crate::transcribe::build_sentences(&t.words);
+        let c = cand(&t, 10_000, 49_600, good_scores());
+        let r = validate(vec![c], &t, SRC, "t".into(), &[], Platform::Generic);
+        assert_eq!(r.accepted.len(), 0);
     }
 
     #[test]

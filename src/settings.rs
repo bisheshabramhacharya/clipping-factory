@@ -13,7 +13,7 @@ pub const PROVIDER_OFFLINE: &str = "offline";
 pub const PROVIDER_LOCAL: &str = "local";
 
 pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
-pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-sonnet-4-5";
+pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-opus-5";
 /// Ollama's OpenAI-compatible endpoint; llama.cpp and LM Studio differ only by port.
 pub const DEFAULT_LOCAL_BASE_URL: &str = "http://localhost:11434/v1";
 

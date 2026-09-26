@@ -1752,7 +1752,7 @@
     $("base-url-row").classList.toggle("hidden", !local);
     $("offline-note").classList.toggle("hidden", !offline);
     $("local-note").classList.toggle("hidden", !local);
-    $("model").placeholder = provider === "anthropic" ? "claude-sonnet-4-5" : local ? "qwen2.5:7b" : "gpt-4o-mini";
+    $("model").placeholder = provider === "anthropic" ? "claude-opus-5" : local ? "qwen2.5:7b" : "gpt-4o-mini";
   }
 
   function modalFocusables() {

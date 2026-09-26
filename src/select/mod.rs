@@ -73,6 +73,7 @@ pub async fn propose(
                 local_proposal_limit(source.duration_ms),
                 energy,
                 focus,
+                Some(&source.filename),
             ),
             selector: "local ranking".into(),
             warning: None,
@@ -122,6 +123,7 @@ pub async fn propose(
                         local_proposal_limit(source.duration_ms),
                         energy,
                         focus,
+                        Some(&source.filename),
                     ),
                     selector: "local ranking (local endpoint failed)".into(),
                     warning: Some(format!(

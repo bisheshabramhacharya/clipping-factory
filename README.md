@@ -92,7 +92,7 @@ Local ranking is the default and needs no API key. If you want model-assisted se
 | Local ranking | — | Scans the full transcript locally. No key required. |
 | Local endpoint | — | Ollama, llama.cpp, or LM Studio. Model-assisted, fully offline. |
 | OpenAI | `gpt-4o-mini` | Accepts another chat-completions model name. |
-| Anthropic | `claude-sonnet-4-5` | Optional alternative provider. |
+| Anthropic | `claude-opus-5` | Optional alternative provider. |
 
 When a provider is enabled, only transcript text is sent to it. The source video stays on your machine.
 

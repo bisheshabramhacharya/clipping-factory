@@ -94,6 +94,8 @@ const REFERENCE_CUES: &[&str] = &[
 
 const PRONOUN_OPENERS: &[&str] = &[
     "that", "this", "it", "he", "she", "they", "which", "those", "and", "so",
+    // Connectives and reactions lean on the line before them.
+    "but", "or", "because", "yeah", "like", "um", "uh", "well",
 ];
 
 const FILLER_WORDS: &[&str] = &["um", "uh", "like", "you know", "kind of", "sort of"];
@@ -121,10 +123,17 @@ const HOUSEKEEPING_OR_SPONSOR_CUES: &[&str] = &[
     "sponsor link",
     "thanks to our sponsor",
     "support for the show",
+    // Channel outros.
+    "if you enjoyed this",
+    "watch the full episode",
+    "full episode here",
+    "and subscribe",
 ];
 
 const MIN_MS: u64 = 20_000;
 const MAX_MS: u64 = 90_000;
+/// Upper bounds of the clip-length bands each start keeps a best end in.
+const END_BANDS: [u64; 3] = [40_000, 60_000, MAX_MS];
 
 /// Function words dropped from the focus prompt before keyword matching, plus
 /// the request boilerplate users naturally type ("clips about", "the part
@@ -156,6 +165,37 @@ fn focus_terms(focus: Option<&str>) -> Vec<String> {
     terms
 }
 
+/// The episode title's topical terms and its adjacent topical word pairs
+/// ("utterly dominate"), from a filename like
+/// "_China Will Utterly Dominate_ Without This – Elon Musk (1080p).mp4".
+fn title_terms(title: Option<&str>) -> (Vec<String>, Vec<String>) {
+    let Some(title) = title else {
+        return (Vec::new(), Vec::new());
+    };
+    let stem = title.rsplit_once('.').map(|(a, _)| a).unwrap_or(title);
+    let mut clean = String::new();
+    let mut depth = 0usize;
+    for c in stem.chars() {
+        match c {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth = depth.saturating_sub(1),
+            _ if depth == 0 => clean.push(if c == '_' { ' ' } else { c }),
+            _ => {}
+        }
+    }
+    let words: Vec<String> = normalized_claim(&clean)
+        .split_whitespace()
+        .map(str::to_string)
+        .collect();
+    let topical = |w: &str| w.chars().count() >= 3 && !FOCUS_STOPWORDS.contains(&w);
+    let pairs = words
+        .windows(2)
+        .filter(|p| topical(&p[0]) && topical(&p[1]))
+        .map(|p| format!("{} {}", p[0], p[1]))
+        .collect();
+    (focus_terms(Some(&clean)), pairs)
+}
+
 /// Stem-lite match: a term hits a window word on exact match, when the
 /// shorter token is a prefix of the longer ("cat"~"cats"), or when it is one
 /// letter shy of a prefix ("price"~"pricing", "argue"~"arguing"). The shared
@@ -179,18 +219,22 @@ fn term_hits_word(term: &str, word: &str) -> bool {
 /// transcript text matches its keywords — topical windows also pass the
 /// editorial-signal gate, since the user asked for the topic directly.
 /// Blank or absent focus keeps generic best-moments ranking unchanged.
+/// `title` is the uploaded filename: episodes are usually named for their
+/// best moment, so windows that say the title's words get a moderate boost.
 pub fn propose(
     t: &Transcript,
     source_duration_ms: u64,
     proposal_count: usize,
     energy: Option<&crate::energy::EnergyProfile>,
     focus: Option<&str>,
+    title: Option<&str>,
 ) -> Vec<Candidate> {
     let sentences = &t.sentences;
     if sentences.is_empty() {
         return Vec::new();
     }
     let focus_terms = focus_terms(focus);
+    let (title_terms, title_pairs) = title_terms(title);
 
     let mut scored: Vec<(f32, Candidate)> = Vec::new();
 
@@ -199,8 +243,10 @@ pub fn propose(
         let opener_lower = opener.text.to_lowercase();
 
         // Grow the window sentence by sentence; consider every end point that
-        // lands in the 20–90s range and pick the best close.
-        let mut best_end: Option<(f32, usize)> = None;
+        // lands in the 20–90s range and keep the best close in each length
+        // band, so a start whose best long cut collides with a neighbor can
+        // still place a shorter one.
+        let mut best_end: [Option<(f32, usize)>; END_BANDS.len()] = [None; END_BANDS.len()];
         for end_idx in start_idx..sentences.len() {
             let dur = sentences[end_idx].end_ms.saturating_sub(opener.start_ms);
             if dur < MIN_MS {
@@ -212,7 +258,12 @@ pub fn propose(
             let closer = &sentences[end_idx];
             let closer_lower = closer.text.to_lowercase();
             let mut end_score = 0.0f32;
-            if closer.text.trim_end().ends_with(['.', '?', '!', '…']) {
+            if closer
+                .text
+                .split_whitespace()
+                .last()
+                .is_some_and(crate::transcribe::terminal_word)
+            {
                 end_score += 1.0;
             }
             if PAYOFF_CUES.iter().any(|c| closer_lower.contains(c)) {
@@ -230,209 +281,241 @@ pub fn propose(
             let dur_s = dur as f32 / 1000.0;
             end_score += 1.0 - ((dur_s - 45.0).abs() / 45.0).min(1.0) * 0.6;
 
-            if best_end.map(|(s, _)| end_score > s).unwrap_or(true) {
-                best_end = Some((end_score, end_idx));
-            }
-        }
-        let Some((end_score, end_idx)) = best_end else {
-            continue;
-        };
-        let closer = &sentences[end_idx];
-        let window_text: String = sentences[start_idx..=end_idx]
-            .iter()
-            .map(|s| s.text.as_str())
-            .collect::<Vec<_>>()
-            .join(" ");
-        let window_lower = window_text.to_lowercase();
-        let window = &sentences[start_idx..=end_idx];
-
-        // --- Feature detection -> honest rubric scores -------------------
-        let first_word = opener_lower.split_whitespace().next().unwrap_or("");
-        let vague_open = is_vague_opener(&opener_lower);
-        let pronoun_open = PRONOUN_OPENERS.contains(&first_word) || vague_open;
-        let hook =
-            HOOK_STARTS.iter().any(|h| opener_lower.starts_with(h)) || opener.text.contains('?');
-        let contrast = CONTRAST_CUES.iter().any(|c| window_lower.contains(c));
-        let payoff_cue = PAYOFF_CUES.iter().any(|c| {
-            sentences[end_idx.saturating_sub(1)..=end_idx]
+            let band = END_BANDS
                 .iter()
-                .any(|s| s.text.to_lowercase().contains(c))
-        });
-        let reference = REFERENCE_CUES.iter().any(|c| window_lower.contains(c));
-        let has_number = window_text.chars().any(|c| c.is_ascii_digit());
-        let word_count = window_text.split_whitespace().count().max(1);
-        let normalized_window = normalized_claim(&window_lower);
-        let normalized_words: Vec<&str> = normalized_window.split_whitespace().collect();
-        // Distinct focus terms present in the window, plus how much of the
-        // window is actually on-topic: a stray topical tail inside a long
-        // generic stretch shouldn't count, so the boost requires at least a
-        // third of the window's sentences to hit.
-        let focus_hits = focus_terms
-            .iter()
-            .filter(|term| normalized_words.iter().any(|w| term_hits_word(term, w)))
-            .count();
-        let focus_hit_sentences = window
-            .iter()
-            .filter(|s| {
-                let normalized = normalized_claim(&s.text);
-                focus_terms.iter().any(|term| {
-                    normalized
-                        .split_whitespace()
-                        .any(|w| term_hits_word(term, w))
-                })
-            })
-            .count();
-        let focus_density = focus_hit_sentences as f32 / window.len() as f32;
-        // Decisive but not absolute: the user asked for the topic directly, so
-        // a topical window outweighs a generically stronger one, and only an
-        // exceptional off-topic window can still outrank it.
-        let focus_boost = if focus_hits == 0 || focus_density < 0.3 {
-            0.0
-        } else {
-            (14.0 + 6.0 * focus_density + 2.0 * focus_hits as f32).min(24.0)
-        };
-        let filler_count = FILLER_WORDS
-            .iter()
-            .map(|f| count_phrase_occurrences(&normalized_words, f))
-            .sum::<usize>();
-        let filler_rate = filler_count as f32 / word_count as f32;
-        let question_open = opener.text.contains('?')
-            || ["what", "why", "how", "who", "when"].contains(&first_word);
-        let repeated_claim = has_repeated_claim(window);
-        let exchange = has_reaction_exchange(window);
-        let absolute_claim = contains_absolute_claim(&window_lower);
-
-        // Keep routine housekeeping, sponsor reads, and filler-heavy windows
-        // out of the candidate set before ranking can reward their length.
-        // The signal gate below remains deliberately narrow so a specific,
-        // standalone thought with no magic phrase can still be proposed.
-        if has_housekeeping_or_sponsor_cue(&window_lower)
-            || is_filler_dominated(filler_count, filler_rate)
-        {
-            continue;
-        }
-        // A window dense with focus-prompt keywords is itself the requested
-        // content, so topicality substitutes for generic editorial signal.
-        // Housekeeping/filler exclusions above still apply.
-        let has_editorial_signal =
-            hook || contrast || payoff_cue || repeated_claim || exchange || absolute_claim;
-        if !has_editorial_signal && focus_boost == 0.0 {
-            continue;
-        }
-
-        let self_contained: u8 = match (pronoun_open, reference) {
-            (false, false) => {
-                if hook {
-                    5
-                } else {
-                    4
-                }
+                .position(|&max| dur <= max)
+                .unwrap_or(END_BANDS.len() - 1);
+            if best_end[band].is_none_or(|(s, _)| end_score > s) {
+                best_end[band] = Some((end_score, end_idx));
             }
-            (true, false) => 3,
-            (_, true) => 2,
-        };
-        let opening_strength: u8 = if vague_open {
-            3
-        } else if hook && question_open || absolute_claim {
-            5
-        } else if hook {
-            4
-        } else {
-            3
-        };
-        let specificity: u8 = if repeated_claim || has_number && contrast {
-            5
-        } else if absolute_claim || has_number || contrast {
-            4
-        } else {
-            3
-        };
-        let tension: u8 = if exchange || contrast && question_open {
-            5
-        } else if contrast || question_open {
-            4
-        } else {
-            3
-        };
-        let payoff: u8 = if repeated_claim || payoff_cue && end_score >= 2.5 {
-            5
-        } else if exchange || payoff_cue || end_score >= 2.2 {
-            4
-        } else {
-            3
-        };
-        let clarity: u8 = if filler_rate > 0.09 {
-            3
-        } else if filler_rate > 0.05 {
-            4
-        } else {
-            5
-        };
-        let context_dependency: u8 = if reference {
-            4
-        } else if pronoun_open {
-            3
-        } else {
-            1
-        };
-        let slop_risk: u8 = 1; // continuous faithful excerpt, no effects
-
-        let scores = Scores {
-            self_contained,
-            opening_strength,
-            specificity,
-            tension_or_novelty: tension,
-            payoff,
-            clarity,
-            context_dependency,
-            slop_risk,
-        };
-
-        let composite = self_contained as f32 * 2.0
-            + payoff as f32 * 1.6
-            + opening_strength as f32 * 1.4
-            + clarity as f32 * 1.2
-            + tension as f32 * 1.0
-            + specificity as f32 * 0.8
-            - context_dependency as f32 * 1.5
-            + end_score
-            + focus_boost
-            + if repeated_claim { 4.0 } else { 0.0 }
-            + if exchange { 3.0 } else { 0.0 }
-            + if absolute_claim { 1.5 } else { 0.0 }
-            - if vague_open { 4.0 } else { 0.0 }
-            + energy
-                .map(|e| crate::energy::window_boost(e, opener.start_ms, closer.end_ms))
-                .unwrap_or(0.0);
-
-        let headline = make_headline(best_headline_sentence(window));
-        let opening_quote = quote_head(&opener.text, 12);
-        let closing_quote = quote_tail(&closer.text, 12);
-        let mut selection_reason = make_reason(
-            hook,
-            question_open,
-            contrast,
-            payoff_cue,
-            has_number,
-            repeated_claim,
-            exchange,
-        );
-        if focus_boost > 0.0 {
-            selection_reason.push_str(" It matches your focus prompt.");
         }
+        for (end_score, end_idx) in best_end.into_iter().flatten() {
+            let closer = &sentences[end_idx];
+            let window_text: String = sentences[start_idx..=end_idx]
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let window_lower = window_text.to_lowercase();
+            let window = &sentences[start_idx..=end_idx];
 
-        scored.push((
-            composite,
-            Candidate {
-                start_ms: opener.start_ms,
-                end_ms: closer.end_ms,
-                headline,
-                opening_quote,
-                closing_quote,
-                selection_reason,
-                scores,
-            },
-        ));
+            // --- Feature detection -> honest rubric scores -------------------
+            let first_word = opener_lower.split_whitespace().next().unwrap_or("");
+            // "That's" and "It's" lean on context as much as "that" and "it".
+            let first_word = first_word.split(['\'', '’']).next().unwrap_or(first_word);
+            // Whisper sometimes breaks on a pause or length instead of
+            // punctuation; a window opening there starts mid-sentence.
+            let mid_sentence_open = opener.word_start > 0
+                && !crate::transcribe::ends_sentence(&t.words, opener.word_start - 1);
+            let vague_open = mid_sentence_open || is_vague_opener(&opener_lower);
+            let pronoun_open = PRONOUN_OPENERS.contains(&first_word) || vague_open;
+            let hook = HOOK_STARTS.iter().any(|h| opener_lower.starts_with(h))
+                || opener.text.contains('?');
+            let contrast = CONTRAST_CUES.iter().any(|c| window_lower.contains(c));
+            let payoff_cue = PAYOFF_CUES.iter().any(|c| {
+                sentences[end_idx.saturating_sub(1)..=end_idx]
+                    .iter()
+                    .any(|s| s.text.to_lowercase().contains(c))
+            });
+            let reference = REFERENCE_CUES.iter().any(|c| window_lower.contains(c));
+            let has_number = window_text.chars().any(|c| c.is_ascii_digit());
+            let word_count = window_text.split_whitespace().count().max(1);
+            let normalized_window = normalized_claim(&window_lower);
+            let normalized_words: Vec<&str> = normalized_window.split_whitespace().collect();
+            // Distinct focus terms present in the window, plus how much of the
+            // window is actually on-topic: a stray topical tail inside a long
+            // generic stretch shouldn't count, so the boost requires at least a
+            // third of the window's sentences to hit.
+            let focus_hits = focus_terms
+                .iter()
+                .filter(|term| normalized_words.iter().any(|w| term_hits_word(term, w)))
+                .count();
+            let focus_hit_sentences = window
+                .iter()
+                .filter(|s| {
+                    let normalized = normalized_claim(&s.text);
+                    focus_terms.iter().any(|term| {
+                        normalized
+                            .split_whitespace()
+                            .any(|w| term_hits_word(term, w))
+                    })
+                })
+                .count();
+            let focus_density = focus_hit_sentences as f32 / window.len() as f32;
+            // Decisive but not absolute: the user asked for the topic directly, so
+            // a topical window outweighs a generically stronger one, and only an
+            // exceptional off-topic window can still outrank it.
+            let focus_boost = if focus_hits == 0 || focus_density < 0.3 {
+                0.0
+            } else {
+                (14.0 + 6.0 * focus_density + 2.0 * focus_hits as f32).min(24.0)
+            };
+            let title_hits = title_terms
+                .iter()
+                .filter(|term| normalized_words.iter().any(|w| term_hits_word(term, w)))
+                .count();
+            let title_phrase = title_pairs
+                .iter()
+                .any(|p| format!(" {normalized_window} ").contains(&format!(" {p} ")));
+            let title_boost = if title_hits >= 2 {
+                (1.5 * title_hits as f32).min(6.0)
+            } else {
+                0.0
+            } + if title_phrase { 4.0 } else { 0.0 };
+            let filler_count = count_fillers(&window_text);
+            let filler_rate = filler_count as f32 / word_count as f32;
+            let question_open = opener.text.contains('?')
+                || ["what", "why", "how", "who", "when"].contains(&first_word);
+            let repeated_claim = has_repeated_claim(window);
+            let exchange = has_reaction_exchange(window);
+            let absolute_claim = contains_absolute_claim(&window_lower);
+
+            // Keep routine housekeeping, sponsor reads, and filler-heavy windows
+            // out of the candidate set before ranking can reward their length.
+            // The signal gate below remains deliberately narrow so a specific,
+            // standalone thought with no magic phrase can still be proposed.
+            if has_housekeeping_or_sponsor_cue(&window_lower)
+                || is_filler_dominated(filler_count, filler_rate)
+            {
+                continue;
+            }
+            // No cue-phrase gate: plain, substantive talk is most of a good
+            // podcast. Every window is ranked; the validator's bar decides.
+            let substantive_open = !pronoun_open && is_substantive_opener(&opener.text);
+            let cohesion = topic_cohesion(&normalized_words);
+            let names = named_terms(window);
+
+            let self_contained: u8 = match (pronoun_open, reference) {
+                (false, false) => {
+                    if hook {
+                        5
+                    } else {
+                        4
+                    }
+                }
+                (true, false) => 3,
+                (_, true) => 2,
+            };
+            let opening_strength: u8 = if vague_open {
+                3
+            } else if hook && question_open || absolute_claim {
+                5
+            } else if hook || substantive_open {
+                4
+            } else {
+                3
+            };
+            let specificity: u8 = if repeated_claim || has_number && contrast {
+                5
+            } else if absolute_claim || has_number || contrast || names >= 2 {
+                4
+            } else {
+                3
+            };
+            let tension: u8 = if exchange || contrast && question_open {
+                5
+            } else if contrast || question_open {
+                4
+            } else {
+                3
+            };
+            let payoff: u8 = if repeated_claim || payoff_cue && end_score >= 2.5 {
+                5
+            } else if exchange || payoff_cue || end_score >= 2.2 {
+                4
+            } else {
+                3
+            };
+            let clarity: u8 = if filler_rate > 0.12 {
+                3
+            } else if filler_rate > 0.06 {
+                4
+            } else {
+                5
+            };
+            let context_dependency: u8 = if reference {
+                4
+            } else if pronoun_open {
+                3
+            } else {
+                1
+            };
+            let slop_risk: u8 = 1; // continuous faithful excerpt, no effects
+
+            let scores = Scores {
+                self_contained,
+                opening_strength,
+                specificity,
+                tension_or_novelty: tension,
+                payoff,
+                clarity,
+                context_dependency,
+                slop_risk,
+            };
+
+            // Don't propose what the validator will reject: a doomed window
+            // would still win the overlap check against a good neighbor.
+            if !crate::validate::score_reasons(&scores).is_empty()
+                || crate::validate::cold_open_reason(&t.words[opener.word_start..]).is_some()
+            {
+                continue;
+            }
+
+            let dur_s = (closer.end_ms - opener.start_ms) as f32 / 1000.0;
+            let composite = self_contained as f32 * 2.0
+                + payoff as f32 * 1.6
+                + opening_strength as f32 * 1.4
+                + clarity as f32 * 1.2
+                + tension as f32 * 1.0
+                + specificity as f32 * 0.8
+                - context_dependency as f32 * 1.5
+                + end_score
+                + focus_boost
+                + title_boost
+                + if repeated_claim { 4.0 } else { 0.0 }
+                + if exchange { 3.0 } else { 0.0 }
+                + if absolute_claim { 1.5 } else { 0.0 }
+                - if vague_open { 4.0 } else { 0.0 }
+                // One idea developed beats a ramble across topics.
+                + 6.0 * cohesion
+                + 0.5 * names.min(4) as f32
+                - 25.0 * filler_rate
+                // Short-form lands best under a minute: a longer cut must
+                // earn its extra seconds.
+                - 0.1 * (dur_s - 50.0).max(0.0)
+                + energy
+                    .map(|e| crate::energy::window_boost(e, opener.start_ms, closer.end_ms))
+                    .unwrap_or(0.0);
+
+            let headline = make_headline(best_headline_sentence(window));
+            let opening_quote = quote_head(&opener.text, 12);
+            let closing_quote = quote_tail(&closer.text, 12);
+            let mut selection_reason = make_reason(
+                hook,
+                question_open,
+                contrast,
+                payoff_cue,
+                has_number,
+                repeated_claim,
+                exchange,
+            );
+            if focus_boost > 0.0 {
+                selection_reason.push_str(" It matches your focus prompt.");
+            }
+
+            scored.push((
+                composite,
+                Candidate {
+                    start_ms: opener.start_ms,
+                    end_ms: closer.end_ms,
+                    headline,
+                    opening_quote,
+                    closing_quote,
+                    selection_reason,
+                    scores,
+                },
+            ));
+        }
     }
 
     // Rank, then keep a diverse, non-overlapping set spread across the source.
@@ -464,6 +547,56 @@ pub fn propose(
     kept
 }
 
+/// A clean statement to open on: a full sentence of 6–60 words (interview
+/// questions run long), light on
+/// filler, carrying at least three content words. Scores a 4 on opening
+/// strength without needing a stock hook phrase.
+fn is_substantive_opener(text: &str) -> bool {
+    let normalized = normalized_claim(text);
+    let words: Vec<&str> = normalized.split_whitespace().collect();
+    let fillers = count_fillers(text);
+    let content = words.iter().filter(|w| is_content_word(w)).count();
+    (6..=60).contains(&words.len()) && fillers * 10 <= words.len() && content >= 3
+}
+
+fn is_content_word(w: &str) -> bool {
+    w.chars().count() >= 4 && !FOCUS_STOPWORDS.contains(&w) && !FILLER_WORDS.contains(&w)
+}
+
+/// Share of the window's content-word tokens whose stem recurs in it: a
+/// window that keeps returning to its subject scores high, a ramble low.
+fn topic_cohesion(words: &[&str]) -> f32 {
+    let stems: Vec<String> = words
+        .iter()
+        .filter(|w| is_content_word(w))
+        .map(|w| w.chars().take(5).collect())
+        .collect();
+    if stems.len() < 8 {
+        return 0.0;
+    }
+    let repeated = stems
+        .iter()
+        .filter(|s| stems.iter().filter(|o| o == s).count() >= 2)
+        .count();
+    repeated as f32 / stems.len() as f32
+}
+
+/// Distinct capitalized words that aren't sentence-initial or "I": names,
+/// places, products — concrete detail.
+fn named_terms(window: &[Sentence]) -> usize {
+    let mut names: Vec<String> = Vec::new();
+    for s in window {
+        for w in s.text.split_whitespace().skip(1) {
+            let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+            let capital = w.chars().next().is_some_and(char::is_uppercase);
+            if capital && w != "I" && !w.starts_with("I'") && !names.iter().any(|n| n == w) {
+                names.push(w.to_string());
+            }
+        }
+    }
+    names.len()
+}
+
 fn is_vague_opener(text: &str) -> bool {
     let words = text.split_whitespace().count();
     words <= 9
@@ -481,18 +614,30 @@ fn has_housekeeping_or_sponsor_cue(text: &str) -> bool {
 }
 
 fn is_filler_dominated(filler_count: usize, filler_rate: f32) -> bool {
-    filler_count >= 5 && filler_rate >= 0.08
+    filler_count >= 5 && filler_rate >= 0.15
 }
 
-fn count_phrase_occurrences(words: &[&str], phrase: &str) -> usize {
-    let phrase_words: Vec<&str> = phrase.split_whitespace().collect();
-    if phrase_words.is_empty() || phrase_words.len() > words.len() {
-        return 0;
+/// Verbal filler in raw transcript text. Punctuation tells filler from
+/// meaning: "like," and "you know," are filler, "I like electricity" and
+/// "you know the answer" are not.
+fn count_fillers(text: &str) -> usize {
+    let mut count = 0;
+    let mut prev = String::new();
+    for token in text.split_whitespace() {
+        let lower = token.to_lowercase();
+        let bare: String = lower.chars().filter(|c| c.is_alphabetic()).collect();
+        let comma = lower.ends_with(',');
+        let filler = matches!(bare.as_str(), "um" | "uh" | "er" | "ah" | "hmm")
+            || bare == "like" && comma
+            || bare == "know" && prev == "you" && comma
+            || bare == "mean" && prev == "i" && comma
+            || bare == "of" && (prev == "kind" || prev == "sort");
+        if filler {
+            count += 1;
+        }
+        prev = bare;
     }
-    words
-        .windows(phrase_words.len())
-        .filter(|window| *window == phrase_words.as_slice())
-        .count()
+    count
 }
 
 fn normalized_claim(text: &str) -> String {
@@ -651,6 +796,78 @@ fn make_reason(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Dry run of local ranking + validation on real projects:
+    /// `CF_DRY_PROJECTS=dir1:dir2 cargo test --release dry_run -- --ignored --nocapture`
+    /// where each dir holds a studio project's transcript.json and project.json.
+    #[test]
+    #[ignore]
+    fn dry_run_on_real_projects() {
+        let dirs = std::env::var("CF_DRY_PROJECTS").expect("set CF_DRY_PROJECTS");
+        for dir in dirs.split(':') {
+            let dir = std::path::Path::new(dir);
+            let read = |f: &str| std::fs::read_to_string(dir.join(f)).ok();
+            let mut t: Transcript =
+                serde_json::from_str(&read("transcript.json").unwrap()).unwrap();
+            t.sentences = crate::transcribe::build_sentences(&t.words);
+            let project: serde_json::Value =
+                serde_json::from_str(&read("project.json").unwrap()).unwrap();
+            let src = &project["source"];
+            let dur = src["duration_ms"].as_u64().unwrap();
+            let scenes: Vec<u64> =
+                serde_json::from_value(src["scene_boundaries_ms"].clone()).unwrap_or_default();
+            let energy: Option<crate::energy::EnergyProfile> =
+                read("energy.json").and_then(|e| serde_json::from_str(&e).ok());
+            let limit = crate::select::local_proposal_limit(dur);
+            let cands = propose(
+                &t,
+                dur,
+                limit,
+                energy.as_ref(),
+                None,
+                src["filename"].as_str(),
+            );
+            let raw = cands.len();
+            let report = crate::validate::validate(
+                cands,
+                &t,
+                dur,
+                "local".into(),
+                &scenes,
+                crate::domain::Platform::default(),
+            );
+            println!(
+                "\n=== {} ({:.1} min): {} proposed, {} accepted",
+                src["filename"].as_str().unwrap_or("?"),
+                dur as f64 / 60_000.0,
+                raw,
+                report.accepted.len()
+            );
+            for a in &report.accepted {
+                let c = &a.candidate;
+                println!(
+                    "  ACCEPT {:>5.1}-{:>5.1}s c={:.1} {}",
+                    c.start_ms as f64 / 1000.0,
+                    c.end_ms as f64 / 1000.0,
+                    a.composite,
+                    crate::validate::excerpt_text(&t, c.start_ms, c.end_ms)
+                        .chars()
+                        .take(300)
+                        .collect::<String>()
+                );
+            }
+            for r in &report.rejected {
+                let c = &r.candidate;
+                println!(
+                    "  reject {:>5.1}-{:>5.1}s {:?} {}",
+                    c.start_ms as f64 / 1000.0,
+                    c.end_ms as f64 / 1000.0,
+                    r.reasons,
+                    c.opening_quote
+                );
+            }
+        }
+    }
     use crate::domain::Word;
     use crate::transcribe::build_sentences;
 
@@ -686,7 +903,14 @@ mod tests {
         let mid = "The mistake is thinking discipline is about motivation when really it is about designing your environment so the default action is the right one every single day without fail.";
         let close = "So the lesson is simple: stop negotiating with yourself every morning and build the system once. That's why the habit finally sticks.";
         let t = transcript_from(&[(long, 0), (mid, 400), (close, 400)]);
-        let cands = propose(&t, t.words.last().unwrap().end_ms + 500, 3, None, None);
+        let cands = propose(
+            &t,
+            t.words.last().unwrap().end_ms + 500,
+            3,
+            None,
+            None,
+            None,
+        );
         assert!(!cands.is_empty(), "expected at least one candidate");
         let c = &cands[0];
         assert!(c.end_ms - c.start_ms >= MIN_MS);
@@ -703,7 +927,7 @@ mod tests {
             sentences: vec![],
             avg_confidence: 0.0,
         };
-        assert!(propose(&t, 60_000, 3, None, None).is_empty());
+        assert!(propose(&t, 60_000, 3, None, None, None).is_empty());
     }
 
     #[test]
@@ -721,7 +945,7 @@ mod tests {
             ("Yes, everybody can be rich, and the reason is that knowledge and productive tools can spread.", 200),
         ]);
         let duration = t.words.last().unwrap().end_ms + 500;
-        let cands = propose(&t, duration, 3, None, None);
+        let cands = propose(&t, duration, 3, None, None, None);
         assert!(!cands.is_empty());
         let headline = cands[0].headline.to_lowercase();
         assert!(
@@ -754,18 +978,56 @@ mod tests {
             avg_confidence: 0.92,
         };
 
-        let cands = propose(&t, 60_000, 1, None, None);
+        let cands = propose(&t, 60_000, 1, None, None, None);
         assert_eq!(cands.len(), 1);
         assert!(cands[0].headline.ends_with('…'));
         assert!(cands[0].headline.chars().count() <= 91);
     }
 
     #[test]
-    fn filler_count_uses_whole_words_and_phrases() {
-        let words = ["number", "summary", "unlikely", "like", "you", "know"];
-        assert_eq!(count_phrase_occurrences(&words, "um"), 0);
-        assert_eq!(count_phrase_occurrences(&words, "like"), 1);
-        assert_eq!(count_phrase_occurrences(&words, "you know"), 1);
+    fn filler_count_reads_punctuation_to_tell_filler_from_meaning() {
+        assert_eq!(count_fillers("I like electricity output as a proxy."), 0);
+        assert_eq!(count_fillers("It's, like, you know, um, huge."), 3);
+        assert_eq!(count_fillers("Do you know the answer?"), 0);
+        assert_eq!(count_fillers("I mean, it's kind of big."), 2);
+    }
+
+    #[test]
+    fn a_window_never_opens_mid_sentence() {
+        // The first "sentence" broke on a pause, not punctuation, so the
+        // second starts mid-thought and must not open a clip.
+        let t = transcript_from(&[
+            ("The biggest mistake founders make with pricing is", 0),
+            (
+                "charging too little for years because nobody tells them otherwise. So the lesson is to raise prices early. That's why it works.",
+                1_200,
+            ),
+        ]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+        let mid = t.sentences[1].start_ms;
+        assert!(propose(&t, duration, 6, None, None, None)
+            .iter()
+            .filter(|c| c.start_ms == mid)
+            .all(|c| c.scores.opening_strength < 4));
+    }
+
+    #[test]
+    fn a_contracted_pronoun_opener_needs_context() {
+        let t = transcript_from(&[
+            (
+                "That's why the biggest mistake founders make is charging too little for years.",
+                0,
+            ),
+            (
+                "Nobody tells them to raise prices, so the lesson is simple: raise them early and often.",
+                400,
+            ),
+            ("That's how the good companies actually grow.", 400),
+        ]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+        assert!(propose(&t, duration, 6, None, None, None)
+            .iter()
+            .all(|c| c.start_ms != t.sentences[0].start_ms));
     }
 
     #[test]
@@ -780,7 +1042,7 @@ mod tests {
             ("That is the full schedule for episode 42.", 500),
         ]);
         let duration = t.words.last().unwrap().end_ms + 500;
-        assert!(propose(&t, duration, 3, None, None).is_empty());
+        assert!(propose(&t, duration, 3, None, None, None).is_empty());
     }
 
     #[derive(serde::Deserialize)]
@@ -805,7 +1067,7 @@ mod tests {
                 .collect();
             let t = transcript_from(&script);
             let duration = t.words.last().map(|w| w.end_ms + 500).unwrap_or(60_000);
-            let candidates = propose(&t, duration, 3, None, None);
+            let candidates = propose(&t, duration, 3, None, None, None);
             let observed = if candidates.is_empty() {
                 "reject"
             } else {
@@ -835,7 +1097,7 @@ mod tests {
         let t = transcript_from(&[(a, 0), (b, 400)]);
         let duration = t.words.last().unwrap().end_ms + 500;
 
-        let quiet = propose(&t, duration, 3, None, None);
+        let quiet = propose(&t, duration, 3, None, None, None);
         assert!(!quiet.is_empty());
         assert!(
             quiet[0].start_ms < 10_000,
@@ -849,7 +1111,7 @@ mod tests {
             *v = -12.0;
         }
         let energy = crate::energy::EnergyProfile { per_second_db: db };
-        let boosted = propose(&t, duration, 3, Some(&energy), None);
+        let boosted = propose(&t, duration, 3, Some(&energy), None, None);
         assert!(!boosted.is_empty());
         assert!(
             boosted[0].start_ms >= 35_000,
@@ -900,16 +1162,16 @@ mod tests {
                 >= pricing_end - pricing_start
         };
 
-        // Without a focus, the cue-less pricing window is never proposed.
-        let generic = propose(&t, duration, 6, None, None);
+        // Without a focus, the stronger generic window ranks first.
+        let generic = propose(&t, duration, 6, None, None, None);
         assert!(!generic.is_empty());
         assert!(
-            generic.iter().all(|c| !covers_pricing(c)),
-            "generic ranking should not surface the plain pricing stretch"
+            !covers_pricing(&generic[0]),
+            "generic ranking should not lead with the plain pricing stretch"
         );
 
         // With the focus, matching windows outrank stronger generic ones.
-        let focused = propose(&t, duration, 6, None, Some("clips about pricing"));
+        let focused = propose(&t, duration, 6, None, Some("clips about pricing"), None);
         assert!(!focused.is_empty());
         assert!(
             covers_pricing(&focused[0]),
@@ -925,15 +1187,22 @@ mod tests {
         let (t, duration, _, _) = focused_fixture();
         let intervals =
             |c: Vec<Candidate>| c.iter().map(|c| (c.start_ms, c.end_ms)).collect::<Vec<_>>();
-        let plain = intervals(propose(&t, duration, 6, None, None));
+        let plain = intervals(propose(&t, duration, 6, None, None, None));
         assert_eq!(
             plain,
-            intervals(propose(&t, duration, 6, None, Some("   ")))
+            intervals(propose(&t, duration, 6, None, Some("   "), None))
         );
         // A focus whose keywords appear nowhere changes nothing.
         assert_eq!(
             plain,
-            intervals(propose(&t, duration, 6, None, Some("zebra crossings")))
+            intervals(propose(
+                &t,
+                duration,
+                6,
+                None,
+                Some("zebra crossings"),
+                None
+            ))
         );
     }
 
