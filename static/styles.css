@@ -211,7 +211,6 @@ h1 { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight:
 }
 .opt { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .opt-label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.opt-switch { flex-direction: row; align-items: center; justify-content: space-between; align-self: end; height: 36px; cursor: pointer; }
 
 .choice-seg {
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;

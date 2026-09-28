@@ -32,12 +32,13 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
 ```
 
-`ggml-base` is the fast default. For tougher audio, put `ggml-small.bin` in
-`~/.clipping-factory/models/` or point `CF_WHISPER_MODEL` at another compatible
-ggml model. English-only weights (`ggml-*.en.bin`) are slightly stronger on
-English but cannot transcribe other languages or auto-detect; the transcribe
-stage swaps to a multilingual model in the usual locations when the project's
-language needs one.
+`ggml-base` is the fast default. For English podcasts, `ggml-small.en.bin`
+gives noticeably cleaner transcripts at about 2.4× the transcription time. Put
+it in `~/.clipping-factory/models/` (or `~/.cache/whisper.cpp/`), or point
+`CF_WHISPER_MODEL` at another compatible ggml model. English-only weights
+(`ggml-*.en.bin`) cannot transcribe other languages or auto-detect; the
+transcribe stage swaps to a multilingual model in the usual locations when the
+project's language needs one.
 
 Each project's language is picked at upload — **Auto-detect** is the default,
 and any of the ~99 whisper languages can be locked in explicitly.
@@ -59,8 +60,8 @@ cargo build --release
 
 The studio starts at [http://localhost:4571](http://localhost:4571) and opens your
 browser automatically (set `CF_NO_OPEN=1` to suppress that). Drop in one MP4 and the
-pipeline runs: inspect, extract audio, transcribe, find moments, validate, frame,
-render.
+pipeline runs: inspect, extract audio, transcribe, select candidates, validate, analyze
+layout, render.
 
 On startup the server prints a first-run report that verifies every dependency:
 
@@ -98,11 +99,11 @@ All configuration is via environment variables. There is no config file.
 | `CF_FFMPEG` | `ffmpeg-full` if present, else `ffmpeg` on PATH | FFmpeg binary override |
 | `CF_FFPROBE` | `ffprobe` on PATH | FFprobe binary override |
 | `CF_WHISPER_BIN` | `whisper-cli`/`whisper-cpp` on PATH, then common build locations | Transcription binary override |
-| `CF_WHISPER_MODEL` | `ggml-base.en.bin` or a multilingual model in the data dir's `models/` | ggml model path |
+| `CF_WHISPER_MODEL` | best model found (see below) | ggml model path |
 | `CF_FONTS_DIR` | bundled `assets/fonts` | Directory containing caption fonts |
 | `CF_FACE_MODEL` | bundled model | rustface seeta model path (optional) |
 | `CF_THREADS` | physical cores | Transcription thread count |
-| `CF_CAPTION_STYLE` | `impact` | Default style: `impact` or `clean` |
+| `CF_CAPTION_STYLE` | `impact` | Default style: `impact`, `clean`, `pop`, or `cinema` |
 | `CF_NO_OPEN=1` | unset (browser opens) | Do not open the browser on startup |
 
 Example:
@@ -112,11 +113,13 @@ CF_PORT=4572 CF_CAPTION_STYLE=clean CF_NO_OPEN=1 ./target/release/clipping-facto
 ```
 
 The whisper binary is located in this order: `CF_WHISPER_BIN`, then `whisper-cli`
-or `whisper-cpp` on PATH, then common local build locations. The model is located
-in this order: `CF_WHISPER_MODEL`, then the data dir's `models/` folder, then
-common local locations. English-only weights (`ggml-*.en.bin`) are preferred when
-several are present; if the project's language needs more than English, the
-transcribe stage falls back to a multilingual `ggml-*.bin` in the same locations.
+or `whisper-cpp` on PATH, then common local build locations. The model is
+`CF_WHISPER_MODEL` when set. Otherwise the data dir's `models/`, `./models/`,
+and `~/.cache/whisper.cpp/` are searched and the best model wins regardless of
+folder: English-only weights (`medium.en`, then `small.en`, then `base.en`)
+first, then multilingual weights from `large-v3-turbo` down to `base`. If the project's language
+needs more than English, the transcribe stage falls back to the best
+multilingual model in the same locations.
 
 Security note: the studio has **no authentication** because it is designed for
 localhost. API keys for the optional AI providers are stored in

@@ -9,7 +9,7 @@ A local-first podcast clipping studio with full-transcript ranking, face-aware r
 [![CI](https://github.com/bisheshabramhacharya/clipping-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/bisheshabramhacharya/clipping-factory/actions/workflows/ci.yml)
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
 ![Local first](https://img.shields.io/badge/processing-local--first-1f6feb)
-![Output](https://img.shields.io/badge/output-1080%C3%971920-7c3aed)
+![Output](https://img.shields.io/badge/output-up%20to%201080%C3%971920-7c3aed)
 
 </div>
 
@@ -17,18 +17,18 @@ A local-first podcast clipping studio with full-transcript ranking, face-aware r
 
 Clipping Factory turns a podcast MP4 into a set of strong, distinct vertical clips. Every result is one continuous excerpt with word-timed captions and clean, face-aware framing.
 
-The goal is simple: find moments worth posting without rewriting the speaker, inventing context, or hiding weak edits behind effects.
+The goal is simple: find clips worth posting without rewriting the speaker, inventing context, or hiding weak edits behind effects.
 
-No account. No cloud upload. No required AI model. The built-in ranker scans the full transcript, and a deterministic validator rejects clips that depend on missing context or overlap stronger moments.
+No account. No cloud upload. No required AI model. The built-in ranker scans the full transcript, and a deterministic validator rejects clips that depend on missing context or overlap stronger ones.
 
 ## What you get
 
 | | |
 |---|---|
-| **More useful candidates** | Keeps every strong, distinct moment instead of stopping at an arbitrary quota. |
+| **More useful candidates** | Keeps every strong, distinct candidate instead of stopping at an arbitrary quota. |
 | **Faithful excerpts** | Never rewrites, reorders, splices, or invents speech. |
-| **Feed-ready video** | Produces H.264/AAC MP4s at 1080×1920. |
-| **Word-accurate captions** | Impact, Clean, Pop, and Cinema styles with per-clip restyling in seconds, plus optional emoji accents. |
+| **Feed-ready video** | Produces 9:16 H.264/AAC MP4s at the source's native window size, up to 1080×1920. |
+| **Word-accurate captions** | The highlighted word is the one being spoken, timed from whisper.cpp's DTW alignment. Impact, Clean, Pop, and Cinema styles with per-clip restyling in seconds. |
 | **Clip controls** | Opt-in per clip: auto-cut silence/filler, zoom cuts on emphasis beats, hook title, progress bar. |
 | **Export pack** | Every clip ships with .srt, .vtt, .meta.json (title/description/hashtags), and a poster still. |
 | **Honest ranking** | Composite score and selection reason on every clip, plus what was rejected and why. |
@@ -40,7 +40,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 </p>
 
 ```text
-Drop MP4 → Inspect → Extract audio → Transcribe → Find moments
+Drop MP4 → Inspect → Extract audio → Transcribe → Find candidates
          → Validate → Analyze framing → Render → Preview and download
 ```
 
@@ -64,7 +64,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
 cargo run --release
 ```
 
-The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-moments ranking.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
 
 ### Linux
 
@@ -79,7 +79,7 @@ Set `CF_WHISPER_BIN` to the resulting `whisper-cli` path if it is not already on
 
 ### Better transcription
 
-`ggml-base` is the fast default and covers ~99 languages. For tougher audio, put `ggml-small.bin` in `~/.clipping-factory/models/` or set `CF_WHISPER_MODEL` to another compatible ggml model. English-only weights (`ggml-*.en.bin`) are also supported and slightly stronger on English — but then only English (and no auto-detection) is available.
+`ggml-base` is the fast default and covers ~99 languages. For English podcasts, `ggml-small.en.bin` gives noticeably cleaner transcripts at about 2.4× the transcription time. Models are found in `~/.clipping-factory/models/`, `./models/`, and `~/.cache/whisper.cpp/`; the largest one wins, and English-only weights (`ggml-*.en.bin`, up to `medium.en`) win over multilingual ones of any size. A project that needs another language switches to the best multilingual model found. `CF_WHISPER_MODEL` overrides discovery.
 
 Language is chosen per project at upload: **Auto-detect** is the default, or pick a specific language to skip detection. Non-English sources need a multilingual model.
 
@@ -111,28 +111,32 @@ API keys are stored in `~/.clipping-factory/settings.json` with user-only `0600`
 
 ## The anti-slop gate
 
-Finding a possible moment is not enough. Every proposed clip must pass the same deterministic validator before rendering:
+Finding a possible candidate is not enough. Every candidate must pass the same deterministic validator before rendering:
 
-- The excerpt must meet minimum scores for self-containment, payoff, and clarity.
+- The excerpt must meet minimum scores for self-containment, payoff, clarity, and opening strength.
 - Context dependency and slop risk must stay below fixed limits.
-- The opening and closing quotes must appear in the transcript near the proposed boundaries.
+- The opening and closing quotes must appear in the transcript near the candidate's boundaries.
 - Boundaries snap to real word timestamps instead of trusting model-generated milliseconds.
-- A clip cannot overlap more than 30% with a higher-ranked result.
+- A clip cannot overlap more than 30% with a higher-ranked result, or contain one entirely.
 - Timestamps must stay inside the source duration.
 - A clip may not open or close on a detected scene transition; cuts near one snap to word boundaries.
 - A clip may not open on a greeting or filler word, or close on outro/CTA bait ("like and subscribe").
-- Normal duration is 20–90 seconds, with a narrow exception for unusually strong moments; clips in the 25–60s short-form sweet spot rank ahead of equal-scored longer ones.
+- Normal duration is 20–90 seconds, with a narrow exception for unusually strong candidates; clips in the 25–60s short-form sweet spot rank ahead of equal-scored longer ones.
 
 Zero clips is a valid result. The studio shows what it considered, what it rejected, and which rule rejected it.
+
+Sources shorter than 20 seconds skip selection: the whole video becomes one captioned clip (the **caption-only** path).
 
 ## Captions you choose after rendering
 
 Clips render with the default style first. Each finished clip can then be restyled without repeating the expensive framing pass.
 
-- **Impact** uses tight, kinetic stacks with one dominant word and a restrained active-word accent.
+- **Impact** uses tight, kinetic stacks with one oversized key word and a restrained active-word accent.
 - **Clean** uses compact conversational groups in the lower safe area with a softer active-word accent.
-- **Pop** pops each active word up and holds a keyword accent for the whole phrase.
+- **Pop** shows one word at a time, dead center, with keywords in caps.
 - **Cinema** sets lowercase letterspaced lines that fade in like subtitle cards.
+
+In every style the accent color sits only on the word being spoken, so exactly one word is ever highlighted.
 
 You can switch styles, choose an accent color, tune the caption text, and apply the change from the result card. Clipping Factory re-burns captions from the cached base render in seconds.
 
@@ -142,19 +146,19 @@ Every rendered clip carries opt-in toggles — each re-renders just that clip:
 
 - **Auto-cut** removes silence gaps and filler words ("um", "uh") via a keep-list concat; captions stay in sync.
 - **Zoom cuts** add `zoompan` punch-ins on energy and emphasis beats.
-- **Hook title** burns the clip's headline as an ALL-CAPS card over the first ~1.8 s.
+- **Hook title** burns the clip's headline over the first ~1.8 s: ALL-CAPS in Impact and Pop, headline case in Clean and Cinema.
 - **Progress bar** draws a thin accent-colored fill along the bottom edge.
 
 ## House rendering rules
 
 - H.264/AAC output at the native 9:16 window size, capped at 1080×1920. The only upscaling is a zoomed-in view, at most 1.6×.
-- Source frame rate is preserved, with a 30 fps fallback.
+- Source frame rate is preserved between 20 and 60 fps; anything outside that range renders at 30 fps.
 - Each camera shot gets one static view that never pans or eases, and the clip hard-cuts where the source cuts.
 - The view frames the person speaking at head-and-shoulders size. When several people share a shot, it cuts to whoever is talking on turns longer than about 2 s.
 - A shot with nobody usable in it shows the full frame over a darkened blur, never a crop aimed at empty space.
 - Captions use short conversational groups in the lower safe area.
 - Audio is loudness-normalized to −16 LUFS with short edge fades on every clip.
-- Defaults stay clean: no B-roll, music, or transitions — motion options (zoom cuts, emoji) are opt-in per clip.
+- Defaults stay clean: no B-roll, music, or transitions — zoom cuts and the other extras are opt-in per clip.
 
 ## Outputs and local state
 
@@ -180,7 +184,7 @@ Clipping Factory is a browser-based studio backed by one Rust binary. There is n
 |---|---|
 | Web server and API | axum, tokio, server-sent events, streaming multipart uploads |
 | Media inspection and rendering | FFmpeg and FFprobe subprocesses |
-| Transcription | whisper.cpp with word timestamps |
+| Transcription | whisper.cpp with DTW word timestamps, word ends trimmed to the audio |
 | Editorial selection | Local ranker, optional local endpoint (Ollama/llama.cpp/LM Studio), optional OpenAI, optional Anthropic |
 | Quality gate | Pure Rust deterministic validator |
 | Framing | ffmpeg `scdet` shot cuts, rustface detections pooled per shot, mouth-motion active speaker |
@@ -190,16 +194,26 @@ Clipping Factory is a browser-based studio backed by one Rust binary. There is n
 ```text
 src/
   main.rs          startup and first-run checks
+  config.rs        environment and tool discovery
   api.rs           HTTP API and static studio
-  pipeline.rs      stage orchestration
+  state.rs         shared app state and per-project run handles
+  settings.rs      AI provider settings
+  pipeline.rs      stage orchestration and clip rendering
+  domain.rs        shared types (projects, candidates, clips, layouts)
   media.rs         probing and audio extraction
-  transcribe.rs    whisper.cpp integration
+  transcribe.rs    whisper.cpp integration and word timing
+  energy.rs        audio energy profile
   select/          local and optional model-assisted selection
   validate.rs      deterministic quality gate
   frame.rs         shot detection, active speaker, and framing views
   captions.rs      caption grouping and ASS generation
+  accent.rs        accent color picking
+  autocut.rs       silence and filler removal
+  zoom.rs          zoom-cut planning
   render.rs        FFmpeg filter graphs
+  export.rs        export pack (.srt, .vtt, .meta.json, poster)
   store.rs         project persistence
+  util.rs          subprocesses, atomic writes, helpers
 
 static/            browser studio
 evals/             golden-set evaluation harness
@@ -218,7 +232,7 @@ The original product decisions live in the [PRD](docs/PRD.md). Current prioritie
 | `CF_WHISPER_BIN`, `CF_WHISPER_MODEL` | Transcription overrides |
 | `CF_FONTS_DIR`, `CF_FACE_MODEL` | Bundled asset overrides |
 | `CF_THREADS` | Transcription thread count |
-| `CF_CAPTION_STYLE` | Default style: `impact` or `clean` |
+| `CF_CAPTION_STYLE` | Default style: `impact`, `clean`, `pop`, or `cinema` |
 | `CF_NO_OPEN=1` | Do not open the browser on startup |
 
 The studio has no authentication because it is designed for localhost. The server always binds to `127.0.0.1`; there is no supported setting to expose it on other interfaces.
@@ -231,6 +245,8 @@ For build, run, keep-alive (launchd), and troubleshooting details, see the [runb
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 cargo test --locked
+bash -n evals/run.sh evals/verify_clip_quality.sh evals/bless_baseline.sh
+python3 -m unittest discover -s evals/tests
 ```
 
 Unit tests cover validation rules, selector parsing, caption timing and pagination, shot framing and speaker turns, rendering filters, restyling, persistence, and recovery.

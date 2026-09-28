@@ -18,6 +18,7 @@
 //! [`retime_words`], which maps word timings onto the output timeline and
 //! drops words that landed inside a removal.
 
+use crate::captions::normalize_token;
 use crate::config::Config;
 use crate::domain::{CutSpan, Word};
 use crate::energy::EnergyProfile;
@@ -27,8 +28,11 @@ use tokio_util::sync::CancellationToken;
 
 /// Non-lexical fillers removed without hesitation. Matching normalizes case
 /// and strips punctuation, so whisper's `"uh,"` or `"Um."` still match.
-const FILLER_WORDS: &[&str] = &[
-    "um", "uh", "umm", "uhh", "er", "erm", "ah", "eh", "hmm", "hm",
+///
+/// This is the single filler list: `validate::cold_open_reason` reads it too,
+/// so the removal set and the cold-open guard cannot drift apart.
+pub const FILLER_WORDS: &[&str] = &[
+    "um", "uh", "umm", "uhh", "er", "erm", "ah", "eh", "hmm", "hm", "mhm",
 ];
 
 /// silencedetect noise floor (dBFS) and minimum pause length. A podcast's
@@ -65,7 +69,7 @@ pub async fn plan_for_clip(
     let silences = match detect_silences(cfg, src, clip_start_ms, clip_end_ms, cancel).await {
         Ok(spans) => spans,
         Err(e) => {
-            if cancel.is_cancelled() || e.to_string().contains("cancelled") {
+            if cancel.is_cancelled() || crate::util::is_cancelled(&e) {
                 return Err(e);
             }
             tracing::warn!("silencedetect failed, falling back to energy profile: {e:#}");
@@ -180,12 +184,7 @@ fn word_in_gap(words: &[Word], from: u64, to: u64) -> bool {
 
 /// Non-lexical filler check on a normalized token.
 fn is_filler(text: &str) -> bool {
-    let clean: String = text
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '\'')
-        .collect::<String>()
-        .to_lowercase();
-    FILLER_WORDS.contains(&clean.as_str())
+    FILLER_WORDS.contains(&normalize_token(text, true).as_str())
 }
 
 /// Map a source timestamp onto the output timeline: subtract everything
@@ -381,6 +380,33 @@ mod tests {
         assert!(!is_filler("like")); // carries meaning too often to cut
         assert!(!is_filler("human")); // substring is not a match
         assert!(!is_filler(""));
+    }
+
+    /// Auto-cut owns the single filler list the validator's cold-open guard
+    /// reads; pin every non-lexical opener the union covers.
+    #[test]
+    fn shared_filler_list_covers_the_cold_open_guard() {
+        for filler in [
+            "um", "uh", "umm", "uhh", "er", "erm", "ah", "eh", "hmm", "hm", "mhm",
+        ] {
+            assert!(is_filler(filler), "{filler} must stay a filler");
+        }
+        assert!(is_filler("MHM,"));
+    }
+
+    /// Owning the shared list also widens the validator's cold-open guard:
+    /// a clip opening on any of these is rejected as a filler open.
+    #[test]
+    fn validator_cold_open_guard_rejects_every_shared_filler() {
+        for filler in [
+            "um", "uh", "umm", "uhh", "er", "erm", "ah", "eh", "hmm", "hm", "mhm",
+        ] {
+            let first = vec![word(filler, 0, 300)];
+            assert!(
+                crate::validate::cold_open_reason(&first).is_some(),
+                "{filler} must reject as a cold open"
+            );
+        }
     }
 
     #[test]

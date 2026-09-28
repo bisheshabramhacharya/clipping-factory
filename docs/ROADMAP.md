@@ -15,7 +15,7 @@ to inflate counts.
   guards; platform duration targets.
 - Selection via hosted provider, local OpenAI-compatible endpoint, or local
   ranking; optional focus prompt; multi-language transcription.
-- Opt-in per clip: auto-cut, zoom cuts, hook title, progress bar, emoji.
+- Opt-in per clip: auto-cut, zoom cuts, hook title, progress bar.
 - Export pack (.srt, .vtt, .meta.json, poster) beside every clip.
 - Review theater, project library with delete, interrupted-run recovery.
 - Loopback-only API with Host/Origin checks, bounded uploads, atomic state.

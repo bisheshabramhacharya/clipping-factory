@@ -25,6 +25,8 @@ use tokio_util::sync::CancellationToken;
 const LOW_CONFIDENCE: f32 = 0.66;
 const CANCEL_ACK_TIMEOUT: Duration = Duration::from_secs(5);
 const SHORT_VIDEO_MS: u64 = 20_000;
+/// Stage detail written on cancel; retry clears stages that carry it.
+const CANCELLED_DETAIL: &str = "Cancelled";
 
 pub fn is_caption_only(duration_ms: u64) -> bool {
     duration_ms < SHORT_VIDEO_MS
@@ -69,7 +71,9 @@ fn start_locked(state: AppState, id: String, handle: Arc<ProjectHandle>) -> Resu
                 {
                     stage.error = Some(message.clone());
                 }
-                state.store.save_project(&project).await.ok();
+                if let Err(e) = state.store.save_project(&project).await {
+                    tracing::error!(project = %hid, "could not record the failure: {e:#}");
+                }
             }
             handle.emit(json!({"type": "done", "status": "failed"}));
         }
@@ -148,7 +152,7 @@ pub async fn retry(state: AppState, id: String) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     for s in &mut p.stages {
-        if s.error.is_some() || s.detail.as_deref() == Some("Cancelled") {
+        if s.error.is_some() || s.detail.as_deref() == Some(CANCELLED_DETAIL) {
             s.error = None;
             s.started_at = None;
             s.completed_at = None;
@@ -168,7 +172,11 @@ pub async fn retry(state: AppState, id: String) -> Result<(), String> {
             }
         }
         if changed {
-            state.store.save_manifest(&id, &manifest).await.ok();
+            state
+                .store
+                .save_manifest(&id, &manifest)
+                .await
+                .map_err(|e| e.to_string())?;
         }
     }
     state
@@ -258,7 +266,7 @@ impl ProgressModel {
 
     /// Seconds of rendered output the layout/render stages will work through.
     /// Before selection resolves, assume ~5% of the source becomes clips
-    /// (a few 30–60s moments), capped at 5 minutes.
+    /// (a few 30–60s clips), capped at 5 minutes.
     fn expected_output_s(&self) -> f64 {
         if let Some(ms) = self.expected_output_ms {
             return ms as f64 / 1000.0;
@@ -472,7 +480,9 @@ impl Ctx {
         p.error = Some(msg.clone());
         let rec = p.stage_mut(stage);
         rec.error = Some(msg);
-        self.state.store.save_project(p).await.ok();
+        if let Err(e) = self.state.store.save_project(p).await {
+            tracing::error!(project = %p.id, "could not record the failed stage: {e:#}");
+        }
         self.handle.clear_live();
         self.emit_stage(p, stage, "failed");
         self.handle
@@ -489,13 +499,29 @@ impl Ctx {
         }
         rec.completed_at = Some(now);
         rec.progress = Some(rec.progress.unwrap_or(0.0));
-        rec.detail = Some("Cancelled".into());
+        rec.detail = Some(CANCELLED_DETAIL.into());
         rec.error = None;
         self.state.store.save_project(p).await?;
         self.handle.clear_live();
         self.emit_stage(p, stage, "cancelled");
         self.handle
             .emit(json!({"type": "done", "status": "cancelled"}));
+        Ok(())
+    }
+
+    /// Record one clip's failure; the other clips are untouched (PRD §12).
+    async fn fail_clip(
+        &self,
+        id: &str,
+        manifest: &mut RenderManifest,
+        i: usize,
+        error: &anyhow::Error,
+    ) -> Result<()> {
+        manifest.clips[i].status = ClipStatus::Failed;
+        manifest.clips[i].error = Some(error.to_string());
+        self.state.store.save_manifest(id, manifest).await?;
+        self.handle
+            .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
         Ok(())
     }
 
@@ -522,7 +548,7 @@ impl Ctx {
 }
 
 fn is_cancelled(e: &anyhow::Error, token: &CancellationToken) -> bool {
-    token.is_cancelled() || e.to_string().contains("cancelled")
+    token.is_cancelled() || crate::util::is_cancelled(e)
 }
 
 fn full_video_candidate(transcript: &Transcript, duration_ms: u64) -> Candidate {
@@ -592,14 +618,13 @@ async fn run(
     if p.source.is_some() {
         ctx.skip(&mut p, "inspecting", "Already inspected").await?;
     } else {
-        let original = tokio::fs::read_to_string(store.project_dir(&id).join("original-name.txt"))
+        let source_name = store
+            .load_source_name(&id)
             .await
-            .map(|s| s.trim().to_string())
-            .ok()
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "source.mp4".into());
         stage!("inspecting", {
-            match crate::media::probe(cfg, &src, &original, &ctx.cancel).await {
+            match crate::media::probe(cfg, &src, &source_name, &ctx.cancel).await {
                 Ok(mut info) => {
                     let detail = format!(
                         "{}×{} · {} · {}/{}",
@@ -679,7 +704,7 @@ async fn run(
                     return Err(anyhow::anyhow!("Audio extraction produced an empty file."));
                 }
                 if ctx.cancel.is_cancelled() {
-                    return Err(anyhow::anyhow!("cancelled"));
+                    return Err(crate::util::cancelled());
                 }
                 promote_atomic(&wav_temp, &wav).await?;
                 Ok::<String, anyhow::Error>("16 kHz mono audio ready".to_string())
@@ -768,7 +793,7 @@ async fn run(
         });
     } else {
         if store.raw_candidates_path(&id).is_file() {
-            ctx.skip(&mut p, "selecting_candidates", "Proposals already on disk")
+            ctx.skip(&mut p, "selecting_candidates", "Candidates already on disk")
                 .await?;
         } else {
             let settings = state.settings.read().unwrap().clone();
@@ -782,7 +807,7 @@ async fn run(
                 let mut prog = ctx.progress_fn("selecting_candidates");
                 let proposed = tokio::select! {
                     biased;
-                    _ = ctx.cancel.cancelled() => Err(anyhow::anyhow!("cancelled")),
+                    _ = ctx.cancel.cancelled() => Err(crate::util::cancelled()),
                     result = crate::select::propose(
                         &settings,
                         &transcript,
@@ -804,7 +829,7 @@ async fn run(
                             });
                         }
                         Ok(format!(
-                            "{} proposal(s) from {}",
+                            "{} candidate(s) from {}",
                             outcome.candidates.len(),
                             outcome.selector
                         ))
@@ -848,7 +873,7 @@ async fn run(
         .unwrap()
         .set_expected_output(accepted_ms, report.accepted.len());
 
-    // No passing moments is a valid, honest outcome (PRD §6.2, §8.3).
+    // No passing candidates is a valid, honest outcome (PRD §6.2, §8.3).
     if report.accepted.is_empty() {
         if ctx.cancel.is_cancelled() {
             ctx.mark_cancelled(&mut p, "validating_candidates").await?;
@@ -857,7 +882,7 @@ async fn run(
         ctx.skip(
             &mut p,
             "analyzing_layout",
-            "No moments passed the quality bar",
+            "No candidates passed the quality bar",
         )
         .await?;
         ctx.skip(&mut p, "rendering", "Nothing to render").await?;
@@ -946,7 +971,6 @@ async fn run(
                     caption_style: None,
                     accent_color: None,
                     caption_font: None,
-                    emoji_overlay: None,
                     caption_text: Some(words_to_text(&crate::captions::words_in_interval(
                         &transcript.words,
                         c.start_ms,
@@ -1030,8 +1054,6 @@ async fn run(
         .accent_color
         .clone()
         .unwrap_or_else(|| crate::captions::default_accent_hex(caption_style).to_string());
-    let accent_bgr = accent_bgr_for(caption_style, Some(&accent_hex));
-    let emoji_overlay = p.emoji_overlay.unwrap_or(false);
     let output_dir = state
         .cfg
         .output_root
@@ -1120,11 +1142,7 @@ async fn run(
                     return Ok(());
                 }
                 Err(e) => {
-                    manifest.clips[i].status = ClipStatus::Failed;
-                    manifest.clips[i].error = Some(e.to_string());
-                    store.save_manifest(&id, &manifest).await?;
-                    ctx.handle
-                        .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
+                    ctx.fail_clip(&id, &mut manifest, i, &e).await?;
                     done_w += w_i;
                     prog(
                         (done_w / total_w) as f32,
@@ -1169,124 +1187,58 @@ async fn run(
         let done_label = format!("Rendering clip {} of {}", i + 1, total);
         let caption_label = format!("Burning captions for clip {} of {}", i + 1, total);
         let base_path = store.base_clip_path(&id, &base_key);
-        let ass_path: PathBuf =
-            unique_temp_path(&store.clips_dir(&id).join(format!("{}.ass", clip.id)));
-        let base_temp = unique_temp_path(&base_path);
-        let out_temp = unique_temp_path(&out_path);
         let base_ready = store.base_is_ready(&id, &base_key).await?;
-        // Captions are authored against the base clip's real size: a fresh
-        // base renders at output_size, while a pre-ADR-0002 base already on
-        // disk is fixed 1080×1920 (manifests then carry no dims).
-        let (out_w, out_h) = if base_ready {
-            (
-                clip.width.unwrap_or(crate::render::OUT_W),
-                clip.height.unwrap_or(crate::render::OUT_H),
-            )
-        } else {
-            crate::render::output_size(&source, &clip.layout)
-        };
 
-        let render_result: anyhow::Result<()> = async {
-            // Pass 1 — framed, uncaptioned base. Kept on disk so captions can
-            // be restyled later without re-doing the expensive framing work
-            // (and reused as-is when retrying a failed caption burn).
-            if !base_ready {
-                tokio::fs::remove_file(&base_path).await.ok();
-                store.clear_base_ready(&id, &base_key).await;
-                crate::render::render_base_clip(
-                    cfg,
-                    &src,
-                    &source,
-                    &clip.layout,
-                    clip.start_ms,
-                    clip.end_ms,
-                    &keeps,
-                    clip.effective_zoom_keys(),
-                    clip.progress_bar.then_some(accent_hex.as_str()),
-                    clip.hook_title.then_some(crate::render::HookSpec {
-                        headline: &clip.headline,
-                        font: cfg.caption_font.as_str(),
-                        face: caption_style.face(&cfg.caption_font),
-                        caps: caption_style.uses_caps(),
-                    }),
-                    &base_temp,
-                    &ctx.cancel,
-                    |pct| {
-                        prog(
-                            ((done_w + w_i * pct as f64 * RENDER_BASE_SHARE) / total_w) as f32,
-                            Some(done_label.clone()),
-                        )
+        let render_result: anyhow::Result<ClipRecord> = async {
+            let variant = ClipVariant {
+                cfg,
+                store,
+                project_id: &id,
+                src: &src,
+                source: Some(&source),
+                transcript: &transcript,
+                clip: &clip,
+                style: caption_style,
+                accent_hex: &accent_hex,
+                font: &cfg.caption_font,
+                base_ready,
+            };
+            let burned = render_clip_variant(&variant, &ctx.cancel, |pass, pct| {
+                let (share, label) = match pass {
+                    RenderPass::Base => (pct as f64 * RENDER_BASE_SHARE, &done_label),
+                    RenderPass::Burn => (
+                        RENDER_BASE_SHARE + pct as f64 * (1.0 - RENDER_BASE_SHARE),
+                        &caption_label,
+                    ),
+                };
+                prog(
+                    ((done_w + w_i * share) / total_w) as f32,
+                    Some(label.clone()),
+                )
+            })
+            .await?;
+            let finished: anyhow::Result<()> = async {
+                // The export pack lands before the clip is marked ready — a
+                // Ready clip always carries its .srt/.vtt/.meta.json sidecars.
+                crate::export::write_export_pack(
+                    &store.clips_dir(&id),
+                    &crate::export::MetaInput {
+                        clip: &clip,
+                        source: &source,
+                        words: &burned.words,
+                        project_id: &id,
+                        selector: p.selector.as_deref(),
+                        caption_style: Some(caption_style.label()),
                     },
+                    &settings,
+                    &ctx.cancel,
                 )
                 .await?;
-                if ctx.cancel.is_cancelled() {
-                    return Err(anyhow::anyhow!("cancelled"));
-                }
-                promote_atomic(&base_temp, &base_path).await?;
-                store.mark_base_ready(&id, &base_key).await?;
+                promote_atomic(&burned.temp_path, &out_path).await
             }
-            // Pass 2 — word-accurate captions burned onto the base. With
-            // auto-cut the words move onto the output timeline (dropped
-            // fillers vanish from captions too); with it off this is the
-            // same interval text as before.
-            let words = crate::autocut::retime_words(
-                &crate::export::caption_words(&transcript, &clip),
-                clip.effective_removals(),
-            );
-            let caption_input = CaptionInput {
-                words: &words,
-                clip_start_ms: clip.start_ms,
-                clip_end_ms: clip.start_ms + out_dur_ms,
-                headline: &clip.headline,
-                font: &cfg.caption_font,
-                accent_bgr: accent_bgr.clone(),
-                emoji_overlay,
-                out_w,
-                out_h,
-            };
-            let ass = build_ass(&caption_input, caption_style);
-            tokio::fs::write(&ass_path, &ass).await?;
-            if ctx.cancel.is_cancelled() {
-                return Err(anyhow::anyhow!("cancelled"));
-            }
-            let burn = crate::render::burn_captions(
-                cfg,
-                &base_path,
-                &ass_path,
-                &out_temp,
-                out_dur_ms,
-                &ctx.cancel,
-                |pct| {
-                    prog(
-                        ((done_w
-                            + w_i * (RENDER_BASE_SHARE + pct as f64 * (1.0 - RENDER_BASE_SHARE)))
-                            / total_w) as f32,
-                        Some(caption_label.clone()),
-                    )
-                },
-            )
             .await;
-            burn?;
-            if ctx.cancel.is_cancelled() {
-                return Err(anyhow::anyhow!("cancelled"));
-            }
-            // The export pack lands before the clip is marked ready — a
-            // Ready clip always carries its .srt/.vtt/.meta.json sidecars.
-            crate::export::write_export_pack(
-                &store.clips_dir(&id),
-                &crate::export::MetaInput {
-                    clip: &clip,
-                    source: &source,
-                    words: &words,
-                    project_id: &id,
-                    selector: p.selector.as_deref(),
-                    caption_style: Some(caption_style.label()),
-                },
-                &settings,
-                &ctx.cancel,
-            )
-            .await?;
-            promote_atomic(&out_temp, &out_path).await?;
+            tokio::fs::remove_file(&burned.temp_path).await.ok();
+            finished?;
             // Poster frame beside the export pack: a shareable still pulled
             // ~1s in so it carries the hook title when that's on. Best-effort —
             // a poster failure never un-marks a rendered clip.
@@ -1312,29 +1264,19 @@ async fn run(
             )
             .await;
             store.mark_final_ready(&id, &clip.id).await?;
-            Ok(())
+            Ok(variant.rendered_record(&burned))
         }
         .await;
 
-        tokio::fs::remove_file(&base_temp).await.ok();
-        tokio::fs::remove_file(&out_temp).await.ok();
-        tokio::fs::remove_file(&ass_path).await.ok();
-
         match render_result {
-            Ok(()) => {
+            Ok(rendered) => {
                 done_w += w_i;
                 prog((done_w / total_w) as f32, Some(done_label.clone()));
-                manifest.clips[i].status = ClipStatus::Ready;
-                manifest.clips[i].error = None;
-                manifest.clips[i].caption_style = Some(caption_style.label().to_string());
-                manifest.clips[i].accent_color = Some(accent_hex.clone());
-                manifest.clips[i].caption_font = Some(cfg.caption_font.clone());
-                manifest.clips[i].emoji_overlay = Some(emoji_overlay);
-                manifest.clips[i].width = Some(out_w);
-                manifest.clips[i].height = Some(out_h);
-                // Auto-cut shortens the clip — the manifest reports the
-                // rendered length, not the source interval.
-                manifest.clips[i].duration_ms = out_dur_ms;
+                manifest.clips[i] = ClipRecord {
+                    status: ClipStatus::Ready,
+                    error: None,
+                    ..rendered
+                };
                 // Copy into the user-facing output folder (best-effort).
                 if tokio::fs::create_dir_all(&output_dir).await.is_ok() {
                     let dest = output_dir.join(&clip.filename);
@@ -1382,11 +1324,7 @@ async fn run(
                 }
                 tokio::fs::remove_file(&out_path).await.ok();
                 store.clear_final_ready(&id, &clip.id).await;
-                manifest.clips[i].status = ClipStatus::Failed;
-                manifest.clips[i].error = Some(e.to_string());
-                store.save_manifest(&id, &manifest).await?;
-                ctx.handle
-                    .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
+                ctx.fail_clip(&id, &mut manifest, i, &e).await?;
                 done_w += w_i;
                 prog(
                     (done_w / total_w) as f32,
@@ -1441,6 +1379,185 @@ async fn run(
     Ok(())
 }
 
+/// Which pass a [`render_clip_variant`] progress tick belongs to.
+#[derive(Clone, Copy)]
+pub enum RenderPass {
+    Base,
+    Burn,
+}
+
+/// One clip rendered in one look. The render stage and restyle both go
+/// through [`render_clip_variant`], so a clip's output depends only on
+/// these inputs, never on which path produced it.
+pub struct ClipVariant<'a> {
+    pub cfg: &'a crate::config::Config,
+    pub store: &'a crate::store::Store,
+    pub project_id: &'a str,
+    pub src: &'a std::path::Path,
+    /// Needed only when the base must be rebuilt.
+    pub source: Option<&'a SourceInfo>,
+    pub transcript: &'a Transcript,
+    /// Cut spans and zoom keys already planned; `caption_text` final.
+    pub clip: &'a ClipRecord,
+    pub style: CaptionStyle,
+    pub accent_hex: &'a str,
+    /// Caption and hook-title font.
+    pub font: &'a str,
+    /// The base for `clip.base_key()` is complete on disk; skip pass 1.
+    pub base_ready: bool,
+}
+
+pub struct BurnedClip {
+    /// The captioned MP4, not yet promoted to the clip's final path. The
+    /// caller owns it from here.
+    pub temp_path: PathBuf,
+    /// Caption words on the output timeline.
+    pub words: Vec<Word>,
+    pub out_w: u32,
+    pub out_h: u32,
+    pub out_dur_ms: u64,
+}
+
+impl ClipVariant<'_> {
+    /// The clip as rendered: its planned record stamped with this look and
+    /// the output's real size and length (auto-cut shortens it).
+    pub fn rendered_record(&self, burned: &BurnedClip) -> ClipRecord {
+        ClipRecord {
+            caption_style: Some(self.style.label().to_string()),
+            accent_color: Some(self.accent_hex.to_string()),
+            caption_font: Some(self.font.to_string()),
+            width: Some(burned.out_w),
+            height: Some(burned.out_h),
+            duration_ms: burned.out_dur_ms,
+            ..self.clip.clone()
+        }
+    }
+}
+
+/// Pass 1 (framed, uncaptioned base — skipped when `base_ready`) then
+/// pass 2 (captions burned onto it). The base is kept on disk and marked
+/// ready so later restyles re-burn only.
+pub async fn render_clip_variant(
+    v: &ClipVariant<'_>,
+    cancel: &CancellationToken,
+    mut on_progress: impl FnMut(RenderPass, f32),
+) -> Result<BurnedClip> {
+    let (store, id, clip) = (v.store, v.project_id, v.clip);
+    let keeps =
+        crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, clip.effective_removals());
+    let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+    let base_key = clip.base_key();
+    let base_path = store.base_clip_path(id, &base_key);
+
+    // Captions are authored against the base clip's real size: a fresh base
+    // renders at output_size, while a pre-ADR-0002 base already on disk is
+    // fixed 1080×1920 (manifests then carry no dims).
+    let (out_w, out_h) = if v.base_ready {
+        (
+            clip.width.unwrap_or(crate::render::OUT_W),
+            clip.height.unwrap_or(crate::render::OUT_H),
+        )
+    } else {
+        let source = v
+            .source
+            .ok_or_else(|| anyhow::anyhow!("Source metadata is missing; re-run this project."))?;
+        tokio::fs::create_dir_all(store.base_dir(id)).await?;
+        tokio::fs::remove_file(&base_path).await.ok();
+        store.clear_base_ready(id, &base_key).await;
+        let base_temp = unique_temp_path(&base_path);
+        let rendered = async {
+            crate::render::render_base_clip(
+                v.cfg,
+                v.src,
+                crate::render::BaseClipSpec {
+                    source,
+                    layout: &clip.layout,
+                    start_ms: clip.start_ms,
+                    end_ms: clip.end_ms,
+                    keeps: &keeps,
+                    zoom: clip.effective_zoom_keys(),
+                    bar: clip.progress_bar.then_some(v.accent_hex),
+                    hook: clip.hook_title.then_some(crate::render::HookSpec {
+                        headline: &clip.headline,
+                        font: v.font,
+                        face: v.style.face(v.font),
+                        caps: v.style.uses_caps(),
+                    }),
+                },
+                &base_temp,
+                cancel,
+                |pct| on_progress(RenderPass::Base, pct),
+            )
+            .await?;
+            if cancel.is_cancelled() {
+                return Err(crate::util::cancelled());
+            }
+            promote_atomic(&base_temp, &base_path).await?;
+            store.mark_base_ready(id, &base_key).await
+        }
+        .await;
+        tokio::fs::remove_file(&base_temp).await.ok();
+        rendered?;
+        crate::render::output_size(source, &clip.layout)
+    };
+
+    // With auto-cut the words move onto the output timeline (dropped fillers
+    // vanish from captions too); with it off this is the interval text.
+    let words = crate::autocut::retime_words(
+        &crate::export::caption_words(v.transcript, clip),
+        clip.effective_removals(),
+    );
+    let ass = build_ass(
+        &CaptionInput {
+            words: &words,
+            clip_start_ms: clip.start_ms,
+            clip_end_ms: clip.start_ms + out_dur_ms,
+            headline: &clip.headline,
+            font: v.font,
+            accent_bgr: accent_bgr_for(v.style, Some(v.accent_hex)),
+            out_w,
+            out_h,
+        },
+        v.style,
+    );
+    let clips_dir = store.clips_dir(id);
+    let ass_path = unique_temp_path(&clips_dir.join(format!("{}.ass", clip.id)));
+    let temp_path = unique_temp_path(&clips_dir.join(&clip.filename));
+    let burned = async {
+        tokio::fs::write(&ass_path, &ass).await?;
+        if cancel.is_cancelled() {
+            return Err(crate::util::cancelled());
+        }
+        crate::render::burn_captions(
+            v.cfg,
+            &base_path,
+            &ass_path,
+            &temp_path,
+            out_dur_ms,
+            cancel,
+            |pct| on_progress(RenderPass::Burn, pct),
+        )
+        .await?;
+        if cancel.is_cancelled() {
+            return Err(crate::util::cancelled());
+        }
+        Ok(())
+    }
+    .await;
+    tokio::fs::remove_file(&ass_path).await.ok();
+    if let Err(e) = burned {
+        tokio::fs::remove_file(&temp_path).await.ok();
+        return Err(e);
+    }
+    Ok(BurnedClip {
+        temp_path,
+        words,
+        out_w,
+        out_h,
+        out_dur_ms,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1473,7 +1590,7 @@ mod tests {
         let stage = project.stage_mut("inspecting");
         assert!(stage.started_at.is_some());
         assert!(stage.completed_at.is_some());
-        assert_eq!(stage.detail.as_deref(), Some("Cancelled"));
+        assert_eq!(stage.detail.as_deref(), Some(CANCELLED_DETAIL));
 
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
@@ -1527,6 +1644,15 @@ mod tests {
             scene_boundaries_ms: Vec::new(),
         });
         m
+    }
+
+    #[test]
+    fn every_stage_has_its_own_cost_estimate() {
+        let m = model_with_source(600_000);
+        let unknown = m.estimate("not_a_stage");
+        for stage in STAGES {
+            assert_ne!(m.estimate(stage), unknown, "{stage} has no estimate");
+        }
     }
 
     #[test]

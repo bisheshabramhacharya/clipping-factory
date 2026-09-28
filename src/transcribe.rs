@@ -1,8 +1,13 @@
 //! Local word-timestamp transcription via whisper.cpp (PRD §10).
 //!
-//! We consume lexical token offsets from whisper.cpp's full JSON output and
-//! rebuild sentence-level segments deterministically. Sentence/segment offsets
-//! are deliberately not treated as word boundaries because they absorb pauses.
+//! Word onsets come from whisper.cpp's DTW token alignment (`--dtw`), not its
+//! token `offsets`: offsets are interpolated from segment timestamps and were
+//! measured 150–350 ms off on median (up to ~900 ms at p90), often collapsing
+//! several words onto one instant. Word ends are the next word's onset,
+//! pulled back over any sustained silence measured on the same WAV. The
+//! offsets path remains as a fallback when DTW output is unavailable.
+//! Sentence/segment offsets are never treated as word boundaries because
+//! they absorb pauses.
 
 use crate::config::Config;
 use crate::domain::{Sentence, Transcript, Word};
@@ -179,7 +184,8 @@ where
         .as_ref()
         .ok_or_else(|| anyhow!("whisper-cli not found. Install whisper.cpp (macOS: `brew install whisper-cpp`) or set CF_WHISPER_BIN."))?;
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let model_dirs = crate::config::model_search_dirs(&cfg.data_dir, &cwd);
+    let model_dirs =
+        crate::config::model_search_dirs(&cfg.data_dir, &cwd, dirs::home_dir().as_deref());
     let (model, whisper_lang) = resolve_language(cfg, language.unwrap_or("auto"), &model_dirs)?;
 
     // Never let whisper write directly to a retry-visible name. A cancelled
@@ -189,7 +195,7 @@ where
         out_prefix.with_extension("json"),
         out_prefix.with_extension("whisper.json"),
     ];
-    let args: Vec<String> = vec![
+    let mut args: Vec<String> = vec![
         "-m".into(),
         model.to_string_lossy().into_owned(),
         "-f".into(),
@@ -203,20 +209,26 @@ where
         out_prefix.to_string_lossy().into_owned(),
         "--print-progress".into(),
     ];
+    let preset = dtw_preset(&model);
+    let base_args = args.clone();
+    if let Some(preset) = preset {
+        // whisper.cpp silently drops DTW when flash attention is on.
+        args.extend(["-nfa".into(), "--dtw".into(), preset.into()]);
+    }
 
     let result: Result<Transcript> = async {
-        run_streaming(&bin.to_string_lossy(), &args, cancel, |_is_err, line| {
-            // whisper.cpp prints `whisper_print_progress_callback: progress = 35%`
-            if let Some(idx) = line.find("progress =") {
-                let tail = &line[idx + 10..];
-                if let Ok(pct) = tail.trim().trim_end_matches('%').parse::<f32>() {
-                    on_progress((pct / 100.0).clamp(0.0, 1.0));
-                }
+        let bin = bin.to_string_lossy();
+        let mut outcome = run_whisper(&bin, &args, cancel, &mut on_progress).await;
+        if preset.is_some() && !cancel.is_cancelled() {
+            if let Err(e) = &outcome {
+                // Older whisper-cli builds reject `-nfa`/`--dtw`; fall back
+                // to plain token offsets rather than failing the stage.
+                tracing::warn!("whisper-cli with DTW failed, retrying without it: {e:#}");
+                outcome = run_whisper(&bin, &base_args, cancel, &mut on_progress).await;
             }
-        })
-        .await
-        .map_err(|e| {
-            if e.to_string().contains("cancelled") {
+        }
+        outcome.map_err(|e| {
+            if crate::util::is_cancelled(&e) {
                 e
             } else {
                 anyhow!("Transcription failed. {}", e)
@@ -239,7 +251,14 @@ where
             .with_context(|| format!("reading whisper output at {}", json_path.display()))?;
         let parsed: serde_json::Value = serde_json::from_slice(&bytes)?;
 
-        let words = parse_words(&parsed);
+        let speech = {
+            let wav = wav.to_path_buf();
+            tokio::task::spawn_blocking(move || speech_frames(&wav))
+                .await
+                .ok()
+                .flatten()
+        };
+        let words = parse_words(&parsed, preset.map(calibration), speech.as_deref());
         if words.is_empty() {
             return Err(anyhow!(
                 "No speech was detected in this video. Clipping Factory needs clear spoken audio."
@@ -267,6 +286,169 @@ where
     result
 }
 
+async fn run_whisper<F>(
+    bin: &str,
+    args: &[String],
+    cancel: &CancellationToken,
+    on_progress: &mut F,
+) -> Result<()>
+where
+    F: FnMut(f32),
+{
+    run_streaming(bin, args, cancel, |_is_err, line| {
+        // whisper.cpp prints `whisper_print_progress_callback: progress = 35%`
+        if let Some(idx) = line.find("progress =") {
+            let tail = &line[idx + 10..];
+            if let Ok(pct) = tail.trim().trim_end_matches('%').parse::<f32>() {
+                on_progress((pct / 100.0).clamp(0.0, 1.0));
+            }
+        }
+    })
+    .await
+}
+
+/// whisper.cpp's `--dtw` alignment-head preset for a ggml model file
+/// (`ggml-base.en.bin` → `base.en`, `ggml-large-v3-turbo-q5_0.bin` →
+/// `large.v3.turbo`). `None` for names whisper.cpp has no preset for.
+fn dtw_preset(model: &Path) -> Option<&'static str> {
+    let name = model.file_name()?.to_str()?.to_ascii_lowercase();
+    let stem = name.strip_prefix("ggml-")?.strip_suffix(".bin")?;
+    // Quantized weights keep the same heads: drop a `-q5_0`-style suffix.
+    let stem = match stem.rsplit_once('-') {
+        Some((head, q))
+            if q.starts_with('q') && q[1..].starts_with(|c: char| c.is_ascii_digit()) =>
+        {
+            head
+        }
+        _ => stem,
+    };
+    const PRESETS: &[(&str, &str)] = &[
+        ("tiny", "tiny"),
+        ("tiny.en", "tiny.en"),
+        ("base", "base"),
+        ("base.en", "base.en"),
+        ("small", "small"),
+        ("small.en", "small.en"),
+        ("medium", "medium"),
+        ("medium.en", "medium.en"),
+        ("large-v1", "large.v1"),
+        ("large-v2", "large.v2"),
+        ("large-v3", "large.v3"),
+        ("large-v3-turbo", "large.v3.turbo"),
+    ];
+    PRESETS
+        .iter()
+        .find(|(file, _)| *file == stem)
+        .map(|(_, preset)| *preset)
+}
+
+/// How far before its DTW timestamp a word actually starts. whisper.cpp
+/// stamps a token when the alignment path enters it, which lands late in the
+/// token; the true onset sits between the previous token's stamp and this
+/// one. Measured against forced alignment on real speech: tiny/base heads
+/// run ~160 ms late, larger models ~320 ms. The cap keeps a pause before a
+/// word from pulling its onset into the silence.
+#[derive(Clone, Copy, Debug)]
+struct Calibration {
+    lead_frac: f64,
+    lead_cap_ms: u64,
+}
+
+fn calibration(preset: &str) -> Calibration {
+    if preset.starts_with("tiny") || preset.starts_with("base") {
+        Calibration {
+            lead_frac: 0.75,
+            lead_cap_ms: 160,
+        }
+    } else {
+        Calibration {
+            lead_frac: 0.9,
+            lead_cap_ms: 320,
+        }
+    }
+}
+
+/// Speech/silence per 10 ms frame of a 16-bit PCM WAV, or `None` when the
+/// file can't be read or has too little level contrast to tell them apart.
+fn speech_frames(wav: &Path) -> Option<Vec<bool>> {
+    use std::io::Read;
+    let mut file = std::io::BufReader::new(std::fs::File::open(wav).ok()?);
+    let mut header = [0u8; 12];
+    file.read_exact(&mut header).ok()?;
+    if &header[0..4] != b"RIFF" || &header[8..12] != b"WAVE" {
+        return None;
+    }
+    let (mut rate, mut channels, mut bits) = (0u32, 0u16, 0u16);
+    loop {
+        let mut chunk = [0u8; 8];
+        file.read_exact(&mut chunk).ok()?;
+        let size = u32::from_le_bytes(chunk[4..8].try_into().ok()?) as usize;
+        if &chunk[0..4] == b"data" {
+            break;
+        }
+        let mut body = vec![0u8; size + size % 2];
+        file.read_exact(&mut body).ok()?;
+        if &chunk[0..4] == b"fmt " && body.len() >= 16 {
+            let format = u16::from_le_bytes([body[0], body[1]]);
+            channels = u16::from_le_bytes([body[2], body[3]]);
+            rate = u32::from_le_bytes(body[4..8].try_into().ok()?);
+            bits = u16::from_le_bytes([body[14], body[15]]);
+            if format != 1 {
+                return None;
+            }
+        }
+    }
+    if bits != 16 || channels == 0 || rate < 1000 {
+        return None;
+    }
+    let frame_bytes = (rate as usize / 100) * channels as usize * 2;
+    let mut buf = vec![0u8; frame_bytes];
+    let mut db = Vec::new();
+    loop {
+        let mut filled = 0;
+        while filled < frame_bytes {
+            match file.read(&mut buf[filled..]) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => filled += n,
+            }
+        }
+        if filled < 2 {
+            break;
+        }
+        let samples = filled / 2;
+        let energy: f64 = buf[..samples * 2]
+            .chunks_exact(2)
+            .map(|b| {
+                let s = i16::from_le_bytes([b[0], b[1]]) as f64;
+                s * s
+            })
+            .sum();
+        let rms = (energy / samples as f64).sqrt().max(1.0);
+        db.push(20.0 * rms.log10());
+        if filled < frame_bytes {
+            break;
+        }
+    }
+    speech_mask(&db)
+}
+
+/// Frames at least 30% of the way from the noise floor (10th percentile) to
+/// the speech level (95th percentile) count as speech.
+fn speech_mask(db: &[f64]) -> Option<Vec<bool>> {
+    if db.len() < 50 {
+        return None;
+    }
+    let mut sorted = db.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let floor = sorted[sorted.len() / 10];
+    let level = sorted[sorted.len() * 95 / 100];
+    if level - floor < 12.0 {
+        return None;
+    }
+    let threshold = floor + 0.3 * (level - floor);
+    Some(db.iter().map(|&d| d >= threshold).collect())
+}
+
 #[derive(Default)]
 struct PendingWord {
     text: String,
@@ -274,28 +456,51 @@ struct PendingWord {
     end_ms: u64,
     p_sum: f64,
     p_count: usize,
+    /// DTW stamp of the word's first lexical token, and of the token before it.
+    dtw_ms: Option<u64>,
+    prev_dtw_ms: Option<u64>,
 }
 
-fn finish_word(words: &mut Vec<Word>, pending: &mut Option<PendingWord>) {
+/// A word parsed from whisper tokens, before its final timing is chosen.
+struct TokenWord {
+    word: Word,
+    dtw_ms: Option<u64>,
+    prev_dtw_ms: Option<u64>,
+}
+
+fn finish_word(words: &mut Vec<TokenWord>, pending: &mut Option<PendingWord>) {
     let Some(word) = pending.take() else { return };
     if !word.text.chars().any(char::is_alphanumeric) {
         return;
     }
-    words.push(Word {
-        text: word.text,
-        start_ms: word.start_ms,
-        end_ms: word.end_ms.max(word.start_ms.saturating_add(10)),
-        p: if word.p_count == 0 {
-            0.5
-        } else {
-            (word.p_sum / word.p_count as f64) as f32
+    words.push(TokenWord {
+        word: Word {
+            text: word.text,
+            start_ms: word.start_ms,
+            end_ms: word.end_ms.max(word.start_ms.saturating_add(10)),
+            p: if word.p_count == 0 {
+                0.5
+            } else {
+                (word.p_sum / word.p_count as f64) as f32
+            },
         },
+        dtw_ms: word.dtw_ms,
+        prev_dtw_ms: word.prev_dtw_ms,
     });
 }
 
-fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
+/// whisper.cpp writes `t_dtw` in 10 ms units, `-1` when DTW was off.
+fn token_dtw_ms(token: &serde_json::Value) -> Option<u64> {
+    token["t_dtw"]
+        .as_i64()
+        .filter(|t| *t >= 0)
+        .map(|t| t as u64 * 10)
+}
+
+fn parse_token_words(segments: &[serde_json::Value]) -> Vec<TokenWord> {
     let mut words = Vec::new();
     let mut saw_timed_token = false;
+    let mut last_dtw: Option<u64> = None;
 
     for segment in segments {
         let mut pending: Option<PendingWord> = None;
@@ -311,6 +516,9 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
             if part.is_empty() || part.starts_with("[_") {
                 continue;
             }
+            let dtw = token_dtw_ms(token);
+            let prev_dtw = last_dtw;
+            last_dtw = dtw.or(last_dtw);
             let starts_word = raw.chars().next().is_some_and(char::is_whitespace);
             if starts_word {
                 finish_word(&mut words, &mut pending);
@@ -345,6 +553,8 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
                     end_ms: to,
                     p_sum: token["p"].as_f64().unwrap_or(0.5),
                     p_count: 1,
+                    dtw_ms: dtw,
+                    prev_dtw_ms: prev_dtw,
                 });
                 continue;
             }
@@ -365,6 +575,12 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
     if !saw_timed_token {
         return Vec::new();
     }
+    words
+}
+
+/// Offset-based timing, the fallback when no DTW stamps are available.
+fn offset_timing(words: Vec<TokenWord>) -> Vec<Word> {
+    let mut words: Vec<Word> = words.into_iter().map(|w| w.word).collect();
     // Token heuristics can overlap at a boundary. Split only those overlaps;
     // genuine silence gaps remain untouched.
     for i in 0..words.len().saturating_sub(1) {
@@ -387,14 +603,91 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<Word> {
     words
 }
 
-fn parse_words(v: &serde_json::Value) -> Vec<Word> {
+/// Onsets never closer than this, so every word holds the highlight for at
+/// least one frame at 25+ fps.
+const MIN_ONSET_GAP_MS: u64 = 40;
+/// A trailing silence at least this long ends the word before the next onset.
+const MIN_TRAILING_SILENCE_MS: u64 = 150;
+/// How much speech before the next onset may belong to that (late) onset.
+const ONSET_SLACK_MS: u64 = 150;
+/// Upper bounds for a single word's span (drawn-out words included).
+const MAX_WORD_MS: u64 = 1500;
+const LAST_WORD_MS: u64 = 800;
+
+/// DTW timing: each onset is its token's stamp minus a calibrated lead, and
+/// each word ends at the next onset unless the audio goes silent first.
+fn dtw_timing(words: Vec<TokenWord>, calib: Calibration, speech: Option<&[bool]>) -> Vec<Word> {
+    let mut out: Vec<Word> = Vec::with_capacity(words.len());
+    for tw in words {
+        let at = tw.dtw_ms.unwrap_or(tw.word.start_ms);
+        let gap = tw
+            .prev_dtw_ms
+            .map(|prev| at.saturating_sub(prev))
+            .unwrap_or(calib.lead_cap_ms);
+        let lead = ((gap as f64 * calib.lead_frac) as u64).min(calib.lead_cap_ms);
+        let mut start_ms = at.saturating_sub(lead);
+        if let Some(prev) = out.last() {
+            start_ms = start_ms.max(prev.start_ms + MIN_ONSET_GAP_MS);
+        }
+        out.push(Word {
+            start_ms,
+            end_ms: start_ms,
+            ..tw.word
+        });
+    }
+    for i in 0..out.len() {
+        let start = out[i].start_ms;
+        let limit = out
+            .get(i + 1)
+            .map(|next| next.start_ms)
+            .unwrap_or(start + LAST_WORD_MS)
+            .min(start + MAX_WORD_MS);
+        let mut end = limit;
+        if let Some(mask) = speech {
+            // Walk back from the limit over silent frames (past the end of
+            // the audio counts as silent), never into the word's first 80 ms.
+            // The next onset can land a little after its speech resumes, so
+            // a short stretch of speech right before the limit is stepped
+            // over first.
+            let floor = ((start + 80) / 10) as usize;
+            let speaking = |frame: usize| mask.get(frame).copied().unwrap_or(false);
+            let mut frame = (limit / 10) as usize;
+            let mut stepped = 0u64;
+            while frame > floor && stepped < ONSET_SLACK_MS && speaking(frame - 1) {
+                frame -= 1;
+                stepped += 10;
+            }
+            let mut run = 0u64;
+            while frame > floor && !speaking(frame - 1) {
+                frame -= 1;
+                run += 10;
+            }
+            if run >= MIN_TRAILING_SILENCE_MS {
+                end = frame as u64 * 10 + 30;
+            }
+        }
+        out[i].end_ms = end.max(start + 60).min(limit);
+    }
+    out
+}
+
+fn parse_words(
+    v: &serde_json::Value,
+    calib: Option<Calibration>,
+    speech: Option<&[bool]>,
+) -> Vec<Word> {
     let mut words = Vec::new();
     let Some(segments) = v["transcription"].as_array() else {
         return words;
     };
     let token_words = parse_token_words(segments);
     if !token_words.is_empty() {
-        return token_words;
+        return match calib {
+            Some(calib) if token_words.iter().all(|w| w.dtw_ms.is_some()) => {
+                dtw_timing(token_words, calib, speech)
+            }
+            _ => offset_timing(token_words),
+        };
     }
     for seg in segments {
         let text = seg["text"].as_str().unwrap_or("").trim().to_string();
@@ -615,7 +908,7 @@ mod tests {
             }]
         });
 
-        let words = parse_words(&parsed);
+        let words = parse_words(&parsed, None, None);
         assert_eq!(
             words
                 .iter()
@@ -643,7 +936,7 @@ mod tests {
             }]
         });
 
-        let words = parse_words(&parsed);
+        let words = parse_words(&parsed, None, None);
         assert_eq!(
             words
                 .iter()
@@ -732,7 +1025,7 @@ mod tests {
                 ]
             }]
         });
-        let words = parse_words(&parsed);
+        let words = parse_words(&parsed, None, None);
         let texts: Vec<&str> = words.iter().map(|w| w.text.as_str()).collect();
         // "¿" is non-lexical punctuation: it attaches to the word it opens,
         // and sub-word tokens ("Qu" + "é") merge into one word.
@@ -755,7 +1048,6 @@ mod tests {
                 crate::captions::CaptionStyle::Impact,
                 None,
             ),
-            emoji_overlay: false,
             out_w: crate::render::OUT_W,
             out_h: crate::render::OUT_H,
         };
@@ -777,8 +1069,154 @@ mod tests {
             }]
         });
 
-        let words = parse_words(&parsed);
+        let words = parse_words(&parsed, None, None);
         assert_eq!((words[0].start_ms, words[0].end_ms), (100, 175));
         assert_eq!((words[1].start_ms, words[1].end_ms), (175, 300));
+    }
+
+    #[test]
+    fn dtw_presets_follow_the_model_file_name() {
+        let preset = |name: &str| dtw_preset(Path::new(name));
+        assert_eq!(preset("models/ggml-base.en.bin"), Some("base.en"));
+        assert_eq!(preset("ggml-small.en.bin"), Some("small.en"));
+        assert_eq!(preset("ggml-base.bin"), Some("base"));
+        assert_eq!(preset("ggml-large-v3-turbo.bin"), Some("large.v3.turbo"));
+        assert_eq!(
+            preset("ggml-large-v3-turbo-q5_0.bin"),
+            Some("large.v3.turbo")
+        );
+        assert_eq!(preset("ggml-medium.en-q8_0.bin"), Some("medium.en"));
+        assert_eq!(preset("custom-finetune.bin"), None);
+        assert_eq!(preset("ggml-distil-whatever.bin"), None);
+    }
+
+    fn dtw_tok(text: &str, from: u64, to: u64, dtw: i64) -> serde_json::Value {
+        serde_json::json!({"text": text, "offsets": {"from": from, "to": to}, "p": 0.9, "t_dtw": dtw})
+    }
+
+    /// The offsets below collapse "within the bubble" onto one instant, as
+    /// whisper.cpp did on a real podcast; DTW stamps keep the words apart.
+    fn collapsed_offsets_fixture() -> serde_json::Value {
+        serde_json::json!({"transcription": [{
+            "offsets": {"from": 7000, "to": 9500},
+            "tokens": [
+                dtw_tok("[_BEG_]", 7000, 7000, -1),
+                dtw_tok(" within", 7680, 7680, 780),
+                dtw_tok(" the", 7680, 7680, 802),
+                dtw_tok(" bubble", 7680, 7680, 822),
+                dtw_tok(",", 7680, 7700, 840),
+                dtw_tok(" outside", 7780, 8510, 900),
+            ]
+        }]})
+    }
+
+    #[test]
+    fn dtw_onsets_replace_collapsed_offsets() {
+        let words = parse_words(
+            &collapsed_offsets_fixture(),
+            Some(calibration("base.en")),
+            None,
+        );
+        let starts: Vec<u64> = words.iter().map(|w| w.start_ms).collect();
+        // Onset = stamp − min(0.75 × gap to the previous stamp, 160 ms); the
+        // first word has no previous stamp and takes 0.75 × 160.
+        assert_eq!(starts, vec![7680, 7860, 8070, 8840]);
+        assert_eq!(words[2].text, "bubble,");
+        for pair in words.windows(2) {
+            assert!(pair[0].end_ms <= pair[1].start_ms, "{words:?}");
+            assert!(pair[0].end_ms > pair[0].start_ms, "{words:?}");
+        }
+    }
+
+    #[test]
+    fn onsets_stay_a_frame_apart() {
+        let parsed = serde_json::json!({"transcription": [{"tokens": [
+            dtw_tok(" a", 0, 0, 100),
+            dtw_tok(" b", 0, 0, 101),
+            dtw_tok(" c", 0, 0, 102),
+        ]}]});
+        let words = parse_words(&parsed, Some(calibration("small.en")), None);
+        let starts: Vec<u64> = words.iter().map(|w| w.start_ms).collect();
+        // "c" would start at 1011, only 10 ms after "b".
+        assert_eq!(starts, vec![712, 1001, 1041]);
+    }
+
+    #[test]
+    fn dtw_output_is_ignored_without_a_calibration_or_when_stamps_are_missing() {
+        let offsets = parse_words(&collapsed_offsets_fixture(), None, None);
+        assert_eq!(offsets[0].start_ms, 7680);
+        assert_eq!(offsets[1].start_ms, offsets[0].start_ms + 10);
+
+        let no_dtw = serde_json::json!({"transcription": [{"tokens": [
+            dtw_tok(" hello", 100, 400, -1),
+            dtw_tok(" there", 400, 800, -1),
+        ]}]});
+        let words = parse_words(&no_dtw, Some(calibration("base.en")), None);
+        assert_eq!(
+            words
+                .iter()
+                .map(|w| (w.start_ms, w.end_ms))
+                .collect::<Vec<_>>(),
+            vec![(100, 400), (400, 800)]
+        );
+    }
+
+    #[test]
+    fn a_word_before_a_pause_ends_where_the_voice_stops() {
+        let parsed = serde_json::json!({"transcription": [{"tokens": [
+            dtw_tok(" first", 0, 0, 20),
+            dtw_tok(" second", 0, 0, 40),
+            dtw_tok(" third", 0, 0, 210),
+        ]}]});
+        // 10 ms frames: speech to 0.6 s, silence to 1.9 s, then speech. The
+        // "third" onset (1.94 s) lands just after its speech resumes.
+        let mask: Vec<bool> = (0..300).map(|f| !(60..190).contains(&f)).collect();
+        let calib = calibration("base.en");
+        let words = parse_words(&parsed, Some(calib), Some(&mask));
+        assert_eq!(words[1].text, "second");
+        assert_eq!((words[1].start_ms, words[1].end_ms), (250, 630));
+        assert_eq!(words[2].start_ms, 1940);
+        // Without audio the word runs toward the next onset, capped at 1.5 s.
+        let words = parse_words(&parsed, Some(calib), None);
+        assert_eq!(words[1].end_ms, 250 + MAX_WORD_MS);
+        assert_eq!(words[0].end_ms, words[1].start_ms);
+    }
+
+    #[test]
+    fn speech_mask_needs_level_contrast() {
+        assert!(speech_mask(&[-30.0; 200]).is_none());
+        let mut db = vec![-70.0; 100];
+        db.extend([-20.0; 100]);
+        let mask = speech_mask(&db).unwrap();
+        assert!(!mask[10] && mask[150]);
+    }
+
+    #[test]
+    fn speech_frames_reads_16_bit_pcm_wavs() {
+        let rate = 16_000u32;
+        let mut samples: Vec<i16> = vec![0; rate as usize / 2];
+        samples.extend((0..rate as usize / 2).map(|i| ((i as f64 * 0.3).sin() * 8000.0) as i16));
+        let data: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
+        let mut wav = Vec::new();
+        wav.extend(b"RIFF");
+        wav.extend((36 + data.len() as u32).to_le_bytes());
+        wav.extend(b"WAVEfmt ");
+        wav.extend(16u32.to_le_bytes());
+        wav.extend(1u16.to_le_bytes());
+        wav.extend(1u16.to_le_bytes());
+        wav.extend(rate.to_le_bytes());
+        wav.extend((rate * 2).to_le_bytes());
+        wav.extend(2u16.to_le_bytes());
+        wav.extend(16u16.to_le_bytes());
+        wav.extend(b"data");
+        wav.extend((data.len() as u32).to_le_bytes());
+        wav.extend(&data);
+        let path = std::env::temp_dir().join(format!("cf-speech-{}.wav", crate::util::short_id()));
+        std::fs::write(&path, wav).unwrap();
+        let mask = speech_frames(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+        assert_eq!(mask.len(), 100);
+        assert!(mask[..50].iter().all(|s| !s));
+        assert!(mask[50..].iter().all(|s| *s));
     }
 }

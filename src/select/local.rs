@@ -5,7 +5,6 @@
 
 use super::openai::map_error;
 use anyhow::{anyhow, Result};
-use serde_json::json;
 use std::time::Duration;
 
 /// Small local models generate slowly, especially on CPU.
@@ -25,34 +24,15 @@ fn unreachable(base_url: &str, e: reqwest::Error) -> anyhow::Error {
 }
 
 pub async fn complete(base_url: &str, model: &str, system: &str, user: &str) -> Result<String> {
-    let client = client(REQUEST_TIMEOUT)?;
-    let body = json!({
-        "model": model,
-        "temperature": 0.3,
-        "response_format": { "type": "json_object" },
-        "messages": [
-            { "role": "system", "content": system },
-            { "role": "user", "content": user }
-        ]
-    });
-    let resp = client
-        .post(endpoint(base_url, "chat/completions"))
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| unreachable(base_url, e))?;
-
-    let status = resp.status();
-    let text = resp.text().await.unwrap_or_default();
-    if !status.is_success() {
-        return Err(map_error(status.as_u16(), &text, "The local endpoint"));
-    }
-    let v: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|_| anyhow!("The local endpoint returned an unreadable response."))?;
-    let content = v["choices"][0]["message"]["content"]
-        .as_str()
-        .ok_or_else(|| anyhow!("The local endpoint response had no content."))?;
-    Ok(content.to_string())
+    let provider = format!("the local endpoint at {}", base_url.trim_end_matches('/'));
+    super::openai::chat_completion(
+        client(REQUEST_TIMEOUT)?,
+        &endpoint(base_url, "chat/completions"),
+        None,
+        &super::openai::chat_body(model, system, user),
+        &provider,
+    )
+    .await
 }
 
 /// GET `{base}/models`. When the listing is parseable, verify the configured

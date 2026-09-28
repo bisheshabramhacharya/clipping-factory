@@ -1,6 +1,6 @@
 # Clipping Factory
 
-One podcast episode in, a few faithful vertical clips out. Local-first desktop tool: inspect → extract audio → transcribe → find moments → validate → frame → render.
+One podcast episode in, a few faithful vertical clips out. Local-first desktop tool: inspect → extract audio → transcribe → find candidates → validate → frame → render.
 
 ## Language
 
@@ -59,16 +59,20 @@ _Avoid_: shot detection
 The validation rule that a Clip may not open on a greeting, housekeeping line, or lone filler word — every Clip starts mid-thought.
 _Avoid_: hook check
 
+**Caption-only clip**:
+What a Source shorter than 20 seconds becomes: one Clip spanning the whole Source, captioned and framed as usual. Selection and the validator's score and duration rules are skipped because there is nothing to choose between.
+_Avoid_: full-video mode
+
 **Zoom cuts**:
 Per-Clip opt-in `zoompan` punch-ins on energy/emphasis beats over the framed canvas. Zoom rests at 1.0 outside rise/fall; retimed through Auto-cut removals.
 _Avoid_: ken burns, animated crop
 
 **Caption style**:
-The per-Clip caption look — Impact (default karaoke), Clean, Pop (per-word pop + keyword accent), Cinema (lowercase letterspaced fade) — applied at caption time from the Base clip, so restyle is seconds not a re-render.
+The per-Clip caption look — Impact (default karaoke), Clean, Pop (per-word pop + keyword accent), Cinema (lowercase letterspaced fade) — applied at caption time from the Base clip, so restyle is seconds not a re-render. In every style the accent color is only on the word being spoken: never two accented words at once.
 _Avoid_: template, preset
 
 **Export pack**:
-The per-Clip share bundle: `.srt`, `.vtt`, and `.meta.json` (title/description/hashtags) beside the rendered MP4.
+The per-Clip share bundle: `.srt`, `.vtt`, `.meta.json` (title/description/hashtags), and a poster still beside the rendered MP4.
 _Avoid_: publish, distribution
 
 
@@ -77,7 +81,7 @@ Opt-in thin accent-colored fill strip along a Clip's bottom edge.
 _Avoid_: scrubber
 
 **Hook title**:
-Opt-in ~1.8 s ALL-CAPS title card burned into a Clip's opening frames, from the Clip's headline.
+Opt-in ~1.8 s headline burned into a Clip's opening frames, upper third. ALL-CAPS under Impact and Pop; headline case under Clean and Cinema.
 _Avoid_: title card, intro
 
 **Focus prompt**:

@@ -209,7 +209,7 @@ Use this planning target:
 
 ```text
 target_count = max(1, round(source_duration_minutes / 10))
-proposal_count = max(3, ceil(target_count * 1.5))
+candidate_count = max(3, ceil(target_count * 1.5))
 ```
 
 `target_count` guides ranking but is not a required final count. The final count is whatever survives validation, including zero. Snap accepted start and end values to real word timestamps rather than trusting arbitrary millisecond values returned by the LLM.
@@ -296,11 +296,13 @@ If transcription confidence is low, surface the warning on affected clips rather
 - Container: MP4.
 - Video: H.264.
 - Audio: AAC.
-- Resolution: 1080×1920.
+- Resolution: 1080×1920. (Superseded by [ADR-0002](adr/0002-downscale-only-output.md): the native 9:16 window, capped at 1080×1920.)
 - Frame rate: preserve the source frame rate when practical; otherwise use 30 fps.
 - Preserve original audio timing and pitch.
 
 ### 11.2 Framing
+
+> Superseded by [ADR-0001](adr/0001-locked-crop-no-camera-motion.md) and [ADR-0004](adr/0004-one-static-view-per-shot.md): each camera shot gets one static view on the person speaking, BlurPad when nobody usable is in the shot, and the view never pans. The MVP text below is kept for history.
 
 Analyze faces across the candidate interval before rendering.
 

@@ -70,25 +70,35 @@ fn even_floor(v: f64) -> u32 {
     (v as u32) & !1
 }
 
-/// Render the framed, uncaptioned base clip from the source video.
-/// `keeps` is auto-cut's keep list: empty or a single span renders the one
-/// continuous excerpt exactly as before; two or more spans go through a
-/// trim+concat stage that lifts the cut out of the stream before framing.
-/// `zoom` is zoom cuts' keyframe list on the post-cut timeline — a punch
-/// over the framed canvas, applied only by the FaceCrop path.
-/// (The argument list mirrors the render inputs one-to-one on purpose.)
-#[allow(clippy::too_many_arguments)]
+/// Everything one base render needs from the Source, the Clip, and its
+/// planned layout. Grouped so a new render input extends this struct instead
+/// of adding a positional argument.
+pub struct BaseClipSpec<'a> {
+    /// The probed Source; [`output_size`] sizes the canvas from it.
+    pub source: &'a SourceInfo,
+    pub layout: &'a LayoutPlan,
+    /// The clip interval on the source timeline.
+    pub start_ms: u64,
+    pub end_ms: u64,
+    /// Auto-cut's keep list; empty or one span renders one continuous excerpt.
+    pub keeps: &'a [CutSpan],
+    /// Zoom cuts' keys on the post-cut output timeline — a punch over the
+    /// framed canvas, applied only by the FaceCrop path.
+    pub zoom: &'a [ZoomKey],
+    /// Progress-bar accent (`#RRGGBB`) when the garnish is on.
+    pub bar: Option<&'a str>,
+    /// Hook-title inputs when the garnish is on.
+    pub hook: Option<HookSpec<'a>>,
+}
+
+/// Render the framed, uncaptioned base clip from the source video. The
+/// interval, keep list, zoom keys, and garnish travel in [`BaseClipSpec`];
+/// two or more keeps go through a trim+concat stage that lifts the cuts out
+/// of the stream before framing.
 pub async fn render_base_clip<F>(
     cfg: &Config,
     src: &Path,
-    source: &SourceInfo,
-    layout: &LayoutPlan,
-    start_ms: u64,
-    end_ms: u64,
-    keeps: &[CutSpan],
-    zoom: &[ZoomKey],
-    bar: Option<&str>,
-    hook: Option<HookSpec<'_>>,
+    spec: BaseClipSpec<'_>,
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -96,6 +106,16 @@ pub async fn render_base_clip<F>(
 where
     F: FnMut(f32),
 {
+    let BaseClipSpec {
+        source,
+        layout,
+        start_ms,
+        end_ms,
+        keeps,
+        zoom,
+        bar,
+        hook,
+    } = spec;
     // One surviving span only needs the input window re-aimed at it; several
     // spans keep the full clip read and let the graph pick them out.
     let (in_start_ms, in_dur_ms) = if keeps.len() == 1 {
@@ -185,7 +205,7 @@ where
     run_ffmpeg_with_progress(cfg, &args, out_dur_s, cancel, &mut on_progress)
         .await
         .map_err(|e| {
-            if e.to_string().contains("cancelled") {
+            if crate::util::is_cancelled(&e) {
                 e
             } else {
                 anyhow!("Render failed. {}", e)
@@ -234,7 +254,7 @@ where
     run_ffmpeg_with_progress(cfg, &args, dur_s, cancel, &mut on_progress)
         .await
         .map_err(|e| {
-            if e.to_string().contains("cancelled") {
+            if crate::util::is_cancelled(&e) {
                 e
             } else {
                 anyhow!("Caption burn failed. {}", e)
@@ -260,13 +280,8 @@ where
     let dur_us = dur_s * 1_000_000.0;
     run_streaming(&cfg.ffmpeg, args, cancel, |is_err, line| {
         if !is_err {
-            if let Some(us) = line
-                .strip_prefix("out_time_ms=")
-                .and_then(|v| v.parse::<f64>().ok())
-            {
-                if dur_us > 0.0 {
-                    on_progress((us / dur_us).clamp(0.0, 1.0) as f32);
-                }
+            if let Some(pct) = crate::media::out_time_fraction(line, dur_us) {
+                on_progress(pct);
             }
         }
     })
@@ -321,8 +336,8 @@ struct Pads<'a> {
 }
 
 /// Opt-in garnish applied to a base render: the progress bar (accent hex
-/// or None) and the hook title (opening title card, None unless the toggle is on
-/// and the headline wrapped to at least one line).
+/// or None) and the hook title (None unless the toggle is on and the
+/// headline wrapped to at least one line).
 #[derive(Clone, Copy, Default)]
 struct Garnish<'a> {
     bar: Option<&'a str>,
@@ -684,11 +699,11 @@ fn progress_bar_step(hex: &str, dur_ms: u64) -> String {
 }
 
 /// The hook title's on-screen budget: at most two lines of 22 characters,
-/// the longest a shouting title card stays readable at a glance.
+/// the longest a shouting hook title stays readable at a glance.
 const HOOK_LINE_CHARS: usize = 22;
 const HOOK_MAX_LINES: usize = 2;
 
-/// Wrap a headline for the title card: greedy word wrap at 22 characters,
+/// Wrap a headline for the hook title: greedy word wrap at 22 characters,
 /// capped at two lines; an overflow earns a trailing ellipsis inside the
 /// same budget. Empty input wraps to nothing — the title draws no-op.
 fn wrap_hook_title(headline: &str, caps: bool) -> Vec<String> {
@@ -1479,7 +1494,7 @@ mod tests {
     }
 
     #[test]
-    fn hook_title_draws_a_timed_title_card_in_the_upper_band() {
+    fn hook_title_draws_over_the_opening_beat_in_the_upper_band() {
         let lines = wrap_hook_title("the quick brown fox jumps over the lazy dog", true);
         assert_eq!(lines, vec!["THE QUICK BROWN FOX", "JUMPS OVER THE LAZY…"]);
         let g = build_graph(
@@ -1493,7 +1508,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        // min(1.8, 25% of 10 s) — the card drops after the opening beat.
+        // min(1.8, 25% of 10 s) — the title drops after the opening beat.
         assert_eq!(g.matches("enable='between(t,0,1.80)'").count(), 2, "{g}");
         assert!(g.contains("text='THE QUICK BROWN FOX'"), "{g}");
         assert!(g.contains("text='JUMPS OVER THE LAZY…'"), "{g}");

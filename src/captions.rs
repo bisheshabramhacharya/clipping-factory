@@ -9,7 +9,10 @@
 //! - **Pop**: one spoken word at a time, dead center, popping in on a scale
 //!   transform. Keyword words render uppercase in the accent color.
 //! - **Cinema**: a minimal lower-third line — the whole page fades in
-//!   letterspaced lowercase; only the keyword carries the accent color.
+//!   letterspaced lowercase; the keyword takes the accent color while spoken.
+//!
+//! In every style the accent color is only ever on a word while it is being
+//! spoken: at most one accented word is on screen at any instant.
 
 use crate::domain::Word;
 use crate::render::{OUT_H, OUT_W};
@@ -26,11 +29,13 @@ pub enum CaptionStyle {
 pub const CAPTION_STYLES: [&str; 4] = ["impact", "clean", "pop", "cinema"];
 
 impl CaptionStyle {
+    /// Lenient parse for stored values: anything unrecognized falls back to
+    /// the default style.
     pub fn from_str(s: &str) -> CaptionStyle {
         match s.trim().to_lowercase().as_str() {
-            "clean" | "minimal" => CaptionStyle::Clean,
-            "pop" | "bounce" => CaptionStyle::Pop,
-            "cinema" | "cinematic" => CaptionStyle::Cinema,
+            "clean" => CaptionStyle::Clean,
+            "pop" => CaptionStyle::Pop,
+            "cinema" => CaptionStyle::Cinema,
             _ => CaptionStyle::Impact,
         }
     }
@@ -164,11 +169,6 @@ pub struct CaptionInput<'a> {
     pub font: &'a str,
     /// Accent color in ASS BGR order (see `accent_bgr_for`).
     pub accent_bgr: String,
-    /// Opt-in emoji accent: a large glyph flashes above the caption block at
-    /// each page's keyword timestamp. Rendered as ASS text, so the system's
-    /// color-emoji font (Noto Color Emoji, Apple Color Emoji, Segoe UI Emoji)
-    /// must be installed for glyphs to appear.
-    pub emoji_overlay: bool,
     /// The clip's rendered output size the captions burn onto (ADR-0002).
     /// ASS PlayRes and all geometry derive from this — the constants below
     /// are authored against the OUT_W×OUT_H reference canvas and scaled.
@@ -194,6 +194,18 @@ pub fn hex_to_ass_bgr(hex: &str) -> Option<String> {
         return None;
     }
     Some(format!("{}{}{}", &h[4..6], &h[2..4], &h[0..2]).to_uppercase())
+}
+
+/// User-supplied accent (`RRGGBB` or `#RRGGBB`) → the stored `#RRGGBB`
+/// form, or None if malformed.
+pub fn normalize_accent_hex(hex: &str) -> Option<String> {
+    hex_to_ass_bgr(hex)?;
+    let h = hex.trim();
+    Some(if h.starts_with('#') {
+        h.to_string()
+    } else {
+        format!("#{h}")
+    })
 }
 
 pub fn build_ass(input: &CaptionInput, style: CaptionStyle) -> String {
@@ -271,12 +283,31 @@ const STOPWORDS: &[&str] = &[
     "now", "well",
 ];
 
+/// The one token normalization shared by stopword, filler, headline,
+/// and hashtag matching: lowercase letters and digits, everything else
+/// dropped. `keep_apostrophes` retains `'` so contractions still match the
+/// lists that spell them out ("don't", "it's").
+pub(crate) fn normalize_token(text: &str, keep_apostrophes: bool) -> String {
+    text.chars()
+        .filter(|c| c.is_alphanumeric() || (keep_apostrophes && *c == '\''))
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+/// Lowercase for the styles' casual lines, except acronyms ("RL", "GPT-1",
+/// "AI's"), which read as different words once lowercased.
+fn casual_case(text: &str) -> String {
+    let stem = text.split(['\'', '’']).next().unwrap_or(text);
+    let letters: Vec<char> = stem.chars().filter(|c| c.is_alphabetic()).collect();
+    if letters.len() >= 2 && letters.iter().all(|c| c.is_uppercase()) {
+        text.to_string()
+    } else {
+        text.to_lowercase()
+    }
+}
+
 pub(crate) fn is_stopword(w: &str) -> bool {
-    let clean: String = w
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '\'')
-        .collect();
-    STOPWORDS.contains(&clean.to_lowercase().as_str())
+    STOPWORDS.contains(&normalize_token(w, true).as_str())
 }
 
 fn alnum_len(w: &str) -> usize {
@@ -423,12 +454,7 @@ fn build_impact(input: &CaptionInput) -> String {
     let (rel, clip_len) = relative_words(input);
     let blur = SOFT_BLUR * input.out_h as f32 / OUT_H as f32;
     let mut ass = String::new();
-    ass.push_str(&impact_header(
-        input.font,
-        input.out_w,
-        input.out_h,
-        input.emoji_overlay,
-    ));
+    ass.push_str(&impact_header(input.font, input.out_w, input.out_h));
 
     let pages = paginate_impact(&rel);
     for (page_no, page) in pages.iter().enumerate() {
@@ -447,14 +473,6 @@ fn build_impact(input: &CaptionInput) -> String {
             .min(clip_len.max(last.end_ms));
 
         let lines = layout_lockup(page, page_no, input.out_w, input.out_h);
-
-        if let Some(emoji) = emoji_event(
-            input,
-            &page[pick_emphasis(page)],
-            lines.first().map(|l| l.y - l.fs * LINE_PITCH * 0.62),
-        ) {
-            ass.push_str(&emoji);
-        }
 
         for (k, word) in page.iter().enumerate() {
             let start = word.start_ms;
@@ -486,20 +504,16 @@ fn build_impact(input: &CaptionInput) -> String {
                     let shown = if line.emphasis {
                         raw.to_uppercase()
                     } else {
-                        raw.to_lowercase()
+                        casual_case(&raw)
                     };
                     if wi == k {
                         // Active word pops ~6% then eases back to 100 in
                         // ~70ms — the hand-edited karaoke beat. The reset
                         // right after pins line-mates at 100 so only the
-                        // spoken word moves.
+                        // spoken word moves. It is the only accented word:
+                        // the emphasis word stands out by size alone.
                         text.push_str(&format!(
                             "{{\\c&H{}&\\fscx106\\fscy106\\t(0,70,\\fscx100\\fscy100)}}{}{{\\c&H{}&\\fscx100\\fscy100}}",
-                            input.accent_bgr, shown, WHITE_BGR
-                        ));
-                    } else if line.emphasis {
-                        text.push_str(&format!(
-                            "{{\\c&H{}&}}{}{{\\c&H{}&}}",
                             input.accent_bgr, shown, WHITE_BGR
                         ));
                     } else {
@@ -525,16 +539,9 @@ fn build_impact(input: &CaptionInput) -> String {
                         let shown = if line.emphasis {
                             raw.to_uppercase()
                         } else {
-                            raw.to_lowercase()
+                            casual_case(&raw)
                         };
-                        if line.emphasis {
-                            neutral.push_str(&format!(
-                                "{{\\c&H{}&}}{}{{\\c&H{}&}}",
-                                input.accent_bgr, shown, WHITE_BGR
-                            ));
-                        } else {
-                            neutral.push_str(&shown);
-                        }
+                        neutral.push_str(&shown);
                     }
                     ass.push_str(&format!(
                         "Dialogue: 0,{},{},Impact,,0,0,0,,{}\n",
@@ -549,40 +556,21 @@ fn build_impact(input: &CaptionInput) -> String {
     ass
 }
 
-fn impact_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
-    let face = if font == "Inter" {
-        "Inter Bold".to_string()
-    } else {
-        font.to_string()
-    };
+fn impact_header(font: &str, out_w: u32, out_h: u32) -> String {
+    let face = CaptionStyle::Impact.face(font);
     let s = out_h as f32 / OUT_H as f32;
     let b = border_scale(out_w, out_h);
-    format!(
-        "[Script Info]\n\
-         Title: Clipping Factory captions (impact)\n\
-         ScriptType: v4.00+\n\
-         PlayResX: {out_w}\n\
-         PlayResY: {out_h}\n\
-         WrapStyle: 2\n\
-         ScaledBorderAndShadow: yes\n\
-         \n\
-         [V4+ Styles]\n\
-         Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Impact,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H40000000,&H78000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
-         \n\
-         [Events]\n\
-         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
+    let styles = format!(
+        "Style: Impact,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H40000000,&H78000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n",
         face = face,
-        out_w = out_w,
-        out_h = out_h,
         fs = 84.0 * s,
         outline = PRO_OUTLINE * b,
         shadow = PRO_SHADOW * b,
         ml = 60.0 * s,
         mr = 60.0 * s,
         mv = 60.0 * s,
-        emoji_style = emoji_style_line(&face, s, emoji),
-    )
+    );
+    ass_envelope("impact", out_w, out_h, &styles)
 }
 
 /// Character budget for a page (keeps the small tier comfortably wide).
@@ -646,12 +634,7 @@ fn build_clean(input: &CaptionInput) -> String {
     let (rel, clip_len) = relative_words(input);
 
     let mut ass = String::new();
-    ass.push_str(&clean_header(
-        input.font,
-        input.out_w,
-        input.out_h,
-        input.emoji_overlay,
-    ));
+    ass.push_str(&clean_header(input.font, input.out_w, input.out_h));
 
     // Headline: only when it adds context beyond the opening caption.
     if show_headline(input.headline, &rel) {
@@ -667,10 +650,6 @@ fn build_clean(input: &CaptionInput) -> String {
     for (page_no, page) in pages.iter().enumerate() {
         if page.is_empty() {
             continue;
-        }
-        let keyword = pick_emphasis(page);
-        if let Some(emoji) = emoji_event(input, &page[keyword], Some(input.out_h as f32 * 0.62)) {
-            ass.push_str(&emoji);
         }
         let next_start = pages
             .get(page_no + 1)
@@ -693,7 +672,7 @@ fn build_clean(input: &CaptionInput) -> String {
                 if j > 0 {
                     line.push(' ');
                 }
-                if j == i || j == keyword {
+                if j == i {
                     line.push_str(&format!(
                         "{{\\c&H{}&}}{}{{\\c&H{}&}}",
                         input.accent_bgr,
@@ -711,22 +690,11 @@ fn build_clean(input: &CaptionInput) -> String {
                 line
             ));
             if gap_end > end {
-                let mut neutral = String::new();
-                for (j, word) in page.iter().enumerate() {
-                    if j > 0 {
-                        neutral.push(' ');
-                    }
-                    if j == keyword {
-                        neutral.push_str(&format!(
-                            "{{\\c&H{}&}}{}{{\\c&H{}&}}",
-                            input.accent_bgr,
-                            escape(&word.text),
-                            WHITE_BGR
-                        ));
-                    } else {
-                        neutral.push_str(&escape(&word.text));
-                    }
-                }
+                let neutral = page
+                    .iter()
+                    .map(|w| escape(&w.text))
+                    .collect::<Vec<_>>()
+                    .join(" ");
                 ass.push_str(&format!(
                     "Dialogue: 0,{},{},Caption,,0,0,0,,{}\n",
                     ass_time(end),
@@ -739,28 +707,13 @@ fn build_clean(input: &CaptionInput) -> String {
     ass
 }
 
-fn clean_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
+fn clean_header(font: &str, out_w: u32, out_h: u32) -> String {
     let s = out_h as f32 / OUT_H as f32;
     let b = border_scale(out_w, out_h);
-    format!(
-        "[Script Info]\n\
-         Title: Clipping Factory captions (clean)\n\
-         ScriptType: v4.00+\n\
-         PlayResX: {out_w}\n\
-         PlayResY: {out_h}\n\
-         WrapStyle: 2\n\
-         ScaledBorderAndShadow: yes\n\
-         \n\
-         [V4+ Styles]\n\
-         Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Caption,{font},{cfs:.1},&H00FFFFFF,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,{co:.1},{cs:.1},2,{cml:.0},{cmr:.0},{cmv:.0},1\n\
-         Style: Headline,{font},{hfs:.1},&H00F2F2F2,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,{ho:.1},{hs:.1},8,{hml:.0},{hmr:.0},{hmv:.0},1\n{emoji_style}\
-         \n\
-         [Events]\n\
-         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
+    let styles = format!(
+        "Style: Caption,{font},{cfs:.1},&H00FFFFFF,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,{co:.1},{cs:.1},2,{cml:.0},{cmr:.0},{cmv:.0},1\n\
+         Style: Headline,{font},{hfs:.1},&H00F2F2F2,&H00FFFFFF,&H00141414,&H7A000000,-1,0,0,0,100,100,0,0,1,{ho:.1},{hs:.1},8,{hml:.0},{hmr:.0},{hmv:.0},1\n",
         font = font,
-        out_w = out_w,
-        out_h = out_h,
         cfs = 66.0 * s,
         co = 3.0 * b,
         cs = 2.4 * b,
@@ -773,8 +726,8 @@ fn clean_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
         hml = 110.0 * s,
         hmr = 110.0 * s,
         hmv = 110.0 * s,
-        emoji_style = emoji_style_line(font, s, emoji),
-    )
+    );
+    ass_envelope("clean", out_w, out_h, &styles)
 }
 
 /// Clean-style pages: 3–7 word groups.
@@ -819,12 +772,7 @@ fn show_headline(headline: &str, words: &[Word]) -> bool {
     }
     let norm = |s: &str| -> Vec<String> {
         s.split_whitespace()
-            .map(|w| {
-                w.chars()
-                    .filter(|c| c.is_alphanumeric())
-                    .flat_map(|c| c.to_lowercase())
-                    .collect::<String>()
-            })
+            .map(|w| normalize_token(w, false))
             .filter(|w| !w.is_empty())
             .collect()
     };
@@ -844,8 +792,6 @@ fn show_headline(headline: &str, words: &[Word]) -> bool {
 
 const POP_FS: f32 = 118.0;
 const POP_ANCHOR_Y: f32 = 1180.0;
-/// Minimum spacing between emoji flashes so they read as accents, not noise.
-const POP_EMOJI_GAP_MS: u64 = 2500;
 
 fn build_pop(input: &CaptionInput) -> String {
     let (rel, _clip_len) = relative_words(input);
@@ -854,14 +800,8 @@ fn build_pop(input: &CaptionInput) -> String {
     let cx = input.out_w as f32 / 2.0;
     let blur = SOFT_BLUR * s;
     let mut ass = String::new();
-    ass.push_str(&pop_header(
-        input.font,
-        input.out_w,
-        input.out_h,
-        input.emoji_overlay,
-    ));
+    ass.push_str(&pop_header(input.font, input.out_w, input.out_h));
 
-    let mut last_emoji: Option<u64> = None;
     for word in &rel {
         let start = word.start_ms;
         let end = word.end_ms.max(start + 10);
@@ -869,7 +809,7 @@ fn build_pop(input: &CaptionInput) -> String {
         let shown = if keyword {
             escape(&word.text).to_uppercase()
         } else {
-            escape(&word.text).to_lowercase()
+            casual_case(&escape(&word.text))
         };
         // Clamp the word's size to the frame, same rule as the lockup lines.
         let em = if keyword {
@@ -902,55 +842,25 @@ fn build_pop(input: &CaptionInput) -> String {
             ass_time(end),
             text
         ));
-
-        if keyword
-            && last_emoji
-                .map(|t| start.saturating_sub(t) >= POP_EMOJI_GAP_MS)
-                .unwrap_or(true)
-        {
-            if let Some(emoji) = emoji_event(input, word, Some((POP_ANCHOR_Y - 240.0) * s)) {
-                ass.push_str(&emoji);
-                last_emoji = Some(start);
-            }
-        }
     }
     ass
 }
 
-fn pop_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
-    let face = if font == "Inter" {
-        "Inter Bold".to_string()
-    } else {
-        font.to_string()
-    };
+fn pop_header(font: &str, out_w: u32, out_h: u32) -> String {
+    let face = CaptionStyle::Pop.face(font);
     let s = out_h as f32 / OUT_H as f32;
     let b = border_scale(out_w, out_h);
-    format!(
-        "[Script Info]\n\
-         Title: Clipping Factory captions (pop)\n\
-         ScriptType: v4.00+\n\
-         PlayResX: {out_w}\n\
-         PlayResY: {out_h}\n\
-         WrapStyle: 2\n\
-         ScaledBorderAndShadow: yes\n\
-         \n\
-         [V4+ Styles]\n\
-         Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Pop,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H40000000,&H78000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
-         \n\
-         [Events]\n\
-         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
+    let styles = format!(
+        "Style: Pop,{face},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H40000000,&H78000000,-1,0,0,0,100,100,1,0,1,{outline:.1},{shadow:.1},5,{ml:.0},{mr:.0},{mv:.0},1\n",
         face = face,
-        out_w = out_w,
-        out_h = out_h,
         fs = POP_FS * s,
         outline = PRO_OUTLINE * b,
         shadow = PRO_SHADOW * b,
         ml = 60.0 * s,
         mr = 60.0 * s,
         mv = 60.0 * s,
-        emoji_style = emoji_style_line(&face, s, emoji),
-    )
+    );
+    ass_envelope("pop", out_w, out_h, &styles)
 }
 
 // ===========================================================================
@@ -966,12 +876,7 @@ fn build_cinema(input: &CaptionInput) -> String {
     let s = input.out_h as f32 / OUT_H as f32;
     let cx = input.out_w as f32 / 2.0;
     let mut ass = String::new();
-    ass.push_str(&cinema_header(
-        input.font,
-        input.out_w,
-        input.out_h,
-        input.emoji_overlay,
-    ));
+    ass.push_str(&cinema_header(input.font, input.out_w, input.out_h));
 
     let pages = paginate(&rel);
     for page in pages.iter() {
@@ -979,45 +884,88 @@ fn build_cinema(input: &CaptionInput) -> String {
             continue;
         }
         let keyword = pick_emphasis(page);
-        if let Some(emoji) = emoji_event(input, &page[keyword], Some((CINEMA_Y - 260.0) * s)) {
-            ass.push_str(&emoji);
-        }
         let start = page.first().unwrap().start_ms;
         let end = page.last().unwrap().end_ms.max(start + 10);
-        let mut line = String::new();
-        for (j, w) in page.iter().enumerate() {
-            if j > 0 {
-                line.push(' ');
+        let line = |accent: bool| {
+            let mut line = String::new();
+            for (j, w) in page.iter().enumerate() {
+                if j > 0 {
+                    line.push(' ');
+                }
+                let shown = casual_case(&escape(&w.text));
+                if accent && j == keyword {
+                    line.push_str(&format!(
+                        "{{\\c&H{}&}}{}{{\\c&H{}&}}",
+                        input.accent_bgr, shown, WHITE_BGR
+                    ));
+                } else {
+                    line.push_str(&shown);
+                }
             }
-            let shown = escape(&w.text).to_lowercase();
-            if j == keyword {
-                line.push_str(&format!(
-                    "{{\\c&H{}&}}{}{{\\c&H{}&}}",
-                    input.accent_bgr, shown, WHITE_BGR
-                ));
-            } else {
-                line.push_str(&shown);
-            }
+            line
+        };
+        // The keyword is accented only while it is spoken, so the color
+        // never sits on a word the speaker has not reached or has left.
+        let kw_start = page[keyword].start_ms.clamp(start, end);
+        let kw_end = page
+            .get(keyword + 1)
+            .map(|next| next.start_ms)
+            .unwrap_or(end)
+            .min(page[keyword].end_ms.max(kw_start + 10))
+            .min(end);
+        let spans: Vec<(u64, u64, bool)> = [
+            (start, kw_start, false),
+            (kw_start, kw_end, true),
+            (kw_end, end, false),
+        ]
+        .into_iter()
+        .filter(|(a, b, _)| b > a)
+        .collect();
+        for (n, &(from, to, accent)) in spans.iter().enumerate() {
+            let fade_in = if n == 0 { 90 } else { 0 };
+            let fade_out = if n + 1 == spans.len() { 140 } else { 0 };
+            ass.push_str(&format!(
+                "Dialogue: 0,{},{},Cinema,,0,0,0,,{{\\an2\\pos({cx:.0},{y:.0})\\fs{fs:.0}\\fsp{fsp:.1}\\fad({fade_in},{fade_out})\\blur0.4}}{}\n",
+                ass_time(from),
+                ass_time(to),
+                line(accent),
+                cx = cx,
+                y = CINEMA_Y * s,
+                fs = CINEMA_FS * s,
+                fsp = CINEMA_TRACKING * s,
+            ));
         }
-        ass.push_str(&format!(
-            "Dialogue: 0,{},{},Cinema,,0,0,0,,{{\\an2\\pos({cx:.0},{y:.0})\\fs{fs:.0}\\fsp{fsp:.1}\\fad(90,140)\\blur0.4}}{line}\n",
-            ass_time(start),
-            ass_time(end),
-            cx = cx,
-            y = CINEMA_Y * s,
-            fs = CINEMA_FS * s,
-            fsp = CINEMA_TRACKING * s,
-        ));
     }
     ass
 }
 
-fn cinema_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
+fn cinema_header(font: &str, out_w: u32, out_h: u32) -> String {
     let s = out_h as f32 / OUT_H as f32;
     let b = border_scale(out_w, out_h);
+    let styles = format!(
+        "Style: Cinema,{font},{fs:.1},&H00F2F2F2,&H00FFFFFF,&H00141414,&H7A000000,0,0,0,0,100,100,0,0,1,{outline:.1},{shadow:.1},2,{ml:.0},{mr:.0},{mv:.0},1\n",
+        font = font,
+        fs = CINEMA_FS * s,
+        outline = 3.2 * b,
+        shadow = 1.4 * b,
+        ml = 90.0 * s,
+        mr = 90.0 * s,
+        mv = 60.0 * s,
+    );
+    ass_envelope("cinema", out_w, out_h, &styles)
+}
+
+// ===========================================================================
+// Shared plumbing
+// ===========================================================================
+
+/// The ASS envelope every caption style shares: script header, the style
+/// `Format:` row, the caller's own `Style:` rows (`styles`, newline-
+/// terminated), and the events header.
+fn ass_envelope(title: &str, out_w: u32, out_h: u32, styles: &str) -> String {
     format!(
         "[Script Info]\n\
-         Title: Clipping Factory captions (cinema)\n\
+         Title: Clipping Factory captions ({title})\n\
          ScriptType: v4.00+\n\
          PlayResX: {out_w}\n\
          PlayResY: {out_h}\n\
@@ -1026,121 +974,12 @@ fn cinema_header(font: &str, out_w: u32, out_h: u32, emoji: bool) -> String {
          \n\
          [V4+ Styles]\n\
          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Cinema,{font},{fs:.1},&H00F2F2F2,&H00FFFFFF,&H00141414,&H7A000000,0,0,0,0,100,100,0,0,1,{outline:.1},{shadow:.1},2,{ml:.0},{mr:.0},{mv:.0},1\n{emoji_style}\
+         {styles}\
          \n\
          [Events]\n\
          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
-        font = font,
-        out_w = out_w,
-        out_h = out_h,
-        fs = CINEMA_FS * s,
-        outline = 3.2 * b,
-        shadow = 1.4 * b,
-        ml = 90.0 * s,
-        mr = 90.0 * s,
-        mv = 60.0 * s,
-        emoji_style = emoji_style_line(font, s, emoji),
     )
 }
-
-// ===========================================================================
-// EMOJI ACCENT — opt-in glyph flash at each page's keyword timestamp
-// ===========================================================================
-
-/// Curated keyword → glyph map; longer hints first so specific wins over
-/// generic. Fallback is deterministic on the word so the same keyword always
-/// lands the same emoji.
-const EMOJI_MAP: &[(&[&str], &str)] = &[
-    (
-        &[
-            "money", "cash", "profit", "selling", "sales", "revenue", "rich", "paid",
-        ],
-        "💰",
-    ),
-    (&["win", "best", "champion", "goat", "top"], "🏆"),
-    (
-        &[
-            "growth", "growing", "scale", "compound", "market", "business",
-        ],
-        "📈",
-    ),
-    (&["secret", "hidden", "nobody", "actually"], "🤫"),
-    (&["afraid", "scared", "fear", "panic", "terrifying"], "😱"),
-    (&["brain", "mind", "think", "idea", "smart", "learn"], "🧠"),
-    (&["fire", "hot", "insane", "crazy", "wild"], "🔥"),
-    (&["laugh", "funny", "joke", "hilarious"], "😂"),
-    (&["sleep", "tired", "dream"], "😴"),
-    (&["work", "hustle", "grind", "build"], "💪"),
-    (&["dead", "death", "kill"], "💀"),
-    (&["food", "hungry", "eating"], "🍔"),
-    (&["code", "computer", "phone", "tech", "internet"], "💻"),
-    (&["time", "clock", "hours", "minutes"], "⏰"),
-    (&["mistake", "wrong", "never", "stop"], "🚫"),
-    (&["love", "heart"], "❤️"),
-    (&["question"], "❓"),
-    (&["danger", "risk", "warning"], "⚠️"),
-    (&["music", "song"], "🎵"),
-    (&["world", "earth", "everyone"], "🌍"),
-    (&["future", "tomorrow"], "🔮"),
-    (&["sad", "cry"], "😢"),
-];
-const EMOJI_FALLBACK: &[&str] = &["⚡", "💡", "🚀", "⭐"];
-
-/// Deterministic glyph for an emphasized word.
-fn emoji_for(word: &str) -> &'static str {
-    let cleaned: String = word
-        .chars()
-        .filter(|c| c.is_alphanumeric())
-        .flat_map(|c| c.to_lowercase())
-        .collect();
-    for (hints, emoji) in EMOJI_MAP {
-        if hints.iter().any(|h| cleaned.contains(h)) {
-            return emoji;
-        }
-    }
-    let hash: usize = cleaned.bytes().map(|b| b as usize).sum();
-    EMOJI_FALLBACK[hash % EMOJI_FALLBACK.len()]
-}
-
-/// A large glyph flash centered above the caption block for the keyword's
-/// spoken window (clamped to ~0.6–1.4 s so it reads as a beat, not a frame
-/// pop). `None` when the overlay is off.
-fn emoji_event(input: &CaptionInput, word: &Word, y: Option<f32>) -> Option<String> {
-    if !input.emoji_overlay {
-        return None;
-    }
-    let s = input.out_h as f32 / OUT_H as f32;
-    let cx = input.out_w as f32 / 2.0;
-    let y = y.unwrap_or(input.out_h as f32 * 0.60).max(140.0 * s);
-    let start = word.start_ms;
-    let end = word.end_ms.clamp(start + 600, start + 1400);
-    Some(format!(
-        "Dialogue: 0,{},{},Emoji,,0,0,0,,{{\\an5\\pos({cx:.0},{y:.0})\\fs{fs:.0}\\fad(60,120)\\fscx70\\fscy70\\t(0,120,\\fscx100\\fscy100)}}{}\n",
-        ass_time(start),
-        ass_time(end),
-        emoji_for(&word.text),
-        cx = cx,
-        y = y,
-        fs = 120.0 * s,
-    ))
-}
-
-/// The Emoji style line, appended under a style's own line only when the
-/// overlay is enabled so unused style rows stay out of the ASS.
-fn emoji_style_line(font: &str, s: f32, enabled: bool) -> String {
-    if !enabled {
-        return String::new();
-    }
-    format!(
-        "         Style: Emoji,{font},{fs:.1},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n",
-        font = font,
-        fs = 120.0 * s,
-    )
-}
-
-// ===========================================================================
-// Shared plumbing
-// ===========================================================================
 
 /// Border scale for ASS Outline/Shadow: borders follow the clip's output
 /// geometry (the smaller axis wins) so a 608×1080 render keeps the same
@@ -1149,8 +988,10 @@ fn border_scale(out_w: u32, out_h: u32) -> f32 {
     (out_w as f32 / OUT_W as f32).min(out_h as f32 / OUT_H as f32)
 }
 
-/// ASS timestamp: `H:MM:SS.CS` (centiseconds).
+/// ASS timestamp: `H:MM:SS.CS`, rounded to the nearest centisecond so no
+/// highlight starts or ends more than 5 ms off its word.
 fn ass_time(ms: u64) -> String {
+    let ms = (ms + 5) / 10 * 10;
     let cs = (ms / 10) % 100;
     let s = (ms / 1000) % 60;
     let m = (ms / 60_000) % 60;
@@ -1246,13 +1087,11 @@ mod tests {
             headline: "",
             font: "Inter",
             accent_bgr: accent_bgr_for(CaptionStyle::Clean, None),
-            emoji_overlay: false,
             out_w: OUT_W,
             out_h: OUT_H,
         };
         let ass = build_ass(&input, CaptionStyle::Clean);
-        // Every spoken word gets an accent window; the page keyword also keeps
-        // its accent through the trailing neutral window.
+        // Every spoken word gets an accent window, and nothing else does.
         for w in [0u64, 400, 800, 1200, 1600] {
             assert!(
                 parse_accent_events(&ass, CLEAN_ACCENT_BGR)
@@ -1284,7 +1123,6 @@ mod tests {
                 headline: "headline\r\nDialogue: injected",
                 font: "Inter",
                 accent_bgr: accent_bgr_for(CaptionStyle::Clean, None),
-                emoji_overlay: false,
                 out_w: OUT_W,
                 out_h: OUT_H,
             },
@@ -1312,7 +1150,6 @@ mod tests {
             headline: "",
             font: "Inter",
             accent_bgr: accent_bgr_for(CaptionStyle::Impact, None),
-            emoji_overlay: false,
             out_w: OUT_W,
             out_h: OUT_H,
         }
@@ -1347,6 +1184,78 @@ mod tests {
         events.sort_unstable();
         events.dedup();
         events
+    }
+
+    /// Every style, every 10 ms: at most one accented word is on screen, and
+    /// it is the word being spoken at that instant.
+    #[test]
+    fn only_the_spoken_word_is_ever_accented() {
+        let text = "so here is the thing nobody tells you about building a company \
+                    you think the hard part is the product but actually it is people";
+        let mut t = 0u64;
+        let words: Vec<Word> = text
+            .split_whitespace()
+            .enumerate()
+            .map(|(i, word)| {
+                // ASS resolves time to 10 ms, so the fixture does too.
+                let len = 120 + (i as u64 * 37) % 260 / 10 * 10;
+                t += [0, 20, 60, 0, 700, 10][i % 6];
+                let w = Word {
+                    text: word.into(),
+                    start_ms: t,
+                    end_ms: t + len,
+                    p: 0.9,
+                };
+                t += len;
+                w
+            })
+            .collect();
+        let accent = "12AB34";
+        let marker = format!("\\c&H{accent}&");
+        for style in [
+            CaptionStyle::Impact,
+            CaptionStyle::Clean,
+            CaptionStyle::Pop,
+            CaptionStyle::Cinema,
+        ] {
+            let mut inp = input(&words, t + 500);
+            inp.accent_bgr = accent.into();
+            let ass = build_ass(&inp, style);
+            let events: Vec<((u64, u64), Vec<String>)> = ass
+                .lines()
+                .filter(|l| l.starts_with("Dialogue:"))
+                .map(|l| {
+                    let lit = l
+                        .match_indices(&marker)
+                        .map(|(at, _)| {
+                            let rest = &l[at..];
+                            let body = &rest[rest.find('}').unwrap() + 1..];
+                            body[..body.find('{').unwrap_or(body.len())].to_lowercase()
+                        })
+                        .collect();
+                    (parse_events(l)[0], lit)
+                })
+                .collect();
+            for ms in (0..t).step_by(10) {
+                let lit: Vec<&String> = events
+                    .iter()
+                    .filter(|((s, e), _)| *s <= ms && ms < *e)
+                    .flat_map(|(_, lit)| lit)
+                    .collect();
+                assert!(lit.len() <= 1, "{style:?} at {ms}ms lights {lit:?}");
+                if let Some(word) = lit.first() {
+                    let spoken = words
+                        .iter()
+                        .find(|w| w.start_ms <= ms && ms < w.end_ms)
+                        .map(|w| w.text.to_lowercase());
+                    assert_eq!(
+                        spoken.as_deref(),
+                        Some(word.as_str()),
+                        "{style:?} at {ms}ms"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -1597,16 +1506,16 @@ mod tests {
         let (sw, sh) = (608u32, 1080u32);
         let scale = border_scale(sw, sh);
         for (ass_style, header) in [
-            ("Impact", impact_header("Inter", OUT_W, OUT_H, false)),
-            ("Pop", pop_header("Inter", OUT_W, OUT_H, false)),
-            ("Caption", clean_header("Inter", OUT_W, OUT_H, false)),
-            ("Cinema", cinema_header("Inter", OUT_W, OUT_H, false)),
+            ("Impact", impact_header("Inter", OUT_W, OUT_H)),
+            ("Pop", pop_header("Inter", OUT_W, OUT_H)),
+            ("Caption", clean_header("Inter", OUT_W, OUT_H)),
+            ("Cinema", cinema_header("Inter", OUT_W, OUT_H)),
         ] {
             let small = match ass_style {
-                "Impact" => impact_header("Inter", sw, sh, false),
-                "Pop" => pop_header("Inter", sw, sh, false),
-                "Caption" => clean_header("Inter", sw, sh, false),
-                _ => cinema_header("Inter", sw, sh, false),
+                "Impact" => impact_header("Inter", sw, sh),
+                "Pop" => pop_header("Inter", sw, sh),
+                "Caption" => clean_header("Inter", sw, sh),
+                _ => cinema_header("Inter", sw, sh),
             };
             for field in [ASS_OUTLINE_FIELD, ASS_SHADOW_FIELD] {
                 let full = style_field(&header, ass_style, field);
@@ -1621,8 +1530,8 @@ mod tests {
         // The punchy looks keep a thin stroke (a soft halo, not a sticker
         // outline) at full size.
         for (style, ass) in [
-            ("Impact", impact_header("Inter", OUT_W, OUT_H, false)),
-            ("Pop", pop_header("Inter", OUT_W, OUT_H, false)),
+            ("Impact", impact_header("Inter", OUT_W, OUT_H)),
+            ("Pop", pop_header("Inter", OUT_W, OUT_H)),
         ] {
             let outline = style_field(&ass, style, ASS_OUTLINE_FIELD);
             assert!(
@@ -1637,11 +1546,7 @@ mod tests {
     #[test]
     fn clean_captions_clear_the_bottom_risk_zone() {
         for (w, h) in [(OUT_W, OUT_H), (608, 1080)] {
-            let mv = style_field(
-                &clean_header("Inter", w, h, false),
-                "Caption",
-                ASS_MARGINV_FIELD,
-            );
+            let mv = style_field(&clean_header("Inter", w, h), "Caption", ASS_MARGINV_FIELD);
             assert!(
                 mv > 0.2 * h as f32,
                 "clean baseline {mv}px sits inside the bottom UI zone at {w}×{h}"
@@ -1654,10 +1559,10 @@ mod tests {
     #[test]
     fn ass_headers_pin_the_output_canvas() {
         for ass in [
-            impact_header("Inter", OUT_W, OUT_H, false),
-            clean_header("Inter", OUT_W, OUT_H, false),
-            pop_header("Inter", OUT_W, OUT_H, false),
-            cinema_header("Inter", OUT_W, OUT_H, false),
+            impact_header("Inter", OUT_W, OUT_H),
+            clean_header("Inter", OUT_W, OUT_H),
+            pop_header("Inter", OUT_W, OUT_H),
+            cinema_header("Inter", OUT_W, OUT_H),
         ] {
             assert!(ass.contains("PlayResX: 1080\n"), "{ass}");
             assert!(ass.contains("PlayResY: 1920\n"), "{ass}");
@@ -1671,31 +1576,31 @@ mod tests {
     fn ass_headers_track_the_clip_output_size() {
         let (w, h) = (608, 1080);
         for ass in [
-            impact_header("Inter", w, h, false),
-            clean_header("Inter", w, h, false),
-            pop_header("Inter", w, h, false),
-            cinema_header("Inter", w, h, false),
+            impact_header("Inter", w, h),
+            clean_header("Inter", w, h),
+            pop_header("Inter", w, h),
+            cinema_header("Inter", w, h),
         ] {
             assert!(ass.contains("PlayResX: 608\n"), "{ass}");
             assert!(ass.contains("PlayResY: 1080\n"), "{ass}");
         }
         let s = h as f32 / OUT_H as f32;
-        let clean = clean_header("Inter", w, h, false);
+        let clean = clean_header("Inter", w, h);
         assert!(
             clean.contains(&format!("Style: Caption,Inter,{:.1}", 66.0 * s)),
             "{clean}"
         );
-        let impact = impact_header("Inter", w, h, false);
+        let impact = impact_header("Inter", w, h);
         assert!(
             impact.contains(&format!("Style: Impact,Inter Bold,{:.1}", 84.0 * s)),
             "{impact}"
         );
-        let pop = pop_header("Inter", w, h, false);
+        let pop = pop_header("Inter", w, h);
         assert!(
             pop.contains(&format!("Style: Pop,Inter Bold,{:.1}", POP_FS * s)),
             "{pop}"
         );
-        let cinema = cinema_header("Inter", w, h, false);
+        let cinema = cinema_header("Inter", w, h);
         assert!(
             cinema.contains(&format!("Style: Cinema,Inter,{:.1}", CINEMA_FS * s)),
             "{cinema}"
@@ -1718,8 +1623,44 @@ mod tests {
     #[test]
     fn style_parses_from_string() {
         assert_eq!(CaptionStyle::from_str("clean"), CaptionStyle::Clean);
+        assert_eq!(CaptionStyle::from_str("pop"), CaptionStyle::Pop);
+        assert_eq!(CaptionStyle::from_str("cinema"), CaptionStyle::Cinema);
         assert_eq!(CaptionStyle::from_str("impact"), CaptionStyle::Impact);
         assert_eq!(CaptionStyle::from_str("anything"), CaptionStyle::Impact);
+    }
+
+    #[test]
+    fn normalize_token_strips_punctuation_and_lowercases() {
+        assert_eq!(normalize_token("Uh,", true), "uh");
+        assert_eq!(normalize_token("Hello-World!", false), "helloworld");
+        assert_eq!(normalize_token("—", false), "");
+        assert_eq!(normalize_token("", true), "");
+    }
+
+    /// Apostrophes survive only for the lists that spell contractions out.
+    #[test]
+    fn normalize_token_keeps_apostrophes_on_request() {
+        assert_eq!(normalize_token("Don't", true), "don't");
+        assert_eq!(normalize_token("Don't", false), "dont");
+        assert!(is_stopword("IT'S"));
+        assert!(is_stopword("don't,"));
+        assert!(!is_stopword("discipline"));
+    }
+
+    #[test]
+    fn casual_lines_keep_acronyms() {
+        assert_eq!(casual_case("RL,"), "RL,");
+        assert_eq!(casual_case("AIME"), "AIME");
+        assert_eq!(casual_case("GPT-1"), "GPT-1");
+        assert_eq!(casual_case("AI's"), "AI's");
+        assert_eq!(casual_case("I"), "i");
+        assert_eq!(casual_case("Scaling?"), "scaling?");
+    }
+
+    /// Non-Latin scripts pass through instead of collapsing to nothing.
+    #[test]
+    fn normalize_token_preserves_unicode_letters() {
+        assert_eq!(normalize_token("Café", false), "café");
     }
 
     #[test]
@@ -1762,7 +1703,7 @@ mod tests {
         assert!(ass.contains("Style: Impact,Georgia,"));
     }
 
-    // ---- Pop + Cinema styles + emoji overlay ----
+    // ---- Pop + Cinema styles ----
 
     #[test]
     fn style_names_round_trip_through_strict_parse() {
@@ -1770,8 +1711,6 @@ mod tests {
             let style = CaptionStyle::parse_strict(label).expect(label);
             assert_eq!(style.label(), label);
         }
-        assert_eq!(CaptionStyle::from_str("bounce"), CaptionStyle::Pop);
-        assert_eq!(CaptionStyle::from_str("cinematic"), CaptionStyle::Cinema);
         assert_eq!(
             CaptionStyle::parse_strict("Cinema"),
             Some(CaptionStyle::Cinema)
@@ -1830,7 +1769,7 @@ mod tests {
     }
 
     #[test]
-    fn cinema_emits_one_fading_line_per_page_with_accented_keyword() {
+    fn cinema_fades_each_page_in_and_out_and_accents_the_keyword_only_while_spoken() {
         let words: Vec<Word> = "most people think discipline means waking early every day"
             .split_whitespace()
             .enumerate()
@@ -1840,121 +1779,44 @@ mod tests {
         inp.accent_bgr = accent_bgr_for(CaptionStyle::Cinema, None);
         let ass = build_ass(&inp, CaptionStyle::Cinema);
         let events: Vec<&str> = ass.lines().filter(|l| l.starts_with("Dialogue:")).collect();
-        assert_eq!(events.len(), paginate(&words).len(), "{ass}");
         for e in &events {
             assert!(e.contains("\\fad("), "cinema lines fade: {e}");
             assert!(e.contains("\\fsp"), "cinema lines are letterspaced: {e}");
             assert!(e.contains("Cinema,"), "{e}");
         }
+        // One fade-in and one fade-out per page, however the page is split.
+        let pages = paginate(&words).len();
+        assert_eq!(
+            events.iter().filter(|e| !e.contains("\\fad(0,")).count(),
+            pages,
+            "{ass}"
+        );
+        assert_eq!(
+            events.iter().filter(|e| !e.contains(",0)")).count(),
+            pages,
+            "{ass}"
+        );
         // The page's keyword is accent-colored and everything renders lowercase.
         assert!(
             ass.contains("discipline") && !ass.contains("Discipline"),
             "{ass}"
         );
         let accent = accent_bgr_for(CaptionStyle::Cinema, None);
+        let accented = parse_accent_events(&ass, &accent);
         for page in paginate(&words) {
-            let kw = page[pick_emphasis(&page)].text.to_lowercase();
+            let e = pick_emphasis(&page);
+            let kw = page[e].text.to_lowercase();
             assert!(
                 ass.contains(&format!("&H{accent}&}}{kw}")),
                 "keyword '{kw}' carries the accent: {ass}"
             );
-        }
-    }
-
-    /// "i made money selling systems" at 1s/word: page styles pick each
-    /// page's emphasis word (Impact: "selling" → 💰; Clean/Cinema single-page
-    /// "systems"); Pop flashes each keyword (money → 💰, systems) under its
-    /// cooldown rule.
-    #[test]
-    fn emoji_overlay_is_opt_in_and_lands_on_the_keyword() {
-        let words: Vec<Word> = "i made money selling systems"
-            .split_whitespace()
-            .enumerate()
-            .map(|(i, t)| Word {
-                text: t.into(),
-                start_ms: i as u64 * 1000,
-                end_ms: i as u64 * 1000 + 280,
-                p: 0.9,
-            })
-            .collect();
-        let expected_anchor: &[(CaptionStyle, u64)] = &[
-            (CaptionStyle::Impact, 3000),
-            (CaptionStyle::Clean, 4000),
-            (CaptionStyle::Cinema, 4000),
-            (CaptionStyle::Pop, 2000),
-        ];
-        for (style, anchor) in expected_anchor {
-            let mut inp = input(&words, 6000);
-            inp.accent_bgr = accent_bgr_for(*style, None);
-            inp.emoji_overlay = false;
-            let off = build_ass(&inp, *style);
+            let spoken = (page[e].start_ms, page[e].end_ms);
             assert!(
-                !off.contains("Emoji"),
-                "{style:?} leaked Emoji style: {off}"
-            );
-
-            inp.emoji_overlay = true;
-            let on = build_ass(&inp, *style);
-            assert!(
-                on.contains("Style: Emoji,"),
-                "{style:?} missing Emoji style: {on}"
-            );
-            let emoji_events: Vec<&str> = on
-                .lines()
-                .filter(|l| l.starts_with("Dialogue:") && l.contains("Emoji,"))
-                .collect();
-            assert!(
-                !emoji_events.is_empty(),
-                "{style:?} overlay on but no emoji events: {on}"
-            );
-            let windows = emoji_events
-                .iter()
-                .flat_map(|e| parse_events(e))
-                .collect::<Vec<_>>();
-            assert!(
-                windows.iter().any(|(s, _)| *s == *anchor),
-                "{style:?} emoji not anchored to keyword @{anchor}: {windows:?}"
+                accented.contains(&spoken),
+                "{kw} accented {spoken:?}: {ass}"
             );
         }
-        // Impact and Pop both surface the mapped glyph for their keyword.
-        let mut inp = input(&words, 6000);
-        inp.emoji_overlay = true;
-        assert!(build_ass(&inp, CaptionStyle::Impact).contains("💰"));
-        inp.accent_bgr = accent_bgr_for(CaptionStyle::Pop, None);
-        assert!(build_ass(&inp, CaptionStyle::Pop).contains("💰"));
-    }
-
-    #[test]
-    fn emoji_for_is_deterministic_and_keyword_mapped() {
-        assert_eq!(emoji_for("money"), "💰");
-        assert_eq!(emoji_for("Profits!"), "💰");
-        assert_eq!(emoji_for("zzz-custom"), emoji_for("zzz-custom"));
-        assert!(EMOJI_FALLBACK.contains(&emoji_for("persimmon")));
-    }
-
-    #[test]
-    fn pop_emoji_flashes_respect_the_cooldown() {
-        // Ten keywords in 2s: only the first flash fits inside the gap rule.
-        let words: Vec<Word> = (0..10)
-            .map(|i| Word {
-                text: format!("keyword{i}"),
-                start_ms: i as u64 * 200,
-                end_ms: i as u64 * 200 + 180,
-                p: 0.9,
-            })
-            .collect();
-        let mut inp = input(&words, 4000);
-        inp.emoji_overlay = true;
-        inp.accent_bgr = accent_bgr_for(CaptionStyle::Pop, None);
-        let ass = build_ass(&inp, CaptionStyle::Pop);
-        let flashes = ass
-            .lines()
-            .filter(|l| l.starts_with("Dialogue:") && l.contains("Emoji,"))
-            .count();
-        assert!(
-            flashes <= 2,
-            "emoji spam: {flashes} flashes across 2s of keywords\n{ass}"
-        );
+        assert_eq!(accented.len(), paginate(&words).len(), "{ass}");
     }
 }
 

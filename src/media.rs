@@ -15,7 +15,7 @@ pub const MAX_SOURCE_MS: u64 = 4 * 3600 * 1000;
 pub async fn probe(
     cfg: &Config,
     src: &Path,
-    original_filename: &str,
+    source_filename: &str,
     cancel: &CancellationToken,
 ) -> Result<SourceInfo> {
     let args: Vec<String> = vec![
@@ -30,7 +30,7 @@ pub async fn probe(
     let out = crate::util::run_capture_cancellable(&cfg.ffprobe, &args, cancel)
         .await
         .map_err(|e| {
-            if e.to_string().contains("cancelled") {
+            if crate::util::is_cancelled(&e) {
                 e
             } else {
                 anyhow!("This file could not be read as a video. {}", e)
@@ -84,23 +84,67 @@ pub async fn probe(
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(|| std::fs::metadata(src).map(|m| m.len()).unwrap_or(0));
 
+    let video_codec = video["codec_name"]
+        .as_str()
+        .unwrap_or("unknown")
+        .to_string();
+    let audio_codec = audio["codec_name"]
+        .as_str()
+        .unwrap_or("unknown")
+        .to_string();
+    ensure_decodable(cfg, [&video_codec, &audio_codec], cancel).await?;
+
     Ok(SourceInfo {
-        filename: original_filename.to_string(),
+        filename: source_filename.to_string(),
         duration_ms,
         width,
         height,
         fps,
-        video_codec: video["codec_name"]
-            .as_str()
-            .unwrap_or("unknown")
-            .to_string(),
-        audio_codec: audio["codec_name"]
-            .as_str()
-            .unwrap_or("unknown")
-            .to_string(),
+        video_codec,
+        audio_codec,
         size_bytes,
         scene_boundaries_ms: Vec::new(),
     })
+}
+
+/// A stream whose codec this FFmpeg build has no decoder for must fail here:
+/// extract and render would otherwise fail mid-run with a less actionable
+/// message. The decoder list is read without touching the source, so the
+/// check stays constant-time on long files.
+async fn ensure_decodable(
+    cfg: &Config,
+    codecs: [&str; 2],
+    cancel: &CancellationToken,
+) -> Result<()> {
+    let args: Vec<String> = vec!["-hide_banner".into(), "-decoders".into()];
+    let list = crate::util::run_capture_cancellable(&cfg.ffmpeg, &args, cancel).await?;
+    for codec in codecs {
+        if codec != "unknown" && !decoder_list_has(&list, codec) {
+            bail!(
+                "This source uses the {codec} codec, which this FFmpeg build cannot decode. \
+                 Convert it to an MP4 with H.264 video and AAC audio, then upload it again."
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Whether an `ffmpeg -decoders` listing names `codec` (the second
+/// whitespace-separated field on each decoder row).
+fn decoder_list_has(list: &str, codec: &str) -> bool {
+    list.lines().any(|line| {
+        let mut fields = line.split_whitespace();
+        fields.next();
+        fields.next() == Some(codec)
+    })
+}
+
+/// The 0–1 fraction for an ffmpeg `-progress` line's `out_time_ms`
+/// (microseconds), clamped to `dur_us`; `None` for other lines or when the
+/// duration is not yet known.
+pub(crate) fn out_time_fraction(line: &str, dur_us: f64) -> Option<f32> {
+    let us: f64 = line.strip_prefix("out_time_ms=")?.parse().ok()?;
+    (dur_us > 0.0).then(|| (us / dur_us).clamp(0.0, 1.0) as f32)
 }
 
 /// Detect scene-boundary timestamps once per Source during inspection.
@@ -141,13 +185,8 @@ where
     let dur_us = (duration_ms as f64) * 1000.0;
     run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
         if !is_err {
-            if let Some(us) = line
-                .strip_prefix("out_time_ms=")
-                .and_then(|v| v.parse::<f64>().ok())
-            {
-                if dur_us > 0.0 {
-                    on_progress((us / dur_us).clamp(0.0, 1.0) as f32);
-                }
+            if let Some(pct) = out_time_fraction(line, dur_us) {
+                on_progress(pct);
             }
             return;
         }
@@ -226,19 +265,14 @@ where
     run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
         // ffmpeg -progress emits `out_time_ms=<microseconds>` lines on stdout.
         if !is_err {
-            if let Some(us) = line
-                .strip_prefix("out_time_ms=")
-                .and_then(|v| v.parse::<f64>().ok())
-            {
-                if dur_us > 0.0 {
-                    on_progress((us / dur_us).clamp(0.0, 1.0) as f32);
-                }
+            if let Some(pct) = out_time_fraction(line, dur_us) {
+                on_progress(pct);
             }
         }
     })
     .await
     .map_err(|e| {
-        if e.to_string().contains("cancelled") {
+        if crate::util::is_cancelled(&e) {
             e
         } else {
             anyhow!("Audio extraction failed. {}", e)
@@ -266,5 +300,30 @@ mod tests {
         assert_eq!(parse_scdet_time_ms("lavfi.scdet.time: 0"), Some(0));
         assert_eq!(parse_scdet_time_ms("frame=  100 fps=30"), None);
         assert_eq!(parse_scdet_time_ms("lavfi.scdet.time=abc"), None);
+    }
+
+    #[test]
+    fn decoder_list_matches_by_name_only() {
+        let list = " V....D h264                 H.264 / AVC\n A....D aac                  AAC\n";
+        assert!(decoder_list_has(list, "h264"));
+        assert!(decoder_list_has(list, "aac"));
+        assert!(!decoder_list_has(list, "vp9"));
+        // A codec named only in a description is not a decoder.
+        assert!(!decoder_list_has(list, "H.264"));
+    }
+
+    #[test]
+    fn progress_fraction_parses_and_clamps() {
+        assert_eq!(
+            out_time_fraction("out_time_ms=2500000", 10_000_000.0),
+            Some(0.25)
+        );
+        assert_eq!(
+            out_time_fraction("out_time_ms=20000000", 10_000_000.0),
+            Some(1.0)
+        );
+        assert_eq!(out_time_fraction("out_time_ms=abc", 10_000_000.0), None);
+        assert_eq!(out_time_fraction("frame=3", 10_000_000.0), None);
+        assert_eq!(out_time_fraction("out_time_ms=5", 0.0), None);
     }
 }

@@ -75,21 +75,14 @@ fn response_text(v: &serde_json::Value) -> Result<String> {
 }
 
 pub async fn test(key: &str) -> Result<()> {
-    let client = client()?;
-    let resp = client
-        .get("https://api.anthropic.com/v1/models")
-        .header("x-api-key", key)
-        .header("anthropic-version", VERSION)
-        .send()
-        .await
-        .map_err(|e| anyhow!("Could not reach Anthropic: {}", e))?;
-    let status = resp.status();
-    if status.is_success() {
-        Ok(())
-    } else {
-        let text = resp.text().await.unwrap_or_default();
-        Err(map_error(status.as_u16(), &text, "Anthropic"))
-    }
+    super::openai::check_models(
+        client()?
+            .get("https://api.anthropic.com/v1/models")
+            .header("x-api-key", key)
+            .header("anthropic-version", VERSION),
+        "Anthropic",
+    )
+    .await
 }
 
 #[cfg(test)]

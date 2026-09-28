@@ -6,7 +6,7 @@
 - lint: cargo clippy --all-targets -- -D warnings
 - fmt: cargo fmt --all --check
 - test: cargo test
-- shell: bash -n evals/run.sh
+- shell: bash -n evals/run.sh evals/verify_clip_quality.sh evals/bless_baseline.sh
 
 ## Agent skills
 

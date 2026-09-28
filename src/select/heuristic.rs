@@ -8,6 +8,7 @@
 
 use crate::domain::{Candidate, Scores, Sentence, Transcript};
 use crate::select::overlap_ms;
+use crate::validate::{normalize, MAX_MS, MIN_MS};
 
 const HOOK_STARTS: &[&str] = &[
     "what",
@@ -130,8 +131,6 @@ const HOUSEKEEPING_OR_SPONSOR_CUES: &[&str] = &[
     "and subscribe",
 ];
 
-const MIN_MS: u64 = 20_000;
-const MAX_MS: u64 = 90_000;
 /// Upper bounds of the clip-length bands each start keeps a best end in.
 const END_BANDS: [u64; 3] = [40_000, 60_000, MAX_MS];
 
@@ -155,7 +154,7 @@ fn focus_terms(focus: Option<&str>) -> Vec<String> {
         return Vec::new();
     };
     let mut terms: Vec<String> = Vec::new();
-    for word in normalized_claim(focus).split_whitespace() {
+    for word in normalize(focus).split_whitespace() {
         let keep = !FOCUS_STOPWORDS.contains(&word)
             && (word.chars().count() >= 3 || word.chars().any(|c| c.is_ascii_digit()));
         if keep && !terms.iter().any(|t| t == word) {
@@ -183,7 +182,7 @@ fn title_terms(title: Option<&str>) -> (Vec<String>, Vec<String>) {
             _ => {}
         }
     }
-    let words: Vec<String> = normalized_claim(&clean)
+    let words: Vec<String> = normalize(&clean)
         .split_whitespace()
         .map(str::to_string)
         .collect();
@@ -209,8 +208,8 @@ fn term_hits_word(term: &str, word: &str) -> bool {
     } else {
         (word, term)
     };
-    long.starts_with(short) && short.len() >= 3
-        || short.len() >= 5 && long.starts_with(&short[..short.len() - 1])
+    (long.starts_with(short) && short.len() >= 3)
+        || (short.len() >= 5 && long.starts_with(&short[..short.len() - 1]))
 }
 
 /// Propose candidates; an optional loudness profile adds a modest composite
@@ -218,13 +217,14 @@ fn term_hits_word(term: &str, word: &str) -> bool {
 /// prompt ("clips about pricing") steers ranking toward windows whose
 /// transcript text matches its keywords — topical windows also pass the
 /// editorial-signal gate, since the user asked for the topic directly.
-/// Blank or absent focus keeps generic best-moments ranking unchanged.
+/// Blank or absent focus keeps generic best-candidate ranking unchanged.
 /// `title` is the uploaded filename: episodes are usually named for their
-/// best moment, so windows that say the title's words get a moderate boost.
+/// strongest passage, so windows that say the title's words get a moderate
+/// boost.
 pub fn propose(
     t: &Transcript,
     source_duration_ms: u64,
-    proposal_count: usize,
+    candidate_count: usize,
     energy: Option<&crate::energy::EnergyProfile>,
     focus: Option<&str>,
     title: Option<&str>,
@@ -320,7 +320,7 @@ pub fn propose(
             let reference = REFERENCE_CUES.iter().any(|c| window_lower.contains(c));
             let has_number = window_text.chars().any(|c| c.is_ascii_digit());
             let word_count = window_text.split_whitespace().count().max(1);
-            let normalized_window = normalized_claim(&window_lower);
+            let normalized_window = normalize(&window_lower);
             let normalized_words: Vec<&str> = normalized_window.split_whitespace().collect();
             // Distinct focus terms present in the window, plus how much of the
             // window is actually on-topic: a stray topical tail inside a long
@@ -333,7 +333,7 @@ pub fn propose(
             let focus_hit_sentences = window
                 .iter()
                 .filter(|s| {
-                    let normalized = normalized_claim(&s.text);
+                    let normalized = normalize(&s.text);
                     focus_terms.iter().any(|term| {
                         normalized
                             .split_whitespace()
@@ -396,36 +396,17 @@ pub fn propose(
                 (true, false) => 3,
                 (_, true) => 2,
             };
-            let opening_strength: u8 = if vague_open {
-                3
-            } else if hook && question_open || absolute_claim {
-                5
-            } else if hook || substantive_open {
-                4
-            } else {
-                3
-            };
-            let specificity: u8 = if repeated_claim || has_number && contrast {
-                5
-            } else if absolute_claim || has_number || contrast || names >= 2 {
-                4
-            } else {
-                3
-            };
-            let tension: u8 = if exchange || contrast && question_open {
-                5
-            } else if contrast || question_open {
-                4
-            } else {
-                3
-            };
-            let payoff: u8 = if repeated_claim || payoff_cue && end_score >= 2.5 {
-                5
-            } else if exchange || payoff_cue || end_score >= 2.2 {
-                4
-            } else {
-                3
-            };
+            let opening_strength = opening_strength_tier(
+                vague_open,
+                hook,
+                question_open,
+                absolute_claim,
+                substantive_open,
+            );
+            let specificity =
+                specificity_tier(repeated_claim, has_number, contrast, absolute_claim, names);
+            let tension = tension_tier(exchange, contrast, question_open);
+            let payoff = payoff_tier(repeated_claim, exchange, payoff_cue, end_score);
             let clarity: u8 = if filler_rate > 0.12 {
                 3
             } else if filler_rate > 0.06 {
@@ -462,13 +443,9 @@ pub fn propose(
             }
 
             let dur_s = (closer.end_ms - opener.start_ms) as f32 / 1000.0;
-            let composite = self_contained as f32 * 2.0
-                + payoff as f32 * 1.6
-                + opening_strength as f32 * 1.4
-                + clarity as f32 * 1.2
-                + tension as f32 * 1.0
-                + specificity as f32 * 0.8
-                - context_dependency as f32 * 1.5
+            // Rubric weights come from the validator's Composite score, so the
+            // selector and the validator rank by the same measure.
+            let composite = crate::validate::composite_score(&scores)
                 + end_score
                 + focus_boost
                 + title_boost
@@ -522,7 +499,7 @@ pub fn propose(
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     let mut kept: Vec<Candidate> = Vec::new();
     for (_, cand) in scored {
-        if kept.len() >= proposal_count {
+        if kept.len() >= candidate_count {
             break;
         }
         let overlaps = kept.iter().any(|k| {
@@ -539,7 +516,7 @@ pub fn propose(
             .iter()
             .filter(|k| (k.start_ms / third).min(2) == region)
             .count();
-        if region_count >= (proposal_count / 2).max(2) {
+        if region_count >= (candidate_count / 2).max(2) {
             continue;
         }
         kept.push(cand);
@@ -547,12 +524,68 @@ pub fn propose(
     kept
 }
 
+/// Rubric tiers: each ladder is one signal pattern rather than a blend, so a
+/// window scores the highest tier it matches.
+fn opening_strength_tier(
+    vague_open: bool,
+    hook: bool,
+    question_open: bool,
+    absolute_claim: bool,
+    substantive_open: bool,
+) -> u8 {
+    if vague_open {
+        3
+    } else if (hook && question_open) || absolute_claim {
+        5
+    } else if hook || substantive_open {
+        4
+    } else {
+        3
+    }
+}
+
+fn specificity_tier(
+    repeated_claim: bool,
+    has_number: bool,
+    contrast: bool,
+    absolute_claim: bool,
+    names: usize,
+) -> u8 {
+    if repeated_claim || (has_number && contrast) {
+        5
+    } else if absolute_claim || has_number || contrast || names >= 2 {
+        4
+    } else {
+        3
+    }
+}
+
+fn tension_tier(exchange: bool, contrast: bool, question_open: bool) -> u8 {
+    if exchange || (contrast && question_open) {
+        5
+    } else if contrast || question_open {
+        4
+    } else {
+        3
+    }
+}
+
+fn payoff_tier(repeated_claim: bool, exchange: bool, payoff_cue: bool, end_score: f32) -> u8 {
+    if repeated_claim || (payoff_cue && end_score >= 2.5) {
+        5
+    } else if exchange || payoff_cue || end_score >= 2.2 {
+        4
+    } else {
+        3
+    }
+}
+
 /// A clean statement to open on: a full sentence of 6–60 words (interview
 /// questions run long), light on
 /// filler, carrying at least three content words. Scores a 4 on opening
 /// strength without needing a stock hook phrase.
 fn is_substantive_opener(text: &str) -> bool {
-    let normalized = normalized_claim(text);
+    let normalized = normalize(text);
     let words: Vec<&str> = normalized.split_whitespace().collect();
     let fillers = count_fillers(text);
     let content = words.iter().filter(|w| is_content_word(w)).count();
@@ -628,10 +661,10 @@ fn count_fillers(text: &str) -> usize {
         let bare: String = lower.chars().filter(|c| c.is_alphabetic()).collect();
         let comma = lower.ends_with(',');
         let filler = matches!(bare.as_str(), "um" | "uh" | "er" | "ah" | "hmm")
-            || bare == "like" && comma
-            || bare == "know" && prev == "you" && comma
-            || bare == "mean" && prev == "i" && comma
-            || bare == "of" && (prev == "kind" || prev == "sort");
+            || (bare == "like" && comma)
+            || (bare == "know" && prev == "you" && comma)
+            || (bare == "mean" && prev == "i" && comma)
+            || (bare == "of" && (prev == "kind" || prev == "sort"));
         if filler {
             count += 1;
         }
@@ -640,21 +673,11 @@ fn count_fillers(text: &str) -> usize {
     count
 }
 
-fn normalized_claim(text: &str) -> String {
-    text.to_lowercase()
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { ' ' })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
 fn has_repeated_claim(sentences: &[Sentence]) -> bool {
     for (i, a) in sentences.iter().enumerate() {
-        let a = normalized_claim(&a.text);
+        let a = normalize(&a.text);
         for b in sentences.iter().skip(i + 1) {
-            let b = normalized_claim(&b.text);
+            let b = normalize(&b.text);
             let shorter = if a.len() <= b.len() { &a } else { &b };
             let longer = if a.len() <= b.len() { &b } else { &a };
             if shorter.split_whitespace().count() >= 3 && longer.contains(shorter) {
@@ -681,22 +704,29 @@ fn contains_absolute_claim(text: &str) -> bool {
             "everyone" | "everybody" | "nobody" | "never" | "always"
         )
     });
-    let normalized = format!(" {} ", normalized_claim(text));
+    let normalized = format!(" {} ", normalize(text));
     single_word_cue || normalized.contains(" no one ") || normalized.contains(" all of us ")
 }
 
 fn repeats_elsewhere(sentence: &Sentence, sentences: &[Sentence]) -> bool {
-    let claim = normalized_claim(&sentence.text);
+    let claim = normalize(&sentence.text);
     claim.split_whitespace().count() >= 3
-        && sentences.iter().any(|other| {
-            !std::ptr::eq(sentence, other) && normalized_claim(&other.text).contains(&claim)
-        })
+        && sentences
+            .iter()
+            .any(|other| !std::ptr::eq(sentence, other) && normalize(&other.text).contains(&claim))
 }
 
+/// Headline candidates come from the window's opening seconds. A sentence
+/// deep in a window often sits inside a neighbouring clip too, and would give
+/// two posts the same headline.
+const HEADLINE_REACH_MS: u64 = 15_000;
+
 fn best_headline_sentence(sentences: &[Sentence]) -> &Sentence {
+    let reach = sentences[0].start_ms + HEADLINE_REACH_MS;
     sentences
         .iter()
         .take(5)
+        .filter(|s| s.start_ms <= reach)
         .max_by_key(|s| {
             let lower = s.text.to_lowercase();
             let words = s.text.split_whitespace().count();
@@ -713,13 +743,14 @@ fn best_headline_sentence(sentences: &[Sentence]) -> &Sentence {
 fn make_headline(opener: &Sentence) -> String {
     let mut text = opener.text.trim().to_string();
     // Strip weak leading connectives for a cleaner headline.
-    for lead in [
-        "so ", "and ", "but ", "um ", "uh ", "well ", "yeah ", "okay ", "ok ",
-    ] {
+    const LEADS: [&str; 9] = ["so", "and", "but", "um", "uh", "well", "yeah", "okay", "ok"];
+    while let Some(lead) = LEADS.iter().find(|lead| {
         let lower = text.to_lowercase();
-        if lower.starts_with(lead) {
-            text = text[lead.len()..].trim_start().to_string();
-        }
+        lower.starts_with(**lead) && lower[lead.len()..].starts_with([' ', ','])
+    }) {
+        text = text[lead.len()..]
+            .trim_start_matches([' ', ','])
+            .to_string();
     }
     let mut headline = text.trim_end_matches(['.', ',']).to_string();
     if headline.chars().count() > 90 {
@@ -818,7 +849,7 @@ mod tests {
                 serde_json::from_value(src["scene_boundaries_ms"].clone()).unwrap_or_default();
             let energy: Option<crate::energy::EnergyProfile> =
                 read("energy.json").and_then(|e| serde_json::from_str(&e).ok());
-            let limit = crate::select::local_proposal_limit(dur);
+            let limit = crate::select::local_candidate_limit(dur);
             let cands = propose(
                 &t,
                 dur,
@@ -846,10 +877,11 @@ mod tests {
             for a in &report.accepted {
                 let c = &a.candidate;
                 println!(
-                    "  ACCEPT {:>5.1}-{:>5.1}s c={:.1} {}",
+                    "  ACCEPT {:>5.1}-{:>5.1}s c={:.1} [{}] {}",
                     c.start_ms as f64 / 1000.0,
                     c.end_ms as f64 / 1000.0,
                     a.composite,
+                    c.headline,
                     crate::validate::excerpt_text(&t, c.start_ms, c.end_ms)
                         .chars()
                         .take(300)
@@ -894,6 +926,40 @@ mod tests {
             sentences,
             avg_confidence: 0.92,
         }
+    }
+
+    #[test]
+    fn rubric_tiers_keep_their_grouping() {
+        // Opening: (hook && question_open) || absolute_claim — an absolute
+        // claim still scores 5 without a hook, and vague openers never do.
+        assert_eq!(opening_strength_tier(false, false, false, true, false), 5);
+        assert_eq!(opening_strength_tier(false, true, true, false, false), 5);
+        assert_eq!(opening_strength_tier(false, true, false, false, false), 4);
+        assert_eq!(opening_strength_tier(false, false, false, false, true), 4);
+        assert_eq!(opening_strength_tier(true, true, true, true, true), 3);
+
+        // Specificity: repeated_claim || (has_number && contrast).
+        assert_eq!(specificity_tier(true, false, false, false, 0), 5);
+        assert_eq!(specificity_tier(false, true, true, false, 0), 5);
+        assert_eq!(specificity_tier(false, true, false, false, 0), 4);
+        assert_eq!(specificity_tier(false, false, false, true, 0), 4);
+        assert_eq!(specificity_tier(false, false, false, false, 2), 4);
+        assert_eq!(specificity_tier(false, false, false, false, 1), 3);
+
+        // Tension: exchange || (contrast && question_open).
+        assert_eq!(tension_tier(true, false, false), 5);
+        assert_eq!(tension_tier(false, true, true), 5);
+        assert_eq!(tension_tier(false, true, false), 4);
+        assert_eq!(tension_tier(false, false, true), 4);
+        assert_eq!(tension_tier(false, false, false), 3);
+
+        // Payoff: repeated_claim || (payoff_cue && end_score >= 2.5).
+        assert_eq!(payoff_tier(true, false, false, 0.0), 5);
+        assert_eq!(payoff_tier(false, false, true, 2.5), 5);
+        assert_eq!(payoff_tier(false, false, true, 2.4), 4);
+        assert_eq!(payoff_tier(false, true, false, 0.0), 4);
+        assert_eq!(payoff_tier(false, false, false, 2.2), 4);
+        assert_eq!(payoff_tier(false, false, false, 2.1), 3);
     }
 
     #[test]
@@ -982,6 +1048,46 @@ mod tests {
         assert_eq!(cands.len(), 1);
         assert!(cands[0].headline.ends_with('…'));
         assert!(cands[0].headline.chars().count() <= 91);
+    }
+
+    #[test]
+    fn headline_comes_from_the_window_opening() {
+        let sentence = |text: &str, start_ms: u64| Sentence {
+            text: text.into(),
+            start_ms,
+            end_ms: start_ms + 4_000,
+            word_start: 0,
+            word_end: 0,
+        };
+        let window = [
+            sentence("I will tell you the most surprising part of the work.", 0),
+            sentence("It took a long time to see how it all fit together.", 5_000),
+            sentence("Why does scaling work at all?", 30_000),
+        ];
+        assert!(best_headline_sentence(&window).start_ms < 30_000);
+    }
+
+    #[test]
+    fn headline_drops_a_leading_connective_before_a_comma() {
+        let opener = |text: &str| Sentence {
+            text: text.into(),
+            start_ms: 0,
+            end_ms: 4_000,
+            word_start: 0,
+            word_end: 0,
+        };
+        assert_eq!(
+            make_headline(&opener("So, we talked three years ago.")),
+            "We talked three years ago"
+        );
+        assert_eq!(
+            make_headline(&opener("Well, so the answer is no.")),
+            "The answer is no"
+        );
+        assert_eq!(
+            make_headline(&opener("Sometimes it works.")),
+            "Sometimes it works"
+        );
     }
 
     #[test]

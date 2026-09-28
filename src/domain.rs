@@ -117,9 +117,6 @@ pub struct Project {
     /// Accent color for the active caption word, as #RRGGBB.
     #[serde(default)]
     pub accent_color: Option<String>,
-    /// Opt-in emoji accents flashed above the caption block.
-    #[serde(default)]
-    pub emoji_overlay: Option<bool>,
     /// Output composition selected before upload.
     #[serde(default)]
     pub framing_mode: FramingMode,
@@ -132,7 +129,7 @@ pub struct Project {
     pub focus_prompt: Option<String>,
     /// Short-form platform the clips are being cut for. Re-centers the
     /// validator's duration sweet spot — a ranking preference only, never
-    /// an accept bound. `Generic` keeps the original 25–60 s window.
+    /// an accept bound. `Generic` keeps the default 25–60 s window.
     #[serde(default)]
     pub platform: Platform,
 }
@@ -151,7 +148,6 @@ impl Project {
             warning: None,
             caption_style: None,
             accent_color: None,
-            emoji_overlay: None,
             framing_mode: FramingMode::default(),
             language: None,
             focus_prompt: None,
@@ -253,12 +249,12 @@ pub struct SelectionReport {
 /// The short-form platform a project optimizes for. Each platform rewards a
 /// different clip length, so the choice re-centers the validator's duration
 /// sweet spot (a ranking nudge only — the accept bounds never move) and adds
-/// a hint to the selector's window prompt. `Generic` keeps the original
+/// a hint to the selector's window prompt. `Generic` keeps the default
 /// 25–60 s window.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Platform {
-    /// No specific destination — the original 25–60 s sweet spot.
+    /// No specific destination — the default 25–60 s sweet spot.
     #[default]
     Generic,
     TikTok,
@@ -462,10 +458,6 @@ pub struct ClipRecord {
     /// Editable caption wording. Word timings are preserved when possible.
     #[serde(default)]
     pub caption_text: Option<String>,
-    /// Whether the emoji accent overlay was burned into the current render.
-    /// `None` on manifests written before the overlay existed.
-    #[serde(default)]
-    pub emoji_overlay: Option<bool>,
     /// Rendered output size of this clip (ADR-0002). `None` on manifests
     /// written before downscale-only output — those bases are fixed
     /// 1080×1920, which is what the render and restyle paths assume for them.
@@ -496,8 +488,8 @@ pub struct ClipRecord {
     /// edge filling over the clip's duration. Default off.
     #[serde(default)]
     pub progress_bar: bool,
-    /// Opt-in hook title: the clip's headline burned as a title card over
-    /// the opening beat, upper-third. Default off.
+    /// Opt-in hook title: the clip's headline burned over the opening beat,
+    /// upper-third. Default off.
     #[serde(default)]
     pub hook_title: bool,
 }
@@ -568,6 +560,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_stage_has_a_job_state_of_the_same_name() {
+        for stage in STAGES {
+            let state = JobState::from_stage(stage);
+            assert_eq!(serde_json::to_value(state).unwrap(), *stage);
+        }
+    }
+
+    #[test]
     fn fill_framing_keeps_the_analyzed_plan() {
         let tracked = LayoutPlan::FaceCrop {
             keyframes: vec![CropKey::crop(0, 0.42, 0.5, 1.0)],
@@ -619,12 +619,18 @@ mod tests {
         }"#;
         let m: RenderManifest = serde_json::from_str(old).expect("old manifest must load");
         assert_eq!(m.clips.len(), 1);
+        // Clips rendered while the emoji overlay existed carry a field that is
+        // now ignored.
+        let with_emoji = old.replace(
+            r#""low_confidence": false"#,
+            r#""low_confidence": false, "emoji_overlay": true"#,
+        );
+        serde_json::from_str::<RenderManifest>(&with_emoji).expect("emoji-era manifest must load");
         assert_eq!(m.clips[0].score, None);
         assert_eq!(m.clips[0].caption_style, None);
         assert_eq!(m.clips[0].accent_color, None);
         assert_eq!(m.clips[0].caption_font, None);
         assert_eq!(m.clips[0].caption_text, None);
-        assert_eq!(m.clips[0].emoji_overlay, None);
         assert_eq!(m.clips[0].width, None);
         assert_eq!(m.clips[0].height, None);
         // Auto-cut and zoom cuts default off for manifests written before

@@ -31,7 +31,7 @@
   const doneDownload = document.getElementById("review-done-download");
   const doneAgain = document.getElementById("review-done-again");
   const doneClose = document.getElementById("review-done-close");
-  let items = [], index = 0, decisions = load(), lastFocused = null;
+  let items = [], clipTotal = 0, index = 0, decisions = load(), lastFocused = null;
   let announced = false, toastTimer = null;
 
   function load() {
@@ -40,34 +40,13 @@
   function save() {
     try { localStorage.setItem(STORE, JSON.stringify(decisions)); } catch (_) {}
   }
-  function key(src) {
-    try { return new URL(src, location.href).pathname; } catch (_) { return src; }
-  }
-  // .rank also hosts the decision badge; keep only its own label text.
-  function rankText(card) {
-    const rank = card.querySelector(".rank");
-    if (!rank) return "";
-    return [...rank.childNodes]
-      .filter((n) => n.nodeType === Node.TEXT_NODE)
-      .map((n) => n.textContent).join("").trim();
-  }
+  // The clip records and their card elements come from app.js's bridge, so
+  // the theater never has to parse this file's own DOM.
   function collect() {
-    items = [...root.querySelectorAll("article.clip")].flatMap((card) => {
-      const player = card.querySelector(".preview video");
-      if (!player) return [];
-      const dl = card.querySelector(".actions .action-button[download]");
-      return [{
-        card,
-        player,
-        key: key(player.src),
-        title: (card.querySelector("h3") || {}).textContent || "Untitled clip",
-        rank: rankText(card),
-        reason: (card.querySelector(".why") || {}).textContent || "",
-        score: (card.querySelector(".badge.score") || {}).textContent || "",
-        downloadHref: dl ? dl.getAttribute("href") : "",
-        downloadName: dl ? dl.getAttribute("download") : "",
-      }];
-    });
+    const bridge = window.cfStudio;
+    const data = bridge && bridge.reviewItems ? bridge.reviewItems() : { items: [], total: 0 };
+    items = data.items;
+    clipTotal = data.total;
     openBtn.hidden = !items.length;
     paint();
     if (!items.length) {
@@ -126,10 +105,9 @@
   }
   function updateCounts() {
     const keys = new Set(items.map((i) => i.key));
-    const total = root.querySelectorAll("article.clip").length;
     const t = { keep: 0, maybe: 0, skip: 0 };
     for (const [k, v] of Object.entries(decisions)) if (keys.has(k) && v in t) t[v]++;
-    const readyText = total > items.length ? `${items.length} of ${total} ready · ` : "";
+    const readyText = clipTotal > items.length ? `${items.length} of ${clipTotal} ready · ` : "";
     counts.textContent = `${readyText}${t.keep} keep · ${t.maybe} maybe · ${t.skip} skip`;
     paintDots();
   }
@@ -255,10 +233,6 @@
     const next = Math.max(0, Math.min(items.length - 1, index + delta));
     if (next !== index) { index = next; show(true); }
   }
-  function focusables() {
-    return [...theater.querySelectorAll("button, video, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
-      .filter((element) => !element.disabled && element.getClientRects().length > 0);
-  }
   function typing(target) {
     return target instanceof Element && (target.matches("input,select,textarea") || target.isContentEditable);
   }
@@ -285,14 +259,8 @@
       return;
     }
     if (event.key === "Tab") {
-      const elements = focusables();
-      if (!elements.length) return;
-      const first = elements[0], last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault(); last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault(); first.focus();
-      }
+      // app.js owns the shared dialog focus trap.
+      if (window.cfStudio && window.cfStudio.trapTab) window.cfStudio.trapTab(event, theater);
       return;
     }
     if (typing(event.target)) return;

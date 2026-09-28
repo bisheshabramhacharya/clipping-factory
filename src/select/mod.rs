@@ -22,14 +22,32 @@ use anyhow::{anyhow, Result};
 pub fn plan_counts(source_duration_ms: u64) -> (usize, usize) {
     let minutes = source_duration_ms as f64 / 60_000.0;
     let target = ((minutes / 10.0).round() as usize).max(1);
-    let proposals = ((target as f64 * 1.5).ceil() as usize).max(3);
-    (target, proposals)
+    let candidate_count = ((target as f64 * 1.5).ceil() as usize).max(3);
+    (target, candidate_count)
 }
 
-/// Local ranking is cheap, so keep every strong, distinct moment the
-/// validator can reasonably use instead of applying the AI proposal quota.
-pub fn local_proposal_limit(source_duration_ms: u64) -> usize {
+/// Local ranking is cheap, so keep every strong, distinct candidate the
+/// validator can reasonably use instead of applying the AI candidate quota.
+pub fn local_candidate_limit(source_duration_ms: u64) -> usize {
     (source_duration_ms.div_ceil(30_000) as usize).clamp(6, 30)
+}
+
+/// The offline selector's full-source ranking: the offline tier's result and
+/// the fallback when a window's provider request fails.
+fn local_ranking(
+    transcript: &Transcript,
+    source: &SourceInfo,
+    energy: Option<&crate::energy::EnergyProfile>,
+    focus: Option<&str>,
+) -> Vec<Candidate> {
+    heuristic::propose(
+        transcript,
+        source.duration_ms,
+        local_candidate_limit(source.duration_ms),
+        energy,
+        focus,
+        Some(&source.filename),
+    )
 }
 
 pub struct SelectionOutcome {
@@ -43,7 +61,7 @@ pub struct SelectionOutcome {
 /// `focus` is the project's optional free-text steering prompt ("clips about
 /// pricing"). Providers receive it as a rubric directive; the offline tier
 /// falls back to keyword matching. Blank or absent focus keeps generic
-/// best-moments ranking. `platform` re-centers the preferred clip length in
+/// best-candidate ranking. `platform` re-centers the preferred clip length in
 /// the window prompt; `Platform::Generic` adds no hint.
 pub async fn propose(
     settings: &AiSettings,
@@ -52,9 +70,9 @@ pub async fn propose(
     energy: Option<&crate::energy::EnergyProfile>,
     focus: Option<&str>,
     platform: Platform,
-    mut on_progress: impl FnMut(f32),
+    on_progress: impl FnMut(f32),
 ) -> Result<SelectionOutcome> {
-    let (target, proposals) = plan_counts(source.duration_ms);
+    let (target, candidate_count) = plan_counts(source.duration_ms);
     let focus = focus.map(str::trim).filter(|f| !f.is_empty());
 
     // An unconnected setup always ranks locally, whatever its stored provider says.
@@ -65,107 +83,176 @@ pub async fn propose(
         Provider::Offline
     };
 
-    match provider {
-        Provider::Offline => Ok(SelectionOutcome {
-            candidates: heuristic::propose(
-                transcript,
-                source.duration_ms,
-                local_proposal_limit(source.duration_ms),
-                energy,
-                focus,
-                Some(&source.filename),
-            ),
+    if provider == Provider::Offline {
+        // `heuristic::propose` ranks the whole source in one deterministic
+        // pass, so its shortlist is already finally ranked (PRD §9.1) — only
+        // the windowed tiers below need a separate ranking pass.
+        return Ok(SelectionOutcome {
+            candidates: local_ranking(transcript, source, energy, focus),
             selector: "local ranking".into(),
             warning: None,
-        }),
-        Provider::Local => {
-            let base_url = settings.effective_base_url();
-            let model = settings.effective_model();
-            let windows = build_windows(transcript, source.duration_ms);
-            let per_window = ((proposals as f64) / (windows.len() as f64)).ceil() as usize;
-            let mut all: Vec<Candidate> = Vec::new();
-            let mut failure = None;
+        });
+    }
 
-            // One provider request per window — the loop count is the work.
-            for (i, win) in windows.iter().enumerate() {
-                on_progress(i as f32 / windows.len() as f32);
-                let user_prompt =
-                    window_prompt(win, source, target, per_window.max(2), focus, platform);
-                match local::complete(&base_url, &model, SYSTEM_PROMPT, &user_prompt)
-                    .await
-                    .and_then(|raw| parse_candidates(&raw))
-                {
-                    Ok(mut cands) => all.append(&mut cands),
-                    Err(e) => {
-                        failure = Some(e);
-                        break;
-                    }
+    let key = match provider {
+        Provider::Local => String::new(),
+        _ => settings
+            .api_key
+            .clone()
+            .ok_or_else(|| anyhow!("AI key missing. Open AI connection and add your key."))?,
+    };
+    let base_url = settings.effective_base_url();
+    let model = settings.effective_model();
+    let windows = build_windows(transcript, source.duration_ms);
+    let per_window = ((candidate_count as f64) / (windows.len() as f64)).ceil() as usize;
+    // Every tier asks the same question per window; only the endpoint differs.
+    let mut completion = |user: String| {
+        let (key, base_url, model) = (key.clone(), base_url.clone(), model.clone());
+        async move {
+            match provider {
+                Provider::Anthropic => {
+                    anthropic::complete(&key, &model, SYSTEM_PROMPT, &user).await
                 }
-            }
-
-            match failure {
-                None => {
-                    if windows.len() > 1 {
-                        all = dedupe_similar(all);
-                    }
-                    Ok(SelectionOutcome {
-                        candidates: all,
-                        selector: format!("{} · {}", provider.as_str(), model),
-                        warning: None,
-                    })
-                }
-                // A down or misbehaving local endpoint must never wedge the
-                // pipeline: rank locally and say so in the UI.
-                Some(e) => Ok(SelectionOutcome {
-                    candidates: heuristic::propose(
-                        transcript,
-                        source.duration_ms,
-                        local_proposal_limit(source.duration_ms),
-                        energy,
-                        focus,
-                        Some(&source.filename),
-                    ),
-                    selector: "local ranking (local endpoint failed)".into(),
-                    warning: Some(format!(
-                        "The local endpoint failed ({e}) — ranked locally instead."
-                    )),
-                }),
+                Provider::Local => local::complete(&base_url, &model, SYSTEM_PROMPT, &user).await,
+                _ => openai::complete(&key, &model, SYSTEM_PROMPT, &user).await,
             }
         }
-        Provider::OpenAi | Provider::Anthropic => {
-            let key = settings
-                .api_key
-                .clone()
-                .ok_or_else(|| anyhow!("AI key missing. Open AI connection and add your key."))?;
-            let model = settings.effective_model();
-            let windows = build_windows(transcript, source.duration_ms);
-            let mut all: Vec<Candidate> = Vec::new();
-            let per_window = ((proposals as f64) / (windows.len() as f64)).ceil() as usize;
+    };
+    let results = complete_windows(
+        &windows,
+        |win| window_prompt(win, source, target, per_window.max(2), focus, platform),
+        on_progress,
+        &mut completion,
+        provider == Provider::Local,
+    )
+    .await;
+    let failures = results.iter().filter(|r| r.is_err()).count();
 
-            // One provider request per window — the loop count is the work.
-            for (i, win) in windows.iter().enumerate() {
-                on_progress(i as f32 / windows.len() as f32);
-                let user_prompt =
-                    window_prompt(win, source, target, per_window.max(2), focus, platform);
-                let raw = match provider {
-                    Provider::Anthropic => {
-                        anthropic::complete(&key, &model, SYSTEM_PROMPT, &user_prompt).await?
-                    }
-                    _ => openai::complete(&key, &model, SYSTEM_PROMPT, &user_prompt).await?,
-                };
-                let mut cands = parse_candidates(&raw)?;
-                all.append(&mut cands);
+    // A down or misbehaving local endpoint must never wedge the pipeline:
+    // rank the whole source locally and say so in the UI.
+    if provider == Provider::Local && failures > 0 {
+        return Ok(SelectionOutcome {
+            candidates: local_ranking(transcript, source, energy, focus),
+            selector: "local ranking (local endpoint failed)".into(),
+            warning: Some(format!(
+                "The local endpoint failed ({}) — ranked locally instead.",
+                first_error(&results)
+            )),
+        });
+    }
+    // Every window failing is the one case the stage cannot survive: there is
+    // no partial result to degrade onto.
+    if failures == windows.len() {
+        return Err(anyhow!(first_error(&results)));
+    }
+
+    let local_fallback = (failures > 0).then(|| local_ranking(transcript, source, energy, focus));
+    let (mut all, warning) = merge_windows(
+        &windows,
+        results,
+        local_fallback.as_deref().unwrap_or_default(),
+    );
+    if windows.len() > 1 {
+        // Overlapping windows can propose the same Candidate twice; keep the
+        // copy the validator would rank higher.
+        all = dedupe_similar(all);
+        // PRD §9.1's final ranking pass: per-window order says nothing about
+        // cross-window quality, so one more completion orders the shortlist.
+        if all.len() > 1 {
+            match completion(ranking_prompt(&all))
+                .await
+                .and_then(|raw| apply_ranking(&all, &raw))
+            {
+                Ok(ranked) => all = ranked,
+                // An unusable reply keeps the merge order; candidates are
+                // never dropped or invented.
+                Err(e) => tracing::warn!("final ranking pass failed: {e:#}"),
             }
-            if windows.len() > 1 {
-                all = dedupe_similar(all);
-            }
-            Ok(SelectionOutcome {
-                candidates: all,
-                selector: format!("{} · {}", provider.as_str(), model),
-                warning: None,
-            })
         }
     }
+    Ok(SelectionOutcome {
+        candidates: all,
+        selector: format!("{} · {}", provider.as_str(), model),
+        warning,
+    })
+}
+
+/// One window's provider outcome: its candidates, or the error that failed it.
+type WindowResult = Result<Vec<Candidate>, anyhow::Error>;
+
+/// One provider request per window — the loop count is the work. Outcomes are
+/// kept per window so a single failure can degrade instead of failing the run.
+/// `stop_on_error` is for a local endpoint that is down: asking the remaining
+/// windows only multiplies the wait.
+async fn complete_windows<F, Fut>(
+    windows: &[Window],
+    prompt_for: impl Fn(&Window) -> String,
+    mut on_progress: impl FnMut(f32),
+    mut complete: F,
+    stop_on_error: bool,
+) -> Vec<WindowResult>
+where
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Result<String>>,
+{
+    let mut results = Vec::with_capacity(windows.len());
+    for (i, win) in windows.iter().enumerate() {
+        on_progress(i as f32 / windows.len() as f32);
+        let outcome = complete(prompt_for(win))
+            .await
+            .and_then(|raw| parse_candidates(&raw));
+        let failed = outcome.is_err();
+        results.push(outcome);
+        if failed && stop_on_error {
+            break;
+        }
+    }
+    results
+}
+
+/// Fold one provider outcome per window into a single shortlist. Successful
+/// windows keep their candidates; a failed window is covered by the local
+/// ranking's candidates inside that window's span, so one provider error
+/// degrades the run instead of failing the stage.
+fn merge_windows(
+    windows: &[Window],
+    results: Vec<WindowResult>,
+    local_ranking: &[Candidate],
+) -> (Vec<Candidate>, Option<String>) {
+    let mut merged: Vec<Candidate> = Vec::new();
+    let mut failures: Vec<String> = Vec::new();
+    for (win, result) in windows.iter().zip(results) {
+        match result {
+            Ok(cands) => merged.extend(cands),
+            Err(e) => {
+                merged.extend(
+                    local_ranking
+                        .iter()
+                        .filter(|c| c.start_ms < win.end_ms && c.end_ms > win.start_ms)
+                        .cloned(),
+                );
+                failures.push(format!("{e:#}"));
+            }
+        }
+    }
+    let warning = failures.first().map(|first| {
+        format!(
+            "{} of {} transcript windows failed ({}); those spans were ranked locally instead.",
+            failures.len(),
+            windows.len(),
+            first
+        )
+    });
+    (merged, warning)
+}
+
+/// The first window failure, as the message the stage surfaces.
+fn first_error(results: &[WindowResult]) -> String {
+    results
+        .iter()
+        .find_map(|r| r.as_ref().err())
+        .map(|e| format!("{e:#}"))
+        .unwrap_or_else(|| "the provider failed every window".into())
 }
 
 /// Test connectivity for the configured provider (PRD §14.1 `/api/settings/ai/test`).
@@ -275,7 +362,7 @@ fn ts_precise(ms: u64) -> String {
 // Prompting & parsing
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT: &str = r#"You are the editorial selector inside Clipping Factory, a tool that turns one long podcast into a few faithful vertical clips. You choose which continuous moments of the source recording deserve to stand alone. You are a demanding editor: quality over quota.
+const SYSTEM_PROMPT: &str = r#"You are the editorial selector inside Clipping Factory, a tool that turns one long podcast into a few faithful vertical clips. You choose which continuous candidates of the source recording deserve to stand alone. You are a demanding editor: quality over quota.
 
 HARD RULES
 - Each candidate is ONE continuous interval of the source. You choose only start_ms and end_ms.
@@ -293,7 +380,7 @@ A PASSING CLIP MUST
 - Avoid unresolved references like "like I said earlier".
 - Avoid sponsor reads, housekeeping, introductions, and generic agreement.
 
-WHAT MAKES A MOMENT WORTHY (in priority order)
+WHAT MAKES A CANDIDATE WORTHY (in priority order)
 1. Conflict, tension, or a strong disagreement — people stop scrolling for friction.
 2. A surprising claim, counter-intuitive insight, or a reveal that reframes something.
 3. A complete micro-story: setup → buildup → payoff.
@@ -301,12 +388,12 @@ WHAT MAKES A MOMENT WORTHY (in priority order)
 5. A quotable line that works as a standalone hook.
 6. A loud, emotional, high-energy exchange (raised voices, laughter, excitement).
 
-When in doubt between two moments, prefer the one with more emotion or conflict over neutral-but-correct explanation. Never invent emotion that is not in the transcript — the energy must be audible in the words themselves.
+When in doubt between two candidates, prefer the one with more emotion or conflict over neutral-but-correct explanation. Never invent emotion that is not in the transcript — the energy must be audible in the words themselves.
 
 SCORING (1–5 integers)
 self_contained, opening_strength, specificity, tension_or_novelty, payoff, clarity: 5 is best.
 context_dependency, slop_risk: these are penalties — 1 is safest, 5 is worst.
-Score honestly; weak moments should score low so the validator can reject them. opening_strength must reflect whether the FIRST few seconds would stop a viewer from scrolling.
+Score honestly; weak candidates should score low so the validator can reject them. opening_strength must reflect whether the FIRST few seconds would stop a viewer from scrolling.
 
 OUTPUT
 Return ONLY a JSON object, no markdown fences, shaped exactly like:
@@ -326,14 +413,14 @@ fn window_prompt(
         .filter(|f| !f.is_empty())
         .map(|f| {
             format!(
-                "\n\nEDITORIAL FOCUS\nThe editor who set up this project asked for clips about: \"{f}\". Topical relevance to that request is now the top selection priority — a moment that clearly addresses it outranks a generically stronger one. Only propose off-topic moments when they are exceptional. Every hard rule still applies; never pad the quota with off-topic filler."
+                "\n\nEDITORIAL FOCUS\nThe editor who set up this project asked for clips about: \"{f}\". Topical relevance to that request is now the top selection priority — a candidate that clearly addresses it outranks a generically stronger one. Only propose off-topic candidates when they are exceptional. Every hard rule still applies; never pad the quota with off-topic filler."
             )
         })
         .unwrap_or_default();
     if platform != Platform::Generic {
         let (min_ms, max_ms) = platform.sweet_spot_ms();
         directive.push_str(&format!(
-            "\n\nPLATFORM TARGET\nThese clips are destined for {} — prefer {}–{} s moments when candidates are otherwise comparable. The hard duration rules are unchanged; never stretch or pad a moment to fit the window.",
+            "\n\nPLATFORM TARGET\nThese clips are destined for {} — prefer candidates of {}–{} s when they are otherwise comparable. The hard duration rules are unchanged; never stretch or pad a candidate to fit the window.",
             platform.label(),
             min_ms / 1000,
             max_ms / 1000
@@ -397,21 +484,26 @@ fn clamp_score(v: f64) -> u8 {
     (v.round() as i64).clamp(1, 5) as u8
 }
 
-/// Parse a provider response into candidates. Malformed JSON is a named,
-/// retryable error (PRD §15).
-pub fn parse_candidates(raw: &str) -> Result<Vec<Candidate>> {
+/// Slice the JSON object out of a provider reply, tolerating markdown fences
+/// and surrounding prose.
+fn json_payload(raw: &str) -> Option<&str> {
     let cleaned = raw
         .trim()
         .trim_start_matches("```json")
         .trim_start_matches("```")
         .trim_end_matches("```")
         .trim();
-    let start = cleaned.find('{');
-    let end = cleaned.rfind('}');
-    let json = match (start, end) {
-        (Some(s), Some(e)) if e > s => &cleaned[s..=e],
-        _ => return Err(anyhow!("The AI returned malformed JSON. Retry the stage.")),
-    };
+    match (cleaned.find('{'), cleaned.rfind('}')) {
+        (Some(s), Some(e)) if e > s => Some(&cleaned[s..=e]),
+        _ => None,
+    }
+}
+
+/// Parse a provider response into candidates. Malformed JSON is a named,
+/// retryable error (PRD §15).
+pub fn parse_candidates(raw: &str) -> Result<Vec<Candidate>> {
+    let json = json_payload(raw)
+        .ok_or_else(|| anyhow!("The AI returned malformed JSON. Retry the stage."))?;
     let wrapper: CandidatesWrapper = serde_json::from_str(json)
         .map_err(|e| anyhow!("The AI returned malformed JSON ({}). Retry the stage.", e))?;
 
@@ -446,18 +538,70 @@ pub fn parse_candidates(raw: &str) -> Result<Vec<Candidate>> {
     Ok(out)
 }
 
+/// The final ranking pass (PRD §9.1): the merged shortlist is sent back once
+/// more and the reply must order every candidate by index.
+fn ranking_prompt(shortlist: &[Candidate]) -> String {
+    let mut lines = String::from(
+        "You are the editorial selector inside Clipping Factory. You receive the merged shortlist of candidate clips from one long podcast and order them best first. Return ONLY a JSON object shaped exactly like {\"order\":[2,0,1]}: every candidate index appears exactly once, best first, and no index is added or dropped.\n\nShortlist:\n",
+    );
+    for (i, c) in shortlist.iter().enumerate() {
+        lines.push_str(&format!(
+            "[{i}] {:.1}–{:.1}s — {}\n",
+            c.start_ms as f64 / 1000.0,
+            c.end_ms as f64 / 1000.0,
+            c.headline
+        ));
+    }
+    lines
+        .push_str("\nOrder every candidate index from best to worst. Return only the JSON object.");
+    lines
+}
+
+#[derive(serde::Deserialize)]
+struct RankingWrapper {
+    order: Vec<usize>,
+}
+
+/// Apply a `{"order":[…]}` reply to the shortlist. The reply must name every
+/// candidate exactly once; anything else is an error so the caller keeps the
+/// merge order instead of dropping or inventing candidates.
+fn apply_ranking(shortlist: &[Candidate], raw: &str) -> Result<Vec<Candidate>> {
+    let json = json_payload(raw).ok_or_else(|| anyhow!("The AI returned a malformed ranking."))?;
+    let wrapper: RankingWrapper = serde_json::from_str(json)
+        .map_err(|e| anyhow!("The AI returned a malformed ranking ({}).", e))?;
+    if wrapper.order.len() != shortlist.len() {
+        return Err(anyhow!(
+            "The AI ranking listed {} of {} candidates.",
+            wrapper.order.len(),
+            shortlist.len()
+        ));
+    }
+    let mut seen = vec![false; shortlist.len()];
+    let mut ranked = Vec::with_capacity(shortlist.len());
+    for &idx in &wrapper.order {
+        if idx >= shortlist.len() || seen[idx] {
+            return Err(anyhow!("The AI ranking repeated or misplaced a candidate."));
+        }
+        seen[idx] = true;
+        ranked.push(shortlist[idx].clone());
+    }
+    Ok(ranked)
+}
+
 /// Merge near-duplicate candidates from overlapping windows: keep the higher
-/// scoring of any pair whose intervals overlap more than 55%.
+/// scoring of any pair whose intervals overlap more than 55%. The LLM tiers
+/// run their final ranking completion on the merged shortlist (PRD §9.1);
+/// the offline tier's `heuristic::propose` has already ranked the whole
+/// source deterministically, so this merge order is its final order.
 fn dedupe_similar(mut cands: Vec<Candidate>) -> Vec<Candidate> {
-    let quality = |c: &Candidate| -> i32 {
-        c.scores.self_contained as i32
-            + c.scores.payoff as i32
-            + c.scores.opening_strength as i32
-            + c.scores.clarity as i32
-            - c.scores.context_dependency as i32
-            - c.scores.slop_risk as i32
-    };
-    cands.sort_by_key(|c| -quality(c));
+    // The documented Composite score is the ranking measure; the platform
+    // duration nudge is added later, after the merge, so it plays no part here.
+    let composite = |c: &Candidate| crate::validate::composite_score(&c.scores);
+    cands.sort_by(|a, b| {
+        composite(b)
+            .partial_cmp(&composite(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let mut kept: Vec<Candidate> = Vec::new();
     for c in cands {
         let dup = kept.iter().any(|k| {
@@ -484,11 +628,11 @@ mod tests {
 
     #[test]
     fn plan_counts_match_prd() {
-        // 60-minute source → target 6, proposals 9.
+        // 60-minute source → target 6, candidate count 9.
         assert_eq!(plan_counts(60 * 60_000), (6, 9));
-        // 3-minute source → target 1, proposals 3 (floor).
+        // 3-minute source → target 1, candidate count 3 (floor).
         assert_eq!(plan_counts(3 * 60_000), (1, 3));
-        // 25 minutes → round(2.5) = 3 (round-half-up), proposals 5.
+        // 25 minutes → round(2.5) = 3 (round-half-up), candidate count 5.
         let (t, p) = plan_counts(25 * 60_000);
         assert_eq!(t, 3);
         assert_eq!(p, 5);
@@ -496,9 +640,9 @@ mod tests {
 
     #[test]
     fn local_ranking_keeps_many_more_candidates() {
-        assert_eq!(local_proposal_limit(3 * 60_000), 6);
-        assert_eq!(local_proposal_limit(366_805), 13);
-        assert_eq!(local_proposal_limit(60 * 60_000), 30);
+        assert_eq!(local_candidate_limit(3 * 60_000), 6);
+        assert_eq!(local_candidate_limit(366_805), 13);
+        assert_eq!(local_candidate_limit(60 * 60_000), 30);
     }
 
     #[test]
@@ -662,5 +806,126 @@ mod tests {
             sent.iter().any(|r| r.contains("clips about pricing")),
             "provider request must carry the focus prompt"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // window failures and the final ranking pass — fake providers, no network
+    // ------------------------------------------------------------------
+
+    fn a_window(start_ms: u64, end_ms: u64) -> Window {
+        Window {
+            start_ms,
+            end_ms,
+            lines: String::new(),
+        }
+    }
+
+    fn a_candidate(start_ms: u64, end_ms: u64) -> Candidate {
+        Candidate {
+            start_ms,
+            end_ms,
+            headline: "H".into(),
+            opening_quote: "o".into(),
+            closing_quote: "c".into(),
+            selection_reason: "r".into(),
+            scores: Scores::default(),
+        }
+    }
+
+    #[test]
+    fn apply_ranking_reorders_without_dropping_or_inventing() {
+        let shortlist = vec![
+            a_candidate(0, 20_000),
+            a_candidate(30_000, 50_000),
+            a_candidate(60_000, 80_000),
+        ];
+        let ranked = apply_ranking(&shortlist, "```json\n{\"order\":[2,0,1]}\n```").unwrap();
+        let spans: Vec<(u64, u64)> = ranked.iter().map(|c| (c.start_ms, c.end_ms)).collect();
+        assert_eq!(spans, vec![(60_000, 80_000), (0, 20_000), (30_000, 50_000)]);
+    }
+
+    #[test]
+    fn a_ranking_that_is_not_a_permutation_is_an_error() {
+        let shortlist = vec![a_candidate(0, 20_000), a_candidate(30_000, 50_000)];
+        for raw in [
+            "no json here",
+            "{\"order\":[0]}",
+            "{\"order\":[0,0]}",
+            "{\"order\":[0,2]}",
+        ] {
+            assert!(apply_ranking(&shortlist, raw).is_err(), "accepted {raw}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_single_window_failure_is_reported_not_fatal() {
+        let windows = vec![a_window(0, 10_000), a_window(10_000, 20_000)];
+        let results = complete_windows(
+            &windows,
+            |w| w.start_ms.to_string(),
+            |_| {},
+            |prompt: String| async move {
+                if prompt == "10000" {
+                    Err(anyhow!("rate limit reached (429)"))
+                } else {
+                    Ok("{\"candidates\":[]}".to_string())
+                }
+            },
+            false,
+        )
+        .await;
+        assert!(results[0].is_ok());
+        assert!(results[1].is_err());
+    }
+
+    #[tokio::test]
+    async fn a_local_endpoint_error_stops_the_window_loop() {
+        let windows = vec![a_window(0, 10_000), a_window(10_000, 20_000)];
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = calls.clone();
+        let results = complete_windows(
+            &windows,
+            |_| String::new(),
+            |_| {},
+            |_prompt: String| {
+                let counter = counter.clone();
+                async move {
+                    counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    Err::<String, _>(anyhow!("connection refused"))
+                }
+            },
+            true,
+        )
+        .await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_failed_window_degrades_to_local_ranking_for_its_span() {
+        let windows = vec![a_window(0, 30_000), a_window(30_000, 90_000)];
+        let results = vec![
+            Ok(vec![a_candidate(1_000, 20_000)]),
+            Err(anyhow!("rate limit reached (429)")),
+        ];
+        let local = vec![a_candidate(40_000, 55_000), a_candidate(100_000, 130_000)];
+        let (merged, warning) = merge_windows(&windows, results, &local);
+        let spans: Vec<(u64, u64)> = merged.iter().map(|c| (c.start_ms, c.end_ms)).collect();
+        // The successful window's candidate survives; the failed window's span
+        // is covered by local ranking, and nothing outside it is invented.
+        assert_eq!(spans, vec![(1_000, 20_000), (40_000, 55_000)]);
+        assert!(warning.unwrap().contains("ranked locally"));
+    }
+
+    #[test]
+    fn a_clean_run_keeps_every_candidate_and_warns_about_nothing() {
+        let windows = vec![a_window(0, 30_000), a_window(30_000, 60_000)];
+        let results = vec![
+            Ok(vec![a_candidate(1_000, 20_000)]),
+            Ok(vec![a_candidate(40_000, 55_000)]),
+        ];
+        let (merged, warning) = merge_windows(&windows, results, &[]);
+        assert_eq!(merged.len(), 2);
+        assert!(warning.is_none());
     }
 }

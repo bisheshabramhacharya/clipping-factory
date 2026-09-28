@@ -7,7 +7,7 @@
     inspecting: "1. Inspect",
     extracting_audio: "2. Extract audio",
     transcribing: "3. Transcribe",
-    selecting_candidates: "4. Find moments",
+    selecting_candidates: "4. Find candidates",
     validating_candidates: "5. Validate",
     analyzing_layout: "6. Analyze framing",
     rendering: "7. Render",
@@ -27,8 +27,6 @@
   let cancellationPending = false;
   let retryPending = false;
   let actionMessageKind = null;
-  let modalReturnFocus = null;
-  let deleteReturnFocus = null;
   let pendingDeleteId = null;
   let deleteBusy = false;
   let library = []; // LibraryEntry rows from GET /api/projects
@@ -44,7 +42,7 @@
   let captionFonts = [];
   let captionStyles = [];
   let captionDefaultFont = "Inter";
-  const ACCENT_PRESETS = [
+  const ACCENT_SWATCHES = [
     { name: "Sun yellow", color: "#FFDD00" },
     { name: "Lime", color: "#7CFF4F" },
     { name: "Coral", color: "#FF4F4F" },
@@ -111,8 +109,8 @@
 
   function accentLabel(color) {
     const normalized = String(color || "").toUpperCase();
-    const preset = ACCENT_PRESETS.find((entry) => entry.color === normalized);
-    return preset ? `${preset.name} (${preset.color})` : `Custom color (${normalized})`;
+    const swatch = ACCENT_SWATCHES.find((entry) => entry.color === normalized);
+    return swatch ? `${swatch.name} (${swatch.color})` : `Custom color (${normalized})`;
   }
 
   // ------------------------------------------------------------------ setup
@@ -251,13 +249,13 @@
 
   function wireUploadOptions() {
     const swatchGroup = $("upload-swatches");
-    const swatches = ACCENT_PRESETS.map(({ name, color }) => {
+    const swatches = ACCENT_SWATCHES.map(({ name, color }) => {
       const swatch = document.createElement("button");
       swatch.type = "button";
       swatch.className = "upload-swatch";
       swatch.dataset.color = color;
       swatch.style.setProperty("--swatch", color);
-      swatch.setAttribute("aria-label", `Use ${name} caption highlight, ${color}`);
+      swatch.setAttribute("aria-label", `Use ${name} accent color, ${color}`);
       swatch.title = `${name} (${color})`;
       swatchGroup.appendChild(swatch);
       return swatch;
@@ -307,12 +305,11 @@
       return;
     }
     if (uploadXhr) return;
-    firstClipAnnounced = false;
+    resetProjectState();
     $("drop").classList.add("hidden");
     $("upload-progress").classList.remove("hidden");
     $("cancel-upload-btn").disabled = false;
     $("cancel-upload-btn").textContent = "Cancel upload";
-    uploadCancelRequested = false;
     setUploadPhase(`Uploading ${file.name}…`, 0);
 
     const form = new FormData();
@@ -321,7 +318,6 @@
     form.append("framing_mode", framingMode);
     form.append("accent_mode", accentMode);
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
-    if ($("upload-emoji").checked) form.append("emoji_overlay", "1");
     form.append("language", $("upload-language").value || "auto");
     form.append("platform", $("upload-platform").value || "any");
     const focusPrompt = $("focus-prompt").value.trim();
@@ -392,7 +388,9 @@
     uploadXhr.abort();
   }
 
-  function resetToEmpty({ message = null, kind = "error" } = {}) {
+  // Every per-project runtime field, cleared in one place: the empty state,
+  // switching projects, and a fresh upload all start from the same slate.
+  function resetProjectState() {
     projectId = null;
     view = null;
     liveProgress = null;
@@ -400,14 +398,19 @@
     cancellationPending = false;
     retryPending = false;
     uploadCancelRequested = false;
-    localStorage.removeItem("cf-project");
+    firstClipAnnounced = false;
+    selectedClipId = null;
     clearTimeout(refetchTimer);
     refetchTimer = null;
     if (sse) { sse.close(); sse = null; }
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
     for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
-    selectedClipId = null;
+  }
+
+  function resetToEmpty({ message = null, kind = "error" } = {}) {
+    resetProjectState();
+    localStorage.removeItem("cf-project");
     const warning = $("warning-banner");
     warning.textContent = "";
     warning.classList.add("hidden");
@@ -546,25 +549,12 @@
     }
   }
 
-  // Switch the screen to a library project: same runtime teardown as
-  // resetToEmpty, minus clearing the selection itself.
+  // Switch the screen to a library project.
   function openProject(id) {
     if (!id || id === projectId || uploadXhr) return;
+    resetProjectState();
     projectId = id;
-    view = null;
-    liveProgress = null;
-    liveSamples = { stage: null, pts: [] };
-    cancellationPending = false;
-    retryPending = false;
-    firstClipAnnounced = false;
     localStorage.setItem("cf-project", projectId);
-    clearTimeout(refetchTimer);
-    refetchTimer = null;
-    if (sse) { sse.close(); sse = null; }
-    for (const key of Object.keys(restyleState)) delete restyleState[key];
-    for (const key of Object.keys(clipRev)) delete clipRev[key];
-    for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
-    selectedClipId = null;
     closeLibrary();
     clearActionMessage();
     render();
@@ -603,22 +593,9 @@
     });
   }
 
-  function openDeleteModal() {
-    deleteReturnFocus = document.activeElement;
-    $("delete-backdrop").classList.remove("hidden");
-    $("delete-backdrop").setAttribute("aria-hidden", "false");
-    document.body.classList.add("modal-open");
-    requestAnimationFrame(() => $("delete-cancel").focus());
-  }
+  function openDeleteModal() { deleteDialog.open(); }
 
-  function closeDeleteModal() {
-    $("delete-backdrop").classList.add("hidden");
-    $("delete-backdrop").setAttribute("aria-hidden", "true");
-    document.body.classList.remove("modal-open");
-    pendingDeleteId = null;
-    if (deleteReturnFocus && typeof deleteReturnFocus.focus === "function") deleteReturnFocus.focus();
-    deleteReturnFocus = null;
-  }
+  function closeDeleteModal() { deleteDialog.close(); }
 
   function askDelete(entry) {
     if (deleteBusy) return;
@@ -663,30 +640,6 @@
   function wireDeleteModal() {
     $("delete-cancel").addEventListener("click", closeDeleteModal);
     $("delete-confirm").addEventListener("click", confirmDelete);
-    $("delete-backdrop").addEventListener("click", (e) => {
-      if (e.target === $("delete-backdrop")) closeDeleteModal();
-    });
-    document.addEventListener("keydown", (e) => {
-      if ($("delete-backdrop").classList.contains("hidden")) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeDeleteModal();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const focusables = [...$("delete-backdrop").querySelectorAll("button, input, select, [href]")]
-        .filter((el) => !el.disabled && el.getClientRects().length > 0);
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    });
   }
 
   function connectSse() {
@@ -753,8 +706,8 @@
 
     // Source line
     const src = p.source;
-    $("source-name").textContent = view.original_name || "source.mp4";
-    $("source-name").title = view.original_name || "source.mp4";
+    $("source-name").textContent = view.source_name || "source.mp4";
+    $("source-name").title = view.source_name || "source.mp4";
     $("source-meta").textContent = src
       ? `${src.width}×${src.height} · ${fmtMs(src.duration_ms)} · ${src.video_codec}/${src.audio_codec}`
       : "";
@@ -945,6 +898,14 @@
     }
   }
 
+  // Highest validator score first; scoreless rows (caption-only, old
+  // manifests) keep their manifest order at the end.
+  function rankClips(clips) {
+    return clips.slice().sort((a, b) =>
+      (typeof b.score === "number" ? b.score : -Infinity) -
+      (typeof a.score === "number" ? a.score : -Infinity));
+  }
+
   function renderResults(p) {
     const section = $("results-state");
     const clips = (view.clips || []);
@@ -965,7 +926,7 @@
       $("results-title").textContent = p.status === "complete"
         ? "Captioned video ready"
         : "Captioning full video";
-      $("results-sub").textContent = view.original_name || "";
+      $("results-sub").textContent = view.source_name || "";
     } else {
       $("results-title").textContent =
         total === 0 ? "No clips produced" :
@@ -975,7 +936,7 @@
           ? `${ready.length} clip${ready.length === 1 ? "" : "s"}`
           : `${ready.length} of ${total} clips ready`;
 
-      $("results-sub").textContent = view.original_name || "";
+      $("results-sub").textContent = view.source_name || "";
     }
 
     const openFolder = $("open-folder-btn");
@@ -1001,11 +962,7 @@
     $("empty-results").classList.toggle("hidden", !(p.status === "complete" && total === 0));
 
     const wrap = $("clips");
-    // Highest validator score first; scoreless rows (caption-only, old
-    // manifests) keep their manifest order at the end.
-    const ranked = clips.slice().sort((a, b) =>
-      (typeof b.score === "number" ? b.score : -Infinity) -
-      (typeof a.score === "number" ? a.score : -Infinity));
+    const ranked = rankClips(clips);
     // Reconcile row-by-row instead of remounting the list: clips land
     // one at a time while later ones still render, and remounting a card
     // whose data didn't change would reset its <video>'s playback and any
@@ -1143,6 +1100,22 @@
     ]);
   }
 
+  // Card copy shared with the review theater, which reads it through the
+  // bridge below instead of scraping this DOM.
+  function clipRankText(c) {
+    if (view.caption_only === true) return `Full video · ${fmtMs(c.duration_ms)}`;
+    return `${c.rank === 1 ? "Best clip" : `Clip ${c.rank}`} · ${fmtMs(c.duration_ms)}`;
+  }
+
+  function clipTitleText(c) {
+    return view.caption_only === true ? "Captioned video" : `“${c.headline}”`;
+  }
+
+  function clipWhyText(c) {
+    if (c.status === "failed" && c.error) return `Render error: ${c.error}`;
+    return view.caption_only === true ? "Captions cover the entire video." : c.selection_reason;
+  }
+
   function clipRow(c) {
     const row = document.createElement("article");
     row.className = "clip";
@@ -1196,9 +1169,6 @@
     const body = document.createElement("div");
     body.className = "clip-info";
     const captionOnly = view.caption_only === true;
-    const rankLabel = captionOnly
-      ? "Full video"
-      : (c.rank === 1 ? "Best clip" : `Clip ${c.rank}`);
     const badges = [];
     if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">unclear audio</span>`);
@@ -1210,15 +1180,13 @@
       <p class="times"></p>
       <div class="badges">${badges.join("")}</div>
       <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
-    body.querySelector(".rank").textContent = `${rankLabel} · ${fmtMs(c.duration_ms)}`;
-    body.querySelector("h3").textContent = captionOnly ? "Captioned video" : `“${c.headline}”`;
+    body.querySelector(".rank").textContent = clipRankText(c);
+    body.querySelector("h3").textContent = clipTitleText(c);
     body.querySelector(".times").textContent =
       captionOnly
         ? `Full ${fmtMs(c.duration_ms)} video`
         : `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)}`;
-    body.querySelector(".why").textContent = c.status === "failed" && c.error
-      ? `Render error: ${c.error}`
-      : (captionOnly ? "Captions cover the entire video." : c.selection_reason);
+    body.querySelector(".why").textContent = clipWhyText(c);
     if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
     const actions = document.createElement("div");
@@ -1265,6 +1233,69 @@
     return row;
   }
 
+  // The caption/garnish bundle travels clip → applied → draft → payload; one
+  // conversion per direction keeps a new field to a single edit here.
+  function captionBundle(clip) {
+    return {
+      style: clip.caption_style || captionStyle,
+      color: (clip.accent_color || accentColor).toUpperCase(),
+      font: clip.caption_font || captionDefaultFont,
+      text: clip.caption_text ?? "",
+      textPresent: clip.caption_text !== null && clip.caption_text !== undefined,
+      autoCut: Boolean(clip.auto_cut),
+      zoomCuts: Boolean(clip.zoom_cuts),
+      progressBar: Boolean(clip.progress_bar),
+      hookTitle: Boolean(clip.hook_title),
+    };
+  }
+
+  function captionBundleChanged(draft, applied) {
+    return (
+      draft.style !== applied.style ||
+      draft.color !== applied.color ||
+      draft.font !== applied.font ||
+      draft.textPresent !== applied.textPresent ||
+      (draft.textPresent && draft.text !== applied.text) ||
+      draft.autoCut !== applied.autoCut ||
+      draft.zoomCuts !== applied.zoomCuts ||
+      draft.progressBar !== applied.progressBar ||
+      draft.hookTitle !== applied.hookTitle
+    );
+  }
+
+  function captionBundlePayload(draft, applied) {
+    const payload = {
+      style: draft.style,
+      accent_color: draft.color,
+      font: draft.font,
+    };
+    if (draft.textPresent) payload.caption_text = draft.text;
+    if (draft.autoCut !== applied.autoCut) payload.auto_cut = draft.autoCut;
+    if (draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = draft.zoomCuts;
+    if (draft.progressBar !== applied.progressBar) payload.progress_bar = draft.progressBar;
+    if (draft.hookTitle !== applied.hookTitle) payload.hook_title = draft.hookTitle;
+    return payload;
+  }
+
+  // One builder for every restyle switch row: the text label leads, the
+  // switch stays last.
+  function switchRow({ title, aria, strong, hint, checked, onChange }) {
+    const row = document.createElement("label");
+    row.className = "switch-row compact";
+    row.title = title;
+    const text = document.createElement("span");
+    text.innerHTML = `<strong>${strong}</strong><small>${hint}</small>`;
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.className = "switch";
+    box.checked = checked;
+    box.setAttribute("aria-label", aria);
+    box.addEventListener("change", () => onChange(box.checked));
+    row.appendChild(text);
+    row.appendChild(box);
+    return { row, box };
+  }
+
   // Per-clip caption restyle: pick style + accent color, re-burn from the
   // cached base render (seconds, not a full re-render), reload the preview.
   function restyleControls(c) {
@@ -1272,21 +1303,17 @@
     box.className = "restyle";
     box.setAttribute("role", "group");
     box.setAttribute("aria-label", `Caption settings for ${c.headline}`);
-    const applied = {
-      style: c.caption_style || captionStyle,
-      color: (c.accent_color || accentColor).toUpperCase(),
-      font: c.caption_font || captionDefaultFont,
-      text: c.caption_text ?? "",
-      textPresent: c.caption_text !== null && c.caption_text !== undefined,
-      emoji: Boolean(c.emoji_overlay),
-      autoCut: Boolean(c.auto_cut),
-      zoomCuts: Boolean(c.zoom_cuts),
-      progressBar: Boolean(c.progress_bar),
-      hookTitle: Boolean(c.hook_title),
-    };
+    const applied = captionBundle(c);
     const state = restyleState[c.id] || { draft: { ...applied } };
     state.draft = state.draft || { ...applied };
     restyleState[c.id] = state;
+
+    // The one place a caption or garnish edit is recorded as unsaved.
+    function markDirty(message = "Unsaved changes") {
+      state.kind = "dirty";
+      state.message = message;
+      sync();
+    }
 
     const captionText = document.createElement("textarea");
     captionText.className = "caption-text";
@@ -1297,9 +1324,7 @@
     captionText.addEventListener("input", () => {
       state.draft.text = captionText.value;
       state.draft.textPresent = true;
-      state.kind = "dirty";
-      state.message = "Unsaved changes";
-      sync();
+      markDirty();
     });
 
     const seg = document.createElement("div");
@@ -1315,9 +1340,7 @@
       b.setAttribute("aria-pressed", "false");
       b.addEventListener("click", () => {
         state.draft.style = s;
-        state.kind = "dirty";
-        state.message = "Unsaved changes";
-        sync();
+        markDirty();
       });
       seg.appendChild(b);
       return [s, b];
@@ -1326,20 +1349,18 @@
     const swatches = document.createElement("div");
     swatches.className = "swatches";
     swatches.setAttribute("role", "group");
-    swatches.setAttribute("aria-label", "Caption highlight color");
-    const swatchBtns = ACCENT_PRESETS.map(({ name, color }) => {
+    swatches.setAttribute("aria-label", "Caption accent color");
+    const swatchBtns = ACCENT_SWATCHES.map(({ name, color }) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "swatch";
       b.style.background = color;
-      b.setAttribute("aria-label", `Use ${name} caption highlight, ${color}`);
+      b.setAttribute("aria-label", `Use ${name} accent color, ${color}`);
       b.setAttribute("aria-pressed", "false");
       b.title = `${name} (${color})`;
       b.addEventListener("click", () => {
         state.draft.color = color;
-        state.kind = "dirty";
-        state.message = "Unsaved changes";
-        sync();
+        markDirty();
       });
       swatches.appendChild(b);
       return [color, b];
@@ -1351,14 +1372,12 @@
     const custom = document.createElement("input");
     custom.type = "color";
     custom.className = "custom-color";
-    custom.setAttribute("aria-label", "Custom caption highlight color");
-    custom.title = "Custom caption highlight color";
+    custom.setAttribute("aria-label", "Custom caption accent color");
+    custom.title = "Custom caption accent color";
     custom.setAttribute("aria-pressed", "false");
     custom.addEventListener("input", (e) => {
       state.draft.color = e.target.value.toUpperCase();
-      state.kind = "dirty";
-      state.message = "Unsaved changes";
-      sync();
+      markDirty();
     });
     customPicker.appendChild(customLabel);
     customPicker.appendChild(custom);
@@ -1380,9 +1399,7 @@
     }
     font.addEventListener("change", () => {
       state.draft.font = font.value;
-      state.kind = "dirty";
-      state.message = "Unsaved changes";
-      sync();
+      markDirty();
     });
     const fontPicker = document.createElement("label");
     fontPicker.className = "font-picker";
@@ -1391,99 +1408,48 @@
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
 
-    const emojiToggle = document.createElement("label");
-    emojiToggle.className = "emoji-toggle";
-    emojiToggle.title = "Flash a matching emoji over caption keywords";
-    const emojiBox = document.createElement("input");
-    emojiBox.type = "checkbox";
-    emojiBox.checked = state.draft.emoji;
-    emojiBox.setAttribute("aria-label", "Flash an emoji accent over caption keywords");
-    emojiBox.addEventListener("change", () => {
-      state.draft.emoji = emojiBox.checked;
-      state.kind = "dirty";
-      state.message = "Unsaved changes";
-      sync();
+    const toggle = (key, { title, aria, strong, hint, message = "Re-renders this clip" }) => switchRow({
+      title,
+      aria,
+      strong,
+      hint,
+      checked: Boolean(state.draft[key]),
+      onChange(checked) {
+        state.draft[key] = checked;
+        markDirty(message);
+      },
     });
-    const emojiText = document.createElement("span");
-    emojiText.innerHTML = `<strong>Emoji accents</strong><small>Emoji over keywords</small>`;
-    emojiToggle.appendChild(emojiBox);
-    emojiToggle.appendChild(emojiText);
 
     // Opt-in auto-cut: removes silence gaps and filler words at render.
     // Default off — a clip is otherwise one continuous faithful excerpt.
-    const autoCut = document.createElement("label");
-    autoCut.className = "auto-cut-toggle";
-    autoCut.title = "Remove silence gaps and filler words (um, uh) — re-renders this clip";
-    const autoCutBox = document.createElement("input");
-    autoCutBox.type = "checkbox";
-    autoCutBox.checked = state.draft.autoCut;
-    autoCutBox.setAttribute("aria-label", `Auto-cut silences and filler words for ${c.headline}`);
-    autoCutBox.addEventListener("change", () => {
-      state.draft.autoCut = autoCutBox.checked;
-      state.kind = "dirty";
-      state.message = "Re-renders this clip";
-      sync();
+    const { row: autoCut, box: autoCutBox } = toggle("autoCut", {
+      title: "Remove silence gaps and filler words (um, uh) — re-renders this clip",
+      aria: `Auto-cut silences and filler words for ${c.headline}`,
+      strong: "Auto-cut",
+      hint: "Remove silences &amp; ums",
     });
-    const autoCutText = document.createElement("span");
-    autoCutText.innerHTML = `<strong>Auto-cut</strong><small>Remove silences &amp; ums</small>`;
-    autoCut.appendChild(autoCutBox);
-    autoCut.appendChild(autoCutText);
-
     // Opt-in zoom cuts: subtle punch-in/out on emphasis beats. Default off —
     // the framing otherwise never moves.
-    const zoomCuts = document.createElement("label");
-    zoomCuts.className = "auto-cut-toggle";
-    zoomCuts.title = "Punch in slightly on loud moments and stressed words — re-renders this clip";
-    const zoomCutsBox = document.createElement("input");
-    zoomCutsBox.type = "checkbox";
-    zoomCutsBox.checked = state.draft.zoomCuts;
-    zoomCutsBox.setAttribute("aria-label", `Zoom cuts on emphasis beats for ${c.headline}`);
-    zoomCutsBox.addEventListener("change", () => {
-      state.draft.zoomCuts = zoomCutsBox.checked;
-      state.kind = "dirty";
-      state.message = "Re-renders this clip";
-      sync();
+    const { row: zoomCuts, box: zoomCutsBox } = toggle("zoomCuts", {
+      title: "Punch in slightly on loud beats and stressed words — re-renders this clip",
+      aria: `Zoom cuts on emphasis beats for ${c.headline}`,
+      strong: "Zoom cuts",
+      hint: "Punch in on emphasis",
     });
-    const zoomCutsText = document.createElement("span");
-    zoomCutsText.innerHTML = `<strong>Zoom cuts</strong><small>Punch in on emphasis</small>`;
-    zoomCuts.appendChild(zoomCutsBox);
-    zoomCuts.appendChild(zoomCutsText);
-
-    const progBar = document.createElement("label");
-    progBar.className = "auto-cut-toggle";
-    progBar.title = "Draw a thin accent-colored progress bar along the bottom edge — re-renders this clip";
-    const progBarBox = document.createElement("input");
-    progBarBox.type = "checkbox";
-    progBarBox.checked = state.draft.progressBar;
-    progBarBox.setAttribute("aria-label", `Draw a progress bar for ${c.headline}`);
-    progBarBox.addEventListener("change", () => {
-      state.draft.progressBar = progBarBox.checked;
-      sync();
+    const { row: progBar, box: progBarBox } = toggle("progressBar", {
+      title: "Draw a thin accent-colored progress bar along the bottom edge — re-renders this clip",
+      aria: `Draw a progress bar for ${c.headline}`,
+      strong: "Progress bar",
+      hint: "Thin bar along the bottom",
     });
-    const progBarText = document.createElement("span");
-    progBarText.innerHTML = `<strong>Progress bar</strong><small>Thin bar along the bottom</small>`;
-    progBar.appendChild(progBarBox);
-    progBar.appendChild(progBarText);
-
-    // Opt-in hook title: the clip's headline as a bold title card over the
-    // opening beat. Default off — the clip opens on content.
-    const hookTitle = document.createElement("label");
-    hookTitle.className = "auto-cut-toggle";
-    hookTitle.title = "Burn the clip headline as a title card over the first ~1.8s — re-renders this clip";
-    const hookTitleBox = document.createElement("input");
-    hookTitleBox.type = "checkbox";
-    hookTitleBox.checked = state.draft.hookTitle;
-    hookTitleBox.setAttribute("aria-label", `Show a hook title card at the start of ${c.headline}`);
-    hookTitleBox.addEventListener("change", () => {
-      state.draft.hookTitle = hookTitleBox.checked;
-      state.kind = "dirty";
-      state.message = "Re-renders this clip";
-      sync();
+    // Opt-in hook title: the clip's headline burned over the opening beat.
+    // Default off — the clip opens on content.
+    const { row: hookTitle, box: hookTitleBox } = toggle("hookTitle", {
+      title: "Burn the clip headline as a hook title over the first ~1.8s — re-renders this clip",
+      aria: `Show a hook title at the start of ${c.headline}`,
+      strong: "Hook title",
+      hint: "Headline over the opening",
     });
-    const hookTitleText = document.createElement("span");
-    hookTitleText.innerHTML = `<strong>Hook title</strong><small>Headline over the opening</small>`;
-    hookTitle.appendChild(hookTitleBox);
-    hookTitle.appendChild(hookTitleText);
 
     const apply = document.createElement("button");
     apply.type = "button";
@@ -1495,18 +1461,7 @@
     status.setAttribute("aria-live", "polite");
 
     function sync() {
-      state.dirty = (
-        state.draft.style !== applied.style ||
-        state.draft.color !== applied.color ||
-        state.draft.font !== applied.font ||
-        state.draft.textPresent !== applied.textPresent ||
-        (state.draft.textPresent && state.draft.text !== applied.text) ||
-        Boolean(state.draft.emoji) !== applied.emoji ||
-        state.draft.autoCut !== applied.autoCut ||
-        state.draft.zoomCuts !== applied.zoomCuts ||
-        state.draft.progressBar !== applied.progressBar ||
-        state.draft.hookTitle !== applied.hookTitle
-      );
+      state.dirty = captionBundleChanged(state.draft, applied);
       if (!state.dirty && state.kind === "dirty") {
         state.kind = null;
         state.message = "";
@@ -1521,12 +1476,11 @@
         b.classList.toggle("active", selected);
         b.setAttribute("aria-pressed", String(selected));
       }
-      const customSelected = !ACCENT_PRESETS.some((entry) => entry.color === state.draft.color);
+      const customSelected = !ACCENT_SWATCHES.some((entry) => entry.color === state.draft.color);
       custom.classList.toggle("active", customSelected);
       custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = state.draft.color;
       font.value = state.draft.font;
-      emojiBox.checked = Boolean(state.draft.emoji);
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
       progBarBox.checked = Boolean(state.draft.progressBar);
@@ -1546,17 +1500,7 @@
       sync();
       try {
         const requestProjectId = projectId;
-        const payload = {
-          style: state.draft.style,
-          accent_color: state.draft.color,
-          font: state.draft.font,
-          emoji_overlay: Boolean(state.draft.emoji),
-        };
-        if (state.draft.textPresent) payload.caption_text = state.draft.text;
-        if (state.draft.autoCut !== applied.autoCut) payload.auto_cut = state.draft.autoCut;
-        if (state.draft.zoomCuts !== applied.zoomCuts) payload.zoom_cuts = state.draft.zoomCuts;
-        if (state.draft.progressBar !== applied.progressBar) payload.progress_bar = state.draft.progressBar;
-        if (state.draft.hookTitle !== applied.hookTitle) payload.hook_title = state.draft.hookTitle;
+        const payload = captionBundlePayload(state.draft, applied);
         const updated = await requestJson(apiPath("projects", requestProjectId, "clips", c.id, "restyle"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1575,18 +1519,7 @@
         state.awaitingPreview = true;
         state.kind = "busy";
         state.message = "Loading preview…";
-        state.draft = {
-          style: updated.caption_style || state.draft.style,
-          color: (updated.accent_color || state.draft.color).toUpperCase(),
-          font: updated.caption_font || state.draft.font,
-          text: updated.caption_text ?? "",
-          textPresent: updated.caption_text !== null && updated.caption_text !== undefined,
-          emoji: Boolean(updated.emoji_overlay),
-          autoCut: Boolean(updated.auto_cut),
-          zoomCuts: Boolean(updated.zoom_cuts),
-          progressBar: Boolean(updated.progress_bar),
-          hookTitle: Boolean(updated.hook_title),
-        };
+        state.draft = captionBundle(updated);
         render();
       } catch (err) {
         state.busy = false;
@@ -1611,12 +1544,7 @@
     };
     const toggles = document.createElement("div");
     toggles.className = "toggle-grid";
-    for (const t of [hookTitle, progBar, emojiToggle, autoCut, zoomCuts]) {
-      t.className = "switch-row compact";
-      t.querySelector("input").classList.add("switch");
-      t.appendChild(t.querySelector("input"));
-      toggles.appendChild(t);
-    }
+    for (const t of [hookTitle, progBar, autoCut, zoomCuts]) toggles.appendChild(t);
     const textWrap = document.createElement("details");
     textWrap.className = "caption-text-wrap";
     const textSummary = document.createElement("summary");
@@ -1755,56 +1683,87 @@
     $("model").placeholder = provider === "anthropic" ? "claude-opus-5" : local ? "qwen2.5:7b" : "gpt-4o-mini";
   }
 
-  function modalFocusables() {
-    return [...$("modal-backdrop").querySelectorAll("button, input, select, [href]")]
+  // One focus trap + open/close implementation shared by every dialog: the
+  // two modals here and the review theater in review.js (via the bridge).
+  function dialogFocusables(root) {
+    return [...root.querySelectorAll("button, input, select, textarea, video, [href], [tabindex]:not([tabindex='-1'])")]
       .filter((el) => !el.disabled && el.getClientRects().length > 0);
   }
 
-  function openModal() {
-    modalReturnFocus = document.activeElement;
-    $("modal-backdrop").classList.remove("hidden");
-    $("modal-backdrop").setAttribute("aria-hidden", "false");
-    document.body.classList.add("modal-open");
-    syncModalRows();
-    requestAnimationFrame(() => $("provider").focus());
+  function trapTabWithin(event, root) {
+    const focusables = dialogFocusables(root);
+    if (!focusables.length) return false;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      return true;
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+      return true;
+    }
+    return false;
   }
 
-  function closeModal() {
-    $("modal-backdrop").classList.add("hidden");
-    $("modal-backdrop").setAttribute("aria-hidden", "true");
-    document.body.classList.remove("modal-open");
-    $("test-result").classList.add("hidden");
-    $("api-key").value = "";
-    if (modalReturnFocus && typeof modalReturnFocus.focus === "function") modalReturnFocus.focus();
-    modalReturnFocus = null;
+  function createDialog(backdropId, { focus, onOpen, onClose } = {}) {
+    const backdrop = $(backdropId);
+    let returnFocus = null;
+    function open() {
+      returnFocus = document.activeElement;
+      backdrop.classList.remove("hidden");
+      backdrop.setAttribute("aria-hidden", "false");
+      document.body.classList.add("modal-open");
+      if (onOpen) onOpen();
+      requestAnimationFrame(() => {
+        const target = focus && backdrop.querySelector(focus);
+        if (target) target.focus();
+      });
+    }
+    function close() {
+      backdrop.classList.add("hidden");
+      backdrop.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("modal-open");
+      if (onClose) onClose();
+      if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
+      returnFocus = null;
+    }
+    document.addEventListener("keydown", (e) => {
+      if (backdrop.classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key === "Tab") trapTabWithin(e, backdrop);
+    });
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) close();
+    });
+    return { open, close };
   }
+
+  const aiDialog = createDialog("modal-backdrop", {
+    focus: "#provider",
+    onOpen: syncModalRows,
+    onClose: () => {
+      $("test-result").classList.add("hidden");
+      $("api-key").value = "";
+    },
+  });
+  const deleteDialog = createDialog("delete-backdrop", {
+    focus: "#delete-cancel",
+    onClose: () => { pendingDeleteId = null; },
+  });
+
+  function openModal() { aiDialog.open(); }
+  function closeModal() { aiDialog.close(); }
 
   function wireModal() {
     $("ai-btn").addEventListener("click", openModal);
     $("modal-close").addEventListener("click", closeModal);
-    $("modal-backdrop").addEventListener("click", (e) => {
-      if (e.target === $("modal-backdrop")) closeModal();
-    });
-    document.addEventListener("keydown", (e) => {
-      if ($("modal-backdrop").classList.contains("hidden")) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeModal();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const focusables = modalFocusables();
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    });
     $("provider").addEventListener("change", syncModalRows);
     $("test-save").addEventListener("click", async () => {
       const btn = $("test-save");
@@ -1851,6 +1810,34 @@
     return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
                  : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
+
+  // ------------------------------------------------------------------ review bridge
+  // review.js is a separate script: it reads the live clip records here and
+  // reuses the dialog focus trap instead of scraping the card DOM.
+  function reviewItems() {
+    const clips = (view && view.clips) || [];
+    const items = [];
+    for (const c of rankClips(clips)) {
+      const cached = clipRowCache[c.id];
+      const row = cached && cached.row;
+      const player = row && row.querySelector(".preview video");
+      if (!player) continue; // only a ready clip has a playable card
+      items.push({
+        card: row,
+        player,
+        key: apiPath("projects", projectId, "clips", c.id),
+        title: clipTitleText(c),
+        rank: clipRankText(c),
+        reason: clipWhyText(c) || "",
+        score: typeof c.score === "number" ? `score ${c.score.toFixed(1)}` : "",
+        downloadHref: apiPath("projects", projectId, "clips", c.id, "download"),
+        downloadName: c.filename || "",
+      });
+    }
+    return { items, total: clips.length };
+  }
+
+  window.cfStudio = { trapTab: trapTabWithin, reviewItems };
 
   // ------------------------------------------------------------------ boot
   function boot() {

@@ -11,6 +11,27 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+/// The error a cancellable operation returns once its token fires.
+#[derive(Debug)]
+pub struct Cancelled;
+
+impl std::fmt::Display for Cancelled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("cancelled")
+    }
+}
+
+impl std::error::Error for Cancelled {}
+
+pub fn cancelled() -> anyhow::Error {
+    anyhow::Error::new(Cancelled)
+}
+
+/// Whether `e`, or anything it wraps, is a cancellation.
+pub fn is_cancelled(e: &anyhow::Error) -> bool {
+    e.chain().any(|cause| cause.is::<Cancelled>())
+}
+
 /// Run a subprocess, streaming stdout/stderr lines to `on_line(is_stderr, line)`.
 /// Kills the child immediately if `cancel` fires. Fails on non-zero exit with
 /// the last few stderr lines included in the error message.
@@ -60,7 +81,7 @@ where
             biased;
             _ = cancel.cancelled() => {
                 let _ = child.kill().await;
-                bail!("cancelled");
+                return Err(cancelled());
             }
             msg = rx.recv() => match msg {
                 Some((is_err, line)) => {
@@ -79,7 +100,7 @@ where
         biased;
         _ = cancel.cancelled() => {
             let _ = child.kill().await;
-            bail!("cancelled");
+            return Err(cancelled());
         }
         s = child.wait() => s.context("waiting for subprocess")?,
     };
@@ -107,15 +128,7 @@ pub async fn run_capture(bin: &str, args: &[String]) -> Result<String> {
         .output()
         .await
         .with_context(|| format!("failed to start `{}`", bin))?;
-    if !out.status.success() {
-        let err = String::from_utf8_lossy(&out.stderr);
-        bail!(
-            "`{}` exited with {} — {}",
-            bin,
-            out.status.code().unwrap_or(-1),
-            err.lines().last().unwrap_or("").trim()
-        );
-    }
+    ensure_success(bin, &out, &String::from_utf8_lossy(&out.stderr))?;
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
@@ -127,37 +140,8 @@ pub async fn run_capture_cancellable(
     args: &[String],
     cancel: &CancellationToken,
 ) -> Result<String> {
-    let bin = bin.to_string();
-    let args = args.to_vec();
-    let task_bin = bin.clone();
-    let mut task = tokio::spawn(async move {
-        Command::new(&task_bin)
-            .args(&args)
-            .stdin(Stdio::null())
-            .kill_on_drop(true)
-            .output()
-            .await
-            .with_context(|| format!("failed to start `{}`", task_bin))
-    });
-
-    let out = tokio::select! {
-        biased;
-        _ = cancel.cancelled() => {
-            task.abort();
-            let _ = task.await;
-            bail!("cancelled");
-        }
-        result = &mut task => result.context("cancellable subprocess task failed")??,
-    };
-    if !out.status.success() {
-        let err = String::from_utf8_lossy(&out.stderr);
-        bail!(
-            "`{}` exited with {} — {}",
-            bin,
-            out.status.code().unwrap_or(-1),
-            err.lines().last().unwrap_or("").trim()
-        );
-    }
+    let out = output_cancellable(bin, args, cancel).await?;
+    ensure_success(bin, &out, &String::from_utf8_lossy(&out.stderr))?;
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
@@ -169,10 +153,22 @@ pub async fn run_capture_cancellable_all(
     args: &[String],
     cancel: &CancellationToken,
 ) -> Result<String> {
-    let bin_task = bin.to_string();
+    let out = output_cancellable(bin, args, cancel).await?;
+    let mut all = String::from_utf8_lossy(&out.stderr).into_owned();
+    all.push_str(&String::from_utf8_lossy(&out.stdout));
+    ensure_success(bin, &out, &all)?;
+    Ok(all)
+}
+
+async fn output_cancellable(
+    bin: &str,
+    args: &[String],
+    cancel: &CancellationToken,
+) -> Result<std::process::Output> {
+    let bin = bin.to_string();
     let args = args.to_vec();
     let mut task = tokio::spawn(async move {
-        Command::new(&bin_task)
+        Command::new(&bin)
             .args(&args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -180,31 +176,30 @@ pub async fn run_capture_cancellable_all(
             .kill_on_drop(true)
             .output()
             .await
-            .with_context(|| format!("failed to start `{}`", bin_task))
+            .with_context(|| format!("failed to start `{}`", bin))
     });
-
     tokio::select! {
         biased;
         _ = cancel.cancelled() => {
             task.abort();
             let _ = task.await;
-            bail!("cancelled");
+            Err(cancelled())
         }
-        result = &mut task => {
-            let out = result.context("subprocess capture failed")??;
-            let mut all = String::from_utf8_lossy(&out.stderr).into_owned();
-            all.push_str(&String::from_utf8_lossy(&out.stdout));
-            if !out.status.success() {
-                bail!(
-                    "`{}` exited with {} — {}",
-                    bin,
-                    out.status.code().unwrap_or(-1),
-                    all.lines().last().unwrap_or("").trim()
-                );
-            }
-            Ok(all)
-        }
+        result = &mut task => result.context("cancellable subprocess task failed")?,
     }
+}
+
+/// Fail with the exit code and the last line of `report` on non-zero exit.
+fn ensure_success(bin: &str, out: &std::process::Output, report: &str) -> Result<()> {
+    if !out.status.success() {
+        bail!(
+            "`{}` exited with {} — {}",
+            bin,
+            out.status.code().unwrap_or(-1),
+            report.lines().last().unwrap_or("").trim()
+        );
+    }
+    Ok(())
 }
 
 /// Whether this FFmpeg build can burn the generated ASS captions.
@@ -292,6 +287,11 @@ pub fn short_id() -> String {
     id[..10].to_string()
 }
 
+/// Whether `s` has the exact shape `short_id` produces (10 lowercase hex).
+pub fn is_short_id(s: &str) -> bool {
+    s.len() == 10 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 /// Filesystem-safe slug for output filenames: `Why Discipline Fails!` → `why-discipline-fails`.
 pub fn slugify(s: &str, max_len: usize) -> String {
     let mut out = String::with_capacity(s.len());
@@ -315,6 +315,29 @@ pub fn slugify(s: &str, max_len: usize) -> String {
     } else {
         trimmed
     }
+}
+
+/// A regular file with at least one byte: the bar for treating media or a
+/// marker on disk as complete.
+pub async fn is_nonempty_file(path: &Path) -> bool {
+    tokio::fs::metadata(path)
+        .await
+        .map(|m| m.is_file() && m.len() > 0)
+        .unwrap_or(false)
+}
+
+/// Open a URL or folder with the desktop's default handler. Returns whether
+/// the opener launched.
+pub fn open_in_os(target: &str) -> bool {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    std::process::Command::new(opener)
+        .arg(target)
+        .spawn()
+        .is_ok()
 }
 
 /// Best-effort free disk space in GB for the filesystem containing `path`.
@@ -345,6 +368,30 @@ pub fn which(bin: &str) -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+
+/// Run a quiet subprocess to completion with a wall-clock cap, capturing its
+/// raw output. For short analyses whose caller has no cancellation token of
+/// its own; a child that outlives the cap is killed.
+pub async fn run_capture_output_with_timeout(
+    bin: &str,
+    args: &[String],
+    timeout: std::time::Duration,
+) -> Result<std::process::Output> {
+    let cancel = CancellationToken::new();
+    let run = output_cancellable(bin, args, &cancel);
+    tokio::pin!(run);
+    tokio::select! {
+        biased;
+        out = &mut run => out,
+        _ = tokio::time::sleep(timeout) => {
+            cancel.cancel();
+            // Drive the cancelled run to completion so the child is killed
+            // before this returns.
+            let _ = run.await;
+            bail!("`{}` timed out after {:?}", bin, timeout)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -389,7 +436,7 @@ mod tests {
         });
         let started = Instant::now();
         let result = run_capture_cancellable("/bin/sleep", &["5".into()], &cancel).await;
-        assert!(result.unwrap_err().to_string().contains("cancelled"));
+        assert!(is_cancelled(&result.unwrap_err()));
         assert!(started.elapsed() < Duration::from_secs(1));
         canceller.await.unwrap();
     }

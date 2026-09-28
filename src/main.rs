@@ -62,12 +62,7 @@ async fn main() -> anyhow::Result<()> {
     println!("\n  Clipping Factory studio ready → {}\n", url);
 
     if cfg.open_browser {
-        let opener = if cfg!(target_os = "macos") {
-            "open"
-        } else {
-            "xdg-open"
-        };
-        let _ = std::process::Command::new(opener).arg(&url).spawn();
+        util::open_in_os(&url);
     }
 
     axum::serve(listener, app).await?;
@@ -77,19 +72,12 @@ async fn main() -> anyhow::Result<()> {
 /// PRD §7.1: verify FFmpeg, FFprobe, the transcription runtime, and disk space.
 async fn first_run_report(cfg: &Config) {
     let check = |ok: bool| if ok { "ok" } else { "MISSING" };
-    let ffmpeg_ok = util::run_capture(&cfg.ffmpeg, &["-version".into()])
-        .await
-        .is_ok();
-    let ffmpeg_ass = util::ffmpeg_has_ass(&cfg.ffmpeg).await;
-    let ffprobe_ok = util::run_capture(&cfg.ffprobe, &["-version".into()])
-        .await
-        .is_ok();
-    let disk = util::disk_free_gb(&cfg.data_dir).await;
+    let probe = cfg.probe_setup().await;
 
     println!("  Clipping Factory — first-run checks");
-    println!("  ├─ ffmpeg        {}", check(ffmpeg_ok));
-    println!("  ├─ ASS captions  {}", check(ffmpeg_ass));
-    println!("  ├─ ffprobe       {}", check(ffprobe_ok));
+    println!("  ├─ ffmpeg        {}", check(probe.ffmpeg_ok));
+    println!("  ├─ ASS captions  {}", check(probe.ffmpeg_ass));
+    println!("  ├─ ffprobe       {}", check(probe.ffprobe_ok));
     println!(
         "  ├─ whisper-cli   {}",
         cfg.whisper_bin
@@ -104,9 +92,7 @@ async fn first_run_report(cfg: &Config) {
             .map(|p| format!(
                 "{} ({} MB)",
                 p.to_string_lossy(),
-                std::fs::metadata(p)
-                    .map(|m| m.len() / 1_000_000)
-                    .unwrap_or(0)
+                probe.model_mb.unwrap_or(0)
             ))
             .unwrap_or_else(|| {
                 format!(
@@ -114,10 +100,10 @@ async fn first_run_report(cfg: &Config) {
                     cfg.data_dir.to_string_lossy()
                 )
             }),
-        match cfg.whisper_model.as_deref() {
-            Some(p) if crate::config::model_is_multilingual(p) => " — multilingual",
-            Some(_) => " — English-only",
-            None => "",
+        match (&cfg.whisper_model, probe.model_multilingual) {
+            (Some(_), true) => " — multilingual",
+            (Some(_), false) => " — English-only",
+            (None, _) => "",
         }
     );
     println!(
@@ -130,7 +116,9 @@ async fn first_run_report(cfg: &Config) {
     println!("  ├─ caption font  {}", cfg.caption_font);
     println!(
         "  ├─ disk free     {}",
-        disk.map(|g| format!("{:.1} GB", g))
+        probe
+            .disk_free_gb
+            .map(|g| format!("{:.1} GB", g))
             .unwrap_or_else(|| "unknown".into())
     );
     println!("  ├─ projects dir  {}", cfg.data_dir.to_string_lossy());

@@ -1,4 +1,4 @@
-//! Per-second audio energy profile (PRD §9 feature: energetic moments).
+//! Per-second audio energy profile (PRD §9 feature: energetic stretches).
 //!
 //! A z-score-normalized loudness profile is measured from the same 16 kHz WAV
 //! that whisper.cpp transcribes (ffmpeg `astats`, no new dependency). The
@@ -8,7 +8,7 @@
 //! "something is happening" signal. It deliberately never *penalizes* quiet
 //! windows; it only adds evidence in favor of loud ones.
 //!
-//! ponytail: this is a single scalar per ~1s bucket, not a frequency analysis.
+//! This is a single scalar per ~1s bucket, not a frequency analysis.
 //! Laughter/cheering classification (YAMNet-class events) would be a stronger
 //! signal but adds an ONNX model dependency; the loudness boost is the cheap
 //! 80% and upgrades in place later.
@@ -29,8 +29,6 @@ const RESET_FRAMES: u32 = 16;
 pub struct EnergyProfile {
     pub per_second_db: Vec<f32>,
 }
-
-impl EnergyProfile {}
 
 /// Measure the per-second RMS profile of a WAV with ffmpeg `astats`.
 /// Returns an error on any failure; callers degrade to "no signal".

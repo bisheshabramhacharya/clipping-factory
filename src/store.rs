@@ -5,16 +5,17 @@
 //! <data_dir>/projects/<project-id>/
 //!   project.json
 //!   transcript.json
-//!   candidates-raw.json      (selector proposals, pre-validation)
+//!   candidates-raw.json      (selector candidates, pre-validation)
 //!   candidates.json          (validated SelectionReport)
 //!   render-manifest.json
 //!   source.mp4
+//!   source-name.txt          (the Source's upload filename)
 //!   audio.wav                (temporary; deleted after transcription)
 //!   clips/
 //! ```
 
 use crate::domain::*;
-use crate::util::{atomic_write_bytes, atomic_write_json};
+use crate::util::{atomic_write_bytes, atomic_write_json, is_nonempty_file};
 use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -83,6 +84,25 @@ impl Store {
         self.clips_dir(id).join(format!("{clip_id}.ready"))
     }
 
+    /// The Source's upload filename. Projects created before the rename
+    /// keep it in `original-name.txt`.
+    pub async fn load_source_name(&self, id: &str) -> Option<String> {
+        let dir = self.project_dir(id);
+        for name in ["source-name.txt", "original-name.txt"] {
+            if let Ok(text) = tokio::fs::read_to_string(dir.join(name)).await {
+                return Some(text.trim().to_string());
+            }
+        }
+        None
+    }
+    pub async fn save_source_name(&self, id: &str, name: &str) -> Result<()> {
+        atomic_write_bytes(
+            &self.project_dir(id).join("source-name.txt"),
+            name.as_bytes(),
+        )
+        .await
+    }
+
     pub fn exists(&self, id: &str) -> bool {
         self.project_json(id).is_file()
     }
@@ -141,10 +161,8 @@ impl Store {
     /// A base clip is reusable only when its completed media and promotion
     /// marker both exist. This keeps old direct-to-final partials out of retry.
     pub async fn base_is_ready(&self, id: &str, clip_id: &str) -> Result<bool> {
-        let media = tokio::fs::metadata(self.base_clip_path(id, clip_id)).await;
-        let marker = tokio::fs::metadata(self.base_ready_marker(id, clip_id)).await;
-        Ok(media.map(|m| m.is_file() && m.len() > 0).unwrap_or(false)
-            && marker.map(|m| m.is_file() && m.len() > 0).unwrap_or(false))
+        Ok(is_nonempty_file(&self.base_clip_path(id, clip_id)).await
+            && is_nonempty_file(&self.base_ready_marker(id, clip_id)).await)
     }
 
     pub async fn mark_base_ready(&self, id: &str, clip_id: &str) -> Result<()> {
@@ -158,10 +176,8 @@ impl Store {
     }
 
     pub async fn final_is_ready(&self, id: &str, clip_id: &str, filename: &str) -> Result<bool> {
-        let media = tokio::fs::metadata(self.clips_dir(id).join(filename)).await;
-        let marker = tokio::fs::metadata(self.final_ready_marker(id, clip_id)).await;
-        Ok(media.map(|m| m.is_file() && m.len() > 0).unwrap_or(false)
-            && marker.map(|m| m.is_file() && m.len() > 0).unwrap_or(false))
+        Ok(is_nonempty_file(&self.clips_dir(id).join(filename)).await
+            && is_nonempty_file(&self.final_ready_marker(id, clip_id)).await)
     }
 
     pub async fn mark_final_ready(&self, id: &str, clip_id: &str) -> Result<()> {
@@ -190,10 +206,7 @@ impl Store {
                     continue;
                 }
                 let media = self.clips_dir(id).join(&clip.filename);
-                let legacy_media_is_complete = tokio::fs::metadata(&media)
-                    .await
-                    .map(|m| m.is_file() && m.len() > 0)
-                    .unwrap_or(false);
+                let legacy_media_is_complete = is_nonempty_file(&media).await;
                 if legacy_media_is_complete && !self.final_ready_marker(id, &clip.id).is_file() {
                     self.mark_final_ready(id, &clip.id).await?;
                 }
@@ -266,10 +279,7 @@ impl Store {
                     tokio::fs::remove_file(path).await.ok();
                 } else if let Some(clip_id) = name.strip_suffix(".mp4") {
                     if ready_ids.contains(clip_id)
-                        && tokio::fs::metadata(&path)
-                            .await
-                            .map(|m| m.is_file() && m.len() > 0)
-                            .unwrap_or(false)
+                        && is_nonempty_file(&path).await
                         && !self.base_ready_marker(id, clip_id).is_file()
                     {
                         self.mark_base_ready(id, clip_id).await?;
@@ -385,7 +395,6 @@ mod tests {
                 accent_color: Some("#FFDD00".into()),
                 caption_font: Some("Inter".into()),
                 caption_text: None,
-                emoji_overlay: None,
                 width: Some(608),
                 height: Some(1080),
                 auto_cut: false,
@@ -433,7 +442,6 @@ mod tests {
             caption_text: None,
             accent_color: None,
             caption_font: None,
-            emoji_overlay: None,
             width: None,
             height: None,
             auto_cut: false,
@@ -546,7 +554,6 @@ mod tests {
                         caption_text: None,
                         accent_color: None,
                         caption_font: None,
-                        emoji_overlay: None,
                         width: None,
                         height: None,
                         auto_cut: false,

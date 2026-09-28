@@ -8,8 +8,8 @@
 
 use crate::domain::*;
 
-const MIN_MS: u64 = 20_000;
-const MAX_MS: u64 = 90_000;
+pub(crate) const MIN_MS: u64 = 20_000;
+pub(crate) const MAX_MS: u64 = 90_000;
 /// Exception envelope (PRD §9.3 "without an explicit validator exception"):
 /// slightly-out-of-range candidates pass only when unusually strong.
 const EXC_MIN_MS: u64 = 15_000;
@@ -29,7 +29,7 @@ const TAIL_PAD_MS: u64 = 250;
 /// neighbor's first/last samples would be worse than cutting tight.
 const PAD_MARGIN_MS: u64 = 20;
 
-/// Cold-open defense: a clip may not open on greetings, housekeeping, or a
+/// Cold-open guard: a clip may not open on greetings, housekeeping, or a
 /// non-lexical filler run — the canonical "AI clip" tells that announce the
 /// cut wasn't editorial. Openers already mid-thought (connectives like
 /// "so", "and") stay fine; only the tells get rejected.
@@ -53,10 +53,9 @@ const GREETING_OPENERS: &[&str] = &[
     "thanks for watching",
     "thanks for joining",
 ];
-const NON_LEXICAL_OPENERS: &[&str] = &["um", "uh", "er", "ah", "hmm", "mhm"];
 
-/// Outro-bait closers — a clip ending on a channel CTA reads as an ad for the
-/// source, not a standalone moment. Normalized forms (no apostrophes).
+/// Outro-bait closers — a Clip ending on a channel CTA reads as an ad for the
+/// source rather than a standalone excerpt. Normalized forms (no apostrophes).
 const CTA_CLOSERS: &[&str] = &[
     "like and subscribe",
     "like comment and subscribe",
@@ -148,7 +147,7 @@ pub(crate) fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<St
         return Some(format!("opens on greeting/housekeeping '{g}'"));
     }
     let first_norm = normalize(&first_words.first()?.text);
-    if NON_LEXICAL_OPENERS.contains(&first_norm.as_str()) {
+    if crate::autocut::FILLER_WORDS.contains(&first_norm.as_str()) {
         return Some(format!("opens on filler word '{first_norm}'"));
     }
     None
@@ -165,8 +164,7 @@ pub fn validate(
     scene_boundaries: &[u64],
     platform: Platform,
 ) -> SelectionReport {
-    let (sweet_min_ms, sweet_max_ms) = platform.sweet_spot_ms();
-    let mut evaluated: Vec<Result<(Candidate, bool, f32), RejectedCandidate>> = Vec::new();
+    let mut evaluated: Vec<Result<ValidatedCandidate, RejectedCandidate>> = Vec::new();
     let mut scene_bounds = scene_boundaries.to_vec();
     scene_bounds.sort_unstable();
     scene_bounds.dedup();
@@ -326,17 +324,14 @@ pub fn validate(
         }
 
         if reasons.is_empty() {
-            // Ranking nudge only: the project's Platform target window is
-            // the sweet spot (Generic keeps 25–60 s — Shorts cap 60 s;
-            // viral clips cluster under ~45 s). Bounds and the exception
-            // path above are untouched.
-            let duration_bonus = if (sweet_min_ms..=sweet_max_ms).contains(&dur) {
-                0.75
-            } else {
-                0.0
-            };
-            let composite = composite_score(&s) + duration_bonus;
-            evaluated.push(Ok((cand, duration_exception, composite)));
+            let composite = ranked_score(&s, dur, platform);
+            evaluated.push(Ok(ValidatedCandidate {
+                // Ranked 1..n once the shortlist is sorted below.
+                rank: 0,
+                candidate: cand,
+                composite,
+                duration_exception,
+            }));
         } else {
             evaluated.push(Err(RejectedCandidate {
                 candidate: cand,
@@ -347,42 +342,42 @@ pub fn validate(
 
     // --- Rank survivors, then suppress >30% overlaps ----------------------
     let mut rejected: Vec<RejectedCandidate> = Vec::new();
-    let mut passing: Vec<(Candidate, bool, f32)> = Vec::new();
+    let mut passing: Vec<ValidatedCandidate> = Vec::new();
     for item in evaluated {
         match item {
             Ok(v) => passing.push(v),
             Err(r) => rejected.push(r),
         }
     }
-    passing.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    passing.sort_by(|a, b| {
+        b.composite
+            .partial_cmp(&a.composite)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut accepted: Vec<ValidatedCandidate> = Vec::new();
-    for (cand, duration_exception, composite) in passing {
-        let candidate_dur = (cand.end_ms - cand.start_ms).max(1) as f64;
+    for mut v in passing {
+        let candidate_dur = (v.candidate.end_ms - v.candidate.start_ms).max(1) as f64;
         let too_much_overlap = accepted.iter().any(|a| {
             let inter = crate::select::overlap_ms(
                 a.candidate.start_ms,
                 a.candidate.end_ms,
-                cand.start_ms,
-                cand.end_ms,
+                v.candidate.start_ms,
+                v.candidate.end_ms,
             ) as f64;
-            let contains_higher_ranked =
-                cand.start_ms <= a.candidate.start_ms && cand.end_ms >= a.candidate.end_ms;
+            let contains_higher_ranked = v.candidate.start_ms <= a.candidate.start_ms
+                && v.candidate.end_ms >= a.candidate.end_ms;
             contains_higher_ranked || inter / candidate_dur > MAX_OVERLAP
         });
         if too_much_overlap {
             rejected.push(RejectedCandidate {
-                candidate: cand,
+                candidate: v.candidate,
                 reasons: vec!["overlaps more than 30% with a higher-ranked clip".into()],
             });
             continue;
         }
-        accepted.push(ValidatedCandidate {
-            rank: accepted.len() + 1,
-            candidate: cand,
-            composite,
-            duration_exception,
-        });
+        v.rank = accepted.len() + 1;
+        accepted.push(v);
     }
 
     SelectionReport {
@@ -390,6 +385,20 @@ pub fn validate(
         accepted,
         rejected,
     }
+}
+
+/// The Composite as ranked and shown: the weighted scores plus a nudge for
+/// durations inside the Platform target's sweet spot (Generic keeps 25–60 s
+/// — Shorts cap 60 s; viral clips cluster under ~45 s). Ranking only: the
+/// accept bounds and the exception path never look at it.
+pub fn ranked_score(s: &Scores, duration_ms: u64, platform: Platform) -> f32 {
+    let (sweet_min_ms, sweet_max_ms) = platform.sweet_spot_ms();
+    let duration_bonus = if (sweet_min_ms..=sweet_max_ms).contains(&duration_ms) {
+        0.75
+    } else {
+        0.0
+    };
+    composite_score(s) + duration_bonus
 }
 
 pub fn composite_score(s: &Scores) -> f32 {

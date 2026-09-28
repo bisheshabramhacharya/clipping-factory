@@ -54,12 +54,12 @@
               </div>
             </div>
             <div class="opt">
-              <span class="opt-label">Highlight</span>
+              <span class="opt-label">Accent</span>
               <div class="accent-row">
                 <label class="sr-only"><input type="radio" name="accent-mode" value="manual" checked>Choose a color</label>
-                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Highlight color"></div>
+                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Accent color"></div>
                 <input id="upload-accent-color" type="hidden" value="#FFDD00">
-                <div class="choice-seg small-seg" role="radiogroup" aria-label="Automatic highlight">
+                <div class="choice-seg small-seg" role="radiogroup" aria-label="Automatic accent color">
                   <label title="A fresh readable color"><input type="radio" name="accent-mode" value="random"><span>Random</span></label>
                   <label title="Matched to the video"><input type="radio" name="accent-mode" value="optimized"><span>Auto</span></label>
                 </div>
@@ -86,10 +86,6 @@
               <span class="opt-label">Focus</span>
               <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
                 placeholder="Optional — e.g. pricing, or where they disagree">
-            </label>
-            <label class="opt opt-switch" title="Flash an emoji over caption keywords">
-              <span class="opt-label">Emoji</span>
-              <input id="upload-emoji" class="switch" type="checkbox">
             </label>
           </div>
         </div>
@@ -196,7 +192,7 @@
   <div id="modal-backdrop" class="modal-backdrop hidden" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title" aria-describedby="ai-modal-description">
       <h3 id="ai-modal-title">AI connection</h3>
-      <p id="ai-modal-description" class="muted small">The editorial selector proposes which moments stand alone. Your key is stored locally with user-only permissions, never logged, and never shown again.</p>
+      <p id="ai-modal-description" class="muted small">The editorial selector proposes which parts of the source stand alone as clips. Your key is stored locally with user-only permissions, never logged, and never shown again.</p>
       <label>Provider
         <select id="provider">
           <option value="openai">OpenAI</option>

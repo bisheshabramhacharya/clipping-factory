@@ -10,7 +10,9 @@
 //!   provider when one is connected; anything else — offline tier, missing
 //!   key, provider error — falls back to a deterministic template.
 
-use crate::captions::{is_stopword, paginate, with_caption_text, words_in_interval};
+use crate::captions::{
+    is_stopword, normalize_token, paginate, with_caption_text, words_in_interval,
+};
 use crate::domain::{fmt_ms, ClipRecord, SourceInfo, Transcript, Word};
 use crate::settings::{AiSettings, Provider};
 use anyhow::{anyhow, Result};
@@ -227,6 +229,16 @@ pub struct ClipMeta {
     pub generated_at: DateTime<Utc>,
 }
 
+/// The posting copy one clip gets, with the label of what wrote it. Built by
+/// the deterministic template first, then overwritten field by field when a
+/// provider contributes something usable.
+struct CopyDraft {
+    title: String,
+    description: String,
+    hashtags: Vec<String>,
+    generated_by: String,
+}
+
 /// Everything metadata generation needs, bundled so pipeline and restyle
 /// callers share one shape.
 pub struct MetaInput<'a> {
@@ -249,17 +261,14 @@ pub async fn clip_metadata(
     input: &MetaInput<'_>,
     cancel: &CancellationToken,
 ) -> ClipMeta {
-    let fallback = template_copy(input);
-    let (title, description, hashtags, generated_by) = match ai_copy(settings, input, cancel).await
-    {
-        Some(ai) => (ai.0, ai.1, ai.2, ai.3),
-        None => (fallback.0, fallback.1, fallback.2, "template".to_string()),
-    };
+    let draft = ai_copy(settings, input, cancel)
+        .await
+        .unwrap_or_else(|| template_copy(input));
     ClipMeta {
-        title,
-        description,
-        hashtags,
-        generated_by,
+        title: draft.title,
+        description: draft.description,
+        hashtags: draft.hashtags,
+        generated_by: draft.generated_by,
         clip: ClipTiming {
             filename: input.clip.filename.clone(),
             rank: input.clip.rank,
@@ -329,7 +338,7 @@ async fn ai_copy(
     settings: &AiSettings,
     input: &MetaInput<'_>,
     cancel: &CancellationToken,
-) -> Option<(String, String, Vec<String>, String)> {
+) -> Option<CopyDraft> {
     if cancel.is_cancelled() || !settings.connected() {
         return None;
     }
@@ -382,23 +391,19 @@ async fn ai_copy(
 
     // Merge field by field: a thin provider answer never erases the
     // deterministic value underneath it.
-    let mut meta = template_copy(input);
+    let mut draft = template_copy(input);
     if let Some(title) = clean_sentence(&parsed.title, 90) {
-        meta.0 = title;
+        draft.title = title;
     }
     if let Some(description) = clean_sentence(&parsed.description, 600) {
-        meta.1 = description;
+        draft.description = description;
     }
     let tags = clean_hashtags(&parsed.hashtags);
     if !tags.is_empty() {
-        meta.2 = tags;
+        draft.hashtags = tags;
     }
-    Some((
-        meta.0,
-        meta.1,
-        meta.2,
-        format!("{} · {}", provider.as_str(), model),
-    ))
+    draft.generated_by = format!("{} · {}", provider.as_str(), model);
+    Some(draft)
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -440,10 +445,10 @@ fn clean_sentence(s: &str, max_chars: usize) -> Option<String> {
 }
 
 fn truncate_words(s: &str, max_chars: usize) -> String {
-    if s.len() <= max_chars {
+    let Some((end, _)) = s.char_indices().nth(max_chars) else {
         return s.to_string();
-    }
-    let mut cut = s[..max_chars].to_string();
+    };
+    let mut cut = s[..end].to_string();
     if let Some(space) = cut.rfind(' ') {
         cut.truncate(space);
     }
@@ -477,7 +482,7 @@ fn clean_hashtags(tags: &[String]) -> Vec<String> {
 
 /// Copy built entirely from what's already on disk: the validator's
 /// headline, the spoken excerpt, and the clip's timing in the Source.
-fn template_copy(input: &MetaInput<'_>) -> (String, String, Vec<String>) {
+fn template_copy(input: &MetaInput<'_>) -> CopyDraft {
     let clip = input.clip;
     let spoken: Vec<&str> = input
         .words
@@ -510,7 +515,12 @@ fn template_copy(input: &MetaInput<'_>) -> (String, String, Vec<String>) {
         format!("{excerpt}\n\n{provenance}")
     };
 
-    (title, description, keyword_tags(input))
+    CopyDraft {
+        title,
+        description,
+        hashtags: keyword_tags(input),
+        generated_by: "template".to_string(),
+    }
 }
 
 /// Deterministic hashtags from the words the clip actually says: content
@@ -521,10 +531,11 @@ fn keyword_tags(input: &MetaInput<'_>) -> Vec<String> {
     let mut order = 0usize;
     let mut feed = |text: &str| {
         for token in text.split_whitespace() {
-            let word: String = token
+            // Hashtags stay ASCII, the same alphabet `clean_hashtags` keeps
+            // for provider tags.
+            let word: String = normalize_token(token, false)
                 .chars()
-                .filter(|c| c.is_ascii_alphanumeric())
-                .flat_map(|c| c.to_lowercase())
+                .filter(|c| c.is_ascii())
                 .collect();
             if word.len() < 4 || is_stopword(token) {
                 order += 1;
@@ -648,6 +659,16 @@ mod tests {
     use crate::domain::{LayoutPlan, Scores};
     use crate::settings::PROVIDER_OFFLINE;
 
+    #[test]
+    fn truncation_never_splits_a_multibyte_character() {
+        let headline = format!("{}… and then some more words", "a".repeat(89));
+        let cut = truncate_words(&headline, 90);
+        assert!(cut.ends_with('…'));
+        assert!(cut.chars().count() <= 91);
+        assert_eq!(truncate_words("short ✓ line", 90), "short ✓ line");
+        assert_eq!(truncate_words("ééé ééé", 5), "ééé…");
+    }
+
     fn words(s: &str, step: u64) -> Vec<Word> {
         s.split_whitespace()
             .enumerate()
@@ -679,7 +700,6 @@ mod tests {
             accent_color: None,
             caption_font: None,
             caption_text: None,
-            emoji_overlay: None,
             width: Some(608),
             height: Some(1080),
             auto_cut: false,
@@ -872,7 +892,7 @@ mod tests {
             selector: None,
             caption_style: None,
         };
-        let (title, _, _) = template_copy(&input);
+        let title = template_copy(&input).title;
         assert_eq!(title, "the real trick is designing the environment once");
     }
 
@@ -892,7 +912,7 @@ mod tests {
             selector: None,
             caption_style: None,
         };
-        let (_, _, tags) = template_copy(&input);
+        let tags = template_copy(&input).hashtags;
         assert_eq!(tags.first().map(String::as_str), Some("#discipline"));
         // Stopwords and short tokens never become tags.
         assert!(tags

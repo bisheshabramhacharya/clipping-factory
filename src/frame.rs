@@ -118,7 +118,7 @@ pub async fn analyze_layout(
             Vec::new()
         });
     if cancel.is_cancelled() {
-        bail!("cancelled");
+        return Err(crate::util::cancelled());
     }
 
     let sample_h =
@@ -146,7 +146,7 @@ pub async fn analyze_layout(
     watcher.abort();
     let samples = sampled??;
     if cancelled.load(Ordering::Relaxed) || cancel.is_cancelled() {
-        bail!("cancelled");
+        return Err(crate::util::cancelled());
     }
 
     let speech: Vec<(u64, u64)> = words
@@ -303,7 +303,7 @@ fn sample_and_detect(
     cancelled: &AtomicBool,
 ) -> Result<Samples> {
     if cancelled.load(Ordering::Relaxed) {
-        bail!("cancelled");
+        return Err(crate::util::cancelled());
     }
     drop(new_detector(model)?);
     let mut child = Command::new(ffmpeg)
@@ -362,7 +362,7 @@ fn sample_and_detect(
         let mut i = 0;
         let outcome = loop {
             if cancelled.load(Ordering::Relaxed) {
-                break Err(anyhow::anyhow!("cancelled"));
+                break Err(crate::util::cancelled());
             }
             match stdout.read_exact(&mut buf) {
                 Ok(()) => {}
@@ -1115,6 +1115,6 @@ mod tests {
             (64, 36),
             &cancelled,
         );
-        assert!(result.err().unwrap().to_string().contains("cancelled"));
+        assert!(crate::util::is_cancelled(&result.err().unwrap()));
     }
 }

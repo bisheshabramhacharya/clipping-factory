@@ -14,8 +14,13 @@ Run the same checks as CI:
 
 ```bash
 cargo fmt --all --check
-cargo clippy --all-targets -- -D warnings
-cargo test
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+bash -n evals/run.sh evals/verify_clip_quality.sh evals/bless_baseline.sh
+python3 -m py_compile evals/report.py evals/replay_opening_gate.py evals/clip_checks.py evals/make_fixture.py
+python3 -m unittest discover -s evals/tests
+python3 evals/make_fixture.py --out evals/fixtures/synthetic-episode.mp4 --seconds 30 --scene-seconds 10
+(cd promo-videos && npm ci --ignore-scripts && npm run typecheck)
 ```
 
 Changes to selection, validation, framing, or captions also need the [golden-set evaluation](evals/README.md). Include the before-and-after result in the pull request.
