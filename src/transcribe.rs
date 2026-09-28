@@ -417,9 +417,11 @@ fn speech_frames(wav: &Path) -> Option<Vec<bool>> {
         }
         let samples = filled / 2;
         let energy: f64 = buf[..samples * 2]
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|b| {
-                let s = i16::from_le_bytes([b[0], b[1]]) as f64;
+                let s = i16::from_le_bytes(*b) as f64;
                 s * s
             })
             .sum();
