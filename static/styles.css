@@ -146,19 +146,18 @@ header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-h1 { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
-.logo {
-  width: 18px; height: 26px; border-radius: 5px;
-  background: linear-gradient(160deg, #2B2A27 0%, #1B1A19 55%, var(--accent) 140%);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
-}
+h1 { display: flex; align-items: center; font-size: 15px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
 .header-actions { display: flex; gap: 4px; }
 .count {
   min-width: 20px; height: 18px; padding: 0 6px; border-radius: var(--r-pill);
   background: var(--surface-3); font-size: 11px; line-height: 18px; font-weight: 650;
 }
-.ai-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
-.ai-dot.on { background: var(--ok); }
+#ai-btn:disabled { opacity: 1; color: var(--ink-2); cursor: default; }
+.soon-pill {
+  height: 18px; padding: 0 8px; border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--ink-2);
+  font-size: 11px; line-height: 18px; font-weight: 650;
+}
 
 /* Banners float over the layout so they never push it into scrolling. */
 .banners {
@@ -203,6 +202,11 @@ h1 { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight:
 .drop-icon { width: 30px; height: 30px; color: var(--ink-3); }
 .drop-target strong { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
 .drop-target button { height: 40px; padding: 0 22px; font-size: 14px; }
+.drop-panel { display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; max-width: 100%; }
+#drop-staged { gap: 8px; }
+#drop-staged strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staged-kicker { font-size: 12px; font-weight: 650; color: var(--ok); letter-spacing: .02em; text-transform: uppercase; }
+.staged-actions { display: flex; gap: 10px; margin-top: 8px; }
 
 .upload-options {
   padding: 18px 24px 22px;
@@ -210,6 +214,7 @@ h1 { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight:
   overflow-y: auto;
 }
 .opt { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.opt-wide { grid-column: 1 / -1; }
 .opt-label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 
 .choice-seg {
@@ -236,6 +241,7 @@ h1 { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight:
 }
 .upload-swatch.active, .swatch.active { box-shadow: 0 0 0 2px var(--ink); }
 .upload-swatch:hover, .swatch:hover { transform: scale(1.08); }
+.upload-swatch:hover:not(:disabled) { background: var(--swatch); }
 .accent-row .small-seg { margin-left: auto; }
 
 #upload-progress {

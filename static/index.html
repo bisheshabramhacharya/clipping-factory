@@ -10,14 +10,14 @@
   <div class="shell">
     <header>
       <div class="brand">
-        <h1><span class="logo" aria-hidden="true"></span>Clipping Factory</h1>
+        <h1>Clipping Factory</h1>
       </div>
       <div class="header-actions">
         <button id="library-btn" class="ghost" type="button" aria-controls="library-drawer" aria-expanded="false">
           Library <span id="library-count" class="count hidden"></span>
         </button>
-        <button id="ai-btn" class="ghost" type="button">
-          <span class="ai-dot" aria-hidden="true"></span><span id="ai-label">AI connection</span>
+        <button id="ai-btn" class="ghost" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
+          <span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
         </button>
       </div>
     </header>
@@ -34,12 +34,45 @@
         <h2 id="upload-title" class="sr-only">Create clips</h2>
         <div id="drop" class="upload">
           <div class="drop-target">
-            <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <strong>Drop a podcast</strong>
-            <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+            <div id="drop-empty" class="drop-panel">
+              <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <strong>Drop a podcast</strong>
+              <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+            </div>
+            <div id="drop-staged" class="drop-panel hidden" aria-live="polite">
+              <span class="staged-kicker">Ready to clip</span>
+              <strong id="staged-name"></strong>
+              <span id="staged-size" class="muted small"></span>
+              <p class="muted small">Pick your caption style and options below, then start.</p>
+              <div class="staged-actions">
+                <button id="change-file-btn" type="button">Change video</button>
+                <button id="start-btn" class="primary" type="button">Make clips</button>
+              </div>
+            </div>
             <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
           </div>
           <div class="upload-options">
+            <div class="opt opt-wide">
+              <span class="opt-label">Captions</span>
+              <div id="upload-caption-style" class="choice-seg" role="radiogroup" aria-label="Caption style">
+                <label title="Bold karaoke stacks with one oversized key word">
+                  <input type="radio" name="caption-style" value="impact" checked>
+                  <span>Impact</span>
+                </label>
+                <label title="Compact conversational lines in the lower safe area">
+                  <input type="radio" name="caption-style" value="clean">
+                  <span>Clean</span>
+                </label>
+                <label title="One word at a time, dead center, keywords in caps">
+                  <input type="radio" name="caption-style" value="pop">
+                  <span>Pop</span>
+                </label>
+                <label title="Lowercase letterspaced lines that fade in">
+                  <input type="radio" name="caption-style" value="cinema">
+                  <span>Cinema</span>
+                </label>
+              </div>
+            </div>
             <div class="opt">
               <span class="opt-label">Framing</span>
               <div class="choice-seg" role="radiogroup" aria-label="Framing">
@@ -283,7 +316,7 @@
   <!-- Window-wide drop target: works from any state, not just the empty screen -->
   <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
     <div class="drop-overlay-box">
-      <strong>Drop an MP4 to start a new project</strong>
+      <strong>Drop an MP4 to set up a new project</strong>
       <p class="muted small">The project on screen stays saved on disk.</p>
     </div>
   </div>

@@ -64,7 +64,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
 cargo run --release
 ```
 
-The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4 and the pipeline starts. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4, pick the caption style, accent color, framing, language, and clip length, then click **Make clips**. Nothing is uploaded or transcribed until you do. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
 
 ### Linux
 
@@ -85,7 +85,7 @@ Language is chosen per project at upload: **Auto-detect** is the default, or pic
 
 ## Local by default. AI optional.
 
-Local ranking is the default and needs no API key. If you want model-assisted selection, open the provider control in the studio and connect OpenAI or Anthropic.
+Local ranking is the default and needs no API key. The studio's **AI connection** control is marked *Coming soon* while model-assisted selection is finished; the providers below are wired in the backend but not yet offered in the studio.
 
 | Provider | Default model | Notes |
 |---|---|---|
@@ -98,7 +98,7 @@ When a provider is enabled, only transcript text is sent to it. The source video
 
 ### Local endpoint
 
-Point the studio at any OpenAI-compatible server on your machine: pick **Local endpoint** in the AI connection control, enter the base URL and a model the server already has, and test & save. Ollama is the shortest path:
+Once the AI connection control ships, you will be able to point the studio at any OpenAI-compatible server on your machine: pick **Local endpoint**, enter the base URL and a model the server already has, and test & save. Ollama is the shortest path:
 
 ```sh
 ollama pull qwen2.5:7b   # any 7–8B instruct GGUF works

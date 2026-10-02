@@ -24,6 +24,9 @@
   let elapsedTimer = null;
   let uploadXhr = null;
   let uploadCancelRequested = false;
+  // A chosen MP4 waits here until "Make clips", so the caption and framing
+  // options can still change before any upload or transcription starts.
+  let stagedFile = null;
   let cancellationPending = false;
   let retryPending = false;
   let actionMessageKind = null;
@@ -174,17 +177,12 @@
   async function loadSettings() {
     try {
       const s = await requestJson("/api/settings/ai", {}, "Couldn't reconnect to the local server.");
-      if (s.provider === "offline") { $("ai-label").textContent = "Local ranking"; }
-      else if (s.connected) { $("ai-label").textContent = `${s.provider} · ${s.model}`; }
-      else { $("ai-label").textContent = "AI connection"; }
-      document.querySelector(".ai-dot").classList.toggle("on", s.provider === "offline" || Boolean(s.connected));
       $("provider").value = s.provider || "openai";
       $("model").value = s.model || "";
       $("base-url").value = s.base_url || "";
       syncModalRows();
       clearActionMessage("reconnect");
     } catch {
-      $("ai-label").textContent = "AI connection unavailable";
       showActionMessage("Couldn't reconnect to the local server. Refresh to try again.", "reconnect");
     }
   }
@@ -193,8 +191,12 @@
   function wireUpload() {
     const drop = $("drop");
     $("choose-btn").addEventListener("click", () => $("file-input").click());
+    $("change-file-btn").addEventListener("click", () => $("file-input").click());
     $("file-input").addEventListener("change", (e) => {
-      if (e.target.files[0]) uploadFile(e.target.files[0]);
+      if (e.target.files[0]) stageFile(e.target.files[0]);
+    });
+    $("start-btn").addEventListener("click", () => {
+      if (stagedFile) uploadFile(stagedFile);
     });
     ["dragenter", "dragover"].forEach((ev) =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); })
@@ -243,8 +245,32 @@
         return;
       }
       if (view) resetToEmpty();
-      uploadFile(f);
+      stageFile(f);
     });
+  }
+
+  function stageFile(file) {
+    if (!/\.(mp4|m4v)$/i.test(file.name)) {
+      showActionMessage("Attach an .mp4 file. Other containers are not supported yet.");
+      return;
+    }
+    stagedFile = file;
+    clearActionMessage();
+    $("staged-name").textContent = file.name;
+    $("staged-size").textContent = fmtBytes(file.size);
+    syncStagedFile();
+    $("start-btn").focus();
+  }
+
+  function clearStagedFile() {
+    stagedFile = null;
+    $("file-input").value = "";
+    syncStagedFile();
+  }
+
+  function syncStagedFile() {
+    $("drop-empty").classList.toggle("hidden", !!stagedFile);
+    $("drop-staged").classList.toggle("hidden", !stagedFile);
   }
 
   function wireUploadOptions() {
@@ -288,6 +314,16 @@
       });
     }
     selectColor(accentColor);
+    const styleInputs = [...document.querySelectorAll('input[name="caption-style"]')];
+    const savedStyle = styleInputs.find((input) => input.value === captionStyle);
+    if (savedStyle) savedStyle.checked = true;
+    for (const input of styleInputs) {
+      input.addEventListener("change", () => {
+        if (!input.checked) return;
+        captionStyle = input.value;
+        localStorage.setItem("cf-caption-style", captionStyle);
+      });
+    }
     // Platform target is a UI pref like caption style: restore the last pick.
     const platformSelect = $("upload-platform");
     const savedPlatform = localStorage.getItem("cf-platform");
@@ -315,6 +351,8 @@
     const form = new FormData();
     const framingMode = document.querySelector('input[name="framing-mode"]:checked').value;
     const accentMode = document.querySelector('input[name="accent-mode"]:checked').value;
+    const styleInput = document.querySelector('input[name="caption-style"]:checked');
+    if (styleInput) form.append("caption_style", styleInput.value);
     form.append("framing_mode", framingMode);
     form.append("accent_mode", accentMode);
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
@@ -345,6 +383,7 @@
           projectId = v.project.id;
           localStorage.setItem("cf-project", projectId);
           view = v;
+          clearStagedFile();
           clearActionMessage();
           connectSse();
           render();
@@ -419,7 +458,7 @@
     $("upload-progress").classList.add("hidden");
     $("upload-bar").style.transform = "scaleX(0)";
     $("upload-bar").parentElement.setAttribute("aria-valuenow", "0");
-    $("file-input").value = "";
+    clearStagedFile();
     render();
     if (message) showActionMessage(message, kind);
     loadLibrary();
