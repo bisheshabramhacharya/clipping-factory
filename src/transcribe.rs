@@ -499,6 +499,16 @@ fn token_dtw_ms(token: &serde_json::Value) -> Option<u64> {
         .map(|t| t as u64 * 10)
 }
 
+/// Whisper marks speaker changes with `>>`, a habit learned from broadcast
+/// captions. It is never spoken, so it must not reach captions or headlines.
+fn strip_turn_markers(text: &str) -> std::borrow::Cow<'_, str> {
+    if text.contains('>') {
+        std::borrow::Cow::Owned(text.replace('>', ""))
+    } else {
+        std::borrow::Cow::Borrowed(text)
+    }
+}
+
 fn parse_token_words(segments: &[serde_json::Value]) -> Vec<TokenWord> {
     let mut words = Vec::new();
     let mut saw_timed_token = false;
@@ -514,7 +524,14 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<TokenWord> {
         };
         for token in tokens {
             let raw = token["text"].as_str().unwrap_or("");
-            let part = raw.trim();
+            let cleaned = strip_turn_markers(raw);
+            // A speaker turn always ends the current word, even when the
+            // marker token was the one carrying the word-break space.
+            let turn_marker = cleaned.len() != raw.len();
+            if turn_marker {
+                finish_word(&mut words, &mut pending);
+            }
+            let part = cleaned.trim();
             if part.is_empty() || part.starts_with("[_") {
                 continue;
             }
@@ -692,7 +709,9 @@ fn parse_words(
         };
     }
     for seg in segments {
-        let text = seg["text"].as_str().unwrap_or("").trim().to_string();
+        let text = strip_turn_markers(seg["text"].as_str().unwrap_or(""))
+            .trim()
+            .to_string();
         if text.is_empty() {
             continue;
         }
@@ -1001,6 +1020,45 @@ mod tests {
         assert_eq!(resolve_language(&multi, "es", no_dirs).unwrap().1, "es");
         assert_eq!(resolve_language(&multi, "EN", no_dirs).unwrap().1, "en");
         assert!(resolve_language(&multi, "klingon", no_dirs).is_err());
+    }
+
+    #[test]
+    fn speaker_turn_markers_never_reach_words() {
+        let parsed = serde_json::json!({
+            "transcription": [{
+                "offsets": {"from": 0, "to": 2000},
+                "text": " >>We never stop. >>Yeah.",
+                "tokens": [
+                    {"text": "[_BEG_]", "offsets": {"from": 0, "to": 0}, "p": 1.0},
+                    {"text": " >>", "offsets": {"from": 0, "to": 40}, "p": 0.6},
+                    {"text": "We", "offsets": {"from": 40, "to": 300}, "p": 0.9},
+                    {"text": " never", "offsets": {"from": 300, "to": 600}, "p": 0.9},
+                    {"text": " stop", "offsets": {"from": 600, "to": 900}, "p": 0.9},
+                    {"text": ".", "offsets": {"from": 900, "to": 950}, "p": 0.9},
+                    {"text": " >", "offsets": {"from": 1200, "to": 1220}, "p": 0.6},
+                    {"text": ">", "offsets": {"from": 1220, "to": 1240}, "p": 0.6},
+                    {"text": "Yeah", "offsets": {"from": 1240, "to": 1600}, "p": 0.9},
+                    {"text": ".", "offsets": {"from": 1600, "to": 1650}, "p": 0.9}
+                ]
+            }]
+        });
+        let texts: Vec<String> = parse_words(&parsed, None, None)
+            .into_iter()
+            .map(|w| w.text)
+            .collect();
+        assert_eq!(texts, ["We", "never", "stop.", "Yeah."]);
+
+        let segment_only = serde_json::json!({
+            "transcription": [{
+                "offsets": {"from": 0, "to": 1000},
+                "text": " >> We never stop."
+            }]
+        });
+        let texts: Vec<String> = parse_words(&segment_only, None, None)
+            .into_iter()
+            .map(|w| w.text)
+            .collect();
+        assert_eq!(texts, ["We", "never", "stop."]);
     }
 
     /// Spanish fixture: whisper token offsets survive parsing and the words
