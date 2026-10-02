@@ -261,6 +261,8 @@ Small, focused changes are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) befo
 
 For security reports, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
+If Clipping Factory found you a clip worth posting, a ⭐ helps other people find it.
+
 ## Credits and license
 
 Clipping Factory uses [FFmpeg](https://ffmpeg.org), [whisper.cpp](https://github.com/ggml-org/whisper.cpp), [rustface](https://github.com/atomashpolskiy/rustface), and the [Inter](https://rsms.me/inter/) typeface.
