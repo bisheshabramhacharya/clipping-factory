@@ -1,10 +1,11 @@
 //! Offline replay of a saved project's selection, for eval runs.
 //!
-//! `select-replay <project-dir>` loads the transcript, energy profile, and
-//! project record the pipeline already wrote to disk, then re-runs the same
-//! `select::propose` → `validate::validate` calls the pipeline makes on its
-//! local-ranking path — never a copy of that logic — and prints the
-//! `SelectionReport` as JSON on stdout.
+//! `select-replay <project-dir> [focus]` loads the transcript, energy
+//! profile, and project record the pipeline already wrote to disk, then
+//! re-runs the same `select::propose` → `validate::validate` calls the
+//! pipeline makes on its local-ranking path — never a copy of that logic —
+//! and prints the `SelectionReport` as JSON on stdout. A second argument
+//! overrides the project's stored Focus prompt for the run.
 
 use crate::domain::{Project, SelectionReport, Transcript};
 use crate::energy::EnergyProfile;
@@ -20,8 +21,9 @@ fn read_json<T: serde::de::DeserializeOwned>(dir: &Path, name: &str) -> Result<T
 
 /// Re-run the pipeline's local ranking and validation for one project.
 /// Energy is optional input: like `store.load_energy`, a missing or
-/// unparsable file degrades to "no signal" rather than an error.
-pub async fn replay(project_dir: &Path) -> Result<SelectionReport> {
+/// unparsable file degrades to "no signal" rather than an error. `focus`
+/// overrides the project's stored Focus prompt when set.
+pub async fn replay(project_dir: &Path, focus: Option<&str>) -> Result<SelectionReport> {
     let project: Project = read_json(project_dir, "project.json")?;
     let transcript: Transcript = read_json(project_dir, "transcript.json")?;
     let energy: Option<EnergyProfile> = read_json(project_dir, "energy.json").ok();
@@ -41,7 +43,7 @@ pub async fn replay(project_dir: &Path) -> Result<SelectionReport> {
         &transcript,
         &source,
         energy.as_ref(),
-        project.focus_prompt.as_deref(),
+        focus.or(project.focus_prompt.as_deref()),
         project.platform,
         |_| {},
     )
@@ -136,8 +138,8 @@ mod tests {
         let last = t.words.last().unwrap().end_ms + 1_000;
         write_project(&dir, &t, last);
 
-        let first = replay(&dir).await.unwrap();
-        let second = replay(&dir).await.unwrap();
+        let first = replay(&dir, None).await.unwrap();
+        let second = replay(&dir, None).await.unwrap();
         assert_eq!(first.selector, "local ranking");
         assert_eq!(
             serde_json::to_string_pretty(&first).unwrap(),
@@ -167,7 +169,7 @@ mod tests {
             serde_json::to_vec_pretty(&transcript_from(&[("hello.", 0)])).unwrap(),
         )
         .unwrap();
-        let err = replay(&dir).await.unwrap_err().to_string();
+        let err = replay(&dir, None).await.unwrap_err().to_string();
         assert!(err.contains("no inspected source"), "{err}");
         std::fs::remove_dir_all(&dir).ok();
     }
