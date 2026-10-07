@@ -63,6 +63,8 @@
   const candidateRowCache = {};
   let reviewBusy = false; // a render is being posted from the review screen
   let playingRank = null; // candidate rank with an open source preview
+  let renderMoreOpen = false; // the render-more candidate list is expanded
+  const renderMorePicks = new Set(); // unrendered ranks checked for rendering
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -461,6 +463,8 @@
     for (const key of Object.keys(candidateRowCache)) delete candidateRowCache[key];
     reviewBusy = false;
     playingRank = null;
+    renderMoreOpen = false;
+    renderMorePicks.clear();
   }
 
   function resetToEmpty({ message = null, kind = "error" } = {}) {
@@ -797,14 +801,14 @@
     return (view.candidates || []).filter((c) => !c.dropped);
   }
 
-  function candidateSignature(c) {
+  function candidateSignature(c, moreMode) {
     return JSON.stringify([
-      c.rank, c.headline, c.start_ms, c.end_ms, c.score,
-      c.selection_reason, c.text, !!c.dropped,
+      moreMode ? 1 : 0, c.rank, c.headline, c.start_ms, c.end_ms, c.score,
+      c.selection_reason, c.text, !!c.dropped, !!c.rendered,
     ]);
   }
 
-  function candidateRow(c) {
+  function candidateRow(c, moreMode) {
     const row = document.createElement("article");
     row.className = "candidate-card";
     row.dataset.rank = c.rank;
@@ -847,11 +851,36 @@
     play.type = "button";
     play.textContent = playingRank === c.rank ? "Close preview" : "Play";
     play.addEventListener("click", () => togglePreview(c.rank));
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.textContent = c.dropped ? "Bring back" : "Drop";
-    toggle.addEventListener("click", () => toggleDropped(c.rank, !c.dropped));
-    actions.append(tag, play, toggle);
+    if (moreMode) {
+      if (c.rendered) {
+        // Rendered is read-only — nothing here can undo a render.
+        const done = document.createElement("span");
+        done.className = "dropped-tag";
+        done.textContent = "Rendered";
+        actions.append(done, play, tag);
+      } else {
+        const pick = document.createElement("label");
+        pick.className = "candidate-pick";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = renderMorePicks.has(c.rank);
+        box.addEventListener("change", () => {
+          if (box.checked) renderMorePicks.add(c.rank);
+          else renderMorePicks.delete(c.rank);
+          const keptBtn = $("render-kept-btn");
+          keptBtn.textContent = `Render selected (${renderMorePicks.size})`;
+          keptBtn.disabled = reviewBusy || renderMorePicks.size === 0;
+        });
+        pick.append(box, document.createTextNode("Render this"));
+        actions.append(tag, pick, play);
+      }
+    } else {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.textContent = c.dropped ? "Bring back" : "Drop";
+      toggle.addEventListener("click", () => toggleDropped(c.rank, !c.dropped));
+      actions.append(tag, play, toggle);
+    }
 
     row.append(head, reason, text, actions);
     // The preview streams the uploaded source itself — a #t=start,end
@@ -892,32 +921,67 @@
 
   function renderReview(p) {
     const section = $("review-state");
-    const show = p.status === "awaiting_review";
-    section.classList.toggle("hidden", !show);
-    if (!show) return;
-
     const all = view.candidates || [];
-    const kept = candidatesKept();
-    $("review-sub").textContent =
-      `Kept ${kept.length} of ${all.length} · ${view.source_name || ""}`;
+    const moreMode = p.status === "complete" || p.status === "failed";
+    const unrendered = all.filter((c) => !c.rendered);
+
+    // The entry points live on the results and error headers — each only
+    // appears when there is actually an unrendered candidate to offer.
+    for (const [id, on] of [
+      ["render-more-btn", p.status === "complete" && unrendered.length > 0],
+      ["render-more-fail-btn", p.status === "failed" && unrendered.length > 0],
+    ]) {
+      const btn = $(id);
+      if (!btn) continue;
+      btn.classList.toggle("hidden", !on);
+      btn.textContent = renderMoreOpen ? "Close render list" : "Render more";
+    }
+
+    const show = p.status === "awaiting_review" || (moreMode && renderMoreOpen);
+    section.classList.toggle("hidden", !show || !all.length);
+    if (!show || !all.length) {
+      // A preview inside a hidden section keeps playing — stop it.
+      if (playingRank != null) {
+        delete candidateRowCache[playingRank];
+        playingRank = null;
+      }
+      return;
+    }
 
     const keptBtn = $("render-kept-btn");
-    keptBtn.textContent = `Render kept (${kept.length})`;
-    keptBtn.disabled = reviewBusy || kept.length === 0;
-    keptBtn.title = kept.length === 0
-      ? "Keep at least one candidate to render."
-      : "Frame and render the kept candidates only.";
     const allBtn = $("render-all-btn");
-    allBtn.disabled = reviewBusy || all.length === 0;
-    allBtn.title = "Frame and render every candidate — skips the review.";
+    if (!moreMode) {
+      const kept = candidatesKept();
+      $("review-title").textContent = "Review candidates";
+      $("review-sub").textContent =
+        `Kept ${kept.length} of ${all.length} · ${view.source_name || ""}`;
+      keptBtn.textContent = `Render kept (${kept.length})`;
+      keptBtn.disabled = reviewBusy || kept.length === 0;
+      keptBtn.title = kept.length === 0
+        ? "Keep at least one candidate to render."
+        : "Frame and render the kept candidates only.";
+      allBtn.textContent = "Render all";
+      allBtn.disabled = reviewBusy || all.length === 0;
+      allBtn.title = "Frame and render every candidate — skips the review.";
+    } else {
+      $("review-title").textContent = "Render more candidates";
+      $("review-sub").textContent =
+        `${all.length - unrendered.length} of ${all.length} already rendered — renders can't be undone.`;
+      keptBtn.textContent = `Render selected (${renderMorePicks.size})`;
+      keptBtn.disabled = reviewBusy || renderMorePicks.size === 0;
+      keptBtn.title = "Frame and render only the checked candidates.";
+      allBtn.textContent = "Render all unrendered";
+      allBtn.disabled = reviewBusy || unrendered.length === 0;
+      allBtn.title = "Frame and render every candidate that has not rendered yet.";
+    }
 
     const wrap = $("candidates");
     const seen = new Set();
     const keptRows = new Set();
     const rows = all.map((c) => {
       const prev = candidateRowCache[c.rank];
-      const sig = candidateSignature(c);
-      const row = prev && prev.sig === sig ? prev.row : candidateRow(c);
+      const sig = candidateSignature(c, moreMode);
+      const row = prev && prev.sig === sig ? prev.row : candidateRow(c, moreMode);
       candidateRowCache[c.rank] = { sig, row };
       seen.add(c.rank);
       keptRows.add(row);
@@ -931,6 +995,16 @@
       const current = wrap.children[i];
       if (current !== row) wrap.insertBefore(row, current || null);
     });
+  }
+
+  function toggleRenderMore() {
+    renderMoreOpen = !renderMoreOpen;
+    if (!renderMoreOpen) renderMorePicks.clear();
+    if (playingRank != null) {
+      delete candidateRowCache[playingRank];
+      playingRank = null;
+    }
+    renderReview(view.project);
   }
 
   async function toggleDropped(rank, dropped) {
@@ -988,10 +1062,26 @@
   }
 
   function wireReview() {
-    $("render-kept-btn").addEventListener("click", () =>
-      postRender(candidatesKept().map((c) => c.rank)));
-    $("render-all-btn").addEventListener("click", () =>
-      postRender((view.candidates || []).map((c) => c.rank)));
+    const inMoreMode = () => {
+      const status = view && view.project && view.project.status;
+      return status === "complete" || status === "failed";
+    };
+    $("render-kept-btn").addEventListener("click", () => {
+      if (inMoreMode()) {
+        postRender([...renderMorePicks].sort((a, b) => a - b));
+      } else {
+        postRender(candidatesKept().map((c) => c.rank));
+      }
+    });
+    $("render-all-btn").addEventListener("click", () => {
+      if (inMoreMode()) {
+        postRender((view.candidates || []).filter((c) => !c.rendered).map((c) => c.rank));
+      } else {
+        postRender((view.candidates || []).map((c) => c.rank));
+      }
+    });
+    $("render-more-btn").addEventListener("click", toggleRenderMore);
+    $("render-more-fail-btn").addEventListener("click", toggleRenderMore);
   }
 
   function stageState(p, name) {
