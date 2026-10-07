@@ -694,6 +694,18 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
     } else {
         None
     };
+    // A rank counts as rendered once its clip reached Ready — planned or
+    // failed clips still show as unrendered so they can be picked again.
+    let rendered_ranks: std::collections::BTreeSet<usize> = manifest
+        .as_ref()
+        .map(|m| {
+            m.clips
+                .iter()
+                .filter(|c| c.status == ClipStatus::Ready)
+                .map(|c| c.rank)
+                .collect()
+        })
+        .unwrap_or_default();
     let candidates: Vec<serde_json::Value> = selection
         .as_ref()
         .map(|s| {
@@ -709,6 +721,7 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
                         "score": vc.composite,
                         "selection_reason": c.selection_reason,
                         "dropped": p.review_drops.contains(&vc.rank),
+                        "rendered": rendered_ranks.contains(&vc.rank),
                         "text": transcript
                             .as_ref()
                             .map(|t| crate::validate::excerpt_text(t, c.start_ms, c.end_ms))
@@ -2857,6 +2870,67 @@ mod tests {
         assert_eq!(p.review_drops, vec![2]);
         let res = app.oneshot(review_req(r#"{"dropped":[]}"#)).await.unwrap();
         assert_eq!(res.status(), StatusCode::CONFLICT);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// Render more: a finished project takes another render call, the view
+    /// marks which candidates already rendered, and the kept set unions.
+    #[tokio::test]
+    async fn a_finished_project_renders_more_candidates() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000111";
+        awaiting_review_project(&state.store, id).await;
+        let mut p = state.store.load_project(id).await.unwrap();
+        p.status = JobState::Complete;
+        state.store.save_project(&p).await.unwrap();
+        let selection = state.store.load_selection(id).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![clip_from_validated(&selection.accepted[0])],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let app = router(state.clone());
+
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let rendered: Vec<bool> = view["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["rendered"].as_bool().unwrap())
+            .collect();
+        assert_eq!(rendered, vec![true, false, false]);
+
+        // A render call on the finished project unions into kept_ranks —
+        // the ready rank-1 clip is never in play again.
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.kept_ranks, Some(vec![2]));
+        let manifest = state.store.load_manifest(id).await.unwrap();
+        assert_eq!(manifest.clips.len(), 1);
+        assert_eq!(manifest.clips[0].status, ClipStatus::Ready);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

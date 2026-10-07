@@ -524,6 +524,11 @@ h1 { display: flex; align-items: center; font-size: 15px; font-weight: 700; lett
   width: min(320px, 100%); max-height: 300px;
   border-radius: 12px; background: #000;
 }
+.candidate-pick {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 550; color: var(--ink-1); cursor: pointer;
+}
+.candidate-pick input { accent-color: var(--accent); width: 15px; height: 15px; }
 
 /* ---- Library drawer ---- */
 .drawer-backdrop {
