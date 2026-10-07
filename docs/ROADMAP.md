@@ -20,11 +20,15 @@ to inflate counts.
 - Review theater, project library with delete, interrupted-run recovery.
 - Loopback-only API with Host/Origin checks, bounded uploads, atomic state.
 - Eval harness (`evals/`) with fail-closed baseline comparison.
+- Review candidates before rendering; render only the kept ones.
+  The studio pauses after candidate validation, lists every candidate with
+  its range, score, reason, and an inline source preview, and only kept
+  ranks are framed and rendered. Dropped candidates can be brought back
+  and rendered later; existing clips are never re-framed.
 
 ## Next
 
 1. Commit one real-media eval baseline from one owned episode.
-2. Review candidates before rendering; render only the kept ones.
 
 ## Not doing
 

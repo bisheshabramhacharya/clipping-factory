@@ -67,6 +67,9 @@
   const renderMorePicks = new Set(); // unrendered ranks checked for rendering
   let focusRank = null; // keyboard-focused candidate rank in the review list
   let reviewSort = localStorage["cf-review-sort"] || "score"; // "score" | "time"
+  // Resting statuses where "Render more" can reopen the candidate list —
+  // including a cancelled run, which may hold rendered and unrendered clips.
+  const MORE_STATUSES = new Set(["complete", "failed", "cancelled"]);
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -950,7 +953,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const all = sortedCandidates();
     if (!all.length) return;
-    const moreMode = p.status === "complete" || p.status === "failed";
+    const moreMode = MORE_STATUSES.has(p.status);
     const idx = all.findIndex((c) => c.rank === focusRank);
     const focused = idx >= 0 ? all[idx] : null;
     const moveTo = (i) => {
@@ -991,14 +994,14 @@
   function renderReview(p) {
     const section = $("review-state");
     const all = sortedCandidates();
-    const moreMode = p.status === "complete" || p.status === "failed";
+    const moreMode = MORE_STATUSES.has(p.status);
     const unrendered = all.filter((c) => !c.rendered);
 
     // The entry points live on the results and error headers — each only
     // appears when there is actually an unrendered candidate to offer.
     for (const [id, on] of [
       ["render-more-btn", p.status === "complete" && unrendered.length > 0],
-      ["render-more-fail-btn", p.status === "failed" && unrendered.length > 0],
+      ["render-more-fail-btn", (p.status === "failed" || p.status === "cancelled") && unrendered.length > 0],
     ]) {
       const btn = $(id);
       if (!btn) continue;
@@ -1138,7 +1141,7 @@
   function wireReview() {
     const inMoreMode = () => {
       const status = view && view.project && view.project.status;
-      return status === "complete" || status === "failed";
+      return MORE_STATUSES.has(status);
     };
     $("render-kept-btn").addEventListener("click", () => {
       if (inMoreMode()) {
