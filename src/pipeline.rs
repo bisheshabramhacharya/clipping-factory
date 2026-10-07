@@ -906,7 +906,6 @@ async fn run(
     } else {
         let mut prog = ctx.progress_fn("analyzing_layout");
         stage!("analyzing_layout", {
-            let mut clips: Vec<ClipRecord> = Vec::new();
             let total = report.accepted.len();
             let total_ms: u64 = report
                 .accepted
@@ -915,77 +914,104 @@ async fn run(
                 .sum();
             // Frame sampling + face detection cost scales with clip length,
             // so a clip's share of the stage is its duration — not 1/N.
-            let mut analyzed_ms: u64 = 0;
-            let mut result: anyhow::Result<String> = Ok(String::new());
-            for (i, vc) in report.accepted.iter().enumerate() {
-                let clip_frac = analyzed_ms as f32 / total_ms.max(1) as f32;
-                prog(
-                    clip_frac,
-                    Some(format!("Analyzing framing for clip {} of {}", i + 1, total)),
-                );
-                analyzed_ms += vc.candidate.end_ms.saturating_sub(vc.candidate.start_ms);
-                let analyzed_layout = match crate::frame::analyze_layout(
-                    cfg,
-                    &src,
-                    &source,
-                    vc.candidate.start_ms,
-                    vc.candidate.end_ms,
-                    &transcript.words,
-                    &ctx.cancel,
-                )
-                .await
-                {
-                    Ok(l) => l,
-                    Err(e) if is_cancelled(&e, &ctx.cancel) => {
-                        result = Err(e);
-                        break;
-                    }
-                    Err(e) => {
-                        tracing::warn!("framing analysis failed, using blur-pad: {e:#}");
-                        LayoutPlan::BlurPad
-                    }
-                };
-                let layout = p.framing_mode.apply(analyzed_layout);
-                let (out_w, out_h) = crate::render::output_size(&source, &layout);
-                let c = &vc.candidate;
-                clips.push(ClipRecord {
-                    id: crate::util::short_id(),
-                    rank: vc.rank,
-                    headline: c.headline.clone(),
-                    filename: format!("{:02}-{}.mp4", vc.rank, slugify(&c.headline, 48)),
-                    start_ms: c.start_ms,
-                    end_ms: c.end_ms,
-                    duration_ms: c.end_ms - c.start_ms,
-                    selection_reason: c.selection_reason.clone(),
-                    scores: c.scores,
-                    // Caption-only jobs run no ranking, so their synthetic
-                    // composite (0.0) is not a score worth showing.
-                    score: (!is_caption_only(source.duration_ms)).then_some(vc.composite),
-                    layout,
-                    width: Some(out_w),
-                    height: Some(out_h),
-                    status: ClipStatus::Pending,
-                    error: None,
-                    low_confidence: interval_confidence(&transcript, c.start_ms, c.end_ms)
-                        < LOW_CONFIDENCE,
-                    caption_style: None,
-                    accent_color: None,
-                    caption_font: None,
-                    caption_text: Some(words_to_text(&crate::captions::words_in_interval(
-                        &transcript.words,
+            // The same bounded pool used by the render stage analyzes clips
+            // concurrently; one writer builds the manifest in rank order.
+            let accepted = Arc::new(report.accepted.clone());
+            let (ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel::<
+                crate::pool::WriteEvent<anyhow::Result<LayoutPlan>>,
+            >();
+            let work = |i: usize, _slot: crate::pool::WorkSlot<anyhow::Result<LayoutPlan>>| {
+                let accepted = accepted.clone();
+                let (cfg, src, source, transcript) = (cfg, &src, &source, &transcript);
+                let cancel = &ctx.cancel;
+                async move {
+                    let c = &accepted[i].candidate;
+                    crate::frame::analyze_layout(
+                        cfg,
+                        src,
+                        source,
                         c.start_ms,
                         c.end_ms,
-                    ))),
-                    auto_cut: false,
-                    cut_spans: None,
-                    zoom_cuts: false,
-                    zoom_keys: None,
-                    progress_bar: false,
-                    hook_title: false,
-                });
-            }
+                        &transcript.words,
+                        cancel,
+                    )
+                    .await
+                }
+            };
+            // Out-of-order delivery: results fill indexed slots, and the
+            // stage's progress advances per completion — a slow clip can't
+            // hold the bar at 0% behind itself.
+            let pool_run = crate::pool::run_unordered(total, cfg.render_jobs, work, ev_tx);
+            let apply = async {
+                let mut clips: Vec<Option<ClipRecord>> = (0..total).map(|_| None).collect();
+                let mut analyzed_ms: u64 = 0;
+                let mut result: anyhow::Result<String> = Ok(String::new());
+                while let Some(ev) = ev_rx.recv().await {
+                    let crate::pool::WriteEvent::Done(i, res) = ev else {
+                        continue;
+                    };
+                    let vc = &report.accepted[i];
+                    analyzed_ms += vc.candidate.end_ms.saturating_sub(vc.candidate.start_ms);
+                    prog(
+                        analyzed_ms as f32 / total_ms.max(1) as f32,
+                        Some(format!("Analyzing framing for clip {} of {}", i + 1, total)),
+                    );
+                    let analyzed_layout = match res {
+                        Ok(l) => l,
+                        Err(e) if is_cancelled(&e, &ctx.cancel) => {
+                            result = Err(e);
+                            break;
+                        }
+                        Err(e) => {
+                            tracing::warn!("framing analysis failed, using blur-pad: {e:#}");
+                            LayoutPlan::BlurPad
+                        }
+                    };
+                    let layout = p.framing_mode.apply(analyzed_layout);
+                    let (out_w, out_h) = crate::render::output_size(&source, &layout);
+                    let c = &vc.candidate;
+                    clips[i] = Some(ClipRecord {
+                        id: crate::util::short_id(),
+                        rank: vc.rank,
+                        headline: c.headline.clone(),
+                        filename: format!("{:02}-{}.mp4", vc.rank, slugify(&c.headline, 48)),
+                        start_ms: c.start_ms,
+                        end_ms: c.end_ms,
+                        duration_ms: c.end_ms - c.start_ms,
+                        selection_reason: c.selection_reason.clone(),
+                        scores: c.scores,
+                        // Caption-only jobs run no ranking, so their synthetic
+                        // composite (0.0) is not a score worth showing.
+                        score: (!is_caption_only(source.duration_ms)).then_some(vc.composite),
+                        layout,
+                        width: Some(out_w),
+                        height: Some(out_h),
+                        status: ClipStatus::Pending,
+                        error: None,
+                        low_confidence: interval_confidence(&transcript, c.start_ms, c.end_ms)
+                            < LOW_CONFIDENCE,
+                        caption_style: None,
+                        accent_color: None,
+                        caption_font: None,
+                        caption_text: Some(words_to_text(&crate::captions::words_in_interval(
+                            &transcript.words,
+                            c.start_ms,
+                            c.end_ms,
+                        ))),
+                        auto_cut: false,
+                        cut_spans: None,
+                        zoom_cuts: false,
+                        zoom_keys: None,
+                        progress_bar: false,
+                        hook_title: false,
+                    });
+                }
+                (clips, analyzed_ms, result)
+            };
+            let ((), (clips, _analyzed_ms, result)) = tokio::join!(pool_run, apply);
             match result {
                 Ok(_) => {
+                    let clips: Vec<ClipRecord> = clips.into_iter().flatten().collect();
                     let face_crops = clips
                         .iter()
                         .filter(|c| matches!(c.layout, LayoutPlan::FaceCrop { .. }))
