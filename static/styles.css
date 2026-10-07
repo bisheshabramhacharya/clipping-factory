@@ -488,6 +488,39 @@ h1 { display: flex; align-items: center; font-size: 15px; font-weight: 700; lett
 .empty-results strong { font-size: 17px; }
 .empty-actions { display: flex; justify-content: center; margin-top: 6px; }
 
+/* ---- Review candidates ---- */
+.opt-check { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; }
+.opt-check input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); grid-row: 1 / span 2; }
+.opt-check .opt-label { grid-column: 2; }
+.opt-check small { grid-column: 2; }
+
+.candidate-list { display: flex; flex-direction: column; gap: 10px; }
+.candidate-card {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px; border-radius: var(--r-md);
+  background: var(--surface); box-shadow: var(--shadow-sm);
+  border: 1px solid var(--hairline);
+}
+.candidate-card.dropped { opacity: .62; }
+.candidate-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.candidate-head .rank { flex: none; }
+.candidate-head h3 { font-size: 15px; line-height: 1.35; font-weight: 650; letter-spacing: -0.01em; flex: 1; min-width: 200px; }
+.candidate-head .times { flex: none; }
+.candidate-head .badges { flex: none; }
+.candidate-reason { font-size: 12px; }
+.candidate-text {
+  font-size: 12.5px; line-height: 1.55; color: var(--ink-2);
+  max-height: 84px; overflow-y: auto;
+  border-left: 2px solid var(--hairline-strong); padding-left: 10px;
+}
+.candidate-actions { display: flex; align-items: center; gap: 10px; }
+.dropped-tag {
+  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center;
+  background: var(--surface-3); color: var(--ink-2);
+  font-size: 11.5px; font-weight: 550;
+}
+
 /* ---- Library drawer ---- */
 .drawer-backdrop {
   position: fixed; inset: 0; z-index: 900; background: rgba(20, 19, 18, .28);

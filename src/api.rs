@@ -11,6 +11,7 @@
 //! GET    /api/projects/{id}/events   SSE progress stream
 //! POST   /api/projects/{id}/process  start/resume
 //! POST   /api/projects/{id}/render   frame + render the kept candidate ranks
+//! POST   /api/projects/{id}/review   persist the review screen's dropped ranks
 //! POST   /api/projects/{id}/cancel   stop subprocesses, keep finished clips
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
@@ -62,6 +63,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/projects/{id}/events", get(project_events))
         .route("/api/projects/{id}/process", post(process_project))
         .route("/api/projects/{id}/render", post(render_project))
+        .route("/api/projects/{id}/review", post(review_decisions))
         .route("/api/projects/{id}/cancel", post(cancel_project))
         .route("/api/projects/{id}/retry", post(retry_project))
         .route("/api/projects/{id}/clips/{clip}", get(serve_clip_inline))
@@ -704,6 +706,7 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
                         "end_ms": c.end_ms,
                         "score": vc.composite,
                         "selection_reason": c.selection_reason,
+                        "dropped": p.review_drops.contains(&vc.rank),
                         "text": transcript
                             .as_ref()
                             .map(|t| crate::validate::excerpt_text(t, c.start_ms, c.end_ms))
@@ -832,12 +835,77 @@ async fn render_project(
             p.kept_ranks.iter().flatten().copied().collect();
         kept.extend(body.ranks.iter().copied());
         p.kept_ranks = Some(kept.iter().copied().collect());
+        // A rank that renders is decided — it can't stay marked dropped.
+        p.review_drops.retain(|rank| !kept.contains(rank));
         state.store.save_project(&p).await.map_err(ApiError::from)?;
     }
     match pipeline::start(state.clone(), id).await {
         Ok(()) => Ok(Json(json!({ "started": true }))),
         Err(msg) => Err(ApiError(StatusCode::CONFLICT, msg)),
     }
+}
+
+#[derive(serde::Deserialize)]
+struct ReviewIn {
+    #[serde(default)]
+    dropped: Vec<usize>,
+}
+
+/// Persist the review screen's keep/drop marks. `dropped` replaces the whole
+/// set, so rapid toggles settle on the last write; only accepted ranks are
+/// valid. Once a render posts `kept_ranks`, the decision is fixed and this
+/// route stops taking edits.
+async fn review_decisions(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    Json(body): Json<ReviewIn>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if !state.store.exists(&id) {
+        return Err(not_found("Project not found."));
+    }
+    let handle = state.handle(&id);
+    let _operation = handle.operation.lock().await;
+    if handle.is_running() {
+        return Err(ApiError(
+            StatusCode::CONFLICT,
+            "Processing is running for this project. Wait for it to finish first.".into(),
+        ));
+    }
+    let mut p = state
+        .store
+        .load_project(&id)
+        .await
+        .map_err(ApiError::from)?;
+    if p.status.is_active() {
+        p.status = JobState::Failed;
+        p.error = Some(
+            "Processing was interrupted. The render resumes from the last completed stage.".into(),
+        );
+        state.store.save_project(&p).await.map_err(ApiError::from)?;
+    }
+    if p.kept_ranks.is_some() {
+        return Err(ApiError(
+            StatusCode::CONFLICT,
+            "Rendering already started on the kept set — the review is over.".into(),
+        ));
+    }
+    let report = state.store.load_selection(&id).await.map_err(|_| {
+        ApiError(
+            StatusCode::CONFLICT,
+            "Selection has not finished for this project yet.".into(),
+        )
+    })?;
+    let accepted: std::collections::BTreeSet<usize> =
+        report.accepted.iter().map(|vc| vc.rank).collect();
+    if let Some(bad) = body.dropped.iter().find(|r| !accepted.contains(r)) {
+        return Err(bad_request(format!(
+            "Rank {bad} is not an accepted candidate."
+        )));
+    }
+    let dropped: std::collections::BTreeSet<usize> = body.dropped.into_iter().collect();
+    p.review_drops = dropped.into_iter().collect();
+    state.store.save_project(&p).await.map_err(ApiError::from)?;
+    Ok(Json(json!({ "dropped": p.review_drops })))
 }
 
 async fn cancel_project(
@@ -2689,6 +2757,89 @@ mod tests {
         let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(view["cancelled"], false);
         assert_eq!(view["status"], "awaiting_review");
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn review_saves_drops_rejects_bad_ranks_and_freezes_after_render() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000108";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+        let review_req = |body: &str| {
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/projects/{id}/review"))
+                .header(header::HOST, "localhost:4571")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap()
+        };
+
+        // A rank that was never accepted is a 400 and stores nothing.
+        let res = app
+            .clone()
+            .oneshot(review_req(r#"{"dropped":[9]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        assert!(state
+            .store
+            .load_project(id)
+            .await
+            .unwrap()
+            .review_drops
+            .is_empty());
+
+        // The full set replaces whatever was there — the last write wins.
+        let res = app
+            .clone()
+            .oneshot(review_req(r#"{"dropped":[2,1,2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(view["dropped"], serde_json::json!([1, 2]));
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.review_drops, vec![1, 2]);
+
+        // The review marks surface on the candidate rows in the view.
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let candidates = view["candidates"].as_array().unwrap();
+        let drops: Vec<bool> = candidates
+            .iter()
+            .map(|c| c["dropped"].as_bool().unwrap())
+            .collect();
+        assert_eq!(drops, vec![true, true, false]);
+
+        // Rendering the kept rank clears nothing it shouldn't — and once a
+        // render posts, the review stops taking edits.
+        let res = app
+            .clone()
+            .oneshot(render_request(id, r#"{"ranks":[1]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.review_drops, vec![2]);
+        let res = app.oneshot(review_req(r#"{"dropped":[]}"#)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 

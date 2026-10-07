@@ -120,6 +120,11 @@
               <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
                 placeholder="Optional — e.g. pricing, or where they disagree">
             </label>
+            <label class="opt opt-wide opt-check">
+              <input id="upload-review" type="checkbox" checked>
+              <span class="opt-label">Review candidates before rendering</span>
+              <small class="muted small">Pick the keepers after validation — unchecked renders every accepted candidate automatically.</small>
+            </label>
           </div>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
@@ -169,6 +174,21 @@
             <button id="retry-btn" class="primary" type="button">Retry stage</button>
           </div>
         </div>
+      </section>
+
+      <!-- Review state: candidates parked for a keep/drop before rendering -->
+      <section id="review-state" class="hidden" aria-labelledby="review-title">
+        <div class="results-head">
+          <div class="results-title-wrap">
+            <h2 id="review-title">Review candidates</h2>
+            <p class="muted small" id="review-sub"></p>
+          </div>
+          <div class="results-actions">
+            <button id="render-all-btn" type="button">Render all</button>
+            <button id="render-kept-btn" class="primary" type="button">Render kept</button>
+          </div>
+        </div>
+        <div id="candidates" class="candidate-list" role="list"></div>
       </section>
 
       <!-- Results state -->
