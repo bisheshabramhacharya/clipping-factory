@@ -125,7 +125,10 @@ mod tests {
             ("It failed on day forty one in a way no one predicted.", 800),
             ("The fix took one bolt and twenty minutes of work.", 900),
             ("So the lesson is simple, test it until it breaks.", 1200),
-            ("Exactly, and that is why we changed the whole checklist.", 1400),
+            (
+                "Exactly, and that is why we changed the whole checklist.",
+                1400,
+            ),
             ("Thanks for listening.", 2000),
         ];
         let t = transcript_from(&script);
