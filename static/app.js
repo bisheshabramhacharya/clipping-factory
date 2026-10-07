@@ -58,6 +58,10 @@
   // clip id → {sig, row}: lets a refetch rebuild only the cards whose clip
   // changed instead of remounting the whole list.
   const clipRowCache = {};
+  // rank → {sig, row}: same reconciliation trick as the clip list so a
+  // keep/drop toggle rebuilds only its own card.
+  const candidateRowCache = {};
+  let reviewBusy = false; // a render is being posted from the review screen
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -333,6 +337,13 @@
     platformSelect.addEventListener("change", () => {
       localStorage.setItem("cf-platform", platformSelect.value);
     });
+    // Review-on is the default; an unchecked choice sticks like the others.
+    const reviewBox = $("upload-review");
+    const savedReview = localStorage.getItem("cf-review");
+    if (savedReview !== null) reviewBox.checked = savedReview === "true";
+    reviewBox.addEventListener("change", () => {
+      localStorage.setItem("cf-review", String(reviewBox.checked));
+    });
   }
 
   function uploadFile(file) {
@@ -360,6 +371,7 @@
     form.append("platform", $("upload-platform").value || "any");
     const focusPrompt = $("focus-prompt").value.trim();
     if (focusPrompt) form.append("focus_prompt", focusPrompt);
+    if ($("upload-review").checked) form.append("review_before_render", "true");
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
@@ -445,6 +457,8 @@
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
     for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
+    for (const key of Object.keys(candidateRowCache)) delete candidateRowCache[key];
+    reviewBusy = false;
   }
 
   function resetToEmpty({ message = null, kind = "error" } = {}) {
@@ -512,6 +526,7 @@
 
   const LIBRARY_STATUS = {
     created: "Queued",
+    awaiting_review: "Review",
     complete: "Complete",
     cancelled: "Cancelled",
     failed: "Failed",
@@ -735,7 +750,12 @@
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     // Once clips exist the studio owns the screen; progress shrinks to a strip.
     $("processing-state").classList.toggle("compact", !!p && (view.clips || []).length > 0);
-    if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
+    if (!p) {
+      $("results-state").classList.add("hidden");
+      $("review-state").classList.add("hidden");
+      stopElapsed();
+      return;
+    }
     if (!isProcessing(p.status)) {
       if (cancellationPending) {
         cancellationPending = false;
@@ -760,8 +780,180 @@
     renderStages(p);
     renderCurrentOp(p);
     renderError(p);
+    renderReview(p);
     renderResults(p);
     startElapsed(p);
+  }
+
+  // -------------------------------------------------------------- review
+  // Candidate review: a run uploaded with review on parks at
+  // awaiting_review after validation. Keep/drop marks live in
+  // project.review_drops — the server is the source of truth, so a refresh
+  // or a second tab sees the same review.
+
+  function candidatesKept() {
+    return (view.candidates || []).filter((c) => !c.dropped);
+  }
+
+  function candidateSignature(c) {
+    return JSON.stringify([
+      c.rank, c.headline, c.start_ms, c.end_ms, c.score,
+      c.selection_reason, c.text, !!c.dropped,
+    ]);
+  }
+
+  function candidateRow(c) {
+    const row = document.createElement("article");
+    row.className = "candidate-card";
+    row.dataset.rank = c.rank;
+    row.setAttribute("role", "listitem");
+    const head = document.createElement("div");
+    head.className = "candidate-head";
+    const rank = document.createElement("span");
+    rank.className = "rank";
+    rank.textContent = `#${c.rank}`;
+    const h = document.createElement("h3");
+    h.textContent = c.headline || "(untitled)";
+    const times = document.createElement("span");
+    times.className = "times";
+    const len = Math.max(0, (c.end_ms || 0) - (c.start_ms || 0));
+    times.textContent = `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)} · ${fmtMs(len)}`;
+    const badges = document.createElement("span");
+    badges.className = "badges";
+    if (typeof c.score === "number") {
+      const score = document.createElement("span");
+      score.className = "badge score";
+      score.textContent = c.score.toFixed(1);
+      badges.appendChild(score);
+    }
+    head.append(rank, h, times, badges);
+
+    const reason = document.createElement("p");
+    reason.className = "candidate-reason muted";
+    reason.textContent = c.selection_reason || "";
+
+    const text = document.createElement("p");
+    text.className = "candidate-text";
+    text.textContent = c.text || "";
+
+    const actions = document.createElement("div");
+    actions.className = "candidate-actions";
+    const tag = document.createElement("span");
+    tag.className = `dropped-tag${c.dropped ? "" : " hidden"}`;
+    tag.textContent = "Dropped";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.textContent = c.dropped ? "Bring back" : "Drop";
+    toggle.addEventListener("click", () => toggleDropped(c.rank, !c.dropped));
+    actions.append(tag, toggle);
+
+    row.append(head, reason, text, actions);
+    row.classList.toggle("dropped", !!c.dropped);
+    return row;
+  }
+
+  function renderReview(p) {
+    const section = $("review-state");
+    const show = p.status === "awaiting_review";
+    section.classList.toggle("hidden", !show);
+    if (!show) return;
+
+    const all = view.candidates || [];
+    const kept = candidatesKept();
+    $("review-sub").textContent =
+      `Kept ${kept.length} of ${all.length} · ${view.source_name || ""}`;
+
+    const keptBtn = $("render-kept-btn");
+    keptBtn.textContent = `Render kept (${kept.length})`;
+    keptBtn.disabled = reviewBusy || kept.length === 0;
+    keptBtn.title = kept.length === 0
+      ? "Keep at least one candidate to render."
+      : "Frame and render the kept candidates only.";
+    const allBtn = $("render-all-btn");
+    allBtn.disabled = reviewBusy || all.length === 0;
+    allBtn.title = "Frame and render every candidate — skips the review.";
+
+    const wrap = $("candidates");
+    const seen = new Set();
+    const keptRows = new Set();
+    const rows = all.map((c) => {
+      const prev = candidateRowCache[c.rank];
+      const sig = candidateSignature(c);
+      const row = prev && prev.sig === sig ? prev.row : candidateRow(c);
+      candidateRowCache[c.rank] = { sig, row };
+      seen.add(c.rank);
+      keptRows.add(row);
+      return row;
+    });
+    for (const rank of Object.keys(candidateRowCache)) {
+      if (!seen.has(Number(rank))) delete candidateRowCache[rank];
+    }
+    for (const child of [...wrap.children]) if (!keptRows.has(child)) child.remove();
+    rows.forEach((row, i) => {
+      const current = wrap.children[i];
+      if (current !== row) wrap.insertBefore(row, current || null);
+    });
+  }
+
+  async function toggleDropped(rank, dropped) {
+    const all = view.candidates || [];
+    const next = all
+      .filter((c) => (c.rank === rank ? dropped : c.dropped))
+      .map((c) => c.rank);
+    // Optimistic flip — the POST below carries the whole set, and the
+    // server's answer is what the cards settle on.
+    const target = all.find((c) => c.rank === rank);
+    if (target) target.dropped = dropped;
+    renderReview(view.project);
+    try {
+      const res = await requestJson(
+        apiPath("projects", projectId, "review"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dropped: next }),
+        },
+        "Couldn't save the review."
+      );
+      const serverDrops = new Set(res.dropped || []);
+      for (const c of all) c.dropped = serverDrops.has(c.rank);
+      renderReview(view.project);
+    } catch (err) {
+      showActionMessage(err.message);
+      refetch();
+    }
+  }
+
+  async function postRender(ranks) {
+    if (reviewBusy || !ranks.length) return;
+    reviewBusy = true;
+    renderReview(view.project);
+    try {
+      await requestJson(
+        apiPath("projects", projectId, "render"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ranks }),
+        },
+        "Couldn't start the render."
+      );
+      // The run resumes at validating_candidates — SSE stage events pull
+      // the view back to processing.
+      refetch();
+    } catch (err) {
+      showActionMessage(err.message);
+    } finally {
+      reviewBusy = false;
+      if (view) renderReview(view.project);
+    }
+  }
+
+  function wireReview() {
+    $("render-kept-btn").addEventListener("click", () =>
+      postRender(candidatesKept().map((c) => c.rank)));
+    $("render-all-btn").addEventListener("click", () =>
+      postRender((view.candidates || []).map((c) => c.rank)));
   }
 
   function stageState(p, name) {
@@ -1886,6 +2078,7 @@
     wireModal();
     wireDeleteModal();
     wireLibrary();
+    wireReview();
     loadLibrary();
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);

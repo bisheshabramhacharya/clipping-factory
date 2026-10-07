@@ -151,6 +151,11 @@ pub struct Project {
     /// and on review projects until the first decision is posted.
     #[serde(default)]
     pub kept_ranks: Option<Vec<usize>>,
+    /// Ranks the user dropped in the review step, persisted so a refresh or
+    /// restart keeps the review where it was. Everything not listed here is
+    /// kept. Cleared for a rank once it is rendered.
+    #[serde(default)]
+    pub review_drops: Vec<usize>,
 }
 
 impl Project {
@@ -173,6 +178,7 @@ impl Project {
             platform: Platform::default(),
             review_before_render: false,
             kept_ranks: None,
+            review_drops: Vec::new(),
         }
     }
 
@@ -651,6 +657,7 @@ mod tests {
         let p: Project = serde_json::from_str(old).unwrap();
         assert!(!p.review_before_render);
         assert_eq!(p.kept_ranks, None);
+        assert!(p.review_drops.is_empty());
     }
 
     /// Manifests written before per-clip caption styling must still load.
