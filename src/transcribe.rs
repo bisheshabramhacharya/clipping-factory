@@ -258,6 +258,14 @@ where
                 .ok()
                 .flatten()
         };
+        let (parsed, dropped) = drop_hallucinated_segments(parsed, speech.as_deref());
+        for (at_ms, text) in &dropped {
+            tracing::info!(
+                "dropped whisper segment at {} that does not look spoken: {:?}",
+                crate::domain::fmt_ms(*at_ms),
+                text
+            );
+        }
         let words = parse_words(&parsed, preset.map(calibration), speech.as_deref());
         if words.is_empty() {
             return Err(anyhow!(
@@ -688,6 +696,78 @@ fn dtw_timing(words: Vec<TokenWord>, calib: Calibration, speech: Option<&[bool]>
         out[i].end_ms = end.max(start + 60).min(limit);
     }
     out
+}
+
+/// whisper.cpp sometimes writes fluent text where nobody spoke — a looped
+/// line during silence or static, or a burst of tokens in a span too short
+/// to say them in. A caption of words nobody said is worse than no caption,
+/// so such segments never reach the transcript. A segment is dropped when:
+///
+/// - it is the third-or-later verbatim repeat of an earlier segment
+///   (whisper's classic silence loop; one repeated line can be real
+///   emphasis, a run cannot),
+/// - its words are packed tighter than anyone could speak them — sustained
+///   speech stays under ~6 words a second, hallucination bursts exceed 9,
+/// - the RMS speech mask says the audio under it is mostly not speech
+///   (music beds, room noise, silence). The mask is skipped when it flags
+///   under 2% of the file: a mask that sees nothing explains nothing.
+///
+/// Returns the input JSON with dropped segments removed from
+/// `transcription`, plus each dropped segment's offset and raw text so the
+/// caller can log them for review.
+fn drop_hallucinated_segments(
+    mut v: serde_json::Value,
+    speech: Option<&[bool]>,
+) -> (serde_json::Value, Vec<(u64, String)>) {
+    let Some(segments) = v["transcription"].as_array() else {
+        return (v, Vec::new());
+    };
+    let mask_usable = speech
+        .map(|m| m.iter().filter(|f| **f).count() as f64 / m.len().max(1) as f64 > 0.02)
+        .unwrap_or(false);
+    let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut kept: Vec<serde_json::Value> = Vec::with_capacity(segments.len());
+    let mut dropped: Vec<(u64, String)> = Vec::new();
+    for seg in segments {
+        let raw = seg["text"].as_str().unwrap_or("");
+        let text = strip_turn_markers(raw).trim().to_string();
+        let norm = crate::validate::normalize(&text);
+        let from = seg["offsets"]["from"].as_u64().unwrap_or(0);
+        let to = seg["offsets"]["to"].as_u64().unwrap_or(from).max(from);
+        let words = norm
+            .split_whitespace()
+            .filter(|w| w.chars().any(char::is_alphanumeric))
+            .count();
+        let span_s = (to - from) as f64 / 1000.0;
+        let packed = words >= 4 && words as f64 / span_s.max(0.05) > 9.0;
+        let low_energy = mask_usable
+            && speech
+                .map(|m| {
+                    let a = (from / 10) as usize;
+                    let b = ((to / 10) as usize).min(m.len());
+                    if a >= b {
+                        return false;
+                    }
+                    let voiced = m[a..b].iter().filter(|f| **f).count();
+                    (voiced as f64 / (b - a) as f64) < 0.25
+                })
+                .unwrap_or(false);
+        let mut drop = packed || low_energy;
+        if !drop && !norm.is_empty() {
+            let count = seen.entry(norm).or_insert(0);
+            *count += 1;
+            drop = *count > 2;
+        }
+        if drop && !text.is_empty() {
+            dropped.push((from, text));
+            continue;
+        }
+        kept.push(seg.clone());
+    }
+    if let Some(arr) = v["transcription"].as_array_mut() {
+        *arr = kept;
+    }
+    (v, dropped)
 }
 
 fn parse_words(
@@ -1278,5 +1358,98 @@ mod tests {
         assert_eq!(mask.len(), 100);
         assert!(mask[..50].iter().all(|s| !s));
         assert!(mask[50..].iter().all(|s| *s));
+    }
+
+    fn seg(text: &str, from_ms: u64, to_ms: u64) -> serde_json::Value {
+        serde_json::json!({
+            "text": text,
+            "offsets": {"from": from_ms, "to": to_ms},
+            "tokens": []
+        })
+    }
+
+    fn transcription(segments: Vec<serde_json::Value>) -> serde_json::Value {
+        serde_json::json!({"transcription": segments})
+    }
+
+    #[test]
+    fn a_looped_line_is_dropped_from_the_third_repeat() {
+        let v = transcription(vec![
+            seg("Thank you for watching.", 0, 2000),
+            seg("Thank you for watching.", 3000, 5000),
+            seg("Thank you for watching.", 6000, 8000),
+            seg("Thank you for watching.", 9000, 11_000),
+            seg("A real sentence here.", 12_000, 14_000),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 3);
+        assert_eq!(dropped.len(), 2);
+        assert_eq!(dropped[0].0, 6000);
+    }
+
+    #[test]
+    fn one_verbatim_repeat_can_still_be_emphasis() {
+        let v = transcription(vec![
+            seg("We have to go.", 0, 1500),
+            seg("We have to go.", 2000, 3500),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 2);
+        assert!(dropped.is_empty());
+    }
+
+    #[test]
+    fn words_packed_tighter_than_speech_are_dropped() {
+        // 12 words inside one second — nobody talks at twelve words a second.
+        let v = transcription(vec![
+            seg(
+                "one two three four five six seven eight nine ten eleven twelve",
+                0,
+                1000,
+            ),
+            seg("a normal paced sentence follows", 2000, 6000),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 1);
+        assert_eq!(dropped.len(), 1);
+    }
+
+    #[test]
+    fn text_over_non_speech_audio_is_dropped() {
+        // 10 ms frames: speech only in the first 5 s; the second segment
+        // sits entirely in music/silence.
+        let mask: Vec<bool> = (0..4000).map(|f| f < 500).collect();
+        let v = transcription(vec![
+            seg("real words over speech", 0, 3000),
+            seg("caption nobody said out loud", 30_000, 34_000),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 1);
+        assert_eq!(dropped[0].1, "caption nobody said out loud");
+    }
+
+    #[test]
+    fn a_mask_that_flags_nothing_disables_the_energy_check() {
+        // A degenerate mask must not condemn every segment.
+        let mask = vec![false; 1000];
+        let v = transcription(vec![seg("still real speech", 10_000, 13_000)]);
+        let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 1);
+        assert!(dropped.is_empty());
+    }
+
+    #[test]
+    fn dropped_segments_do_not_condemn_a_later_real_utterance() {
+        // The hallucinated repeat is removed for low energy; when the speaker
+        // genuinely says the line twice more it is not a "third repeat".
+        let mask: Vec<bool> = (0..2000).map(|f| (500..1500).contains(&f)).collect();
+        let v = transcription(vec![
+            seg("Thank you for watching.", 0, 2000),      // over silence
+            seg("Thank you for watching.", 5000, 7000),   // over speech
+            seg("Thank you for watching.", 8000, 10_000), // over speech
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
+        assert_eq!(dropped.len(), 1);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 2);
     }
 }
