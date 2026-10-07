@@ -47,6 +47,12 @@ async fn main() -> anyhow::Result<()> {
             println!("{report}");
             return Ok(());
         }
+        // Eval hook: replay a saved project's local selection as JSON.
+        if cmd == "select-replay" {
+            let report = select::replay::replay(std::path::Path::new(path)).await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            return Ok(());
+        }
     }
 
     std::fs::create_dir_all(cfg.projects_dir()).ok();
