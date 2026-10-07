@@ -34,3 +34,19 @@ project record; the run dir at `evals/results/moments-main-2026-10-07/` holds
 on the red/blue-state payoff line. Rank 8 covers 44 % of it but stops ~51 s
 before the payoff, just under the 50 % recall bar: the clip ends mid-answer
 on the moment the key marks as the reason to post.
+
+## Rejected-candidate audit
+
+All 33 recorded post-validation rejections across the four episodes were
+audited for "right outcome, wrong reason": every one is a real mid-sentence
+ending (the three wh/exp rejections) — no clip was dropped for a reason that
+misdescribes it, so there is no rescue PR hiding here.
+
+The misses are instead a ranking-order story. Instrumenting the funnel
+shows ~350–570 doomed windows per episode dying at the
+self_contained/opening_strength/context_dependency gates (vague or
+mid-sentence openings), and each missed moment's best *covering* window —
+the one reaching the payoff — lands 22–51 s short of a real close and
+scores composite ~37–41 against a ~48.9 top-30 cutoff. Long windows pay
+`-0.1/s` past 50 s whether or not the extra seconds buy an ending; the
+verified-close length tax follows this finding (see the stacked PR).
