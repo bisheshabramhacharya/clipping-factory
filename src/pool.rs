@@ -117,6 +117,48 @@ pub async fn run<F, Fut, T>(
     tokio::join!(workers.collect::<Vec<()>>(), drain);
 }
 
+/// Same bounded claiming as [`run`], but each `Done` is delivered as soon as
+/// its item finishes — for callers that collect results into indexed slots
+/// themselves and want per-completion progress. A stalled item no longer
+/// delays progress on everything after it.
+pub async fn run_unordered<F, Fut, T>(
+    items: usize,
+    jobs: usize,
+    work: F,
+    out: mpsc::UnboundedSender<WriteEvent<T>>,
+) where
+    F: Fn(usize, WorkSlot<T>) -> Fut,
+    Fut: std::future::Future<Output = T>,
+{
+    let next = Arc::new(AtomicUsize::new(0));
+    let workers = FuturesUnordered::new();
+    for _ in 0..jobs.max(1).min(items) {
+        let next = next.clone();
+        let out = out.clone();
+        let work = &work;
+        workers.push(async move {
+            loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= items {
+                    return;
+                }
+                let outcome = work(
+                    i,
+                    WorkSlot {
+                        index: i,
+                        out: out.clone(),
+                    },
+                )
+                .await;
+                if out.send(WriteEvent::Done(i, outcome)).is_err() {
+                    return;
+                }
+            }
+        });
+    }
+    workers.collect::<Vec<()>>().await;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,6 +288,34 @@ mod tests {
         let (_, mut starts) = tokio::join!(pool, started);
         starts.sort_unstable();
         assert_eq!(starts, vec![1, 3]);
+    }
+
+    #[tokio::test]
+    async fn unordered_delivers_each_done_as_it_finishes() {
+        // A slow first item must not hold later results: the writer sees
+        // completions as they happen.
+        let (tx, rx) = mpsc::unbounded_channel();
+        let pool = run_unordered(
+            3,
+            2,
+            |i, _slot| async move {
+                tokio::time::sleep(Duration::from_millis(if i == 0 { 300 } else { 10 })).await;
+                i
+            },
+            tx,
+        );
+        let collect = async {
+            let mut seen = Vec::new();
+            let mut rx = rx;
+            while let Some(ev) = rx.recv().await {
+                if let WriteEvent::Done(i, _) = ev {
+                    seen.push(i);
+                }
+            }
+            seen
+        };
+        let (_, seen) = tokio::join!(pool, collect);
+        assert_eq!(seen, vec![1, 2, 0]);
     }
 
     #[tokio::test]
