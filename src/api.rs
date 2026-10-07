@@ -2934,6 +2934,98 @@ mod tests {
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 
+    /// A run cancelled mid-render must still offer render-more: the project
+    /// rests at `cancelled`, so `/render` takes the next batch of ranks.
+    #[tokio::test]
+    async fn a_cancelled_run_still_accepts_a_render_call() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000112";
+        awaiting_review_project(&state.store, id).await;
+        let mut p = state.store.load_project(id).await.unwrap();
+        p.status = JobState::Cancelled;
+        state.store.save_project(&p).await.unwrap();
+        let selection = state.store.load_selection(id).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![clip_from_validated(&selection.accepted[0])],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let app = router(state.clone());
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.kept_ranks, Some(vec![2]));
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// Two tabs (or a double-click) can only ever own one run: while a lease
+    /// is held, a second `/render` post is a conflict, not a second run.
+    #[tokio::test]
+    async fn a_running_project_refuses_a_second_render() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000113";
+        awaiting_review_project(&state.store, id).await;
+        let _lease = state.handle(id).try_start().unwrap();
+        let app = router(state.clone());
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[1]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        // Nothing was committed on the conflicting post.
+        assert!(state
+            .store
+            .load_project(id)
+            .await
+            .unwrap()
+            .kept_ranks
+            .is_none());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// Deleting while parked at the review must work like deleting any other
+    /// resting project: 204, the directory and the handle both gone.
+    #[tokio::test]
+    async fn deleting_at_awaiting_review_removes_the_project() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000114";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::DELETE)
+                    .uri(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let res = app
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
     #[tokio::test]
     async fn the_source_streams_inline_with_range_support() {
         let (state, tmp) = test_state();
