@@ -1,0 +1,111 @@
+{
+ "schema_version": 1,
+ "source_duration_ms": 3560340,
+ "moments": [
+  {
+   "start_ms": 323000,
+   "end_ms": 424000,
+   "first_words": "does nasa agree",
+   "last_words": "crew six complement",
+   "reason": "Reuters asks the headline question; NASA confirms meteoroid finding and no Crew-6 impact."
+  },
+  {
+   "start_ms": 480000,
+   "end_ms": 558000,
+   "first_words": "obviously saw",
+   "last_words": "several months longer",
+   "reason": "The reveal: hole in radiator AND coolant pipe, crew extension of months. Money quotes."
+  },
+  {
+   "start_ms": 565000,
+   "end_ms": 707000,
+   "first_words": "what happens",
+   "last_words": "the spacex vehicle",
+   "reason": "Evacuation scenario Q&A \u2014 the tense 'what if' every viewer wonders."
+  },
+  {
+   "start_ms": 764000,
+   "end_ms": 816000,
+   "first_words": "crater on the radiator",
+   "last_words": "7 kilometers per second",
+   "reason": "Forensics: they fired a high-velocity gun at an aluminum plate; a ~1mm particle at ~7km/s caused it."
+  },
+  {
+   "start_ms": 816000,
+   "end_ms": 939000,
+   "first_words": "going to be up there",
+   "last_words": "more ice cream",
+   "reason": "Crew staying ~a year; their reaction + SpaceX backup + the ice-cream joke \u2014 human moment."
+  },
+  {
+   "start_ms": 950000,
+   "end_ms": 1027000,
+   "first_words": "biggest concerns",
+   "last_words": "reduce heat load",
+   "reason": "Why a crewed landing is risky: no heat rejection \u2192 high temp in equipment/crew compartments."
+  },
+  {
+   "start_ms": 1206000,
+   "end_ms": 1273000,
+   "first_words": "worried about",
+   "last_words": "not healthy",
+   "reason": "Specifics: Soyuz computer hits high-30s C; 'in an area that would be not healthy for the crew.'"
+  },
+  {
+   "start_ms": 1380000,
+   "end_ms": 1436000,
+   "first_words": "several layers",
+   "last_words": "crew reentry",
+   "reason": "Redundancy plan: analog-equipment fallback; humidity is the real crew killer."
+  },
+  {
+   "start_ms": 1560000,
+   "end_ms": 1614000,
+   "first_words": "strap that in",
+   "last_words": "four people",
+   "reason": "SpaceX contingency detail: crew straps in where cargo flies; one crew member minimum."
+  },
+  {
+   "start_ms": 1660000,
+   "end_ms": 1754000,
+   "first_words": "already thought",
+   "last_words": "prepared to this",
+   "reason": "'Space is not safe place' \u2014 the scenario was rehearsed before they ever flew. Quotable."
+  },
+  {
+   "start_ms": 1832000,
+   "end_ms": 1896000,
+   "first_words": "ill start",
+   "last_words": "fly a little earlier",
+   "reason": "The framing moment: 'I'm not calling it a rescue Soyuz... it's a replacement Soyuz.'"
+  },
+  {
+   "start_ms": 2009000,
+   "end_ms": 2127000,
+   "first_words": "feel quite certain",
+   "last_words": "pipe on this radiator",
+   "reason": "Micrometeoroid vs space junk: velocity physics + visible strike marks on windows."
+  },
+  {
+   "start_ms": 2137000,
+   "end_ms": 2202000,
+   "first_words": "no way to repair",
+   "last_words": "replace the vehicle",
+   "reason": "Why no in-space repair: far end, no handrails, coolant refill is riskier than replacement."
+  },
+  {
+   "start_ms": 3175000,
+   "end_ms": 3246000,
+   "first_words": "unreasonable to add",
+   "last_words": "close to optimal",
+   "reason": "The shielding defense: radiator must face open space; no shield stops a 7 km/s bullet."
+  },
+  {
+   "start_ms": 3483000,
+   "end_ms": 3523000,
+   "first_words": "a plan using",
+   "last_words": "roscosmos team members",
+   "reason": "Concrete contingency: crew strapped into Dragon's cargo area with Soyuz hardware."
+  }
+ ]
+}
