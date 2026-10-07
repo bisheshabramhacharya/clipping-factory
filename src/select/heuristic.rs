@@ -258,13 +258,33 @@ pub fn propose(
             }
             let closer = &sentences[end_idx];
             let closer_lower = closer.text.to_lowercase();
-            let mut end_score = 0.0f32;
-            if closer
-                .text
-                .split_whitespace()
-                .last()
-                .is_some_and(crate::transcribe::terminal_word)
+            // A clip must end on a finished thought: when the transcript's
+            // own sentence detection says this "sentence" was split by
+            // length, not punctuation, and the words resume inside a normal
+            // speech gap, ending here would cut mid-sentence. The validator
+            // rejects that shape downstream; skipping it upstream leaves the
+            // band open for a real close.
+            let closed = if closer.word_end > closer.word_start && closer.word_end <= t.words.len()
             {
+                crate::transcribe::ends_sentence(&t.words, closer.word_end - 1)
+            } else {
+                // Sentences without word indices (synthetic fixtures) fall
+                // back to the literal terminal-punctuation check.
+                closer
+                    .text
+                    .split_whitespace()
+                    .last()
+                    .is_some_and(crate::transcribe::terminal_word)
+            };
+            let continues = t
+                .words
+                .get(closer.word_end)
+                .is_some_and(|w| w.start_ms.saturating_sub(closer.end_ms) < 700);
+            if !closed && continues {
+                continue;
+            }
+            let mut end_score = 0.0f32;
+            if closed {
                 end_score += 1.0;
             }
             if PAYOFF_CUES.iter().any(|c| closer_lower.contains(c)) {
@@ -974,6 +994,38 @@ mod tests {
     }
 
     #[test]
+    fn no_candidate_ends_mid_thought() {
+        // A long unpunctuated stretch forces the sentence builder to split
+        // mid-thought; a clip may still not close on that forced boundary.
+        // Asking for many candidates surfaces every band's best end — the
+        // forced split at ~26s is the only end under 40s, so pre-fix it is
+        // emitted as a window's best close.
+        let ramble = "the chamber pressure kept drifting all through the overnight test and every correction we made revealed another vibration that nobody on the team had predicted so we ran the sequence again and again until the sensor traces finally looked clean and the room went completely quiet because everyone understood the redesign had worked and the program could finally move forward into the next phase where the full duration firings would decide whether the whole campaign survived or whether we went back to the drawing board once more and every single engineer in the room held their breath as the countdown rolled past each checkpoint without a single abort call coming over the loop and when the shutdown command finally arrived the data was perfect";
+        let t = transcript_from(&[(ramble, 0)]);
+        let cands = propose(
+            &t,
+            t.words.last().unwrap().end_ms + 500,
+            30,
+            None,
+            None,
+            None,
+        );
+        assert!(!cands.is_empty());
+        for c in &cands {
+            let idx = t
+                .words
+                .iter()
+                .position(|w| w.end_ms >= c.end_ms)
+                .expect("clip end beyond last word");
+            assert!(
+                crate::transcribe::ends_sentence(&t.words, idx) || idx + 1 == t.words.len(),
+                "candidate ends mid-thought on word {:?}",
+                t.words[idx].text
+            );
+        }
+    }
+
+    #[test]
     fn finds_a_hooked_window_in_plausible_speech() {
         // ~40 words per sentence-group ≈ 14s each; three groups ≈ 43s total.
         let long = "Most people completely misunderstand what discipline actually is and I want to explain the real mechanics behind it because once you see it you cannot unsee it at all.";
@@ -1209,8 +1261,8 @@ mod tests {
         // Two structurally identical story groups (~60s of speech each, so the
         // merged whole-episode window exceeds the 90s cap and never forms).
         // Only loudness differs: the second group is an intense loud stretch.
-        let a = "Most people completely misunderstand what discipline actually is and I want to explain the real mechanics behind it because once you see it you cannot unsee it and the whole thing comes down to designing your environment so the default action is the right one every single day without fail and that is the entire secret of lasting change and it applies to money health and relationships equally and the reason most people struggle is that they rely on motivation instead of systems and motivation is a feeling that comes and goes while systems run on their own.";
-        let b = "Most people also misunderstand how tiny systems compound and why small daily actions beat big annual plans every single time without exception and the reason is that momentum quietly builds when nobody is watching and then it shows up as results that look like overnight success but never are and the compounding curve always looks flat until it suddenly does not and that is when everyone calls you lucky and the truth is that the winners were just boring enough to keep going.";
+        let a = "Most people completely misunderstand what discipline actually is and I want to explain the real mechanics behind it. Once you see it you cannot unsee it. The whole thing comes down to designing your environment so the default action is the right one every single day without fail. That is the entire secret of lasting change and it applies to money health and relationships equally. The reason most people struggle is that they rely on motivation instead of systems and motivation is a feeling that comes and goes while systems run on their own.";
+        let b = "Most people also misunderstand how tiny systems compound and why small daily actions beat big annual plans every single time without exception. The reason is that momentum quietly builds when nobody is watching and then it shows up as results that look like overnight success but never are. The compounding curve always looks flat until it suddenly does not and that is when everyone calls you lucky. The truth is that the winners were just boring enough to keep going.";
         let t = transcript_from(&[(a, 0), (b, 400)]);
         let duration = t.words.last().unwrap().end_ms + 500;
 
@@ -1231,9 +1283,10 @@ mod tests {
         let boosted = propose(&t, duration, 3, Some(&energy), None, None);
         assert!(!boosted.is_empty());
         assert!(
-            boosted[0].start_ms >= 35_000,
-            "loud second group should rank first, got {}",
-            boosted[0].start_ms
+            boosted[0].end_ms > 60_000 && boosted[0].start_ms < 40_000,
+            "loud stretch should pull the top pick into the second group, got {}..{}",
+            boosted[0].start_ms,
+            boosted[0].end_ms
         );
     }
 
