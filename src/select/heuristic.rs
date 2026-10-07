@@ -136,8 +136,9 @@ const END_BANDS: [u64; 3] = [40_000, 60_000, MAX_MS];
 
 /// Function words dropped from the focus prompt before keyword matching, plus
 /// the request boilerplate users naturally type ("clips about", "the part
-/// where"). Topical words survive — they are the signal.
-const FOCUS_STOPWORDS: &[&str] = &[
+/// where"). Topical words survive — they are the signal. `pub(crate)` so the
+/// same stopword idea powers `select::content_words`.
+pub(crate) const FOCUS_STOPWORDS: &[&str] = &[
     "a", "an", "the", "and", "or", "but", "of", "to", "in", "on", "for", "with", "about", "at",
     "by", "is", "are", "was", "were", "be", "been", "it", "its", "that", "this", "these", "those",
     "they", "them", "their", "where", "when", "what", "who", "how", "why", "do", "does", "did",
@@ -498,13 +499,22 @@ pub fn propose(
     // Rank, then keep a diverse, non-overlapping set spread across the source.
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     let mut kept: Vec<Candidate> = Vec::new();
+    let mut kept_words: Vec<std::collections::HashSet<String>> = Vec::new();
     for (_, cand) in scored {
         if kept.len() >= candidate_count {
             break;
         }
-        let overlaps = kept.iter().any(|k| {
+        let words = crate::select::content_words(&crate::validate::excerpt_text(
+            t,
+            cand.start_ms,
+            cand.end_ms,
+        ));
+        let overlaps = kept.iter().zip(&kept_words).any(|(k, kwords)| {
             let inter = overlap_ms(k.start_ms, k.end_ms, cand.start_ms, cand.end_ms) as f64;
-            inter / ((cand.end_ms - cand.start_ms).max(1) as f64) > 0.25
+            let cover = inter / ((cand.end_ms - cand.start_ms).max(1) as f64);
+            // Time overlap drops near-identical spans; word overlap drops a
+            // retelling of the same point elsewhere in the episode.
+            cover > 0.25 || (cover <= 0.05 && crate::select::same_point(&words, kwords))
         });
         if overlaps {
             continue;
@@ -520,6 +530,7 @@ pub fn propose(
             continue;
         }
         kept.push(cand);
+        kept_words.push(words);
     }
     kept
 }

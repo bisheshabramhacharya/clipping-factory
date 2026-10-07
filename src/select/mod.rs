@@ -155,7 +155,7 @@ pub async fn propose(
     if windows.len() > 1 {
         // Overlapping windows can propose the same Candidate twice; keep the
         // copy the validator would rank higher.
-        all = dedupe_similar(all);
+        all = dedupe_similar(all, transcript);
         // PRD §9.1's final ranking pass: per-window order says nothing about
         // cross-window quality, so one more completion orders the shortlist.
         if all.len() > 1 {
@@ -588,12 +588,51 @@ fn apply_ranking(shortlist: &[Candidate], raw: &str) -> Result<Vec<Candidate>> {
     Ok(ranked)
 }
 
+/// The content words of a stretch of transcript: normalized words minus
+/// stopwords, fillers, and short tokens — the vocabulary that says what the
+/// clip is *about*.
+pub(crate) fn content_words(text: &str) -> std::collections::HashSet<String> {
+    crate::validate::normalize(text)
+        .split_whitespace()
+        .filter(|w| {
+            w.chars().count() >= 4
+                && !crate::select::heuristic::FOCUS_STOPWORDS.contains(w)
+                && !crate::autocut::FILLER_WORDS.contains(w)
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+/// The smallest shared vocabulary that lets one clip be "the same point" as
+/// another: below it, two sets agree mostly on common speech.
+const CONTENT_SHARED_MIN: usize = 6;
+/// Two candidates make the same point when the smaller one's content words
+/// are mostly inside the other's — a retelling, not two related moments.
+const CONTENT_COVER_MIN: f64 = 0.7;
+
+/// Whether two content-word sets describe the same point: enough shared
+/// topical words that the smaller set is essentially contained in the
+/// larger. Sets are drawn from different windows, so a Jaccard ratio would
+/// punish a long window for containing a short retelling of the same story.
+pub(crate) fn same_point(
+    a: &std::collections::HashSet<String>,
+    b: &std::collections::HashSet<String>,
+) -> bool {
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
+    let shared = a.intersection(b).count();
+    shared >= CONTENT_SHARED_MIN && shared as f64 / a.len().min(b.len()) as f64 >= CONTENT_COVER_MIN
+}
+
 /// Merge near-duplicate candidates from overlapping windows: keep the higher
-/// scoring of any pair whose intervals overlap more than 55%. The LLM tiers
-/// run their final ranking completion on the merged shortlist (PRD §9.1);
-/// the offline tier's `heuristic::propose` has already ranked the whole
-/// source deterministically, so this merge order is its final order.
-fn dedupe_similar(mut cands: Vec<Candidate>) -> Vec<Candidate> {
+/// scoring of any pair whose intervals overlap more than 55%, or whose
+/// transcript content says the same point in overlapping words. The LLM
+/// tiers run their final ranking completion on the merged shortlist
+/// (PRD §9.1); the offline tier's `heuristic::propose` has already ranked
+/// the whole source deterministically, so this merge order is its final
+/// order.
+fn dedupe_similar(mut cands: Vec<Candidate>, transcript: &Transcript) -> Vec<Candidate> {
     // The documented Composite score is the ranking measure; the platform
     // duration nudge is added later, after the merge, so it plays no part here.
     let composite = |c: &Candidate| crate::validate::composite_score(&c.scores);
@@ -602,18 +641,21 @@ fn dedupe_similar(mut cands: Vec<Candidate>) -> Vec<Candidate> {
             .partial_cmp(&composite(a))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    let mut kept: Vec<Candidate> = Vec::new();
+    let mut kept: Vec<(Candidate, std::collections::HashSet<String>)> = Vec::new();
     for c in cands {
-        let dup = kept.iter().any(|k| {
+        let words = content_words(&crate::validate::excerpt_text(
+            transcript, c.start_ms, c.end_ms,
+        ));
+        let dup = kept.iter().any(|(k, kept_words)| {
             let inter = overlap_ms(k.start_ms, k.end_ms, c.start_ms, c.end_ms) as f64;
             let dur = (c.end_ms - c.start_ms).max(1) as f64;
-            inter / dur > 0.55
+            inter / dur > 0.55 || same_point(&words, kept_words)
         });
         if !dup {
-            kept.push(c);
+            kept.push((c, words));
         }
     }
-    kept
+    kept.into_iter().map(|(c, _)| c).collect()
 }
 
 pub fn overlap_ms(a0: u64, a1: u64, b0: u64, b1: u64) -> u64 {
@@ -656,6 +698,130 @@ mod tests {
     #[test]
     fn malformed_json_is_error() {
         assert!(parse_candidates("no json here").is_err());
+    }
+
+    fn word(text: &str, start_ms: u64) -> crate::domain::Word {
+        crate::domain::Word {
+            text: text.into(),
+            start_ms,
+            end_ms: start_ms + 200,
+            p: 0.9,
+        }
+    }
+
+    fn scores() -> crate::domain::Scores {
+        crate::domain::Scores {
+            self_contained: 5,
+            opening_strength: 4,
+            specificity: 4,
+            tension_or_novelty: 4,
+            payoff: 5,
+            clarity: 5,
+            context_dependency: 1,
+            slop_risk: 1,
+        }
+    }
+
+    fn cand(start_ms: u64, end_ms: u64, s: crate::domain::Scores) -> Candidate {
+        Candidate {
+            start_ms,
+            end_ms,
+            headline: "headline".into(),
+            opening_quote: "opening".into(),
+            closing_quote: "closing".into(),
+            selection_reason: "test".into(),
+            scores: s,
+        }
+    }
+
+    #[test]
+    fn content_words_drop_function_words() {
+        let words = content_words("and the rocket engine is the thing that failed today");
+        assert!(words.contains("rocket"));
+        assert!(words.contains("engine"));
+        assert!(words.contains("failed"));
+        assert!(!words.contains("that"));
+        assert!(!words.contains("and"));
+    }
+
+    #[test]
+    fn same_point_needs_shared_content_not_just_overlap() {
+        let story =
+            content_words("the rocket engine failed at max q during the ascent phase today");
+        let retelling = content_words("the rocket engine failed at max q during ascent today");
+        let different = content_words("a quieter segment about mission control staffing");
+        assert!(same_point(&story, &retelling));
+        assert!(!same_point(&story, &different));
+        // A tiny shared set is never enough to call it the same point.
+        let thin = content_words("rocket science is hard");
+        assert!(!same_point(&story, &thin));
+    }
+
+    #[test]
+    fn dedupe_drops_a_distant_retelling_of_the_same_point() {
+        // Same claim told twice, forty seconds apart: the higher-scored
+        // telling survives even though the intervals do not overlap.
+        let mut words: Vec<crate::domain::Word> = Vec::new();
+        for (i, w) in "the rocket engine failed at max q during the ascent phase today"
+            .split_whitespace()
+            .enumerate()
+        {
+            words.push(word(w, 1_000 + i as u64 * 300));
+        }
+        for (i, w) in "something entirely else about the weather today and tonight"
+            .split_whitespace()
+            .enumerate()
+        {
+            words.push(word(w, 10_000 + i as u64 * 300));
+        }
+        for (i, w) in "the rocket engine failed at max q during ascent today"
+            .split_whitespace()
+            .enumerate()
+        {
+            words.push(word(w, 50_000 + i as u64 * 300));
+        }
+        let transcript = Transcript {
+            language: "en".into(),
+            words,
+            sentences: Vec::new(),
+            avg_confidence: 0.9,
+        };
+        let mut weaker = scores();
+        weaker.payoff = 3;
+        let out = dedupe_similar(
+            vec![cand(50_000, 53_500, weaker), cand(1_000, 4_600, scores())],
+            &transcript,
+        );
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].start_ms, 1_000);
+    }
+
+    #[test]
+    fn dedupe_keeps_distant_moments_that_share_domain_words_only() {
+        let mut words: Vec<crate::domain::Word> = Vec::new();
+        for (i, w) in "mars missions need new heat shield designs"
+            .split_whitespace()
+            .enumerate()
+        {
+            words.push(word(w, 1_000 + i as u64 * 300));
+        }
+        for (i, w) in "astronaut food on the station tastes bland"
+            .split_whitespace()
+            .enumerate()
+        {
+            words.push(word(w, 50_000 + i as u64 * 300));
+        }
+        let transcript = Transcript {
+            language: "en".into(),
+            words,
+            sentences: Vec::new(),
+            avg_confidence: 0.9,
+        };
+        let out = dedupe_similar(
+            vec![cand(1_000, 3_000, scores()), cand(50_000, 52_500, scores())],
+            &transcript,
+        );
+        assert_eq!(out.len(), 2);
     }
 
     // ------------------------------------------------------------------
