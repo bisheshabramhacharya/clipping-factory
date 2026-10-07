@@ -21,7 +21,6 @@
 
 use crate::config::Config;
 use crate::domain::{CropKey, LayoutPlan, SourceInfo, Word};
-use crate::util::run_streaming;
 use anyhow::{bail, Context, Result};
 use rustface::ImageData;
 use std::io::Read;
@@ -111,16 +110,8 @@ pub async fn analyze_layout(
     };
     let dur_ms = end_ms.saturating_sub(start_ms);
 
-    let cuts = shot_cuts(cfg, src, start_ms, dur_ms, cancel)
-        .await
-        .unwrap_or_else(|e| {
-            tracing::warn!("shot detection failed, framing as one shot: {e:#}");
-            Vec::new()
-        });
-    if cancel.is_cancelled() {
-        return Err(crate::util::cancelled());
-    }
-
+    // Shot cuts and face samples used to cost one ffmpeg decode each; one
+    // decode now feeds both through `split`, so the source is read once.
     let sample_h =
         (((SAMPLE_WIDTH as u64 * source.height as u64) / source.width as u64) & !1) as u32;
     let cancelled = Arc::new(AtomicBool::new(false));
@@ -132,7 +123,7 @@ pub async fn analyze_layout(
     });
     let (ffmpeg, src_path, flag) = (cfg.ffmpeg.clone(), src.to_path_buf(), cancelled.clone());
     let sampled = tokio::task::spawn_blocking(move || {
-        sample_and_detect(
+        sample_detect_and_cuts(
             &ffmpeg,
             &src_path,
             &model_path,
@@ -144,7 +135,7 @@ pub async fn analyze_layout(
     })
     .await;
     watcher.abort();
-    let samples = sampled??;
+    let (samples, cuts) = sampled??;
     if cancelled.load(Ordering::Relaxed) || cancel.is_cancelled() {
         return Err(crate::util::cancelled());
     }
@@ -196,7 +187,7 @@ pub async fn probe_faces(cfg: &Config, video: &Path) -> Result<serde_json::Value
     let h = (((SAMPLE_WIDTH as u64 * info.height as u64) / info.width.max(1) as u64) & !1) as u32;
     let (ffmpeg, path) = (cfg.ffmpeg.clone(), video.to_path_buf());
     let samples = tokio::task::spawn_blocking(move || {
-        sample_and_detect(
+        sample_detect_and_cuts(
             &ffmpeg,
             &path,
             &model,
@@ -206,7 +197,8 @@ pub async fn probe_faces(cfg: &Config, video: &Path) -> Result<serde_json::Value
             &AtomicBool::new(false),
         )
     })
-    .await??;
+    .await??
+    .0;
     let frames: Vec<serde_json::Value> = samples
         .faces
         .iter()
@@ -225,43 +217,6 @@ pub async fn probe_faces(cfg: &Config, video: &Path) -> Result<serde_json::Value
         "height": info.height,
         "frames": frames,
     }))
-}
-
-/// Shot cuts inside the clip, in ms relative to its start.
-async fn shot_cuts(
-    cfg: &Config,
-    src: &Path,
-    start_ms: u64,
-    dur_ms: u64,
-    cancel: &CancellationToken,
-) -> Result<Vec<u64>> {
-    let args: Vec<String> = vec![
-        "-hide_banner".into(),
-        "-nostats".into(),
-        "-ss".into(),
-        format!("{:.3}", start_ms as f64 / 1000.0),
-        "-t".into(),
-        format!("{:.3}", dur_ms as f64 / 1000.0),
-        "-i".into(),
-        src.to_string_lossy().into_owned(),
-        "-an".into(),
-        "-vf".into(),
-        // Same zeroed timeline the render trims on (render.rs resets PTS).
-        format!("setpts=PTS-STARTPTS,scale=320:-2,scdet=threshold={CUT_THRESHOLD}"),
-        "-f".into(),
-        "null".into(),
-        "-".into(),
-    ];
-    let mut raw = Vec::new();
-    run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
-        if is_err {
-            if let Some(ms) = crate::media::parse_scdet_time_ms(line) {
-                raw.push(ms);
-            }
-        }
-    })
-    .await?;
-    Ok(clean_cuts(raw, dur_ms))
 }
 
 /// Sort, drop cuts too close to the clip edges, and collapse near-duplicates.
@@ -290,10 +245,13 @@ fn new_detector(model: &Path) -> Result<Box<dyn rustface::Detector>> {
     Ok(d)
 }
 
-/// Decode the clip at SAMPLE_FPS as raw grayscale, keep a half-resolution
-/// copy of every frame, and detect faces on a small worker pool. Blocking;
-/// runs inside `spawn_blocking`.
-fn sample_and_detect(
+/// Decode the clip once at the source frame rate: `split` feeds the 6 fps
+/// grayscale face-sampling stream and the downscaled `scdet` pass at the same
+/// time, so shot detection costs no second read of the source. Detect runs
+/// on a small worker pool; scdet times arrive on stderr. Returns the
+/// per-frame face detections plus the clip's shot cuts in ms relative to its
+/// start. Blocking; runs inside `spawn_blocking`.
+fn sample_detect_and_cuts(
     ffmpeg: &str,
     src: &Path,
     model: &Path,
@@ -301,7 +259,7 @@ fn sample_and_detect(
     dur_ms: u64,
     (w, h): (u32, u32),
     cancelled: &AtomicBool,
-) -> Result<Samples> {
+) -> Result<(Samples, Vec<u64>)> {
     if cancelled.load(Ordering::Relaxed) {
         return Err(crate::util::cancelled());
     }
@@ -309,8 +267,7 @@ fn sample_and_detect(
     let mut child = Command::new(ffmpeg)
         .args([
             "-hide_banner",
-            "-loglevel",
-            "error",
+            "-nostats",
             "-ss",
             &format!("{:.3}", start_ms as f64 / 1000.0),
             "-t",
@@ -318,27 +275,53 @@ fn sample_and_detect(
             "-i",
             &src.to_string_lossy(),
             "-an",
-            "-vf",
-            &format!("setpts=PTS-STARTPTS,fps={SAMPLE_FPS},scale={w}:{h},format=gray"),
+            "-filter_complex",
+            &format!(
+                "[0:v]setpts=PTS-STARTPTS,split=2[sample][shots];\
+                 [sample]fps={SAMPLE_FPS},scale={w}:{h},format=gray[frames];\
+                 [shots]scale=320:-2,scdet=threshold={CUT_THRESHOLD}[scanned]"
+            ),
+            "-map",
+            "[frames]",
             "-f",
             "rawvideo",
             "-pix_fmt",
             "gray",
             "pipe:1",
+            "-map",
+            "[scanned]",
+            "-f",
+            "null",
+            "-",
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .with_context(|| format!("failed to start `{ffmpeg}`"))?;
     let mut stdout = child.stdout.take().expect("stdout piped");
+    let mut stderr = child.stderr.take().expect("stderr piped");
     let frame_len = (w * h) as usize;
     let (tx, rx) = mpsc::sync_channel::<(usize, Vec<u8>)>(DETECT_THREADS * 2);
     let rx = Mutex::new(rx);
     let (done_tx, done_rx) = mpsc::channel::<(usize, Vec<FaceDet>)>();
+    let raw_cuts = Mutex::new(Vec::new());
     let mut small = Vec::new();
 
     let read = std::thread::scope(|s| -> Result<()> {
+        // stderr must drain while stdout is read or the pipe stalls the
+        // decoder; scdet log lines are the only lines anyone wants.
+        let raw_cuts = &raw_cuts;
+        s.spawn(move || {
+            let mut lines = std::io::BufReader::new(&mut stderr);
+            let mut line = String::new();
+            while std::io::BufRead::read_line(&mut lines, &mut line).is_ok_and(|n| n > 0) {
+                if let Some(ms) = crate::media::parse_scdet_time_ms(&line) {
+                    raw_cuts.lock().expect("cuts").push(ms);
+                }
+                line.clear();
+            }
+        });
         for _ in 0..DETECT_THREADS {
             let (rx, done_tx) = (&rx, done_tx.clone());
             s.spawn(move || {
@@ -392,12 +375,16 @@ fn sample_and_detect(
     if faces.is_empty() {
         bail!("no frames sampled from the clip");
     }
-    Ok(Samples {
-        faces,
-        small,
-        small_w: (w / 2) as usize,
-        small_h: (h / 2) as usize,
-    })
+    let cuts = clean_cuts(raw_cuts.into_inner().expect("cuts"), dur_ms);
+    Ok((
+        Samples {
+            faces,
+            small,
+            small_w: (w / 2) as usize,
+            small_h: (h / 2) as usize,
+        },
+        cuts,
+    ))
 }
 
 fn detect(det: &mut dyn rustface::Detector, frame: &[u8], w: u32, h: u32) -> Vec<FaceDet> {
@@ -1106,7 +1093,7 @@ mod tests {
     #[test]
     fn face_detection_checks_cancellation_before_blocking_work() {
         let cancelled = AtomicBool::new(true);
-        let result = sample_and_detect(
+        let result = sample_detect_and_cuts(
             "ffmpeg",
             Path::new("missing.mp4"),
             Path::new("missing-model"),
