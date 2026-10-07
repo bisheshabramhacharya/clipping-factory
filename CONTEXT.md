@@ -91,3 +91,11 @@ _Avoid_: topic filter
 **Platform target**:
 The destination platform a project optimizes for, picked at upload (Any / TikTok / Reels / Shorts). Re-centers the duration window the Composite score's sweet-spot nudge rewards — TikTok 25–35s, Reels 35–45s, Shorts 45–60s, Any 25–60s — and adds a preference hint to the selector's window prompt. A ranking preference only: the validator's accept bounds never move.
 _Avoid_: export preset, publish target
+
+**Review**:
+The pause between validation and framing, for projects uploaded with review on. The run parks at `awaiting_review` after the validator resolves the Candidates; nothing is framed or rendered until a decision posts. The server is the source of truth — a refresh or restart keeps the Review where it was.
+_Avoid_: approval step, triage queue
+
+**Kept rank**:
+The rank of an accepted Candidate the user asked to render. Kept ranks accumulate on the project (`kept_ranks`) — the set only grows, so adding a rank to a finished project frames and renders just the new Candidate and never re-renders a ready Clip.
+_Avoid_: approved candidate, selected clip
