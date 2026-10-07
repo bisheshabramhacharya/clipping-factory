@@ -216,6 +216,16 @@ fn term_hits_word(term: &str, word: &str) -> bool {
 /// The >50 s length tax on composite score: a window pays for seconds past
 /// the short-form sweet spot — but a window whose end is a verified sentence
 /// close pays only 30%, since the extra seconds bought a real ending.
+/// Bonus for a window that opens on a question and still reaches a payoff
+/// under a minute-plus: short fragments of the same exchange can't compete.
+fn complete_exchange_boost(question_open: bool, payoff: u8, dur_s: f32) -> f32 {
+    if question_open && payoff >= 4 && dur_s >= 60.0 {
+        4.0
+    } else {
+        0.0
+    }
+}
+
 fn length_tax(dur_s: f32, closed: bool) -> f32 {
     0.1 * (dur_s - 50.0).max(0.0) * if closed { 0.3 } else { 1.0 }
 }
@@ -496,6 +506,9 @@ pub fn propose(
                 // Short-form lands best under a minute: a longer cut must
                 // earn its extra seconds.
                 - length_tax(dur_s, closed)
+                // A window that opens on a question and ends on a payoff is a
+                // complete exchange; fragments of one score less.
+                + complete_exchange_boost(question_open, payoff, dur_s)
                 + energy
                     .map(|e| crate::energy::window_boost(e, opener.start_ms, closer.end_ms))
                     .unwrap_or(0.0);
@@ -1075,12 +1088,7 @@ mod tests {
         let cands = propose(&t, duration, 3, None, None, None);
         assert!(!cands.is_empty());
         for c in &cands {
-            let last = t
-                .words
-                .iter()
-                .filter(|w| w.end_ms <= c.end_ms)
-                .next_back()
-                .unwrap();
+            let last = t.words.iter().rfind(|w| w.end_ms <= c.end_ms).unwrap();
             assert!(
                 !last.text.ends_with('?'),
                 "candidate ends on a question: {}-{} {:?}",
@@ -1089,6 +1097,19 @@ mod tests {
                 last.text
             );
         }
+    }
+
+    #[test]
+    fn a_complete_exchange_earns_its_extra_seconds() {
+        // The boost needs all three: a question open, a payoff-tier close,
+        // and enough duration to actually contain the answer. A short
+        // question fragment, a long monologue, and a long answer that never
+        // lands all stay at zero.
+        assert_eq!(complete_exchange_boost(true, 4, 60.0), 4.0);
+        assert_eq!(complete_exchange_boost(true, 5, 89.0), 4.0);
+        assert_eq!(complete_exchange_boost(true, 4, 59.9), 0.0);
+        assert_eq!(complete_exchange_boost(true, 3, 90.0), 0.0);
+        assert_eq!(complete_exchange_boost(false, 5, 90.0), 0.0);
     }
 
     #[test]
