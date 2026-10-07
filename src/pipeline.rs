@@ -14,7 +14,7 @@ use anyhow::Result;
 use chrono::Utc;
 use futures::FutureExt;
 use serde_json::json;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -572,6 +572,48 @@ fn words_to_text(words: &[Word]) -> String {
         .join(" ")
 }
 
+/// The candidate ranks this run should hold framed clips for.
+///
+/// `kept_ranks` — the ranks the user asked to render via `POST /render` —
+/// is the base set. Ranks already in the manifest are always kept in it:
+/// rendered clips are never re-framed or silently dropped, which is what
+/// makes adding ranks to a complete project cheap. When `kept_ranks` is
+/// unset (older projects, or no review), the target is every accepted
+/// candidate, matching the pre-review behavior exactly.
+fn target_ranks(
+    p: &Project,
+    report: &SelectionReport,
+    manifest: Option<&RenderManifest>,
+) -> BTreeSet<usize> {
+    match &p.kept_ranks {
+        Some(kept) => {
+            let mut target: BTreeSet<usize> = kept.iter().copied().collect();
+            if let Some(m) = manifest {
+                target.extend(m.clips.iter().map(|c| c.rank));
+            }
+            target
+        }
+        None => report.accepted.iter().map(|vc| vc.rank).collect(),
+    }
+}
+
+/// Accepted candidates the framing stage still owes: rank in the target set
+/// and not yet in the manifest. Already-planned clips are never re-framed.
+fn pending_framing<'a>(
+    report: &'a SelectionReport,
+    target: &BTreeSet<usize>,
+    manifest: Option<&'a RenderManifest>,
+) -> Vec<&'a ValidatedCandidate> {
+    let have: BTreeSet<usize> = manifest
+        .map(|m| m.clips.iter().map(|c| c.rank).collect())
+        .unwrap_or_default();
+    report
+        .accepted
+        .iter()
+        .filter(|vc| target.contains(&vc.rank) && !have.contains(&vc.rank))
+        .collect()
+}
+
 async fn run(
     state: AppState,
     id: String,
@@ -894,22 +936,46 @@ async fn run(
         return Ok(());
     }
 
+    // ---- Review gate -------------------------------------------------------
+    // A review project parks at `awaiting_review` after validation until the
+    // user posts the ranks to keep. `kept_ranks` is the decision record:
+    // unset means no decision yet — every run stops here again; set means a
+    // run continues and renders that set. Caption-only jobs have nothing to
+    // review (one synthetic candidate), so they pass straight through.
+    if ctx.cancel.is_cancelled() {
+        ctx.mark_cancelled(&mut p, "validating_candidates").await?;
+        return Ok(());
+    }
+    if p.review_before_render && p.kept_ranks.is_none() && !is_caption_only(source.duration_ms) {
+        p.status = JobState::AwaitingReview;
+        store.save_project(&p).await?;
+        ctx.handle.clear_live();
+        ctx.handle
+            .emit(json!({"type": "done", "status": "awaiting_review"}));
+        return Ok(());
+    }
+
     // ---- 6. Analyze framing -------------------------------------------------
     let existing = store.load_manifest(&id).await.ok();
-    let manifest_matches = existing
-        .as_ref()
-        .map(|m| m.clips.len() == report.accepted.len())
-        .unwrap_or(false);
-    if manifest_matches {
+    let target = target_ranks(&p, &report, existing.as_ref());
+    // Work this stage owes: target ranks with no manifest entry yet. Any
+    // clip already planned — whatever its status — is left untouched.
+    let pending = pending_framing(&report, &target, existing.as_ref());
+    if pending.is_empty() {
         ctx.skip(&mut p, "analyzing_layout", "Layouts already planned")
             .await?;
     } else {
         let mut prog = ctx.progress_fn("analyzing_layout");
         stage!("analyzing_layout", {
-            let mut clips: Vec<ClipRecord> = Vec::new();
-            let total = report.accepted.len();
-            let total_ms: u64 = report
-                .accepted
+            // Keep every clip the manifest already has — rendered or not —
+            // and append plans for the ranks framed this run.
+            let mut clips: Vec<ClipRecord> = existing
+                .as_ref()
+                .map(|m| m.clips.clone())
+                .unwrap_or_default();
+            let first_new = clips.len();
+            let total = pending.len();
+            let total_ms: u64 = pending
                 .iter()
                 .map(|vc| vc.candidate.end_ms.saturating_sub(vc.candidate.start_ms))
                 .sum();
@@ -917,7 +983,7 @@ async fn run(
             // so a clip's share of the stage is its duration — not 1/N.
             let mut analyzed_ms: u64 = 0;
             let mut result: anyhow::Result<String> = Ok(String::new());
-            for (i, vc) in report.accepted.iter().enumerate() {
+            for (i, vc) in pending.iter().enumerate() {
                 let clip_frac = analyzed_ms as f32 / total_ms.max(1) as f32;
                 prog(
                     clip_frac,
@@ -986,16 +1052,17 @@ async fn run(
             }
             match result {
                 Ok(_) => {
-                    let face_crops = clips
+                    let face_crops = clips[first_new..]
                         .iter()
                         .filter(|c| matches!(c.layout, LayoutPlan::FaceCrop { .. }))
                         .count();
+                    clips.sort_by_key(|c| c.rank);
                     store
                         .save_manifest(
                             &id,
                             &RenderManifest {
                                 clips,
-                                output_dir: None,
+                                output_dir: existing.as_ref().and_then(|m| m.output_dir.clone()),
                             },
                         )
                         .await?;
@@ -1732,5 +1799,352 @@ mod tests {
         let est = live.stage_estimate_ms.unwrap();
         assert!((est as f64 - 3_780_000.0).abs() < 1.0, "{est}");
         assert!(live.elapsed_ms < 1_000);
+    }
+
+    // ---- review gate -------------------------------------------------------
+
+    /// Synthetic transcript: one word every 300 ms, every 10th word ends a
+    /// sentence, so candidates that close on a `w…9.` word pass the
+    /// mid-sentence guard.
+    fn words_fixture(word_count: usize) -> Transcript {
+        let words = (0..word_count)
+            .map(|i| Word {
+                text: if (i + 1) % 10 == 0 {
+                    format!("w{i}.")
+                } else {
+                    format!("w{i}")
+                },
+                start_ms: i as u64 * 300,
+                end_ms: i as u64 * 300 + 250,
+                p: 0.95,
+            })
+            .collect();
+        Transcript {
+            language: "en".into(),
+            words,
+            sentences: Vec::new(),
+            avg_confidence: 0.95,
+        }
+    }
+
+    /// A candidate that clears the validator: >20 s span, unique words, ends
+    /// on a sentence boundary, strong rubric scores.
+    fn strong_candidate(words: &[Word], from: usize, to: usize) -> Candidate {
+        let slice = &words[from..=to];
+        let quote = |ws: &[Word]| {
+            ws.iter()
+                .map(|w| w.text.trim_end_matches('.'))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        Candidate {
+            start_ms: slice[0].start_ms,
+            end_ms: slice[slice.len() - 1].end_ms,
+            headline: format!("Candidate {from}"),
+            opening_quote: quote(&slice[..3]),
+            closing_quote: quote(&slice[slice.len() - 3..]),
+            selection_reason: "fixture".into(),
+            scores: Scores {
+                self_contained: 5,
+                opening_strength: 5,
+                specificity: 4,
+                tension_or_novelty: 4,
+                payoff: 4,
+                clarity: 5,
+                context_dependency: 1,
+                slop_risk: 1,
+            },
+        }
+    }
+
+    fn accepted_report(ranks: usize) -> SelectionReport {
+        let words = words_fixture(450).words;
+        SelectionReport {
+            selector: "fixture".into(),
+            accepted: (0..ranks)
+                .map(|i| {
+                    let from = i * 110;
+                    ValidatedCandidate {
+                        candidate: strong_candidate(&words, from, from + 99),
+                        rank: i + 1,
+                        composite: 10.0 - i as f32,
+                        duration_exception: false,
+                    }
+                })
+                .collect(),
+            rejected: Vec::new(),
+        }
+    }
+
+    fn manifest_for_ranks(ranks: &[usize]) -> RenderManifest {
+        RenderManifest {
+            clips: ranks
+                .iter()
+                .map(|rank| ClipRecord {
+                    id: format!("clip{rank}"),
+                    rank: *rank,
+                    headline: format!("Clip {rank}"),
+                    filename: format!("{rank:02}-clip.mp4"),
+                    start_ms: 0,
+                    end_ms: 30_000,
+                    duration_ms: 30_000,
+                    selection_reason: "fixture".into(),
+                    scores: Scores::default(),
+                    score: Some(10.0 - *rank as f32),
+                    layout: LayoutPlan::BlurPad,
+                    status: ClipStatus::Ready,
+                    error: None,
+                    low_confidence: false,
+                    caption_style: None,
+                    accent_color: None,
+                    caption_font: None,
+                    caption_text: None,
+                    width: Some(1080),
+                    height: Some(1920),
+                    auto_cut: false,
+                    cut_spans: None,
+                    zoom_cuts: false,
+                    zoom_keys: None,
+                    progress_bar: false,
+                    hook_title: false,
+                })
+                .collect(),
+            output_dir: Some("/tmp/out".into()),
+        }
+    }
+
+    #[test]
+    fn a_project_without_kept_ranks_targets_every_accepted_candidate() {
+        let p = Project::new("t".into(), PathBuf::new());
+        let report = accepted_report(3);
+        // Old projects (kept_ranks absent) render all accepted — with and
+        // without an existing manifest.
+        assert_eq!(target_ranks(&p, &report, None), BTreeSet::from([1, 2, 3]));
+        let manifest = manifest_for_ranks(&[1, 2, 3]);
+        assert_eq!(
+            target_ranks(&p, &report, Some(&manifest)),
+            BTreeSet::from([1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn kept_ranks_union_with_the_manifest_never_drops_ready_clips() {
+        let mut p = Project::new("t".into(), PathBuf::new());
+        p.review_before_render = true;
+        p.kept_ranks = Some(vec![2]);
+        let report = accepted_report(3);
+        let manifest = manifest_for_ranks(&[1, 3]);
+        assert_eq!(
+            target_ranks(&p, &report, Some(&manifest)),
+            BTreeSet::from([1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn pending_framing_is_only_the_target_ranks_missing_from_the_manifest() {
+        let report = accepted_report(4);
+        let manifest = manifest_for_ranks(&[1, 3]);
+        let target = BTreeSet::from([1, 2, 3, 4]);
+        let pending = pending_framing(&report, &target, Some(&manifest));
+        assert_eq!(
+            pending.iter().map(|vc| vc.rank).collect::<Vec<_>>(),
+            vec![2, 4]
+        );
+        // A manifest covering the whole target has nothing left to frame.
+        let manifest = manifest_for_ranks(&[1, 2, 3, 4]);
+        assert!(pending_framing(&report, &target, Some(&manifest)).is_empty());
+    }
+
+    /// A project frozen mid-review on disk: source inspected, transcript and
+    /// raw candidates written, `review_before_render` on, no manifest.
+    async fn review_fixture(tag: &str) -> (AppState, PathBuf, String) {
+        let tmp = std::env::temp_dir().join(format!("cf-review-{tag}-{}", crate::util::short_id()));
+        let mut cfg = Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        let state = AppState::new(cfg);
+        let id = format!("rv{}", crate::util::short_id());
+
+        state.store.create_dirs(&id).await.unwrap();
+        let transcript = words_fixture(400);
+        let mut project = Project::new(id.clone(), state.store.source_path(&id));
+        project.review_before_render = true;
+        project.source = Some(SourceInfo {
+            filename: "episode.mp4".into(),
+            duration_ms: 120_000,
+            width: 1280,
+            height: 720,
+            fps: 30.0,
+            video_codec: "h264".into(),
+            audio_codec: "aac".into(),
+            size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
+        });
+        state.store.save_project(&project).await.unwrap();
+        state.store.save_transcript(&id, &transcript).await.unwrap();
+        state
+            .store
+            .save_raw_candidates(
+                &id,
+                &vec![
+                    strong_candidate(&transcript.words, 0, 99),
+                    strong_candidate(&transcript.words, 110, 209),
+                    strong_candidate(&transcript.words, 220, 319),
+                ],
+            )
+            .await
+            .unwrap();
+        (state, tmp, id)
+    }
+
+    #[tokio::test]
+    async fn a_review_project_stops_at_awaiting_review_without_a_manifest() {
+        let (state, tmp, id) = review_fixture("gate").await;
+
+        run(
+            state.clone(),
+            id.clone(),
+            state.handle(&id),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+
+        let project = state.store.load_project(&id).await.unwrap();
+        assert_eq!(project.status, JobState::AwaitingReview);
+        // Nothing downstream of validation ran: no manifest, no layout stage.
+        assert!(!state.store.manifest_path(&id).is_file());
+        let layout = project
+            .stages
+            .iter()
+            .find(|s| s.name == "analyzing_layout")
+            .unwrap();
+        assert!(layout.started_at.is_none());
+        assert_eq!(
+            project
+                .stages
+                .iter()
+                .find(|s| s.name == "validating_candidates")
+                .unwrap()
+                .detail
+                .as_deref(),
+            Some("3 passed · 0 rejected")
+        );
+
+        // A fresh run — e.g. after a restart — lands at the same state.
+        run(
+            state.clone(),
+            id.clone(),
+            state.handle(&id),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            state.store.load_project(&id).await.unwrap().status,
+            JobState::AwaitingReview
+        );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn a_retry_from_awaiting_review_lands_back_on_review() {
+        let (state, tmp, id) = review_fixture("retry").await;
+        run(
+            state.clone(),
+            id.clone(),
+            state.handle(&id),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            state.store.load_project(&id).await.unwrap().status,
+            JobState::AwaitingReview
+        );
+
+        retry(state.clone(), id.clone()).await.unwrap();
+        // The run is spawned; it re-parks at awaiting_review once validation
+        // finishes. Poll briefly instead of racing the task.
+        for _ in 0..200 {
+            if state.store.load_project(&id).await.unwrap().status == JobState::AwaitingReview {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            state.store.load_project(&id).await.unwrap().status,
+            JobState::AwaitingReview
+        );
+        assert!(!state.store.manifest_path(&id).is_file());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn cancelling_an_awaiting_review_project_reports_its_status() {
+        let (state, tmp, id) = review_fixture("cancel").await;
+        run(
+            state.clone(),
+            id.clone(),
+            state.handle(&id),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        match cancel(&state, &id).await {
+            Ok(CancelOutcome::Status(status)) => assert_eq!(status, JobState::AwaitingReview),
+            Ok(CancelOutcome::Cancelled) => panic!("expected a resting status, got Cancelled"),
+            Err(msg) => panic!("cancel failed: {msg}"),
+        }
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_validation_marks_the_project_cancelled_not_awaiting() {
+        let (state, tmp, id) = review_fixture("cancelsel").await;
+        let token = CancellationToken::new();
+        token.cancel();
+        run(state.clone(), id.clone(), state.handle(&id), token)
+            .await
+            .unwrap();
+        assert_eq!(
+            state.store.load_project(&id).await.unwrap().status,
+            JobState::Cancelled
+        );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn a_caption_only_review_project_never_parks_for_review() {
+        // Sources under 20 s take the caption-only path; there is nothing to
+        // review, so review_before_render must not gate them.
+        let (state, tmp, id) = review_fixture("short").await;
+        let transcript = words_fixture(60); // ~18 s of words
+        let mut project = state.store.load_project(&id).await.unwrap();
+        project.source = Some(SourceInfo {
+            duration_ms: 15_000,
+            ..project.source.unwrap()
+        });
+        state.store.save_project(&project).await.unwrap();
+        state.store.save_transcript(&id, &transcript).await.unwrap();
+        // Drop the raw candidates so selection writes the caption-only one.
+        tokio::fs::remove_file(state.store.raw_candidates_path(&id))
+            .await
+            .unwrap();
+
+        run(
+            state.clone(),
+            id.clone(),
+            state.handle(&id),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+
+        let project = state.store.load_project(&id).await.unwrap();
+        // It must not park at review — it proceeds to framing (which fails
+        // here only because the fixture has no real video on disk).
+        assert_ne!(project.status, JobState::AwaitingReview);
+        tokio::fs::remove_dir_all(tmp).await.ok();
     }
 }
