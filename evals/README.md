@@ -91,6 +91,33 @@ evals/results/<UTC-run-id>/
 
 `evals/results/` and `evals/sources/` are gitignored.
 
+## 3a. Scoring a run against the moments answer key
+
+Each public episode has an answer key at `evals/public/<source-id>.moments.json` —
+the moments a good editor would post, written down before looking at the
+ranker's output (times, a reason, and at most the first and last six words;
+never transcript text). Score a run with:
+
+```bash
+python3 evals/score_moments.py --run-dir evals/results/<run-id>
+# or one episode on its own
+python3 evals/score_moments.py \
+  --selection evals/results/<run-id>/sources/<id>/selection.json \
+  --moments evals/public/<id>.moments.json --rubric evals/results/<run-id>/rubric.csv
+```
+
+Two numbers decide a ranking change:
+
+- **recall** — share of answer-key moments some accepted candidate covers
+  (at least 50% interval overlap).
+- **precision** — share of the top-10 accepted candidates a reviewer would
+  post: `would_post_1to5 >= 4` in the run's rubric.csv. Unjudged clips are
+  excluded and counted separately; fill the rubric before quoting precision.
+
+`select-replay` regenerates a project's `selection.json` in seconds
+(`cargo run --release -- select-replay ~/.clipping-factory/projects/<id>`),
+so scoring a ranking change costs one replay per episode, not a re-render.
+
 ## 2a. No media yet? The synthetic fixture
 
 The golden set wants real episodes, but the repo carries none. Generate a

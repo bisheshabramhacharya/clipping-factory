@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "moments": [
+    {
+      "start_ms": 224200,
+      "end_ms": 272520,
+      "first_words": "I was lucky enough just a",
+      "last_words": "over multi multi- years",
+      "reason": "Twin-study rationale: genetically matched subjects, six months to a year, the Mars payoff."
+    },
+    {
+      "start_ms": 298080,
+      "end_ms": 377080,
+      "first_words": "with the human research program",
+      "last_words": "for the first time",
+      "reason": "What flies on the twin study: transcriptomics, 30,000 genes, microbiome omics."
+    },
+    {
+      "start_ms": 810519,
+      "end_ms": 877639,
+      "first_words": "how does this research and space",
+      "last_words": "here on Earth",
+      "reason": "The ISS two-purpose pitch: exploration plus 'benefits for Humanity'."
+    },
+    {
+      "start_ms": 970519,
+      "end_ms": 1023720,
+      "first_words": "to get up there are we",
+      "last_words": "35 hours a week",
+      "reason": "More payloads than the shuttle era and 35 crew-hours of science a week."
+    },
+    {
+      "start_ms": 1157640,
+      "end_ms": 1236360,
+      "first_words": "Research In Space how would",
+      "last_words": "maximize your science",
+      "reason": "'Any time of day or night, 365 days a year' unsolicited-proposal invitation."
+    },
+    {
+      "start_ms": 2359280,
+      "end_ms": 2434960,
+      "first_words": "so we have a video of",
+      "last_words": "the thicker layers",
+      "reason": "The liquid-crystal bubble video: black 6nm film, bright island discs."
+    },
+    {
+      "start_ms": 2461560,
+      "end_ms": 2534000,
+      "first_words": "to the bottom of the so",
+      "last_words": "totally impossible",
+      "reason": "'We need the space station to eliminate sedimentation'; impossible on Earth."
+    },
+    {
+      "start_ms": 2547760,
+      "end_ms": 2609280,
+      "first_words": "are you testing specific hypotheses",
+      "last_words": "directly to test",
+      "reason": "Hypothesis vs look-and-see: 'we've scripted the first 15 plays'."
+    },
+    {
+      "start_ms": 2848319,
+      "end_ms": 2940960,
+      "first_words": "sense the mechanical forces applied",
+      "last_words": "bones once it's lost",
+      "reason": "Osteocytes' first space flight; prevent or rebuild bone loss."
+    },
+    {
+      "start_ms": 3082200,
+      "end_ms": 3162160,
+      "first_words": "help in furthering that knowledge",
+      "last_words": "rebuild bone",
+      "reason": "'Trick the osteocytes into thinking they're still loaded'; osteoporosis payoff."
+    }
+  ]
+}

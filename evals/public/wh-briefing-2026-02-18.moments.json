@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "moments": [
+    {
+      "start_ms": 78600,
+      "end_ms": 127960,
+      "first_words": "We're seeing promising signs every day",
+      "last_words": "in the private sector.",
+      "reason": "Record-jobs brag with hard numbers; self-contained economic pitch."
+    },
+    {
+      "start_ms": 433600,
+      "end_ms": 523640,
+      "first_words": "Well, the President has promised all",
+      "last_words": "a red or a blue state.",
+      "reason": "Full energy-policy answer ending on the red/blue-state payoff line."
+    },
+    {
+      "start_ms": 681640,
+      "end_ms": 713840,
+      "first_words": "And on the flip side of",
+      "last_words": "everyone should tune in.",
+      "reason": "Military-action question dodged with the 'Good try, Garrett' quip; quotable."
+    },
+    {
+      "start_ms": 758280,
+      "end_ms": 800480,
+      "first_words": "Yesterday in his statement about Jesse",
+      "last_words": "with my own eyes.",
+      "reason": "Pointed 'falsely called racist' question met with 'You're kidding, right?'"
+    },
+    {
+      "start_ms": 996000,
+      "end_ms": 1059240,
+      "first_words": "So, you said that any of",
+      "last_words": "cooperate with us in doing so.",
+      "reason": "Moore 'do your job' jab plus the 'smell like poop' exchange; news and humor."
+    },
+    {
+      "start_ms": 1169080,
+      "end_ms": 1224680,
+      "first_words": "we're now in this partial shutdown",
+      "last_words": "irresponsible and despicable.",
+      "reason": "Shutdown stakes: unpaid FEMA/Coast Guard/TSA workers; clean close."
+    },
+    {
+      "start_ms": 1240600,
+      "end_ms": 1299160,
+      "first_words": "President Trump has talked about a",
+      "last_words": "move quickly to get it done",
+      "reason": "Voter-ID pitch with the alcohol/library analogy; self-contained."
+    },
+    {
+      "start_ms": 1522480,
+      "end_ms": 1609080,
+      "first_words": "Secondly, on Ukraine, yesterday Zelensky",
+      "last_words": "in their borders.",
+      "reason": "Zelensky-concessions question; the 'unfair' reframe plus talks update."
+    },
+    {
+      "start_ms": 1640360,
+      "end_ms": 1677400,
+      "first_words": "President Barack Obama, Carolina was",
+      "last_words": "keep you posted on that.",
+      "reason": "The aliens question; 'a speech on aliens would be news to me'."
+    },
+    {
+      "start_ms": 2121760,
+      "end_ms": 2157160,
+      "first_words": "President Trump just said on Truth",
+      "last_words": "rest of the world.",
+      "reason": "Chagos Islands flip: 'straight from the horse's mouth' policy line."
+    }
+  ]
+}
