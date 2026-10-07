@@ -529,6 +529,13 @@ h1 { display: flex; align-items: center; font-size: 15px; font-weight: 700; lett
   font-size: 12.5px; font-weight: 550; color: var(--ink-1); cursor: pointer;
 }
 .candidate-pick input { accent-color: var(--accent); width: 15px; height: 15px; }
+.candidate-card.focused { outline: 2px solid var(--accent); outline-offset: -1px; }
+.review-sort { display: inline-flex; align-items: center; gap: 6px; }
+.review-sort select {
+  height: 32px; border-radius: 10px; border: 1px solid var(--hairline-strong);
+  background: var(--surface-1); color: var(--ink-1); padding: 0 8px;
+  font-size: 12.5px;
+}
 
 /* ---- Library drawer ---- */
 .drawer-backdrop {
