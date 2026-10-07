@@ -213,6 +213,13 @@ fn term_hits_word(term: &str, word: &str) -> bool {
         || (short.len() >= 5 && long.starts_with(&short[..short.len() - 1]))
 }
 
+/// The >50 s length tax on composite score: a window pays for seconds past
+/// the short-form sweet spot — but a window whose end is a verified sentence
+/// close pays only 30%, since the extra seconds bought a real ending.
+fn length_tax(dur_s: f32, closed: bool) -> f32 {
+    0.1 * (dur_s - 50.0).max(0.0) * if closed { 0.3 } else { 1.0 }
+}
+
 /// Propose candidates; an optional loudness profile adds a modest composite
 /// boost to high-energy windows (see [`crate::energy`]). An optional focus
 /// prompt ("clips about pricing") steers ranking toward windows whose
@@ -247,7 +254,7 @@ pub fn propose(
         // lands in the 20–90s range and keep the best close in each length
         // band, so a start whose best long cut collides with a neighbor can
         // still place a shorter one.
-        let mut best_end: [Option<(f32, usize)>; END_BANDS.len()] = [None; END_BANDS.len()];
+        let mut best_end: [Option<(f32, usize, bool)>; END_BANDS.len()] = [None; END_BANDS.len()];
         for end_idx in start_idx..sentences.len() {
             let dur = sentences[end_idx].end_ms.saturating_sub(opener.start_ms);
             if dur < MIN_MS {
@@ -306,11 +313,11 @@ pub fn propose(
                 .iter()
                 .position(|&max| dur <= max)
                 .unwrap_or(END_BANDS.len() - 1);
-            if best_end[band].is_none_or(|(s, _)| end_score > s) {
-                best_end[band] = Some((end_score, end_idx));
+            if best_end[band].is_none_or(|(s, _, _)| end_score > s) {
+                best_end[band] = Some((end_score, end_idx, closed));
             }
         }
-        for (end_score, end_idx) in best_end.into_iter().flatten() {
+        for (end_score, end_idx, closed) in best_end.into_iter().flatten() {
             let closer = &sentences[end_idx];
             let window_text: String = sentences[start_idx..=end_idx]
                 .iter()
@@ -480,7 +487,7 @@ pub fn propose(
                 - 25.0 * filler_rate
                 // Short-form lands best under a minute: a longer cut must
                 // earn its extra seconds.
-                - 0.1 * (dur_s - 50.0).max(0.0)
+                - length_tax(dur_s, closed)
                 + energy
                     .map(|e| crate::energy::window_boost(e, opener.start_ms, closer.end_ms))
                     .unwrap_or(0.0);
@@ -1023,6 +1030,17 @@ mod tests {
                 t.words[idx].text
             );
         }
+    }
+
+    #[test]
+    fn a_verified_close_pays_a_third_of_the_length_tax() {
+        // An 80s window pays the full >50s tax when its end is a forced split,
+        // but only 30% of it when the close is a real sentence end — the
+        // seconds that reach a payoff shouldn't be priced out of the ranking.
+        assert_eq!(length_tax(45.0, false), 0.0);
+        assert_eq!(length_tax(45.0, true), 0.0);
+        assert!((length_tax(80.0, false) - 3.0).abs() < 1e-4);
+        assert!((length_tax(80.0, true) - 0.9).abs() < 1e-4);
     }
 
     #[test]
