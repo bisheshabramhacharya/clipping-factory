@@ -138,9 +138,12 @@ fn resolve_language(
     requested: &str,
     model_dirs: &[PathBuf],
 ) -> Result<(PathBuf, String)> {
+    // The boot-time resolution is a snapshot — a model downloaded into a
+    // search dir afterwards must still be found, or Retry can never work.
     let model = cfg
         .whisper_model
-        .as_ref()
+        .clone()
+        .or_else(|| crate::config::find_whisper_model(model_dirs))
         .ok_or_else(|| anyhow!("Transcription model missing. Download ggml-base.bin (~148MB) into <data-dir>/models or set CF_WHISPER_MODEL."))?;
     let code = requested.trim().to_lowercase();
     let code = code.as_str();
@@ -149,8 +152,8 @@ fn resolve_language(
             "Unknown transcription language \"{code}\". Pick a language from the list."
         ));
     }
-    if crate::config::model_is_multilingual(model) {
-        return Ok((model.clone(), code.to_string()));
+    if crate::config::model_is_multilingual(&model) {
+        return Ok((model, code.to_string()));
     }
     // English-only weights can neither detect a language nor transcribe
     // non-English — swap to a multilingual model on disk when one exists.
@@ -166,7 +169,7 @@ fn resolve_language(
         }
     }
     // `auto` with no multilingual model on disk keeps the historical `-l en`.
-    Ok((model.clone(), "en".into()))
+    Ok((model, "en".into()))
 }
 
 pub async fn transcribe<F>(
@@ -179,11 +182,12 @@ pub async fn transcribe<F>(
 where
     F: FnMut(f32),
 {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let bin = cfg
         .whisper_bin
-        .as_ref()
+        .clone()
+        .or_else(|| crate::config::resolve_whisper_bin(&cwd))
         .ok_or_else(|| anyhow!("whisper-cli not found. Install whisper.cpp (macOS: `brew install whisper-cpp`) or set CF_WHISPER_BIN."))?;
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let model_dirs =
         crate::config::model_search_dirs(&cfg.data_dir, &cwd, dirs::home_dir().as_deref());
     let (model, whisper_lang) = resolve_language(cfg, language.unwrap_or("auto"), &model_dirs)?;
@@ -987,6 +991,21 @@ mod tests {
         assert_eq!(language_name("es"), Some("Spanish"));
         assert_eq!(language_name("yue"), Some("Cantonese"));
         assert_eq!(language_name("xx"), None);
+    }
+
+    #[test]
+    fn model_dropped_in_after_boot_is_found_at_transcribe() {
+        // Config resolved at boot had no model; the file landing in the
+        // search dirs afterwards must be picked up so Retry works.
+        let dir = std::env::temp_dir().join(format!("cf-model-late-{}", crate::util::short_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("ggml-base.bin"), b"multi").unwrap();
+        let mut cfg = Config::resolve();
+        cfg.whisper_model = None;
+        let dirs = [dir.clone()];
+        let (model, _lang) = resolve_language(&cfg, "auto", &dirs).unwrap();
+        assert_eq!(model, dir.join("ggml-base.bin"));
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
