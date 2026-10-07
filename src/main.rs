@@ -41,10 +41,21 @@ async fn main() -> anyhow::Result<()> {
     // Eval hook for evals/verify_clip_quality.sh: print the faces the
     // framing detector sees in a rendered clip, as JSON.
     let args: Vec<String> = std::env::args().collect();
-    if let [_, cmd, path] = args.as_slice() {
+    if let [_, cmd, path, rest @ ..] = args.as_slice() {
         if cmd == "probe-faces" {
             let report = frame::probe_faces(&cfg, std::path::Path::new(path)).await?;
             println!("{report}");
+            return Ok(());
+        }
+        // Eval hook: replay a saved project's local selection as JSON; a
+        // trailing argument overrides the project's stored Focus prompt.
+        if cmd == "select-replay" {
+            let report = select::replay::replay(
+                std::path::Path::new(path),
+                rest.first().map(String::as_str),
+            )
+            .await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
             return Ok(());
         }
     }

@@ -13,6 +13,7 @@ pub mod anthropic;
 pub mod heuristic;
 pub mod local;
 pub mod openai;
+pub mod replay;
 
 use crate::domain::{fmt_ms, Candidate, Platform, Scores, SourceInfo, Transcript};
 use crate::settings::{AiSettings, Provider};
