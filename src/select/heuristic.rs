@@ -212,6 +212,54 @@ fn term_hits_word(term: &str, word: &str) -> bool {
         || (short.len() >= 5 && long.starts_with(&short[..short.len() - 1]))
 }
 
+/// Small rings of words a Focus prompt surely means together — the user
+/// asks for "pricing" but the guest says "cost" or "fee". Kept deliberately
+/// short and tight: related words should find the same topic, not widen it.
+const RELATED_TERMS: &[&[&str]] = &[
+    &[
+        "price",
+        "pricing",
+        "cost",
+        "charge",
+        "fee",
+        "expensive",
+        "cheap",
+    ],
+    &["fail", "failure", "broke", "broken", "crash", "bug"],
+    &["buy", "bought", "purchase", "acquire"],
+    &["sell", "sold", "sale"],
+    &["hire", "hired", "hiring", "recruit", "job"],
+    &["learn", "lesson", "mistake", "taught"],
+    &["launch", "launching", "release", "ship"],
+    &["risk", "risky", "danger", "dangerous", "scary"],
+    &["grow", "growth", "scale", "scaling", "expand"],
+    &["story", "stories", "anecdote", "example"],
+];
+
+/// The term plus its loose variants — "ies→y" and trailing-s stems, and the
+/// built-in related words — so a Focus prompt keeps meaning what the user
+/// meant even when the transcript picks a different surface word. Variants
+/// feed `term_hits_word`, which applies its own stem rules on both sides.
+fn expanded_term_variants(term: &str) -> Vec<String> {
+    let mut out = vec![term.to_string()];
+    if let Some(y) = term.strip_suffix("ies") {
+        out.push(format!("{y}y"));
+    }
+    if term.ends_with('s') && !term.ends_with("ss") {
+        out.push(term[..term.len() - 1].to_string());
+    }
+    for ring in RELATED_TERMS {
+        if ring.iter().any(|r| term_hits_word(r, term)) {
+            for r in *ring {
+                if !out.iter().any(|o| o == *r) {
+                    out.push(r.to_string());
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Propose candidates; an optional loudness profile adds a modest composite
 /// boost to high-energy windows (see [`crate::energy`]). An optional focus
 /// prompt ("clips about pricing") steers ranking toward windows whose
@@ -234,6 +282,10 @@ pub fn propose(
         return Vec::new();
     }
     let focus_terms = focus_terms(focus);
+    let focus_variants: Vec<Vec<String>> = focus_terms
+        .iter()
+        .map(|t| expanded_term_variants(t))
+        .collect();
     let (title_terms, title_pairs) = title_terms(title);
 
     let mut scored: Vec<(f32, Candidate)> = Vec::new();
@@ -326,18 +378,24 @@ pub fn propose(
             // window is actually on-topic: a stray topical tail inside a long
             // generic stretch shouldn't count, so the boost requires at least a
             // third of the window's sentences to hit.
-            let focus_hits = focus_terms
+            let focus_hits = focus_variants
                 .iter()
-                .filter(|term| normalized_words.iter().any(|w| term_hits_word(term, w)))
+                .filter(|variants| {
+                    variants
+                        .iter()
+                        .any(|term| normalized_words.iter().any(|w| term_hits_word(term, w)))
+                })
                 .count();
             let focus_hit_sentences = window
                 .iter()
                 .filter(|s| {
                     let normalized = normalize(&s.text);
-                    focus_terms.iter().any(|term| {
-                        normalized
-                            .split_whitespace()
-                            .any(|w| term_hits_word(term, w))
+                    focus_variants.iter().any(|variants| {
+                        variants.iter().any(|term| {
+                            normalized
+                                .split_whitespace()
+                                .any(|w| term_hits_word(term, w))
+                        })
                     })
                 })
                 .count();
@@ -1332,5 +1390,35 @@ mod tests {
         assert!(term_hits_word("cat", "cats"));
         assert!(!term_hits_word("them", "thesis"));
         assert!(!term_hits_word("art", "party"));
+    }
+
+    #[test]
+    fn expanded_variants_cover_ies_stems_and_related_words() {
+        let pricing = expanded_term_variants("pricing");
+        assert!(pricing.iter().any(|v| term_hits_word(v, "cost")));
+        assert!(pricing.iter().any(|v| term_hits_word(v, "fee")));
+        assert!(pricing.iter().any(|v| term_hits_word(v, "expensive")));
+        let companies = expanded_term_variants("companies");
+        assert!(companies.iter().any(|v| term_hits_word(v, "company")));
+        let failures = expanded_term_variants("failure");
+        assert!(failures.iter().any(|v| term_hits_word(v, "broke")));
+        // Unrelated topics stay single: "nasa" gains no built-in friends.
+        assert_eq!(expanded_term_variants("nasa"), vec!["nasa"]);
+    }
+
+    #[test]
+    fn focus_finds_a_window_that_uses_a_related_word() {
+        let (t, duration, pricing_start, pricing_end) = focused_fixture();
+        let covers_pricing = |c: &Candidate| {
+            overlap_ms(c.start_ms, c.end_ms, pricing_start, pricing_end) * 2
+                >= pricing_end - pricing_start
+        };
+        // The fixture's topical stretch literally says "pricing"; a focus on
+        // the synonym "cost" should still find it via the related-word ring.
+        let focused = propose(&t, duration, 6, None, Some("clips about cost"), None);
+        assert!(
+            covers_pricing(&focused[0]),
+            "a 'cost' focus should rank the pricing stretch first"
+        );
     }
 }
