@@ -551,6 +551,20 @@ fn is_cancelled(e: &anyhow::Error, token: &CancellationToken) -> bool {
     token.is_cancelled() || crate::util::is_cancelled(e)
 }
 
+/// Rough bytes the render stage is about to write: every pending clip keeps
+/// a base render plus a captioned burn on disk and gets one output-folder
+/// copy — three times what the source bitrate suggests — plus a flat margin
+/// for export packs and manifest/JSON churn. Deliberately conservative:
+/// auto-cut and zoom only shrink output, so the precheck errs on the side
+/// of asking for slightly more space than strictly needed.
+fn render_footprint_estimate(size_bytes: u64, duration_ms: u64, pending_ms: u64) -> u64 {
+    if duration_ms == 0 || pending_ms == 0 {
+        return 0;
+    }
+    let bytes_per_ms = size_bytes as f64 / duration_ms as f64;
+    (3.0 * bytes_per_ms * pending_ms as f64 + 256.0 * 1024.0 * 1024.0) as u64
+}
+
 fn full_video_candidate(transcript: &Transcript, duration_ms: u64) -> Candidate {
     let caption = words_to_text(&transcript.words);
     Candidate {
@@ -1071,6 +1085,36 @@ async fn run(
         }
         Err(e) => {
             ctx.fail(&mut p, "rendering", e.to_string()).await;
+            return Ok(());
+        }
+    }
+    // Rough output-footprint check before spending render time. Every
+    // pending clip ends with a base render plus a captioned burn on disk
+    // and an output-folder copy, so a second of output costs about 3x the
+    // source bitrate — plus a flat margin for packs and manifests. Failing
+    // fast here beats an ENOSPC twenty minutes in.
+    let pending_ms: u64 = manifest
+        .clips
+        .iter()
+        .filter(|c| c.status != ClipStatus::Ready)
+        .map(|c| c.end_ms.saturating_sub(c.start_ms))
+        .sum();
+    let est_bytes = render_footprint_estimate(source.size_bytes, source.duration_ms, pending_ms);
+    if let (Some(free_gb), true) = (
+        crate::util::disk_free_gb(&state.cfg.data_dir).await,
+        est_bytes > 0,
+    ) {
+        if free_gb * 1024.0 * 1024.0 * 1024.0 < est_bytes as f64 {
+            ctx.fail(
+                &mut p,
+                "rendering",
+                format!(
+                    "Rendering needs about {:.1} GB free for base renders, caption burns, and output copies, but only {:.1} GB is available on the data volume. Free up space and retry.",
+                    est_bytes as f64 / 1024.0 / 1024.0 / 1024.0,
+                    free_gb,
+                ),
+            )
+            .await;
             return Ok(());
         }
     }
@@ -1943,5 +1987,18 @@ mod tests {
         let est = live.stage_estimate_ms.unwrap();
         assert!((est as f64 - 3_780_000.0).abs() < 1.0, "{est}");
         assert!(live.elapsed_ms < 1_000);
+    }
+
+    #[test]
+    fn render_footprint_scales_with_pending_output() {
+        // 100 MB source over 1000 s → 100 bytes/ms of source. 400 s of
+        // pending clip output → 3×40 KB + 256 MB margin.
+        let est = render_footprint_estimate(100_000_000, 1_000_000, 400_000);
+        assert_eq!(est, 3 * 40_000_000 + 256 * 1024 * 1024);
+        assert_eq!(render_footprint_estimate(1, 0, 1), 0);
+        assert_eq!(render_footprint_estimate(1, 1, 0), 0);
+        // Resume edge: a resume with everything rendered asks for nothing.
+        let half = render_footprint_estimate(100_000_000, 1_000_000, 200_000);
+        assert!(half < est && half > 256 * 1024 * 1024);
     }
 }
