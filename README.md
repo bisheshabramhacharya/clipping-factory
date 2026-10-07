@@ -232,6 +232,7 @@ The original product decisions live in the [PRD](docs/PRD.md). Current prioritie
 | `CF_WHISPER_BIN`, `CF_WHISPER_MODEL` | Transcription overrides |
 | `CF_FONTS_DIR`, `CF_FACE_MODEL` | Bundled asset overrides |
 | `CF_THREADS` | Transcription thread count |
+| `CF_RENDER_JOBS` | Clips rendered at once; defaults to `clamp(cores/4, 1, 3)` |
 | `CF_CAPTION_STYLE` | Default style: `impact`, `clean`, `pop`, or `cinema` |
 | `CF_NO_OPEN=1` | Do not open the browser on startup |
 

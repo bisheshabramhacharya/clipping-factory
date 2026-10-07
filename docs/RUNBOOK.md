@@ -103,6 +103,7 @@ All configuration is via environment variables. There is no config file.
 | `CF_FONTS_DIR` | bundled `assets/fonts` | Directory containing caption fonts |
 | `CF_FACE_MODEL` | bundled model | rustface seeta model path (optional) |
 | `CF_THREADS` | physical cores | Transcription thread count |
+| `CF_RENDER_JOBS` | `clamp(cores/4, 1, 3)` | Clips rendered concurrently; each ffmpeg gets `max(1, cores/jobs)` threads |
 | `CF_CAPTION_STYLE` | `impact` | Default style: `impact`, `clean`, `pop`, or `cinema` |
 | `CF_NO_OPEN=1` | unset (browser opens) | Do not open the browser on startup |
 

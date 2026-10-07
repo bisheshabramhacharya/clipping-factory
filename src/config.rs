@@ -10,6 +10,7 @@
 //! - `CF_FONTS_DIR`       — directory containing caption fonts
 //! - `CF_FACE_MODEL`      — rustface seeta model path
 //! - `CF_THREADS`         — transcription threads (default = physical cores)
+//! - `CF_RENDER_JOBS`     — clips rendered at once (default = clamp(cores/4, 1, 3))
 //! - `CF_NO_OPEN=1`       — don't try to open the browser on start
 
 use crate::util::which;
@@ -32,6 +33,12 @@ pub struct Config {
     pub caption_style: String,
     pub face_model: Option<PathBuf>,
     pub threads: usize,
+    /// Clip renders running at once (the render pool size).
+    pub render_jobs: usize,
+    /// Thread budget handed to each pooled render's ffmpeg
+    /// (`max(1, cores / render_jobs)`): with the default pool of three on a
+    /// 12-core machine each encode gets four threads.
+    pub render_threads: usize,
 }
 
 fn env_path(key: &str) -> Option<PathBuf> {
@@ -190,14 +197,23 @@ impl Config {
                 ])
             });
 
+        let cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
         let threads = std::env::var("CF_THREADS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or_else(|| {
-                std::thread::available_parallelism()
-                    .map(|n| n.get())
-                    .unwrap_or(4)
-            });
+            .unwrap_or(cores);
+
+        // The render pool defaults to a quarter of the machine (three jobs
+        // on 12 cores) so a run never saturates every core at once; each
+        // worker's ffmpeg is capped to a fair share of threads.
+        let render_jobs = std::env::var("CF_RENDER_JOBS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_else(|| (cores / 4).clamp(1, 3))
+            .clamp(1, cores);
+        let render_threads = (cores / render_jobs).max(1);
 
         Config {
             port: std::env::var("CF_PORT")
@@ -218,6 +234,8 @@ impl Config {
             caption_style: std::env::var("CF_CAPTION_STYLE").unwrap_or_else(|_| "impact".into()),
             face_model,
             threads,
+            render_jobs,
+            render_threads,
         }
     }
 
