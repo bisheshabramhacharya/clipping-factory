@@ -520,6 +520,10 @@ h1 { display: flex; align-items: center; font-size: 15px; font-weight: 700; lett
   background: var(--surface-3); color: var(--ink-2);
   font-size: 11.5px; font-weight: 550;
 }
+.candidate-preview video {
+  width: min(320px, 100%); max-height: 300px;
+  border-radius: 12px; background: #000;
+}
 
 /* ---- Library drawer ---- */
 .drawer-backdrop {
