@@ -62,6 +62,7 @@
   // keep/drop toggle rebuilds only its own card.
   const candidateRowCache = {};
   let reviewBusy = false; // a render is being posted from the review screen
+  let playingRank = null; // candidate rank with an open source preview
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -459,6 +460,7 @@
     for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
     for (const key of Object.keys(candidateRowCache)) delete candidateRowCache[key];
     reviewBusy = false;
+    playingRank = null;
   }
 
   function resetToEmpty({ message = null, kind = "error" } = {}) {
@@ -841,15 +843,51 @@
     const tag = document.createElement("span");
     tag.className = `dropped-tag${c.dropped ? "" : " hidden"}`;
     tag.textContent = "Dropped";
+    const play = document.createElement("button");
+    play.type = "button";
+    play.textContent = playingRank === c.rank ? "Close preview" : "Play";
+    play.addEventListener("click", () => togglePreview(c.rank));
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.textContent = c.dropped ? "Bring back" : "Drop";
     toggle.addEventListener("click", () => toggleDropped(c.rank, !c.dropped));
-    actions.append(tag, toggle);
+    actions.append(tag, play, toggle);
 
     row.append(head, reason, text, actions);
+    // The preview streams the uploaded source itself — a #t=start,end
+    // media fragment bounds it to this candidate's range, no file needed.
+    if (playingRank === c.rank) row.appendChild(previewPlayer(c));
     row.classList.toggle("dropped", !!c.dropped);
     return row;
+  }
+
+  function previewPlayer(c) {
+    const box = document.createElement("div");
+    box.className = "candidate-preview";
+    const video = document.createElement("video");
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    const start = ((c.start_ms || 0) / 1000).toFixed(3);
+    const end = ((c.end_ms || 0) / 1000).toFixed(3);
+    video.src = `${apiPath("projects", projectId, "source")}#t=${start},${end}`;
+    video.setAttribute("aria-label", `Preview of ${c.headline || `candidate ${c.rank}`}`);
+    // Belt and braces for browsers that ignore the media fragment's end.
+    const endSec = (c.end_ms || 0) / 1000;
+    video.addEventListener("timeupdate", () => {
+      if (video.currentTime >= endSec - 0.05) video.pause();
+    });
+    box.appendChild(video);
+    requestAnimationFrame(() => video.play().catch(() => {}));
+    return box;
+  }
+
+  function togglePreview(rank) {
+    const prev = playingRank;
+    playingRank = prev === rank ? null : rank;
+    // Rebuild only the two affected cards so nothing else remounts.
+    for (const r of [prev, rank]) if (r != null) delete candidateRowCache[r];
+    renderReview(view.project);
   }
 
   function renderReview(p) {

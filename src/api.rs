@@ -14,6 +14,7 @@
 //! POST   /api/projects/{id}/review   persist the review screen's dropped ranks
 //! POST   /api/projects/{id}/cancel   stop subprocesses, keep finished clips
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
+//! GET    /api/projects/{id}/source   uploaded source MP4 (Range-aware preview)
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
 //! GET    /api/projects/{id}/clips/{clipId}/export/{kind}  export pack sidecar (srt|vtt|meta|poster)
@@ -61,6 +62,7 @@ pub fn router(state: AppState) -> Router {
             get(get_project).delete(delete_project),
         )
         .route("/api/projects/{id}/events", get(project_events))
+        .route("/api/projects/{id}/source", get(serve_source))
         .route("/api/projects/{id}/process", post(process_project))
         .route("/api/projects/{id}/render", post(render_project))
         .route("/api/projects/{id}/review", post(review_decisions))
@@ -1448,6 +1450,21 @@ async fn serve_clip_download(
 ) -> Result<Response, ApiError> {
     let (clip, path) = find_clip(&state, &id, &clip_id).await?;
     serve_video(&path, &headers, Some(clip.filename)).await
+}
+
+/// The uploaded source MP4, inline — the review screen plays a candidate's
+/// range straight from it with a `#t=start,end` media fragment, so no
+/// preview files are needed. Same Range-aware streaming as rendered clips.
+async fn serve_source(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = state.store.source_path(&id);
+    if !state.store.exists(&id) || !path.is_file() {
+        return Err(not_found("Project not found."));
+    }
+    serve_video(&path, &headers, None).await
 }
 
 /// One export-pack sidecar for a rendered clip: `srt`, `vtt`, or `meta`
@@ -2840,6 +2857,62 @@ mod tests {
         assert_eq!(p.review_drops, vec![2]);
         let res = app.oneshot(review_req(r#"{"dropped":[]}"#)).await.unwrap();
         assert_eq!(res.status(), StatusCode::CONFLICT);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn the_source_streams_inline_with_range_support() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000110";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_project(&Project::new(id.into(), state.store.source_path(id)))
+            .await
+            .unwrap();
+        tokio::fs::write(state.store.source_path(id), b"0123456789")
+            .await
+            .unwrap();
+        let app = router(state.clone());
+        let source_req = |range: Option<&str>| {
+            let mut req = Request::builder()
+                .uri(format!("/api/projects/{id}/source"))
+                .header(header::HOST, "localhost:4571");
+            if let Some(range) = range {
+                req = req.header(header::RANGE, range);
+            }
+            req.body(Body::empty()).unwrap()
+        };
+
+        let res = app.clone().oneshot(source_req(None)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(body.as_ref(), b"0123456789");
+
+        let res = app
+            .clone()
+            .oneshot(source_req(Some("bytes=2-5")))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::PARTIAL_CONTENT);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(body.as_ref(), b"2345");
+
+        // No project, no source — 404 like every other media route.
+        let res = app
+            .oneshot(
+                Request::get("/api/projects/0a0e099999/source")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 
