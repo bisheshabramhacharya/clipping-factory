@@ -65,6 +65,8 @@
   let playingRank = null; // candidate rank with an open source preview
   let renderMoreOpen = false; // the render-more candidate list is expanded
   const renderMorePicks = new Set(); // unrendered ranks checked for rendering
+  let focusRank = null; // keyboard-focused candidate rank in the review list
+  let reviewSort = localStorage["cf-review-sort"] || "score"; // "score" | "time"
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -465,6 +467,7 @@
     playingRank = null;
     renderMoreOpen = false;
     renderMorePicks.clear();
+    focusRank = null;
   }
 
   function resetToEmpty({ message = null, kind = "error" } = {}) {
@@ -919,9 +922,75 @@
     renderReview(view.project);
   }
 
+  function sortedCandidates() {
+    const all = [...(view.candidates || [])];
+    if (reviewSort === "time") {
+      all.sort((a, b) => (a.start_ms || 0) - (b.start_ms || 0) || a.rank - b.rank);
+    } else {
+      all.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity) || a.rank - b.rank);
+    }
+    return all;
+  }
+
+  function markFocusedRow() {
+    const wrap = $("candidates");
+    if (!wrap) return;
+    for (const row of wrap.children) {
+      row.classList.toggle("focused", Number(row.dataset.rank) === focusRank);
+    }
+  }
+
+  function reviewKeydown(e) {
+    const p = view && view.project;
+    const section = $("review-state");
+    if (!p || !section || section.classList.contains("hidden")) return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
+        t.tagName === "SELECT" || t.isContentEditable)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const all = sortedCandidates();
+    if (!all.length) return;
+    const moreMode = p.status === "complete" || p.status === "failed";
+    const idx = all.findIndex((c) => c.rank === focusRank);
+    const focused = idx >= 0 ? all[idx] : null;
+    const moveTo = (i) => {
+      const next = all[Math.max(0, Math.min(all.length - 1, i))];
+      focusRank = next.rank;
+      markFocusedRow();
+      const row = candidateRowCache[focusRank];
+      if (row) row.row.scrollIntoView({ block: "nearest" });
+    };
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        moveTo(idx < 0 ? 0 : idx + 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        moveTo(idx < 0 ? all.length - 1 : idx - 1);
+        break;
+      case " ":
+        if (focusRank != null) {
+          e.preventDefault();
+          togglePreview(focusRank);
+        }
+        break;
+      case "Enter":
+        e.preventDefault();
+        $("render-kept-btn").click();
+        break;
+      case "k": case "K":
+        if (!moreMode && focused && focused.dropped) toggleDropped(focusRank, false);
+        break;
+      case "d": case "D":
+        if (!moreMode && focused && !focused.dropped) toggleDropped(focusRank, true);
+        break;
+    }
+  }
+
   function renderReview(p) {
     const section = $("review-state");
-    const all = view.candidates || [];
+    const all = sortedCandidates();
     const moreMode = p.status === "complete" || p.status === "failed";
     const unrendered = all.filter((c) => !c.rendered);
 
@@ -947,6 +1016,10 @@
       }
       return;
     }
+
+    // Keep the keyboard focus on a real card: default to the first in the
+    // current order, and re-anchor when the focused rank disappears.
+    if (!all.some((c) => c.rank === focusRank)) focusRank = all[0].rank;
 
     const keptBtn = $("render-kept-btn");
     const allBtn = $("render-all-btn");
@@ -995,6 +1068,7 @@
       const current = wrap.children[i];
       if (current !== row) wrap.insertBefore(row, current || null);
     });
+    markFocusedRow();
   }
 
   function toggleRenderMore() {
@@ -1082,6 +1156,14 @@
     });
     $("render-more-btn").addEventListener("click", toggleRenderMore);
     $("render-more-fail-btn").addEventListener("click", toggleRenderMore);
+    const sortSel = $("review-sort");
+    sortSel.value = reviewSort;
+    sortSel.addEventListener("change", () => {
+      reviewSort = sortSel.value;
+      localStorage["cf-review-sort"] = reviewSort;
+      renderReview(view.project);
+    });
+    document.addEventListener("keydown", reviewKeydown);
   }
 
   function stageState(p, name) {
