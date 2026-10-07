@@ -230,6 +230,52 @@ fn length_tax(dur_s: f32, closed: bool) -> f32 {
     0.1 * (dur_s - 50.0).max(0.0) * if closed { 0.3 } else { 1.0 }
 }
 
+/// Sign-off boilerplate: thanks, excitement, and adjournments read as
+/// pleasant closes, so windows ending on them score well — but a clip of
+/// the host wrapping up is not a moment an editor posts. Only the clip's
+/// last words count: a "thank you" mid-clip is ordinary speech. And only
+/// in the episode's tail: the same words mid-episode are a real exchange.
+const SIGNOFF_CUES: &[&str] = &[
+    "thank",
+    "excited",
+    "pleasure",
+    "honor",
+    "honour",
+    "looking forward",
+    "appreciate",
+    "anything to add",
+    "take care",
+    "goodbye",
+    "adjourn",
+    "great to have",
+    "great to see",
+    "we'll see you",
+    "see you there",
+    "see you next",
+    "see you soon",
+    "sign off",
+    "sign-off",
+];
+
+fn signoff(window_lower: &str, end_ms: u64, source_duration_ms: u64) -> bool {
+    if end_ms * 10 <= source_duration_ms * 9 {
+        return false;
+    }
+    // The last ~15 words are what a viewer hears the clip end on; sentence
+    // splits can orphan the courtesy ("Thank you.") into a "you." fragment,
+    // so look at the tail words, not the closing sentence.
+    let tail: String = window_lower
+        .split_whitespace()
+        .rev()
+        .take(15)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join(" ");
+    SIGNOFF_CUES.iter().any(|c| tail.contains(c))
+}
+
 /// Propose candidates; an optional loudness profile adds a modest composite
 /// boost to high-energy windows (see [`crate::energy`]). An optional focus
 /// prompt ("clips about pricing") steers ranking toward windows whose
@@ -452,7 +498,14 @@ pub fn propose(
             let specificity =
                 specificity_tier(repeated_claim, has_number, contrast, absolute_claim, names);
             let tension = tension_tier(exchange, contrast, question_open);
-            let payoff = payoff_tier(repeated_claim, exchange, payoff_cue, end_score);
+            // A close on thanks or adjournment in the episode's tail is the
+            // wrap-up, not a payoff — and payoff <3 is a validator rejection,
+            // so the sign-off never reaches the list.
+            let payoff = if signoff(&window_lower, closer.end_ms, source_duration_ms) {
+                1
+            } else {
+                payoff_tier(repeated_claim, exchange, payoff_cue, end_score)
+            };
             let clarity: u8 = if filler_rate > 0.12 {
                 3
             } else if filler_rate > 0.06 {
@@ -1121,6 +1174,59 @@ mod tests {
         assert_eq!(length_tax(45.0, true), 0.0);
         assert!((length_tax(80.0, false) - 3.0).abs() < 1e-4);
         assert!((length_tax(80.0, true) - 0.9).abs() < 1e-4);
+    }
+
+    #[test]
+    fn a_close_on_signoff_only_costs_in_the_episodes_tail() {
+        // "thank you" ends the wrap-up, not a postable moment — but the same
+        // words mid-episode are ordinary speech and cost nothing.
+        let dur = 100_000;
+        assert!(signoff(
+            "words then so excited to see you up there.",
+            95_000,
+            dur
+        ));
+        assert!(signoff(
+            "final words this hearing is adjourned.",
+            99_500,
+            dur
+        ));
+        assert!(signoff(
+            "the record stays open thank you. you.",
+            99_500,
+            dur
+        ));
+        assert!(!signoff(
+            "words then so excited to see you up there.",
+            80_000,
+            dur
+        ));
+        assert!(!signoff(
+            "thank you for that question and here is what the data actually shows when you look at the numbers",
+            99_500,
+            dur
+        ));
+        assert!(!signoff("and that is why the policy works.", 95_000, dur));
+    }
+
+    #[test]
+    fn a_tail_wrap_up_never_reaches_the_candidate_list() {
+        // The episode's last stretch is the host's sign-off: it closes on
+        // thanks, which scores payoff 1 — a validator rejection — so the
+        // proposed list carries the real exchange, not the goodbye.
+        let meat = "The reason the mission matters is that every experiment up there teaches us something we cannot learn on the ground and the crews know it in their bones.";
+        let more = "When the samples come home the labs spend months on them and the papers that follow change how the next flight is designed from the start.";
+        let outro = "Thank you all so much for joining us today it has been such an honor to have you here and we are so excited to have shared this time with you and to see all the work that continues after this and we hope you enjoyed listening as much as we enjoyed making it goodbye.";
+        let t = transcript_from(&[(meat, 0), (more, 400), (outro, 240_000)]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+        let cands = propose(&t, duration, 5, None, None, None);
+        assert!(
+            cands
+                .iter()
+                .all(|c| !c.closing_quote.to_lowercase().contains("goodbye")),
+            "sign-off tail leaked into candidates: {:?}",
+            cands.iter().map(|c| &c.closing_quote).collect::<Vec<_>>()
+        );
     }
 
     #[test]
