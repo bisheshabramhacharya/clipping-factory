@@ -287,7 +287,15 @@ pub fn propose(
                 .words
                 .get(closer.word_end)
                 .is_some_and(|w| w.start_ms.saturating_sub(closer.end_ms) < 700);
-            if !closed && continues {
+            // A clip must end on a finished thought: a question mark closes
+            // the sentence grammatically but leaves the thought open — the
+            // answer is the thought. Same for a close that cuts mid-sentence
+            // while the words keep coming.
+            let ends_on_question = closer_lower
+                .split_whitespace()
+                .last()
+                .is_some_and(|w| w.ends_with('?'));
+            if ends_on_question || (!closed && continues) {
                 continue;
             }
             let mut end_score = 0.0f32;
@@ -1028,6 +1036,57 @@ mod tests {
                 crate::transcribe::ends_sentence(&t.words, idx) || idx + 1 == t.words.len(),
                 "candidate ends mid-thought on word {:?}",
                 t.words[idx].text
+            );
+        }
+    }
+
+    #[test]
+    fn a_close_never_lands_on_a_question() {
+        // The answer is the finished thought, not the question that tees it
+        // up — a window may still *open* on the reporter's question, but it
+        // must close on the answer that follows.
+        // Two regions: a complete answer window early on, and a later stretch
+        // whose only close is a question mark — without the rule that second
+        // region proposes a window that ends on the unanswered question.
+        let filler = "the briefing covered a lot of ground on the economy and 26 billion dollars of policy today.";
+        let long_question = format!(
+            "so the question from the press corps then is what exactly {}about all of this?",
+            "does the administration plan to do ".repeat(8)
+        );
+        let long_answer = format!(
+            "the press secretary answered that {}the point is prices come down for everyone.",
+            "the administration has a detailed plan for it and ".repeat(7)
+        );
+        let t = transcript_from(&[
+            (
+                "What is the administration doing about rising gas prices for families everywhere?",
+                0,
+            ),
+            (filler, 60),
+            (&long_answer, 60),
+            (
+                "How do reporters keep pressing on the same three issues every week?",
+                1200,
+            ),
+            (filler, 60),
+            (&long_question, 60),
+        ]);
+        let duration = t.words.last().unwrap().end_ms + 500;
+        let cands = propose(&t, duration, 3, None, None, None);
+        assert!(!cands.is_empty());
+        for c in &cands {
+            let last = t
+                .words
+                .iter()
+                .filter(|w| w.end_ms <= c.end_ms)
+                .next_back()
+                .unwrap();
+            assert!(
+                !last.text.ends_with('?'),
+                "candidate ends on a question: {}-{} {:?}",
+                c.start_ms,
+                c.end_ms,
+                last.text
             );
         }
     }
