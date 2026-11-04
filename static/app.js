@@ -61,6 +61,12 @@
   const clipRowCache = {};
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
+  // The header carries the page context: what this screen is, plus the source
+  // it belongs to. One function, so the bar never disagrees with the card.
+  function setPageContext(title, sub) {
+    $("page-title").textContent = title;
+    $("page-sub").textContent = sub || "";
+  }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
 
   function fmtBytes(n) {
@@ -797,7 +803,7 @@
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     // Once clips exist the studio owns the screen; progress shrinks to a strip.
     $("processing-state").classList.toggle("compact", !!p && (view.clips || []).length > 0);
-    if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
+    if (!p) { $("results-state").classList.add("hidden"); $("page-actions").classList.add("hidden"); setPageContext("New project", ""); stopElapsed(); return; }
     if (!isProcessing(p.status)) {
       if (cancellationPending) {
         cancellationPending = false;
@@ -1018,24 +1024,29 @@
     const failed = clips.filter((c) => c.status === "failed");
     const showResults = clips.length > 0 || p.status === "complete";
     section.classList.toggle("hidden", !showResults);
-    if (!showResults) return;
+    $("page-actions").classList.toggle("hidden", !showResults);
+    if (!showResults) {
+      setPageContext(
+        p.status === "failed" ? "Processing failed" : p.status === "cancelled" ? "Cancelled" : "Processing",
+        "",
+      );
+      return;
+    }
 
     const total = clips.length;
+    const sub = view.source_name || "";
     if (view.caption_only === true) {
-      $("results-title").textContent = p.status === "complete"
-        ? "Captioned video ready"
-        : "Captioning full video";
-      $("results-sub").textContent = view.source_name || "";
+      setPageContext(p.status === "complete" ? "Captioned video ready" : "Captioning full video", sub);
     } else {
-      $("results-title").textContent =
+      setPageContext(
         total === 0 ? "No clips produced" :
         failed.length > 0
           ? `${ready.length} of ${total} clips ready · ${failed.length} failed`
           : p.status === "complete"
           ? `${ready.length} clip${ready.length === 1 ? "" : "s"}`
-          : `${ready.length} of ${total} clips ready`;
-
-      $("results-sub").textContent = view.source_name || "";
+          : `${ready.length} of ${total} clips ready`,
+        sub,
+      );
     }
 
     const openFolder = $("open-folder-btn");
