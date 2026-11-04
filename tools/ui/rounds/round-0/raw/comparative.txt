@@ -1,0 +1,99 @@
+{
+  "role": "comparative",
+  "round": 0,
+  "sources": {
+    "A": {
+      "categories": {
+        "typography": { "score": 6, "evidence": "A/01.png: chat line, tool rows and checklist rows share one comfortable sans at two sizes, so the bulk reads easily, but the oversized blue file chip outscales every other element and the checklist repeats 'Added lower thirds' with the same treatment as unique rows. A/02.png: 'Underlord' title and body copy are well set, while '0:00:00.0 / 0:00:00.0' is repeated with no label, which makes the same kind of value read as an error." },
+        "hierarchy": { "score": 5, "evidence": "A/01.png: the eye lands on the cropped blue 'ArtistInterviews.mp' chip and the overlapping photo before the conversation that is the point of the shot, and the photo card covers part of the checklist. A/02.png: the chat panel, the document panel behind it and the transcript strip all sit at full brightness, so there is no single focal point." },
+        "spacing_rhythm": { "score": 5, "evidence": "A/01.png: the checklist rows are evenly spaced, but the photo card and the file chip are parked at arbitrary offsets over the layout, and the chip runs past the frame edge. A/02.png: the transcript strip is cut at the bottom of the frame and its thumbnails sit at a different inset than the chat card above." },
+        "color_contrast": { "score": 6, "evidence": "A/02.png: near-black body text on white and on the pale lavender bubble holds up well and one purple accent marks every action, but the circular send button and the 'Details' chevron sit at very low contrast, reading as disabled while the input is live. A/03.png: the orange word highlight and black outline are clearly legible over moving footage." },
+        "component_consistency": { "score": 5, "evidence": "A/02.png: the user bubble, the assistant card and the transcript panel use three different radii, shadows and paddings in one frame, and the paperclip, the send circle and the 'Details' chevron belong to no shared control family. A/01.png: the checklist checkmarks and the tool rows use two unrelated row treatments." },
+        "iconography_detail": { "score": 5, "evidence": "A/01.png: a thin outline magnifier sits next to a filled pink app tile and solid purple check circles, so stroke weight and fill style change from row to row. A/02.png: the 'Underlord' avatar glyph, the paperclip and the volume dots are all drawn at different weights, and the decorative squiggles carry no meaning." },
+        "primary_action": { "score": 4, "evidence": "A/02.png: the only action is an unlabeled pale purple send circle that is lower contrast than the text around it, and it competes with the paperclip beside it. A/01.png: nothing on the screen says what to do next; the largest element is a filename, not an action." },
+        "empty_error_states": { "score": 5, "evidence": "No empty, loading or error screen appears in A/01.png, A/02.png or A/03.png; all three are marketing compositions of populated states, so this is scored neutral rather than as a failure." }
+      }
+    },
+    "B": {
+      "categories": {
+        "typography": { "score": 6, "evidence": "B/03.png: 'Get clips', the input placeholder and the score numerals sit on a coherent scale with consistent weights. B/02.png: the preset names ('Karaoke', 'Beasty', 'Deep Diver') run at one muted size under previews that change typeface every row, so the same kind of label gets an unstable visual neighbor." },
+        "hierarchy": { "score": 6, "evidence": "B/03.png: video preview, then the upload pill, then the clip row is a clear path, and the platform badges and score chips step down in weight. B/01.png: the prompt label, the input, the preview frame, three chips, the filmstrip and a full-height video all compete, so the eye has no first stop." },
+        "spacing_rhythm": { "score": 5, "evidence": "B/02.png: the preset rows change height row to row and the label sits tight under one preview while the next preview starts well below, so the vertical rhythm breaks inside a single panel. B/03.png: the clip cards are evenly gapped and top-aligned, which is the stronger half of this set." },
+        "color_contrast": { "score": 6, "evidence": "B/03.png: white text on the dark gradient is easy to read and green score chips read as status, separate from the black action pill. B/01.png: the three chips are mid-gray text on a translucent gray fill over a busy photo, which is the weakest contrast in the set." },
+        "component_consistency": { "score": 6, "evidence": "B/03.png: rounded pill inputs, a black pill action and rounded thumbs come from one family with one radius. B/01.png: the same product uses flat translucent chips there, outlined pills and a white-outlined selected frame in B/02.png, so the control language drifts between screens." },
+        "iconography_detail": { "score": 6, "evidence": "B/03.png: the link glyph, the platform badges and the score chips are consistently sized and optically aligned to the card corners. B/02.png: the slashed-circle 'No captions' icon and the bare text tabs 'Presets / Font / Effects' are the only non-preview marks, and the selected tab is not distinguished." },
+        "primary_action": { "score": 6, "evidence": "B/03.png: 'Get clips' is a single unmistakable black pill inside the input the eye already lands on. B/01.png and B/02.png offer no action at all, so the product only answers 'what now?' on one of its three screens." },
+        "empty_error_states": { "score": 5, "evidence": "No empty, loading or error screen appears in B/01.png, B/02.png or B/03.png; the upload surface in B/03.png is populated and none of the three shows what a failed or empty run looks like, so this is scored neutral." }
+      }
+    },
+    "C": {
+      "categories": {
+        "typography": { "score": 6, "evidence": "C/01.png: one sans for prose and one mono for paths and branches ('13/site-favorites-cli-download'), which separates kinds of values well, but meta text drops to roughly 11px in the sidebar timestamps and thread subtitles, and '4 working' changes color rather than weight to signal state." },
+        "hierarchy": { "score": 7, "evidence": "C/01.png: three fixed columns with the conversation as the clear center, a quiet sidebar list on the left and a worktree inspector on the right; the message, the subagent row and the composer step down cleanly in weight, and only the bottom account and tool icons are ambiguous." },
+        "spacing_rhythm": { "score": 7, "evidence": "C/01.png: sidebar rows sit on one even pitch with the same gap between title and subtitle everywhere, and the inspector repeats that rhythm for 'Share link docs / tests / API / Dashboard share button' so panels line up without borders." },
+        "color_contrast": { "score": 7, "evidence": "C/01.png: a near-black canvas, low-chroma borders and one blue used only for '4 working' plus green only for 'Done'; muted timestamps stay readable, though the small orange subagent markers and the disabled-looking send circle sit close to the background." },
+        "component_consistency": { "score": 7, "evidence": "C/01.png: one row family, one icon-button size, one composer, and the same chevron disclosure in both the 'Worked for 20s' line and the inspector groups; the only drift is that 'Stop' is plain text where every other action in the frame is a chip or icon button." },
+        "iconography_detail": { "score": 6, "evidence": "C/01.png: line icons keep one stroke weight through the sidebar, breadcrumb and inspector, but the provider glyphs are multi-colored brand marks sitting beside mono icons, and the tiny status dot, the asterisk badges and the spinner ring are three unrelated marks for 'state'." },
+        "primary_action": { "score": 6, "evidence": "C/01.png: the composer is the obvious next step and sits where the eye ends up, but its circular send control is dark-on-dark and reads as unavailable while the 'Stop' text link above is the only other action, so the two compete at similar weight." },
+        "empty_error_states": { "score": 5, "evidence": "C/01.png is the only screen and it shows a working run, neither an empty nor a failed one; the nearest state cue is the 'Waiting on 4 subagents' line, so this category has almost no evidence and is scored neutral." }
+      }
+    },
+    "D": {
+      "categories": {
+        "typography": { "score": 7, "evidence": "D/01.png and D/07.png: one family with a tracked all-caps eyebrow ('READY TO CLIP', 'CAPTIONS'), a clear title step, and column-aligned metadata ('1920x1080 - h264 / aac - 47:12'); the 12 to 13px muted secondary lines and the clipped 'Mar 8, 2026 - Transcribe... - 296 MB' in D/20.png are the only strains." },
+        "hierarchy": { "score": 7, "evidence": "D/01.png: the drop card is the single focal mass and the header stays quiet, while D/13.png steps rail, preview, inspector down in weight without a single divider doing the work; D/22.png weakens this by showing two identical black pills, 'Review clips' in the header and 'Apply changes' in the panel." },
+        "spacing_rhythm": { "score": 7, "evidence": "D/13.png holds the same 8px-scale gaps between caption rows, swatches, toggles and footer across 1280, 1440 and 1920; D/03.png is the cost, where the same fixed-width card floats as a small island in a 1920 canvas with most of the page empty." },
+        "color_contrast": { "score": 7, "evidence": "D/10.png: warm off-white ground, near-black text and one terracotta reserved for failure, with the error panel tinted rather than shouting; D/20.png shows the weak edge, a faded pink 'Delete' on the in-flight row that is nearly invisible against the white card." },
+        "component_consistency": { "score": 7, "evidence": "D/04.png and D/13.png: one pill family covers segmented controls, buttons, toggles and swatches at a consistent 40px height, and disabled 'Apply changes' is clearly distinct from enabled in D/22.png; the swatch row drifts, because D/22.png shows red twice in one row, once ringed as current and once as a palette entry, with no label separating them." },
+        "iconography_detail": { "score": 6, "evidence": "D/07.png: the step list uses typographic check marks, a text 'Working...' and a thin ring spinner as three different marks for two states, and the upload glyph in D/01.png is the only drawn icon on an otherwise icon-free screen. D/16.png clips the top clip card mid-thumbnail under the rail heading with no fade." },
+        "primary_action": { "score": 7, "evidence": "D/01.png makes 'Choose MP4' unmistakable, D/04.png pairs 'Make clips' with a quieter 'Change video', and D/10.png puts 'Retry stage' beside a specific cause; the error panel stacks the secondary 'Choose another MP4' above the primary, which is the one place the order fights the emphasis." },
+        "empty_error_states": { "score": 8, "evidence": "D/01.png is a real empty state with a drop zone and one action, D/07.png carries per-step status plus an overall percentage and ETA, and D/10.png names the failing step, quotes the cause ('whisper-cli exited with code 134') and offers retry in place, with the layout intact in all three." }
+      }
+    }
+  },
+  "pairs": [
+    {
+      "higher": "B",
+      "lower": "A",
+      "category": "primary_action",
+      "note": "B/03.png answers 'what now?' with one black 'Get clips' pill set inside the upload field the eye already lands on; A/02.png offers only an unlabeled pale purple send circle that reads as disabled, and A/01.png has no action at all, only a cropped filename chip.",
+      "screens": ["A/02.png", "B/03.png"]
+    },
+    {
+      "higher": "C",
+      "lower": "A",
+      "category": "component_consistency",
+      "note": "C/01.png builds every surface from one row and one button family with a shared chevron and 24px icon buttons; A/02.png puts a chat bubble, an assistant card and a transcript strip in one frame at three different radii, paddings and shadows, so no control shape carries across the screen.",
+      "screens": ["A/02.png", "C/01.png"]
+    },
+    {
+      "higher": "D",
+      "lower": "A",
+      "category": "primary_action",
+      "note": "D/04.png puts a single black 'Make clips' next to a quieter 'Change video' and repeats that ranking on every screen; A/01.png has no action and A/02.png hides its only one behind a low-contrast circle, so the mock never shows a next step the reader can name.",
+      "screens": ["A/01.png", "D/04.png"]
+    },
+    {
+      "higher": "C",
+      "lower": "B",
+      "category": "spacing_rhythm",
+      "note": "C/01.png holds one row pitch through the thread list and repeats it in the worktree inspector, so left and right panels line up without borders; B/02.png changes preset row height row to row and leaves uneven gaps between a preview and the label under it, inside a single panel.",
+      "screens": ["B/02.png", "C/01.png"]
+    },
+    {
+      "higher": "D",
+      "lower": "B",
+      "category": "hierarchy",
+      "note": "D/01.png gives the screen one focal mass, the drop card, with everything else stepping down in weight; B/01.png loads the frame with a prompt label, an input, a preview box, three chips, a dim filmstrip and a full-height video, so the eye has no first stop and the filmstrip disappears entirely.",
+      "screens": ["B/01.png", "D/01.png"]
+    },
+    {
+      "higher": "D",
+      "lower": "C",
+      "category": "empty_error_states",
+      "note": "C/01.png shows its only non-normal state as a muted 'Waiting on 4 subagents' line with a plain-text 'Stop' link buried in body copy; D/10.png gives the same situation a bordered panel, the named failing step in the step list, the exact cause, and a primary 'Retry stage' button, with the rest of the screen still readable.",
+      "screens": ["C/01.png", "D/10.png"]
+    }
+  ],
+  "notes": "A is three marketing compositions rather than app screens, and A/01.png crops its own headline chip at the frame edge, so its scores judge the mock UI inside the shot. B and C show no empty, loading or failed screen, and C supplies a single screen, so those categories are marked neutral at 5 for missing evidence rather than as failures. D is the only source that documents the same layout at 1280, 1440 and 1920; it holds alignment at every width but does not scale up, leaving a small card on a large empty canvas at 1920 (D/03.png, D/09.png, D/15.png). Two D details worth calling out beyond the scores: on D/22.png the header 'Review clips' and the footer 'Apply changes' are the same black pill, so global and local primaries compete, and the accent swatch row repeats red in one row with no label telling a current value from a palette choice. Several D screens also clip the scrolled clip rail mid-thumbnail under the heading (D/16.png, D/18.png). Browser chrome and window frames were ignored throughout."
+}

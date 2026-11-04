@@ -1,0 +1,5 @@
+node_modules/
+judges/inbox/
+shots/.verify-*/
+shots-windows/.verify-*/
+fixtures/frames/sized/

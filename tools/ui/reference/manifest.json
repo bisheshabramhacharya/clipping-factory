@@ -1,0 +1,57 @@
+{
+  "purpose": "Published screenshots of three other products, used only as an outside comparison for design review of the Clipping Factory studio.",
+  "retrieved": "2026-11-03",
+  "note": "Third-party screenshots, kept for internal design reference. Each file was published by its vendor. Files were normalized to PNG (and capped at 1400 px wide when larger) for the review harness; the source URL is the original asset.",
+  "files": [
+    {
+      "file": "t3-code-desktop.png",
+      "source": "T3 Code",
+      "source_url": "https://t3.codes/_astro/app-desktop.BHuzLVLF.webp",
+      "page_url": "https://t3.codes/",
+      "shows": "Desktop app: thread list, message timeline, composer and the right-hand inspector.",
+      "note": "The GitHub README (github.com/pingdotgg/t3code) currently has no inline product screenshots, so this is the desktop-app screenshot published on the product site."
+    },
+    {
+      "file": "opus-clip-editor.png",
+      "source": "Opus Clip",
+      "source_url": "https://cdn.prod.website-files.com/6388604483b03a9ecb34d695/683810bc964908007e1963cb_AI%20captioning.avif",
+      "page_url": "https://www.opus.pro/",
+      "shows": "Clip editor: vertical preview with burned captions and the right-hand caption/style panel."
+    },
+    {
+      "file": "opus-clip-result.png",
+      "source": "Opus Clip",
+      "source_url": "https://cdn.prod.website-files.com/6388604483b03a9ecb34d695/684c2798958314e4a8958d21_ClipAnything.avif",
+      "page_url": "https://www.opus.pro/",
+      "shows": "A finished vertical clip with captions, shown as the product's output."
+    },
+    {
+      "file": "opus-clip-grid.png",
+      "source": "Opus Clip",
+      "source_url": "https://public.cdn.opus.pro/assets/AI_clipping.avif",
+      "page_url": "https://www.opus.pro/",
+      "shows": "A grid of generated clips with per-clip duration badges above an upload strip."
+    },
+    {
+      "file": "descript-editor.png",
+      "source": "Descript",
+      "source_url": "https://cdn.sanity.io/images/lsw4j9eq/production/6b37baf49bedeef47d0ef7ccba0045e560634cb1-1208x680.webp",
+      "page_url": "https://www.descript.com/",
+      "shows": "Editor: vertical video canvas, transcript document and the right-hand properties panel."
+    },
+    {
+      "file": "descript-underlord-clips.png",
+      "source": "Descript",
+      "source_url": "https://cdn.sanity.io/images/lsw4j9eq/production/35343bc5d9fcec263120efad2bbbdf423ae81e2b-720x630.png",
+      "page_url": "https://www.descript.com/features",
+      "shows": "Underlord prompt: a natural-language request with a visible plan of steps and a media card."
+    },
+    {
+      "file": "descript-underlord-edit.png",
+      "source": "Descript",
+      "source_url": "https://cdn.sanity.io/images/lsw4j9eq/production/d0fafe4735f2cd9a6aebb2cbb9f47f7e1abde646-720x630.png",
+      "page_url": "https://www.descript.com/features",
+      "shows": "Underlord chat editing: a transcript panel beside a conversation about the change."
+    }
+  ]
+}
