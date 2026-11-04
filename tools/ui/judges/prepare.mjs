@@ -116,7 +116,7 @@ async function discoverShots(platforms) {
 
 function imageList(entries) {
   return entries
-    .map((entry) => `${entry.absolute}\n  state: ${entry.state} · viewport: ${entry.width} · platform: ${entry.platform}`)
+    .map((entry) => `${entry.panelPath || entry.absolute}\n  state: ${entry.state} · viewport: ${entry.width} · platform: ${entry.platform}`)
     .join("\n\n");
 }
 
@@ -293,6 +293,18 @@ async function buildComparative({ round, categories, entries, widths }) {
   return { built, mapPath, aspirational: aspirational.length, scored: scored.length };
 }
 
+// A panel must not change under a judge while it reads. The shots directory is
+// live, so every image a panel names is copied into the panel directory first
+// and the prompt points at the copy.
+async function freezeImages(entries, panelDir) {
+  for (const entry of entries) {
+    const name = `${entry.state}@${entry.width}.${entry.platform}.png`;
+    const target = path.join(panelDir, name);
+    await copyFile(entry.absolute, target);
+    entry.panelPath = target;
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const entries = await discoverShots(args.platforms);
@@ -331,6 +343,8 @@ async function main() {
   await mkdir(inbox, { recursive: true });
   const answerPath = path.join(inbox, "answer.json");
   const template = await readFile(path.join(ROOT, "prompts", `${args.role}.md`), "utf8");
+  await freezeImages(selected, inbox);
+
   const prompt = template
     .replaceAll("{{ROUND}}", String(args.round))
     .replaceAll("{{RUBRIC}}", path.join(RIG, "rubric.md"))
