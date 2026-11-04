@@ -523,10 +523,23 @@
     cancelled: "Cancelled",
     failed: "Failed",
   };
+  // A stage in progress reads as a verb, not as a clipped noun. The old label
+  // took the stage name and appended an ellipsis, which looked like the text
+  // had been cut off rather than like the project was working.
+  const LIBRARY_PROGRESS = {
+    inspecting: "Inspecting",
+    extracting_audio: "Extracting audio",
+    transcribing: "Transcribing",
+    selecting_candidates: "Finding candidates",
+    validating_candidates: "Validating",
+    analyzing_layout: "Analyzing framing",
+    rendering: "Rendering",
+  };
   function libraryStatus(entry) {
     if (LIBRARY_STATUS[entry.status]) return LIBRARY_STATUS[entry.status];
+    if (LIBRARY_PROGRESS[entry.status]) return LIBRARY_PROGRESS[entry.status];
     const stage = STAGE_LABELS[entry.status];
-    return stage ? stage.replace(/^\d+\.\s*/, "") + "…" : entry.status;
+    return stage ? stage.replace(/^\d+\.\s*/, "") : entry.status;
   }
 
   function renderLibrary() {
