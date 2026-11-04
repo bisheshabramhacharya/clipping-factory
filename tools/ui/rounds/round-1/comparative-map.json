@@ -1,0 +1,33 @@
+{
+  "round": 1,
+  "categories": {
+    "typography": {
+      "labels": {
+        "A": "studio",
+        "B": "reference"
+      },
+      "files": {
+        "A/01.png": {
+          "side": "studio",
+          "viewport": "1280",
+          "origin": "shots/results-6-clips@1280.macos.png"
+        },
+        "A/02.png": {
+          "side": "studio",
+          "viewport": "1440",
+          "origin": "shots/results-6-clips@1440.macos.png"
+        },
+        "B/01.png": {
+          "side": "reference",
+          "viewport": "1280",
+          "origin": "reference/t3-code-window@1280.png"
+        },
+        "B/02.png": {
+          "side": "reference",
+          "viewport": "1440",
+          "origin": "reference/t3-code-window@1440.png"
+        }
+      }
+    }
+  }
+}

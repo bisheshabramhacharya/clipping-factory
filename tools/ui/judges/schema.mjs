@@ -1,6 +1,7 @@
 import { CATEGORY_KEYS } from "./categories.mjs";
 
 const isScore = (value) => Number.isInteger(value) && value >= 1 && value <= 10;
+const PANEL_REFERENCE = /[AB]\/\d{2}\.png/;
 
 function checkCategories(value, where, errors) {
   if (!value || typeof value !== "object") {
@@ -30,9 +31,9 @@ export function validateAnswer(role, value) {
   if (!value || typeof value !== "object") return ["answer is not a JSON object"];
   if (value.role !== role) errors.push(`role must be "${role}"`);
   if (!Number.isInteger(value.round)) errors.push("round must be an integer");
-  if (typeof value.notes !== "string") errors.push("notes must be a string");
 
   if (role === "absolute") {
+    if (typeof value.notes !== "string") errors.push("notes must be a string");
     checkCategories(value.categories, "categories", errors);
     if (!Array.isArray(value.top_issues)) {
       errors.push("top_issues must be an array");
@@ -48,33 +49,28 @@ export function validateAnswer(role, value) {
   }
 
   if (role === "comparative") {
-    for (const label of ["A", "B", "C", "D"]) {
-      if (!value.sources?.[label]) {
-        errors.push(`sources.${label}: missing`);
-        continue;
-      }
-      checkCategories(value.sources[label].categories, `sources.${label}.categories`, errors);
+    if (!CATEGORY_KEYS.includes(value.category)) {
+      errors.push(`category must be one of ${CATEGORY_KEYS.join(", ")}`);
     }
-    if (!Array.isArray(value.pairs) || value.pairs.length < 6) {
-      errors.push("pairs: at least six pair entries are required");
+    if (!["A", "B", "tie"].includes(value.winner)) errors.push('winner must be "A", "B" or "tie"');
+    if (!["clear", "slight"].includes(value.confidence)) errors.push('confidence must be "clear" or "slight"');
+    if (typeof value.citation !== "string" || !value.citation.trim()) {
+      errors.push("citation: a win or a tie needs a citation naming a panel file");
     } else {
-      value.pairs.forEach((pair, index) => {
-        for (const key of ["higher", "lower", "category", "note"]) {
-          if (typeof pair?.[key] !== "string" || !pair[key].trim()) {
-            errors.push(`pairs[${index}].${key}: must be a non-empty string`);
-          }
-        }
-        if (!CATEGORY_KEYS.includes(pair?.category)) {
-          errors.push(`pairs[${index}].category: must be one of ${CATEGORY_KEYS.join(", ")}`);
-        }
-        if (!["A", "B", "C", "D"].includes(pair?.higher) || !["A", "B", "C", "D"].includes(pair?.lower)) {
-          errors.push(`pairs[${index}]: higher/lower must be A-D`);
-        }
-      });
+      if (!PANEL_REFERENCE.test(value.citation)) {
+        errors.push("citation: must name the panel it came from, as A/01.png or B/01.png");
+      }
+      if (!/\d/.test(value.citation)) {
+        errors.push("citation: must carry a specific value, not just a description");
+      }
+    }
+    if (typeof value.why !== "string" || !value.why.trim()) {
+      errors.push("why: must be a non-empty string");
     }
   }
 
   if (role === "defect-hunter") {
+    if (typeof value.notes !== "string") errors.push("notes must be a string");
     if (!Array.isArray(value.defects) || value.defects.length === 0) {
       errors.push("defects: a non-empty array is required");
     } else {

@@ -1,10 +1,12 @@
 # UI review rubric
 
-Eight categories, scored 1–10. The prompt for a scoring judge uses this file
-verbatim, so the meaning of a score stays stable from round to round. The
-anchors describe 2, 4, 6 and 8; interpolate for odd numbers. A 1 is broken and
-a score above the top anchor means the work is indistinguishable from the best
-production software you know and leaves you nothing to note.
+Eight categories. The absolute pass scores them 1–10; the comparative pass uses
+the same definitions and returns a winner instead of a score. The prompt for a
+judge uses this file verbatim, so the meaning of a category stays stable from
+round to round. The anchors describe 2, 4, 6 and 8; interpolate for odd numbers.
+A 1 is broken and a score above the top anchor means the work is
+indistinguishable from the best production software you know and leaves you
+nothing to note.
 
 Score the set of screens as a whole, not one favorite screen. When a claim is
 about a specific screen, name it (`state@width`). A category score is not an
@@ -117,3 +119,30 @@ average of per-screen scores.
   placeholder video frames). Judge the interface around it.
 - Browser chrome, scrollbars and the operating system's window frame are not
   part of the product.
+
+## Comparison method
+
+The comparative pass exists to stop an absolute score from flattering the work.
+It is run as one call per category, on a blind pair, and it has four rules.
+
+1. **Blind panels.** Every panel is copied into `pool/A/` and `pool/B/` under
+   opaque names, in an order shuffled per category. The judge is never told
+   which side is this studio, which side is the reference, or which product
+   either one is. The label map lives in `rounds/round-<n>/comparative-map.json`,
+   outside the judge's input directory.
+2. **One winner per category, with a citation.** The judge returns `A`, `B` or
+   `tie` and must cite a specific, checkable detail from the winning panel: a
+   measured distance, a spacing decision, a type-scale move, a control's exact
+   height or weight. The citation names the panel file and the value so a
+   person can open the image and check it.
+3. **A tie is not a win.** No citation means a tie. A tie is recorded as a tie
+   and never counted as a win, and the judge must say what is equal and what
+   neither panel gets right.
+4. **No target score, ever.** A judge is never told the score anyone wants, the
+   round's previous results, or that the work is being optimized. A category is
+   judged on the two panels in front of the judge.
+
+The budget is part of the method too: at most ten images in one call, no
+subagents or helpers, and one retry when a reply cannot be parsed. A call that
+spawns a helper is a failed call, because the helper would be scoring the panel
+on the judge's behalf.

@@ -139,7 +139,6 @@ const READY = {
     document.querySelector(".restyle") !== null &&
     document.querySelector(".caption-text") !== null,
   "setup-missing-runtime": () => document.querySelector("#setup-banner:not(.hidden)") !== null,
-  "ai-connection-disabled": () => document.querySelector("#ai-btn:disabled") !== null,
 };
 
 export async function launchBrowser() {

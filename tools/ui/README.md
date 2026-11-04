@@ -47,11 +47,14 @@ Two passes on this commit produce **0 differing files of 30**.
 
 The states are: `empty-upload`, `staged-file`, `processing-mid-run`,
 `processing-error`, `results-6-clips`, `results-rejected-expanded`,
-`library-open`, `clip-detail-restyle`, `setup-missing-runtime`,
-`ai-connection-disabled`. The last one is a header-only crop, because the
-disabled AI control lives in the header and is never the whole screen. Round
-0's judges flagged that crop as unreviewable (two roles), so the next round
-should decide between a full-screen duplicate of `empty-upload` and the crop.
+`library-open`, `clip-detail-restyle`, `setup-missing-runtime`.
+
+There used to be a tenth, `ai-connection-disabled`, captured as a header-only
+strip. It is gone, not fixed: its full-page capture is byte-identical to
+`empty-upload` at 1280 and 1440, because the AI control already renders
+disabled with the same "Coming soon" pill in the default state. A duplicate
+shot is worse than no shot, since a judge counts it as evidence of a state the
+product does not actually show.
 
 ## Determinism
 
@@ -78,29 +81,73 @@ Fixture content is deliberately fake and stable (`Example Episode.mp4`,
 
 ## Reference panel
 
-`reference/` holds published screenshots of T3 Code, Opus Clip and Descript,
-with source URLs in `reference/manifest.json`. The comparative judge sees them
-in a shuffled A-D pool; the label map lives only in
-`rounds/round-<n>/comparative-map.json`. Three copies of one model with the same
-prompt is not a council, so the roles are deliberately different: an absolute
-scorer, a comparative scorer, and a defect hunter with no scores.
+`reference/manifest.json` gives every file a `role`. Only `role: "reference"`
+files are ever scored against, and there are two of them: T3 Code's real window
+at 1280x800 and 1440x900, captured locally on 2026-11-03 from the installed app
+with `reference/capture-t3-window.mjs`. They are Chromium renders at a CSS
+viewport, device scale factor 1, exactly like `shots/*.png`, so the two sides of
+a comparison are the same kind of image.
+
+The seven vendor marketing files are `role: "aspiration"`: 720 to 1400 px
+crops of single surfaces, not whole windows at native size. They stay for
+people to look at and are never put in front of a scoring judge. Round 0 scored
+against them, and that is a large part of why the studio looked unbeatable.
+
+Three copies of one model with the same prompt is not a council, so the roles
+stay different: an absolute scorer, a blind comparative judge, and a defect
+hunter with no scores.
 
 ## Judges
 
+Every call carries at most nine images. The absolute pass and the defect hunt
+are split by viewport, so one call sees one width's nine screens; the blind
+comparative pass is split by category, four images each.
+
 ```bash
-node judges/prepare.mjs --round 0 --role absolute
-node judges/prepare.mjs --round 0 --role comparative
-node judges/prepare.mjs --round 0 --role defect-hunter
-# run each role as a subagent on the shared machine, read prompt.md, write answer.json
-node judges/ingest.mjs --round 0 --role absolute --file ...
-node judges/aggregate.mjs --round 0
+# absolute and defect hunter: one call per viewport
+node judges/prepare.mjs --round 2 --role absolute --viewport 1280
+node judges/prepare.mjs --round 2 --role defect-hunter --viewport 1280
+node judges/ingest.mjs --round 2 --role absolute --viewport 1280 --file answer.txt
+node judges/aggregate.mjs --round 0        # reproduces round 0's four-source method
+
+# comparative: one blind pair per category, one call each
+node judges/prepare.mjs --round 2 --role comparative --category typography
+node judges/prepare.mjs --round 2 --role comparative --category all
+node judges/ask-judge.mjs --round 2 --judge claude --category typography
+node judges/aggregate-comparative.mjs --round 2
+
+# the whole round: median absolute score per viewport + verdict per category
+node judges/aggregate-round.mjs --round 2
+
+# or drive the judge by hand and file its raw text
+node judges/ingest.mjs --round 1 --role comparative --category typography --file answer.txt
+node judges/ingest.mjs --round 1 --role comparative --category typography --failed "no valid JSON after 2 calls"
 ```
 
+The comparative pass is one call per category, so eight calls per round, each
+with four images: this studio's screen for that category and the real reference
+window, at 1280 and 1440, in a per-category shuffled A/B order. The prompt names
+no product, no side, and no width. `judges/prepare.mjs` refuses to build a panel
+over ten images, and `judges/ask-judge.mjs` refuses to run a panel over ten.
+
+`ask-judge.mjs` enforces the rest of the budget: one retry when a reply is not
+valid JSON, then a recorded failure; and any call where the judge spawned a
+subagent is void, because the helper would be doing the scoring. It keeps the
+model, cost, turn count and subagent count in `rounds/round-<n>/comparative/<category>/call.json`.
+
+`aggregate-comparative.mjs` turns the answers into a verdict per category, win,
+loss or tie, and prints the citations. `aggregate-round.mjs` assembles the whole
+round: the median absolute score across viewports plus the verdict and citation
+per category. A category with no answer and no recorded failure is
+`not_judged`, never a win. Round 0 used the older four-source comparative pass
+in `judges/aggregate.mjs`; that file stays for reproducing `round-0.json`, and
+`rounds/smoke-1-typography.md` is the hand-written record of the first blind
+call.
+
 Prompts live in `judges/prompts/` and are built from the rubric and the current
-shot set. The judge prompt never names a target score, never says which pool is
+shot set. A judge prompt never names a target score, never says which pool is
 this repository, and never mentions optimizing anything. During iteration run
-the absolute role alone; run all three only at a round boundary. Ingest rejects
-a malformed answer instead of filing a score nobody explained.
+the absolute role alone; run the comparative pairs at a round boundary.
 
 `rubric.md` defines the eight categories and the 1-10 anchors.
 

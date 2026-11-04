@@ -498,7 +498,6 @@ export const STATES = [
   { name: "library-open", ...BASE, view: view(), project: true },
   { name: "clip-detail-restyle", ...BASE, view: view(), project: true },
   { name: "setup-missing-runtime", ...BASE, setup: MISSING_RUNTIME_SETUP },
-  { name: "ai-connection-disabled", ...BASE },
 ];
 
 const BY_NAME = new Map(STATES.map((state) => [state.name, state]));

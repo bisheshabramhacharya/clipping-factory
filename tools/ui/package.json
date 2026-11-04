@@ -13,7 +13,10 @@
     "judges:aggregate": "node judges/aggregate.mjs",
     "shots:verify": "node shots.mjs --verify",
     "shots:sheet": "node shots.mjs --sheet-only",
-    "verify": "node shots.mjs --verify && node checks.mjs"
+    "verify": "node shots.mjs --verify && node checks.mjs",
+    "judges:ask": "node judges/ask-judge.mjs",
+    "judges:aggregate-comparative": "node judges/aggregate-comparative.mjs",
+    "judges:aggregate-round": "node judges/aggregate-round.mjs"
   },
   "dependencies": {
     "playwright-core": "^1.49.0"

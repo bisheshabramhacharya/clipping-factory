@@ -1,0 +1,17 @@
+{
+  "round": 1,
+  "category": "typography",
+  "judge": "claude",
+  "attempts": [
+    {
+      "attempt": 1,
+      "judge": "claude",
+      "model": "claude-opus-5-5",
+      "cost_usd": 0.3824782,
+      "turns": 11,
+      "subagents": 0,
+      "images": 4,
+      "seconds": 52.8
+    }
+  ]
+}
