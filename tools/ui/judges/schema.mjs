@@ -3,6 +3,28 @@ import { CATEGORY_KEYS } from "./categories.mjs";
 const isScore = (value) => Number.isInteger(value) && value >= 1 && value <= 10;
 const PANEL_REFERENCE = /[AB]\/\d{2}\.png/;
 
+const checkableCitation = (value) =>
+  typeof value === "string" && PANEL_REFERENCE.test(value) && /\d/.test(value);
+
+// A win has to be pointed at something a person can check. When it is not, the
+// result is a tie: that is the rule, so it is applied here rather than argued
+// with a judge. The original winner is kept so the record shows what happened.
+export function normalizeComparative(value) {
+  if (!value || typeof value !== "object") return value;
+  if (value.winner !== "A" && value.winner !== "B") return value;
+  if (checkableCitation(value.citation)) return value;
+  const given = typeof value.citation === "string" ? value.citation.trim() : "";
+  return {
+    ...value,
+    winner: "tie",
+    original_winner: value.winner,
+    citation: given
+      ? `${given} (no checkable citation: no panel file with a value)`
+      : `${value.winner} won nothing: no citation was given, so this is a tie.`,
+    why: `${given ? "" : "The judge gave no citation. "}${value.why || ""}`.trim(),
+  };
+}
+
 function checkCategories(value, where, errors) {
   if (!value || typeof value !== "object") {
     errors.push(`${where}: missing categories`);
@@ -55,14 +77,9 @@ export function validateAnswer(role, value) {
     if (!["A", "B", "tie"].includes(value.winner)) errors.push('winner must be "A", "B" or "tie"');
     if (!["clear", "slight"].includes(value.confidence)) errors.push('confidence must be "clear" or "slight"');
     if (typeof value.citation !== "string" || !value.citation.trim()) {
-      errors.push("citation: a win or a tie needs a citation naming a panel file");
-    } else {
-      if (!PANEL_REFERENCE.test(value.citation)) {
-        errors.push("citation: must name the panel it came from, as A/01.png or B/01.png");
-      }
-      if (!/\d/.test(value.citation)) {
-        errors.push("citation: must carry a specific value, not just a description");
-      }
+      errors.push("citation: a win or a tie needs a citation");
+    } else if (value.winner !== "tie" && !checkableCitation(value.citation)) {
+      errors.push("citation: a win must name its panel, as A/01.png, and carry a value");
     }
     if (typeof value.why !== "string" || !value.why.trim()) {
       errors.push("why: must be a non-empty string");

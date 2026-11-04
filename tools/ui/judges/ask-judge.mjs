@@ -18,7 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { CATEGORY_KEYS } from "./categories.mjs";
-import { validateAnswer } from "./schema.mjs";
+import { normalizeComparative, validateAnswer } from "./schema.mjs";
 
 const run = promisify(execFile);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -122,10 +122,11 @@ async function main() {
     let value;
     const errors = [];
     try {
-      value = extractJson(reply.text);
+      value = normalizeComparative(extractJson(reply.text));
       if (value.round !== args.round) errors.push(`round must be ${args.round}`);
       if (value.category !== args.category) errors.push(`category must be "${args.category}"`);
       errors.push(...validateAnswer("comparative", value));
+      if (value.original_winner) console.error(`note: ${value.original_winner} won without a checkable citation, recorded as a tie`);
     } catch (error) {
       errors.push(`not valid JSON: ${error.message}`);
     }

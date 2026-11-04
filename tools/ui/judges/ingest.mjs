@@ -13,7 +13,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CATEGORY_KEYS } from "./categories.mjs";
-import { validateAnswer } from "./schema.mjs";
+import { normalizeComparative, validateAnswer } from "./schema.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(ROOT, "..", "..", "..");
@@ -82,6 +82,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+  if (args.role === "comparative") value = normalizeComparative(value);
   const errors = validateAnswer(args.role, value);
   if (value.round !== args.round) errors.push(`round must be ${args.round}`);
   if (args.role === "comparative" && value.category !== args.category) {

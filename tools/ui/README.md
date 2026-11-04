@@ -130,6 +130,10 @@ window, at 1280 and 1440, in a per-category shuffled A/B order. The prompt names
 no product, no side, and no width. `judges/prepare.mjs` refuses to build a panel
 over ten images, and `judges/ask-judge.mjs` refuses to run a panel over ten.
 
+A win with no checkable citation is downgraded to a tie in code
+(`normalizeComparative` in `judges/schema.mjs`), with the original winner kept
+in the record, so a vague claim can never be filed as a win.
+
 `ask-judge.mjs` enforces the rest of the budget: one retry when a reply is not
 valid JSON, then a recorded failure; and any call where the judge spawned a
 subagent is void, because the helper would be doing the scoring. It keeps the
