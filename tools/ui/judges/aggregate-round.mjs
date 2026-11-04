@@ -27,9 +27,10 @@ const REPO = path.resolve(ROOT, "..", "..", "..");
 const ROUNDS = path.join(REPO, "tools", "ui", "rounds");
 
 function parseArgs(argv) {
-  const args = { round: 0 };
+  const args = { round: 0, note: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--round") args.round = Number(argv[++i]);
+    else if (argv[i] === "--note") args.note = argv[++i];
   }
   return args;
 }
@@ -113,6 +114,7 @@ async function main() {
 
   const round = {
     round: args.round,
+    ...(args.note ? { note: args.note } : {}),
     viewports: absoluteParts.map((part) => part.width).filter(Boolean),
     verdicts,
     tally,
@@ -125,6 +127,7 @@ async function main() {
   await writeFile(path.join(ROUNDS, `round-${args.round}.json`), `${JSON.stringify(round, null, 2)}\n`);
 
   const lines = [`# Round ${args.round}: design review`, ""];
+  if (args.note) lines.push(`Measured on: ${args.note}`, "");
   lines.push("## Blind comparison", "");
   const policy = await readJson(path.join(ROOT, "judges.json"));
   const scope = policy?.comparative?.max_categories_per_round ?? 2;
@@ -140,10 +143,8 @@ async function main() {
     lines.push(`Citation, from side ${row.citation?.startsWith("A") ? "A" : "B"}, confidence ${row.confidence || "unknown"}:`, "");
     lines.push(`> ${row.citation}`, "");
     if (row.why) lines.push(`Judge's reading: ${row.why}`, "");
-    const order = row.order_checked
-      ? (row.verdict === "tie" && row.swapped_winner ? "the verdict flipped when the panel was swapped, so it is a tie" : "survived the swap")
-      : "not order checked";
-    lines.push(`Verdict: **${row.verdict}**. Order check: ${order}.`, "");
+    const order = row.order_note || (row.order_checked ? "survived the swap" : "not order checked");
+    lines.push(`Verdict: **${row.verdict}**. Order check: ${String(order).replace(/\.$/, "")}.`, "");
   }
 
   if (round.viewports.length) {

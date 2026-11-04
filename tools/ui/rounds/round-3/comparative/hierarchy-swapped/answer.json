@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 3,
+  "category": "hierarchy",
+  "winner": "A",
+  "citation": "A/01.png: the composer card is the only raised surface in the canvas and its send arrow is the only solid-fill control, while the heading sits at roughly 28px over a 13px muted 'No project' line, so the eye lands on one control and then a single clear next step.",
+  "why": "A has one focal point with everything else muted and stepped down, while B spreads attention across three same-weight uppercase section labels (CAPTIONS, FONT, EXTRAS) in the right panel and gives 'Review clips', 'Open folder' and 'New project' near-identical weight in one row, so the eye has no single path. Neither handles the competing yellow title inside B's preview well, but A's single reading order is the cleaner hierarchy.",
+  "confidence": "slight"
+}

@@ -69,8 +69,8 @@ export async function readCategoryVerdict(roundDir, map, categoryKey, label) {
     return {
       ...record,
       verdict: "tie",
-      why: `Verdict flipped when the panel was swapped: ${normalSide} won as built, ${swappedSide} won swapped. Recorded as a tie.`,
+      order_note: `Verdict flipped: ${normalSide} won as built, ${swappedSide} won swapped, so the preference followed the position. Recorded as a tie.`,
     };
   }
-  return { ...record, verdict: normalSide === "studio" ? "win" : "loss" };
+  return { ...record, verdict: normalSide === "studio" ? "win" : "loss", order_note: "survived the swap" };
 }

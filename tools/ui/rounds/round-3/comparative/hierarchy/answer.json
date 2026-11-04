@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 3,
+  "category": "hierarchy",
+  "winner": "A",
+  "citation": "A/01.png: the right inspector runs a deliberate three-level scale, the meta line \"Best clip · 00:37\" at 12px muted gray, the clip title below it at 16px bold near-black, and the section labels \"CAPTIONS\", \"FONT\", \"EXTRAS\" at 11px uppercase letter-spaced gray, so the eye reads meta then title then group without any borders.",
+  "why": "A carries four levels (page title, section count, muted panel labels, bold values) with the video preview as the one loud region, while B's empty state mutes almost everything to the same gray and lets the top-right card's blue \"Open in VS Code\" sit at the same weight as the centered prompt, so the eye lands on the corner before the heading. B's single centered question is a clean focal point, but nothing steps down from it.",
+  "confidence": "slight"
+}
