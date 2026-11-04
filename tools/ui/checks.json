@@ -7,7 +7,7 @@
       "1920x1080"
     ],
     "shots": 33,
-    "text_pairs": 2406
+    "text_pairs": 2427
   },
   "wcag": {
     "failures": [],
@@ -18,14 +18,14 @@
     "radius": 6,
     "font_sizes": 8,
     "shadows": 1,
-    "colors": 8,
+    "colors": 7,
     "font_families": 1
   },
   "values": {
     "radius": [
       {
         "value": "0px",
-        "count": 4317
+        "count": 4398
       },
       {
         "value": "6px",
@@ -50,31 +50,31 @@
     ],
     "fontSizes": [
       {
-        "value": "12px",
-        "count": 1908
+        "value": "13px",
+        "count": 1917
       },
       {
-        "value": "13px",
-        "count": 1902
+        "value": "12px",
+        "count": 1914
       },
       {
         "value": "10px",
-        "count": 717
+        "count": 735
       },
       {
         "value": "11px",
-        "count": 567
-      },
-      {
-        "value": "26px",
-        "count": 36
+        "count": 609
       },
       {
         "value": "20px",
-        "count": 33
+        "count": 39
       },
       {
-        "value": "15px",
+        "value": "26px",
+        "count": 30
+      },
+      {
+        "value": "0px",
         "count": 12
       },
       {
@@ -91,15 +91,15 @@
     "colors": [
       {
         "value": "rgb(10, 10, 10)",
-        "count": 3048
+        "count": 3075
       },
       {
         "value": "rgb(110, 110, 110)",
-        "count": 981
+        "count": 1023
       },
       {
         "value": "rgb(86, 86, 86)",
-        "count": 975
+        "count": 987
       },
       {
         "value": "rgb(0, 0, 0)",
@@ -107,25 +107,21 @@
       },
       {
         "value": "rgb(255, 255, 255)",
-        "count": 54
+        "count": 51
+      },
+      {
+        "value": "rgb(163, 33, 22)",
+        "count": 15
       },
       {
         "value": "rgb(23, 105, 63)",
         "count": 12
-      },
-      {
-        "value": "rgb(163, 33, 22)",
-        "count": 9
-      },
-      {
-        "value": "rgb(138, 90, 0)",
-        "count": 3
       }
     ],
     "fonts": [
       {
         "value": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 5181
+        "count": 5262
       }
     ]
   },
