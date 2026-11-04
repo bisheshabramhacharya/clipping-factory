@@ -50,7 +50,7 @@ The recurring complaints across those passes, and what happened to each:
 | Distinct font-family | 3 | 2 |
 | Horizontal overflow (shots) | 0 | 0 |
 | Clipped text (elements) | 0 | 0 |
-| Text pairs checked | 1203 | 1278 |
+| Text pairs checked | 1203 | 1287 |
 
 The fifth radius is `0px`, which is the absence of a radius. The four real
 values are `--r-sm` 8px, `--r-md` 12px, `--r-lg` 16px, `--r-pill` 999px.
@@ -73,10 +73,10 @@ seven steps in `:root`. Weights collapsed to three jobs (400 body, 500 controls,
 650 headings), so weight carries rank instead of everything being semibold. The
 11px tracked uppercase micro-label is kept as a deliberate convention and now
 also labels the upload form's control groups, so the same kind of label looks the
-same in the form and in the inspector. The
-page title went 15px → 19px and the section heading 18px → 16px, which removes
-the inversion the round 0 read found: `h1` was smaller than the heading under it.
-Numbers that align (times, durations, scores) keep tabular figures.
+same in the form and in the inspector. The screen title is the largest type on
+the page at 19px; the wordmark is 16px and section headings are 16px, so nothing
+in the chrome outranks the page you are on. Numbers that align (times,
+durations, scores) keep tabular figures.
 
 **Hierarchy.** One filled primary per screen. `Review clips` is the only black
 pill; `Download MP4` and `Apply changes` are bordered. The `score 8.7` badge was
@@ -84,6 +84,25 @@ a black pill that read as a button and is now a quiet chip. The inspector's
 apply row sits where its form ends rather than floating at the bottom of the
 card, so the dead zone between "Edit text" and the footer is gone; it still
 sticks when the form is taller than the card (`clip-detail-restyle@1280`).
+
+The headings now follow the screen instead of the app. The brand was the `h1`
+at 19px with `6 clips` as an `h2` at 16px under it, so the document said the app
+name outranked the result you were looking at. The brand is a `<span
+class="wordmark">` at 16px, and each screen's title is its `h1`: `Create clips`
+and `Processing` stay `sr-only`, `6 clips` is visible at 19px, the largest type
+on the page. Measured at 1280, 1440 and 1920: wordmark 16px/650, screen title
+19px/650, clip headline `h3` 16px/650, micro-label 11px. Same sizes at all three
+widths.
+
+**Control affordances in the header.** `Library` is the only way into saved
+projects and had gone to transparent border on transparent background, so it
+read as a label with a number next to it. It is a bordered 34px pill again,
+13px/500, with the count chip inside; hover fills `--surface-2` and focus draws
+the 2px accent outline at 2px offset. `AI connection` is disabled, so it keeps
+the weaker `--hairline` and `--ink-3`, which leaves it reading as a control that
+is off rather than as another label; the `Coming soon` pill explains why. Both
+carry the same pill-and-border shape, so the header has two controls, one live
+and one off, instead of two pieces of text.
 
 **Spacing and rhythm.** Radii 13 → 4 tokens. Card and control radii now come
 from one scale, so the header pills, the cards, the panels and the media frames
@@ -140,8 +159,8 @@ with processing projects showing the present participle instead of a truncated
 
 ## Verification
 
-- `npm run shots`: 10 states × 1280/1440/1920, two passes, **0 differing files
-  of 30** (`--verify`).
+- `npm run shots`: 10 states × 1280/1440/1920, **0 differing files of 30**
+  (`--verify`), re-run after the heading and header changes.
 - `npm run checks`: 0 WCAG AA failures, 5 radius / 6 font-size / 3 shadow
   values, 0 overflow, 0 clipped text.
 - `cargo fmt --all --check`, `cargo check --all-targets`,

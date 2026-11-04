@@ -10,13 +10,13 @@
   <div class="shell">
     <header>
       <div class="brand">
-        <h1>Clipping Factory</h1>
+        <span class="wordmark">Clipping Factory</span>
       </div>
       <div class="header-actions">
-        <button id="library-btn" class="ghost" type="button" aria-controls="library-drawer" aria-expanded="false">
+        <button id="library-btn" type="button" aria-controls="library-drawer" aria-expanded="false">
           Library <span id="library-count" class="count hidden"></span>
         </button>
-        <button id="ai-btn" class="ghost" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
+        <button id="ai-btn" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
           <span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
         </button>
       </div>
@@ -39,7 +39,7 @@
 
       <!-- Empty / import state -->
       <section id="upload-state" aria-labelledby="upload-title">
-        <h2 id="upload-title" class="sr-only">Create clips</h2>
+        <h1 id="upload-title" class="sr-only">Create clips</h1>
         <div id="drop" class="upload">
           <div class="drop-target">
             <div id="drop-empty" class="drop-panel">
@@ -143,7 +143,7 @@
 
       <!-- Processing state -->
       <section id="processing-state" class="hidden" aria-labelledby="processing-title">
-        <h2 id="processing-title" class="sr-only">Processing</h2>
+        <h1 id="processing-title" class="sr-only">Processing</h1>
         <div class="source-line">
           <div>
             <span id="source-name" class="source-name"></span>
@@ -183,7 +183,7 @@
       <section id="results-state" class="hidden" aria-labelledby="results-title">
         <div class="results-head">
           <div class="results-title-wrap">
-            <h2 id="results-title" aria-live="polite"></h2>
+            <h1 id="results-title" aria-live="polite"></h1>
             <p class="muted small" id="results-sub"></p>
           </div>
           <div class="results-actions">

@@ -114,15 +114,12 @@ button:disabled { color: var(--ink-3); border-color: var(--hairline); cursor: de
 button.primary:disabled, button.danger:disabled {
   background: var(--surface-2); border-color: var(--hairline); color: var(--ink-3);
 }
-button.ghost:disabled { border-color: transparent; background: transparent; }
 button.primary, .primary.action-button {
   background: var(--ink); border-color: var(--ink); color: #fff;
   font-weight: var(--fw-heading);
 }
 button.primary:hover:not(:disabled), .primary.action-button:hover { background: #33312E; }
 button.primary kbd { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.25); }
-button.ghost { border-color: transparent; background: transparent; }
-button.ghost:hover:not(:disabled) { background: var(--surface-2); }
 button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -180,10 +177,11 @@ header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-h1 { display: flex; align-items: center; font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.025em; white-space: nowrap; }
+h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.02em; }
+.wordmark { display: flex; align-items: center; font-size: var(--fs-5); font-weight: var(--fw-heading); letter-spacing: -0.025em; white-space: nowrap; }
 /* Ghost buttons carry 14px of empty padding, so the last one pulls its
    edge back to the content column instead of hanging 14px short of it. */
-.header-actions { display: flex; gap: 4px; margin-right: -15px; }
+.header-actions { display: flex; gap: 6px; }
 .count {
   min-width: 20px; height: 18px; padding: 0 6px; border-radius: var(--r-pill);
   background: var(--surface-3); font-size: var(--fs-1); line-height: 18px; font-weight: var(--fw-medium);
@@ -740,7 +738,6 @@ body.modal-open { overflow: hidden; }
   .results-actions button { flex: 1; }
   .studio { grid-template-columns: minmax(0, 1fr); }
   .clip-rail { flex-direction: row; overflow-x: auto; min-width: 0; }
-  .header-actions { margin-right: -9px; }
   .header-actions button { padding: 0 8px; }
   .results-actions button { min-width: 0; padding: 0 10px; }
   .clip-rail-list { flex-direction: row; }
