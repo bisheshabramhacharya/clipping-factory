@@ -24,7 +24,9 @@ const OUT = path.join(HERE, "frames");
 
 // One still per clip rank, spread across the episode so the rail reads like a
 // real project instead of six frames of the same shot.
-const TIMES = [26, 71, 118, 152, 199, 247];
+// One per clip rank, two seconds into that clip, so each still is a frame the
+// clip actually contains.
+const TIMES = [39, 81, 162, 2, 198, 106];
 
 function parseArgs(argv) {
   const args = { source: null };

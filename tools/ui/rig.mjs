@@ -88,8 +88,11 @@ async function openRejected(page) {
   await page.locator("#rejected-details > summary").click();
   await page.waitForSelector("#rejected-details[open]");
   await page.evaluate(() => {
-    const rail = document.querySelector(".clip-rail");
-    if (rail) rail.scrollTop = rail.scrollHeight;
+    // Expanding must not move the rail: a person who opens a section expects
+    // the clips above it to stay where they were. The rig used to scroll to the
+    // bottom here, which made the shot look like the list had been replaced.
+    const rail = document.querySelector(".clip-rail, .rail-scroll");
+    if (rail) rail.scrollTop = 0;
   });
 }
 
@@ -184,7 +187,7 @@ export async function launchBrowser() {
 // Rewrite every preview <video> to a still poster. The fixture server has no
 // media bytes on purpose: the real app shows a decoded frame, the rig shows a
 // fake frame built for UI review.
-async function pinPosters(page) {
+export async function pinPosters(page) {
   await page.evaluate(async (frameIndex) => {
     for (const image of document.querySelectorAll("#clip-rail-list .rail-thumb img")) {
       const item = image.closest(".rail-item");
@@ -220,7 +223,7 @@ async function pinPosters(page) {
   }, CLIP_FRAME_INDEX);
 }
 
-async function settle(page) {
+export async function settle(page) {
   await page.evaluate(async () => {
     await document.fonts.ready;
     const images = [...document.images];

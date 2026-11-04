@@ -7,7 +7,7 @@
       "1920x1080"
     ],
     "shots": 33,
-    "text_pairs": 1629
+    "text_pairs": 2406
   },
   "wcag": {
     "failures": [],
@@ -16,8 +16,8 @@
   },
   "distinct_values": {
     "radius": 6,
-    "font_sizes": 7,
-    "shadows": 2,
+    "font_sizes": 8,
+    "shadows": 1,
     "colors": 8,
     "font_families": 1
   },
@@ -25,81 +25,81 @@
     "radius": [
       {
         "value": "0px",
-        "count": 2553
-      },
-      {
-        "value": "4px",
-        "count": 468
+        "count": 4317
       },
       {
         "value": "6px",
-        "count": 468
-      },
-      {
-        "value": "50%",
-        "count": 243
+        "count": 321
       },
       {
         "value": "999px",
-        "count": 81
+        "count": 297
+      },
+      {
+        "value": "4px",
+        "count": 204
       },
       {
         "value": "10px",
-        "count": 27
+        "count": 33
+      },
+      {
+        "value": "50%",
+        "count": 9
       }
     ],
     "fontSizes": [
       {
-        "value": "13px",
-        "count": 1941
-      },
-      {
         "value": "12px",
-        "count": 843
+        "count": 1908
       },
       {
-        "value": "11px",
-        "count": 552
+        "value": "13px",
+        "count": 1902
       },
       {
         "value": "10px",
-        "count": 420
+        "count": 717
       },
       {
-        "value": "15px",
-        "count": 42
+        "value": "11px",
+        "count": 567
+      },
+      {
+        "value": "26px",
+        "count": 36
       },
       {
         "value": "20px",
         "count": 33
       },
       {
-        "value": "26px",
-        "count": 9
+        "value": "15px",
+        "count": 12
+      },
+      {
+        "value": "34px",
+        "count": 6
       }
     ],
     "shadows": [
       {
-        "value": "rgba(0, 0, 0, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 18px 48px 0px",
-        "count": 18
-      },
-      {
-        "value": "rgba(0, 0, 0, 0.14) 0px 12px 40px 0px, rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
-        "count": 6
+        "value": "rgba(0, 0, 0, 0.14) 0px 20px 48px 0px, rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+        "count": 3
       }
     ],
     "colors": [
       {
         "value": "rgb(10, 10, 10)",
-        "count": 2682
-      },
-      {
-        "value": "rgb(86, 86, 86)",
-        "count": 534
+        "count": 3048
       },
       {
         "value": "rgb(110, 110, 110)",
-        "count": 462
+        "count": 981
+      },
+      {
+        "value": "rgb(86, 86, 86)",
+        "count": 975
       },
       {
         "value": "rgb(0, 0, 0)",
@@ -107,25 +107,25 @@
       },
       {
         "value": "rgb(255, 255, 255)",
-        "count": 45
+        "count": 54
       },
       {
         "value": "rgb(23, 105, 63)",
         "count": 12
       },
       {
-        "value": "rgb(138, 90, 0)",
-        "count": 3
+        "value": "rgb(163, 33, 22)",
+        "count": 9
       },
       {
-        "value": "rgb(163, 33, 22)",
+        "value": "rgb(138, 90, 0)",
         "count": 3
       }
     ],
     "fonts": [
       {
         "value": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 3840
+        "count": 5181
       }
     ]
   },
@@ -134,98 +134,7 @@
     "count": 0
   },
   "clipped_text": {
-    "count": 9,
-    "items": [
-      {
-        "state": "processing-mid-run",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
-        "scroll_width": 729,
-        "client_width": 519,
-        "delta": 210,
-        "ellipsis": true
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
-        "scroll_width": 729,
-        "client_width": 519,
-        "delta": 210,
-        "ellipsis": true
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
-        "scroll_width": 729,
-        "client_width": 519,
-        "delta": 210,
-        "ellipsis": true
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
-        "scroll_width": 729,
-        "client_width": 600,
-        "delta": 129,
-        "ellipsis": true
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
-        "scroll_width": 729,
-        "client_width": 600,
-        "delta": 129,
-        "ellipsis": true
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
-        "scroll_width": 729,
-        "client_width": 600,
-        "delta": 129,
-        "ellipsis": true
-      },
-      {
-        "state": "library-open",
-        "viewport": 1280,
-        "selector": "section#library-state > div#library-list > div.library-card.open:nth-of-type(1) > button.library-open:nth-of-type(1) > span.name:nth-of-type(1)",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4",
-        "scroll_width": 482,
-        "client_width": 279,
-        "delta": 203,
-        "ellipsis": true
-      },
-      {
-        "state": "library-open",
-        "viewport": 1440,
-        "selector": "section#library-state > div#library-list > div.library-card.open:nth-of-type(1) > button.library-open:nth-of-type(1) > span.name:nth-of-type(1)",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4",
-        "scroll_width": 482,
-        "client_width": 279,
-        "delta": 203,
-        "ellipsis": true
-      },
-      {
-        "state": "library-open",
-        "viewport": 1920,
-        "selector": "section#library-state > div#library-list > div.library-card.open:nth-of-type(1) > button.library-open:nth-of-type(1) > span.name:nth-of-type(1)",
-        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4",
-        "scroll_width": 482,
-        "client_width": 279,
-        "delta": 203,
-        "ellipsis": true
-      }
-    ]
+    "count": 0,
+    "items": []
   }
 }
