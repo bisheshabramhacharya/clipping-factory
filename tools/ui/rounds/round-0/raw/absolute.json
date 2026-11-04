@@ -1,0 +1,83 @@
+{
+  "role": "absolute",
+  "round": 0,
+  "categories": {
+    "typography": {
+      "score": 6,
+      "evidence": "One family throughout and a readable scale: 15px body, 17px section heads, 20px 'Drop a podcast' and '6 clips', 11px tracked uppercase eyebrows ('READY TO CLIP' at staged-file@1280, 'CAPTIONS'/'EXTRAS' at results-6-clips@1920). Body copy is comfortable and headings do not shout. Strains: the same value gets three treatments, the score is gray inline '#1 . 8.7' in the list, a black 'score 8.7' pill in the inspector, and a plain '8.2' in sibling rows (results-6-clips@1280); the processing header runs filename and metadata together at one size in one line with only a weight change (processing-mid-run@1280); one field label is a left-inline 13px 'Font' while every other label is 11px uppercase above its control (clip-detail-restyle@1920); the setup banner breaks a filesystem path across two lines mid-token ('/Users/example/clipping-' / 'factory/models/') and the rejected list breaks a time range as '00:02-' / '00:19' (setup-missing-runtime@1280, results-rejected-expanded@1280)."
+    },
+    "hierarchy": {
+      "score": 6,
+      "evidence": "Each screen has one clear region: the dropzone CTA on empty-upload@1280, the step list on processing-mid-run@1280, the dark preview on results-6-clips@1920, and the inspector steps down typographically from clip title to timestamps to controls. Groups separate by space, not borders. It stops short of a single path because secondary elements shout: the 'score 8.7' badge is a filled black pill the same weight as the primary button beside it (results-6-clips@1920), 'Review clips' and 'Download MP4' are both filled black on the same screen, the library repeats five full-weight red Delete links down the right edge (library-open@1280), and processing states progress three times with two different bar colors (processing-mid-run@1280)."
+    },
+    "spacing_rhythm": {
+      "score": 7,
+      "evidence": "A real rhythm holds across widths: the upload card is exactly 680x582 and centered at 1280, 1440 and 1920 (measured on all three empty-upload shots), the results screen keeps ~20px column gutters and aligned outer edges at 1280 and 1440, and card padding stays 24px inside the panel and 20px in the inspector. Dense areas are deliberate, the clip rows and the processing step list are tighter than the hero areas. Drift: the setup banner is 40px narrower than the card it belongs to, so its edges miss the card's by ~18px on each side (setup-missing-runtime@1920), and at 1280 that banner overlaps the top 75px of the card, hiding the dropzone edge and the upload glyph (setup-missing-runtime@1280). Button heights also drift 34/38/40px rather than snapping to a scale."
+    },
+    "color_contrast": {
+      "score": 7,
+      "evidence": "Small semantic palette on warm neutral (#F6F5F1 canvas, white cards, near-black text). Body and secondary text are strong: nav and form labels sit at ~#6B6860 on white, roughly 5.5:1, and the rust 'Working...' (~#A64B2B, 5.7:1) and brick 'Failed' (~#B3412F, 5.6:1) both clear 4.5:1 (processing-mid-run@1920, processing-error@1920). Color is never the only carrier: completed steps pair green with a checkmark, the failed step pairs red with the error panel that names it. Weak spots: pending steps 4 to 7 render at ~#9A968D, about 2.9:1 on white, which is below a normal reading standard even for muted content (processing-mid-run@1280); the library's status is not colored at all, so 'Complete', 'Failed' and 'Cancelled' are identical gray in the metadata run (library-open@1280), while the same failure is red one screen earlier; and the placeholder text sits near 3.9:1."
+    },
+    "component_consistency": {
+      "score": 6,
+      "evidence": "There is one button family (fully rounded pill, 1px outline secondary, filled near-black primary), one input family (rounded rect with native chevron) and one card family, and states read clearly: disabled 'Apply changes' is gray while enabled is black (results-6-clips@1280 vs clip-detail-restyle@1280), toggles go from pale track to black track, and segmented controls always use a white pill inside a gray track. But the same primitive changes size across adjacent screens: filled pills measure 34px ('Review clips', 'Retry stage'), 38px ('Download MP4') and 40px ('Choose MP4', 'Make clips') and the text inside runs 13 to 15px; selects are 26px in the inspector and 31px on the upload card. Corner treatment also drifts: 16px cards, an 8px dark preview panel, and a square-edged library drawer against rounded cards inside it (library-open@1920). Two label systems coexist for the same job, sentence-case labels above fields on upload and uppercase tracked eyebrows in the inspector."
+    },
+    "iconography_detail": {
+      "score": 5,
+      "evidence": "The icon set is thin and sourced from at least four places: a 1.5px stroke upload arrow, text-glyph checkmarks, filled disclosure triangles, thin native select chevrons and a thin ring spinner next to '3. Transcribe' (processing-mid-run@1280). On results only text buttons and a small keycap ever appear, so the app reads as icon-light rather than icon-consistent. Real detail bug: the accent row grows a seventh swatch that duplicates the currently selected color, detached by a 20px gap and with no ring, so the row shows yellow, green, red, blue, purple, orange, red where the third and seventh are the identical (255,79,79) (clip-detail-restyle@1920, results-6-clips@1920); the upload screen has only six swatches, so the extra one appears only in the inspector. The 'R' keycap inside the primary button is an 18px square with a gray letter on a dark fill, cramped against the pill edge (results-6-clips@1920)."
+    },
+    "primary_action": {
+      "score": 5,
+      "evidence": "Good where it counts: 'Choose MP4' is the only filled button on empty-upload@1280, 'Make clips' clearly outranks 'Change video' at staged-file@1280, and 'Retry stage' is the filled choice over 'Choose another MP4' at processing-error@1280 (though the secondary sits above the primary in the button stack). Results breaks the rule: 'Review clips' in the header and 'Download MP4' in the inspector are both filled black on the same screen, with a disabled 'Apply changes' and a black 'score 8.7' badge as additional heavy objects, so there is no single dominant next step (results-6-clips@1920). clip-detail-restyle@1920 makes it worse: 'Unsaved changes' is flagged in rust while 'Download MP4' stays fully enabled, so the obvious action may ship the unapplied version. setup-missing-runtime@1280 has no action at all, only 'Install it and restart' in prose."
+    },
+    "empty_error_states": {
+      "score": 6,
+      "evidence": "empty-upload@1280 is a first-class empty state: it names the action, explains the options below, and keeps the layout intact. processing-error@1280 names the failing step in the row and repeats it in the panel with the cause and two ways forward, while the rest of the screen stays usable. The setup state does not meet that bar: five undifferentiated sentences with no heading, no severity split between missing tools and 'Low disk space: 1.4 GB free', no dismiss and no single recovery action, floating over the form instead of sitting in it (setup-missing-runtime@1280). At 1920 the same banner floats above the card with a 60px gap, so the collision only appears at the smaller height. No results-with-zero-clips or library-empty state exists in the set."
+    }
+  },
+  "top_issues": [
+    {
+      "state": "setup-missing-runtime",
+      "viewport": "1280",
+      "expected": "A titled setup problem block in normal flow above the form, with a per-item icon or severity, a clear primary recovery action, and no overlap with the card.",
+      "actual": "A borderless white strip with a 3px red left edge floats over the upload card, covering its top 75px and clipping the dropzone edge and upload glyph, and lists five equal-weight sentences with no heading and no button."
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1920",
+      "expected": "One primary action for the screen, with download and apply clearly subordinate or disabled until relevant.",
+      "actual": "'Review clips', 'Download MP4' and the 'score 8.7' badge all use the same filled black treatment, plus a gray 'Apply changes' in the same panel, so three elements compete at full weight."
+    },
+    {
+      "state": "clip-detail-restyle",
+      "viewport": "1920",
+      "expected": "Seven distinct accent choices, or one selected indicator on a single swatch, with even spacing.",
+      "actual": "The row ends with a duplicate of the active color (identical RGB 255,79,79 to the selected swatch) separated by a 20px gap and drawn without a selection ring."
+    },
+    {
+      "state": "library-open",
+      "viewport": "1280",
+      "expected": "Per-item status that is distinguishable at a glance and a single, deliberate destructive affordance.",
+      "actual": "Complete, Failed and Cancelled are the same gray text buried mid-line, one row truncates its status to 'Transcribe...', and five full-weight red Delete links line the right edge with no hover or icon."
+    },
+    {
+      "state": "processing-mid-run",
+      "viewport": "1280",
+      "expected": "One progress expression per level, with pending steps legible and one consistent progress color.",
+      "actual": "Progress appears three times (rust step bar with 38%, black overall bar with 34%, and a footer line repeating 38% with a ring), and the pending steps 4 to 7 are ~#9A968D at roughly 2.9:1 on white."
+    },
+    {
+      "state": "clip-detail-restyle",
+      "viewport": "1280",
+      "expected": "Download disabled or gated while the panel is dirty, so the user cannot take an unapplied render.",
+      "actual": "'Unsaved changes' is flagged in rust on the footer while 'Download MP4' above remains fully enabled and identical to its clean state."
+    },
+    {
+      "state": "ai-connection-disabled",
+      "viewport": "1280",
+      "expected": "A full-page capture of the disabled AI connection state.",
+      "actual": "The file is a 1232x56 strip containing only the top navigation, and the 1440 and 1920 variants are both 1392x56, so the state itself cannot be reviewed."
+    }
+  ],
+  "notes": "I read 24 of the 30 files as full images before the image budget cut me off: both variants of every state at 1280 and 1920, plus results-6-clips@1440 and empty-upload@1440. The unread files are the remaining 1440 variants of staged-file, processing-mid-run, processing-error, results-rejected-expanded, library-open, clip-detail-restyle and setup-missing-runtime, plus results-rejected-expanded@1920 and ai-connection-disabled@1440 and @1920; the 1440 shots I did read sit between the 1280 and 1920 versions I judged, and no layout change appeared at that width. The ai-connection-disabled captures are broken: all three are 56px tall strips of the header, and two of the three are the same 1392px width, so nothing about the disabled state beyond the 'Coming soon' badge can be judged and that category leans on the other nine states. Several raw facts are from pixel measurement rather than eyeballing: card bounds 680x582 at every width, pill fills 34/38/40px, duplicate swatch RGB, contrast ratios. The library metadata strings, the rejected item text and the setup banner paths are fixture content and were not scored as copy quality except where they wrap badly. Browser chrome and scrollbars were excluded."
+}

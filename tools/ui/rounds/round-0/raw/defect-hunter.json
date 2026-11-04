@@ -1,0 +1,95 @@
+{
+  "role": "defect-hunter",
+  "round": 0,
+  "defects": [
+    {
+      "state": "setup-missing-runtime",
+      "viewport": "1280",
+      "expected": "The dependency banner sits clear of the upload card so the drop zone and its icon stay whole.",
+      "actual": "The banner (x 320-960, y 64-200) overlaps the top of the card (card top y 118) and its bottom edge cuts through the upload icon at x 640: only the tray and a stub of the arrow are visible, and the drop zone's dashed top border is hidden behind the banner.",
+      "kind": "defect",
+      "severity": "high"
+    },
+    {
+      "state": "setup-missing-runtime",
+      "viewport": "1440",
+      "expected": "The banner clears the card it describes.",
+      "actual": "The banner bottom (y 200) lands on the card top (card top y 165), so the rounded top edge and the dashed drop zone border are covered in the middle while the card's corners poke out on both sides of the banner.",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "setup-missing-runtime",
+      "viewport": "1920",
+      "expected": "A missing-dependency notice has a heading, one line per missing item, and a way to act on it (recheck, or a link to the install command).",
+      "actual": "The banner is five unlabeled sentences at one weight in a single text block with no title, no per-item bullet, no dismiss control and no recheck action, floating 66px above the card with no other connection to it.",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1280,1440,1920",
+      "expected": "Six accent swatches, each color appearing once, with the selected one marked.",
+      "actual": "The accent row renders seven swatches; the seventh repeats the selected color exactly (measured (255,221,0) at both swatch 1 and swatch 7 at 1920) and carries no label, so two swatches look identical and the extra one has no visible meaning. Same duplicate appears in clip-detail-restyle, where swatch 7 repeats the selected red (255,79,79).",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "results-rejected-expanded",
+      "viewport": "1280",
+      "expected": "A time range and the separators around it stay on one line, so a rejected entry reads as quote, range, score.",
+      "actual": "In the Rejected list the range breaks after the hyphen ('00:02-' then '00:19 · score 2.4', and '1:02:30-' then '1:02:58 · score 3.9'), and in two entries the ' · ' separator is left dangling at the end of a line while the value it introduces starts the next one.",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "library-open",
+      "viewport": "1280",
+      "expected": "Every file row in the Library drawer uses the same metadata grammar and shows its state as a complete word.",
+      "actual": "Row 1 ends '1.2 GB · open' (lowercase state) while rows 2-4 use capitalised states (Complete, Failed, Cancelled), and row 5 truncates its state to 'Transcribe...' inside the metadata line with a hard ellipsis instead of showing a full state.",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "processing-error",
+      "viewport": "1280",
+      "expected": "The failed step carries a status marker in the same left-hand slot the completed steps use for their checkmarks, so the failing row is findable by scanning the left edge.",
+      "actual": "Steps 1 and 2 have green checkmarks at x 337; step 3 'Transcribe' has nothing in that slot and its failure is only the red word 'Failed' at x 905-938, at the far right of the row, so the failed row reads as unremarkable in the list.",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1280,1440",
+      "expected": "The nav's right edge lines up with the page content's right edge, the way both left edges line up at x 22-24.",
+      "actual": "The header's rightmost element (the 'Coming soon' pill) ends at x 1240 while the results content below ends at x 1260 (1280 viewport), and at x 1400 vs x 1415 (1440 viewport), leaving a visible 15-20px ragged right edge between the nav and the panels/buttons.",
+      "kind": "defect",
+      "severity": "medium"
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1280",
+      "expected": "The clip list gives a sign that it continues, and no row is sliced through its content at the viewport edge.",
+      "actual": "The sixth row is cut mid-thumbnail and mid-title at the bottom of the list container (y 779), with no scrollbar, fade or partial-row cue, so '#6 · 6.2 Where the advice stops' looks clipped rather than scrollable.",
+      "kind": "defect",
+      "severity": "low"
+    },
+    {
+      "state": "ai-connection-disabled",
+      "viewport": "1280,1440,1920",
+      "expected": "A full-viewport screenshot of the state at each labelled width, so the body of the screen can be reviewed.",
+      "actual": "All three captures are header-only strips: 1232x56 at 1280 and 1392x56 at both 1440 and 1920, so no page body is visible and the 1440 and 1920 files are indistinguishable from each other.",
+      "kind": "defect",
+      "severity": "high"
+    },
+    {
+      "state": "library-open",
+      "viewport": "1280",
+      "expected": "The drawer reads as a layer over the results screen.",
+      "actual": "The drawer's left edge at x 861 is a hard cut with no scrim and no shadow: the video preview behind it stays at full brightness and is sliced in half, so the panel reads as a third column that happens to cover the right-hand controls.",
+      "kind": "taste",
+      "severity": "low"
+    }
+  ],
+  "notes": "Fix the ai-connection-disabled capture first: the files are 56px tall header crops, and the 1440 and 1920 variants are the same width (1392), so that state is unreviewable. Everything else was measured in pixels on the 30 provided images. No rows were filed for placeholder video stills, episode or clip titles, or browser chrome. The setup-missing-runtime card sits about 13px higher than in empty-upload, which is what pushes the icon under the banner at 1280; the banner is a fixed 640px wide, 136px tall block at y 64-200 at every width."
+}

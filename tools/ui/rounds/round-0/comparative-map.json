@@ -1,0 +1,262 @@
+{
+  "round": 0,
+  "labels": {
+    "A": "descript",
+    "B": "opus-clip",
+    "C": "t3-code",
+    "D": "studio"
+  },
+  "files": {
+    "A/01.png": {
+      "source": "descript",
+      "reference": "descript-editor.png",
+      "origin": "reference/descript-editor.png"
+    },
+    "A/02.png": {
+      "source": "descript",
+      "reference": "descript-underlord-clips.png",
+      "origin": "reference/descript-underlord-clips.png"
+    },
+    "A/03.png": {
+      "source": "descript",
+      "reference": "descript-underlord-edit.png",
+      "origin": "reference/descript-underlord-edit.png"
+    },
+    "B/01.png": {
+      "source": "opus-clip",
+      "reference": "opus-clip-editor.png",
+      "origin": "reference/opus-clip-editor.png"
+    },
+    "B/02.png": {
+      "source": "opus-clip",
+      "reference": "opus-clip-result.png",
+      "origin": "reference/opus-clip-result.png"
+    },
+    "B/03.png": {
+      "source": "opus-clip",
+      "reference": "opus-clip-grid.png",
+      "origin": "reference/opus-clip-grid.png"
+    },
+    "C/01.png": {
+      "source": "t3-code",
+      "reference": "t3-code-desktop.png",
+      "origin": "reference/t3-code-desktop.png"
+    },
+    "D/01.png": {
+      "source": "studio",
+      "state": "empty-upload",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/empty-upload@1280.macos.png"
+    },
+    "D/02.png": {
+      "source": "studio",
+      "state": "empty-upload",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/empty-upload@1440.macos.png"
+    },
+    "D/03.png": {
+      "source": "studio",
+      "state": "empty-upload",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/empty-upload@1920.macos.png"
+    },
+    "D/04.png": {
+      "source": "studio",
+      "state": "staged-file",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/staged-file@1280.macos.png"
+    },
+    "D/05.png": {
+      "source": "studio",
+      "state": "staged-file",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/staged-file@1440.macos.png"
+    },
+    "D/06.png": {
+      "source": "studio",
+      "state": "staged-file",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/staged-file@1920.macos.png"
+    },
+    "D/07.png": {
+      "source": "studio",
+      "state": "processing-mid-run",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/processing-mid-run@1280.macos.png"
+    },
+    "D/08.png": {
+      "source": "studio",
+      "state": "processing-mid-run",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/processing-mid-run@1440.macos.png"
+    },
+    "D/09.png": {
+      "source": "studio",
+      "state": "processing-mid-run",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/processing-mid-run@1920.macos.png"
+    },
+    "D/10.png": {
+      "source": "studio",
+      "state": "processing-error",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/processing-error@1280.macos.png"
+    },
+    "D/11.png": {
+      "source": "studio",
+      "state": "processing-error",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/processing-error@1440.macos.png"
+    },
+    "D/12.png": {
+      "source": "studio",
+      "state": "processing-error",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/processing-error@1920.macos.png"
+    },
+    "D/13.png": {
+      "source": "studio",
+      "state": "results-6-clips",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/results-6-clips@1280.macos.png"
+    },
+    "D/14.png": {
+      "source": "studio",
+      "state": "results-6-clips",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/results-6-clips@1440.macos.png"
+    },
+    "D/15.png": {
+      "source": "studio",
+      "state": "results-6-clips",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/results-6-clips@1920.macos.png"
+    },
+    "D/16.png": {
+      "source": "studio",
+      "state": "results-rejected-expanded",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/results-rejected-expanded@1280.macos.png"
+    },
+    "D/17.png": {
+      "source": "studio",
+      "state": "results-rejected-expanded",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/results-rejected-expanded@1440.macos.png"
+    },
+    "D/18.png": {
+      "source": "studio",
+      "state": "results-rejected-expanded",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/results-rejected-expanded@1920.macos.png"
+    },
+    "D/19.png": {
+      "source": "studio",
+      "state": "library-open",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/library-open@1280.macos.png"
+    },
+    "D/20.png": {
+      "source": "studio",
+      "state": "library-open",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/library-open@1440.macos.png"
+    },
+    "D/21.png": {
+      "source": "studio",
+      "state": "library-open",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/library-open@1920.macos.png"
+    },
+    "D/22.png": {
+      "source": "studio",
+      "state": "clip-detail-restyle",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/clip-detail-restyle@1280.macos.png"
+    },
+    "D/23.png": {
+      "source": "studio",
+      "state": "clip-detail-restyle",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/clip-detail-restyle@1440.macos.png"
+    },
+    "D/24.png": {
+      "source": "studio",
+      "state": "clip-detail-restyle",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/clip-detail-restyle@1920.macos.png"
+    },
+    "D/25.png": {
+      "source": "studio",
+      "state": "setup-missing-runtime",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/setup-missing-runtime@1280.macos.png"
+    },
+    "D/26.png": {
+      "source": "studio",
+      "state": "setup-missing-runtime",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/setup-missing-runtime@1440.macos.png"
+    },
+    "D/27.png": {
+      "source": "studio",
+      "state": "setup-missing-runtime",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/setup-missing-runtime@1920.macos.png"
+    },
+    "D/28.png": {
+      "source": "studio",
+      "state": "ai-connection-disabled",
+      "viewport": "1280",
+      "platform": "macos",
+      "origin": "shots/ai-connection-disabled@1280.macos.png"
+    },
+    "D/29.png": {
+      "source": "studio",
+      "state": "ai-connection-disabled",
+      "viewport": "1440",
+      "platform": "macos",
+      "origin": "shots/ai-connection-disabled@1440.macos.png"
+    },
+    "D/30.png": {
+      "source": "studio",
+      "state": "ai-connection-disabled",
+      "viewport": "1920",
+      "platform": "macos",
+      "origin": "shots/ai-connection-disabled@1920.macos.png"
+    }
+  },
+  "label_of": {
+    "descript": "A",
+    "opus-clip": "B",
+    "t3-code": "C",
+    "studio": "D"
+  }
+}

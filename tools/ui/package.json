@@ -1,0 +1,21 @@
+{
+  "name": "clipping-factory-ui-rig",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Deterministic screenshot rig and design-review harness for the Clipping Factory studio.",
+  "scripts": {
+    "shots": "node shots.mjs",
+    "checks": "node checks.mjs",
+    "serve": "node server.mjs",
+    "judges:prepare": "node judges/prepare.mjs",
+    "judges:ingest": "node judges/ingest.mjs",
+    "judges:aggregate": "node judges/aggregate.mjs",
+    "shots:verify": "node shots.mjs --verify",
+    "shots:sheet": "node shots.mjs --sheet-only",
+    "verify": "node shots.mjs --verify && node checks.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}

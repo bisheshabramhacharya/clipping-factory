@@ -1,0 +1,56 @@
+{
+  "platform": "macos",
+  "viewport_widths": [
+    1280,
+    1440,
+    1920
+  ],
+  "states": [
+    "empty-upload",
+    "staged-file",
+    "processing-mid-run",
+    "processing-error",
+    "results-6-clips",
+    "results-rejected-expanded",
+    "library-open",
+    "clip-detail-restyle",
+    "setup-missing-runtime",
+    "ai-connection-disabled"
+  ],
+  "files": {
+    "ai-connection-disabled@1280.macos.png": "186c6fea44c5e131fac51f713c65703b75a77e678f6d69903af3507e2254178a",
+    "ai-connection-disabled@1440.macos.png": "b23aeadd14ccfc77d2b7ab2d06b35e17a324b8c71738c1b6f4ea59c6642d2f2f",
+    "ai-connection-disabled@1920.macos.png": "234975c05349d4f6c73f5bb37246e3c960ff6a6d660e9da5f2cd42e7d7036fa1",
+    "clip-detail-restyle@1280.macos.png": "478f733420f0bfeafe01cf2f7f5e52c73c7a177744b93c9b40f8324f8e320a44",
+    "clip-detail-restyle@1440.macos.png": "ea5343e6cb4580a470e1bbca82d37fdd02984d42e5f6452a24548745c9403859",
+    "clip-detail-restyle@1920.macos.png": "4a0607ef2f5262f53a752ce6524252bde4e252613bc84cca1e92398e50154b7d",
+    "empty-upload@1280.macos.png": "38f97e96d136c897c89d2a84bb06a072e5209ddb5584a9648c3010cb2a63cc72",
+    "empty-upload@1440.macos.png": "c4eefea6a776cdf9cd5c0100c1076f26a7226bdb933d14f4094264338a645311",
+    "empty-upload@1920.macos.png": "6ed60dd7f9bd79cdcfa0d88f39f9663210a3ed645cba67a6ea2e345c359991df",
+    "library-open@1280.macos.png": "2abd36b56c9757701232d1f8668ccd77ab1552633f34dcd1d636d49e0328f7d2",
+    "library-open@1440.macos.png": "e78e66ca9c920909120b624fdbfb0d902e0f8dfc08622a0d2e6836bee8e81bb4",
+    "library-open@1920.macos.png": "65b16ea08bd362f5d5a8cdcc65ba482e1fb9471c737e26732cf3c9eb7cd814b2",
+    "processing-error@1280.macos.png": "0f9a2f16e086419403d9fb1ff45e1db1364e8c6ec42086e862829a216ad1e5d2",
+    "processing-error@1440.macos.png": "fcd86ecf2f564794f1e4101c70e5604af4d1c13a6a073fc8f1be6140ff176e0d",
+    "processing-error@1920.macos.png": "16ea31637e0a1837f94594087319150cac44abf294ee4dce4d07b5aeaead4169",
+    "processing-mid-run@1280.macos.png": "b65c68de8c41c0f9d6fd5263dab810c0dd95343d37128f6c7aef071603f8585e",
+    "processing-mid-run@1440.macos.png": "cf26824e3b9e1f6b452d0d3d4d406054743602ed51e8d69d6e709006ea0ab30e",
+    "processing-mid-run@1920.macos.png": "7555defe8ed2b8acfc3190c32361806ad793065068085d94e778ec7897c3dcd9",
+    "results-6-clips@1280.macos.png": "2c2c45b5f6e6c93b0d406fbf3f294ec83bb792f299a196e9992853395d7a7893",
+    "results-6-clips@1440.macos.png": "66ec7404b88ff164648dbf96754c6ede22f0e3b36beeb4732a591b6101e7d91a",
+    "results-6-clips@1920.macos.png": "63ceb1a3b8256105a34c2a9628ea9b8108f1a6f41cca78366e217cb8d0999bcb",
+    "results-rejected-expanded@1280.macos.png": "8cd35bf92aa1b1d8a6240c547d6ee3ce0ba921d4cc41ad38e7818b38b58cf56c",
+    "results-rejected-expanded@1440.macos.png": "d2034c1db8c56ca3df4b97d0ae2c857b08903fdd53f396969462c271a2e4b38c",
+    "results-rejected-expanded@1920.macos.png": "a78fb30b55775eca9ecf4ccf8025a7613675d593cefe609d6a7ca96fdca3dd4d",
+    "setup-missing-runtime@1280.macos.png": "4ef614a134512fcc40be01d2994edcfe3542abb93fe667bcccf86bd55641e750",
+    "setup-missing-runtime@1440.macos.png": "8cb4e19e276203771d671f5c624f8e725476e9e2499f111ca3180b1d8f57f7df",
+    "setup-missing-runtime@1920.macos.png": "21c2ac632126b6f68a1ee3318f92dc1a2f6d78edb8c4574c09b7dd586b1219a3",
+    "staged-file@1280.macos.png": "1a0075a91fbfa1c278acae593320f57e40b895b4ddfc031eb863b53382558418",
+    "staged-file@1440.macos.png": "d85ceeb419329824d71bf3ab8047b180e02a34cdbeccf3cc41ae9e704ee61730",
+    "staged-file@1920.macos.png": "a4610663fc71a4c852a6d3234f6071d6cb10cb57e17fb8047f880af00d2a973f"
+  },
+  "verify": {
+    "diff_count": 0,
+    "compared": 30
+  }
+}
