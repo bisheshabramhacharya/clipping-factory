@@ -1,0 +1,9 @@
+{
+  "comparative": {
+    "model": "deepseek/deepseek-v4.1-flash",
+    "reasoning_mode": "high",
+    "machine": "shared",
+    "max_images": 10,
+    "max_attempts": 2
+  }
+}

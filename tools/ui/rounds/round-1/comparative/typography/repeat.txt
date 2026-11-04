@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 1,
+  "category": "typography",
+  "winner": "A",
+  "citation": "A/01.png: the section labels 'CAPTIONS' and 'EXTRAS' are set at about 10px, uppercase, with roughly 0.08em letter-spacing, and the same treatment repeats in A/02.png at the wider width, sitting one step below the 18px/700 page title '6 clips' and a second step below the 13px/400 card titles -- a three-level scale that holds across both windows. B/01.png and B/02.png spend every non-heading label in the same plain 12-13px sentence case ('Open in VS Code', 'Add project script', 'Initialize Git', 'Ask for changes, send follow-ups, or attach images'), with no letter-spaced or caps label level at all.",
+  "why": "A carries a recognizable scale: an 18px bold title, 13px body and card titles, and a distinct 10px caps label level used for every section header, so heading, content and label never compete; B is clean and consistent but essentially one weight of sans at two sizes, so labels, controls and sidebar items all read at the same volume and nothing in the type does the grouping for it. Neither panel is clean on the small end: A's 10px labels and 11px meta lines sit under the 12px floor, and B's muted placeholder and sidebar text run at low contrast on the near-black ground.",
+  "confidence": "slight"
+}

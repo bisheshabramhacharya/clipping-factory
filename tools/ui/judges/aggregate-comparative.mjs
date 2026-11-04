@@ -55,10 +55,10 @@ async function main() {
     }
     const answer = await readJson(path.join(roundDir, "comparative", category.key, "answer.json"));
     const failed = await readJson(path.join(roundDir, "comparative", category.key, "failed.json"));
-    const call = await readJson(path.join(roundDir, "comparative", category.key, "call.json"));
-    for (const attempt of call?.attempts || []) {
+    const call = await readJson(path.join(roundDir, "comparative", category.key, "calls.json"));
+    for (const entry of call?.calls || []) {
       calls += 1;
-      spentUsd += Number(attempt.cost_usd || 0);
+      spentUsd += Number(entry.credits || 0);
     }
     if (!answer) {
       categories[category.key] = {
@@ -86,8 +86,8 @@ async function main() {
       citation: answer.citation,
       why: answer.why,
       confidence: answer.confidence,
-      judge: call?.judge || null,
-      model: call?.attempts?.at(-1)?.model || null,
+      judge: call?.calls?.at(-1)?.judge || null,
+      model: call?.calls?.at(-1)?.model || null,
     };
   }
 
@@ -95,7 +95,7 @@ async function main() {
     round: args.round,
     categories,
     summary: tally,
-    cost: { usd: Math.round(spentUsd * 10000) / 10000, calls },
+    cost: { credits: Math.round(spentUsd * 10000) / 10000, calls },
   };
   await mkdir(roundDir, { recursive: true });
   await writeFile(path.join(roundDir, "comparative.json"), `${JSON.stringify(result, null, 2)}\n`);
@@ -107,7 +107,7 @@ async function main() {
     console.log(`  ${category.label.padEnd(30)} ${verdict.padEnd(11)} ${record.citation ? `"${record.citation.slice(0, 90)}…"` : record.failure || ""}`);
   }
   console.log(`wins: ${tally.win} · losses: ${tally.loss} · ties: ${tally.tie} · not judged: ${tally.not_judged}`);
-  console.log(`judge calls: ${calls} · cost: $${result.cost.usd}`);
+  console.log(`judge calls: ${calls} · cost: ${result.cost.credits} credits`);
   console.log(`wrote ${path.join(roundDir, "comparative.json")}`);
 }
 

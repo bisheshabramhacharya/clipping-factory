@@ -99,61 +99,65 @@ hunter with no scores.
 
 ## Judges
 
-Every call carries at most nine images. The absolute pass and the defect hunt
-are split by viewport, so one call sees one width's nine screens; the blind
-comparative pass is split by category, four images each.
+Every judge call is one Capy subagent on this machine, running the model pinned
+in `judges/judges.json`: `deepseek/deepseek-v4.1-flash`, reasoning `high`. No
+Claude, no Codex, no Capy cloud machine. A call is staged, started, and then
+collected, so the caps can be enforced between the steps.
 
 ```bash
 # absolute and defect hunter: one call per viewport
 node judges/prepare.mjs --round 2 --role absolute --viewport 1280
-node judges/prepare.mjs --round 2 --role defect-hunter --viewport 1280
-node judges/ingest.mjs --round 2 --role absolute --viewport 1280 --file answer.txt
-node judges/aggregate.mjs --round 0        # reproduces round 0's four-source method
+node judges/ask-judge.mjs --stage   --round 2 --role absolute --viewport 1280
+node judges/ask-judge.mjs --collect --round 2 --role absolute --viewport 1280 --subagent 4 --credits 0.2 --subagents 0
 
 # comparative: one blind pair per category, one call each
 node judges/prepare.mjs --round 2 --role comparative --category typography
-node judges/prepare.mjs --round 2 --role comparative --category all
-node judges/ask-judge.mjs --round 2 --judge claude --category typography
+node judges/ask-judge.mjs --stage   --round 2 --category typography
+node judges/ask-judge.mjs --collect --round 2 --category typography --subagent 5 --credits 0.3 --subagents 0
+
+# the whole round
 node judges/aggregate-comparative.mjs --round 2
-
-# the whole round: median absolute score per viewport + verdict per category
 node judges/aggregate-round.mjs --round 2
-
-# or drive the judge by hand and file its raw text
-node judges/ingest.mjs --round 1 --role comparative --category typography --file answer.txt
-node judges/ingest.mjs --round 1 --role comparative --category typography --failed "no valid JSON after 2 calls"
 ```
 
-The comparative pass is one call per category, so eight calls per round, each
-with four images: this studio's screen for that category and the real reference
-window, at 1280 and 1440, in a per-category shuffled A/B order. The prompt names
-no product, no side, and no width. `judges/prepare.mjs` refuses to build a panel
-over ten images, and `judges/ask-judge.mjs` refuses to run a panel over ten.
+`--stage` writes `task.md` next to the panel and prints the subagent settings.
+Start one subagent with that task on `machine: "shared"`, save its final message
+to the panel's `reply.txt`, then read its credit cost and whether it spawned
+anything and pass both to `--collect`. The task file tells the judge to read
+each file once, answer in one reply, write nothing, and work alone. Replies are
+cheaper than file writes: on the typography smoke test the reply-only call cost
+7.76 credits and the same task asking for a written file cost 17.95.
 
-A win with no checkable citation is downgraded to a tie in code
-(`normalizeComparative` in `judges/schema.mjs`), with the original winner kept
-in the record, so a vague claim can never be filed as a win.
+Observed on the typography smoke test: 7.76 credits and 17.95 credits for the
+two filed calls, about 570k tokens each, and 13.31 credits for a `high`
+reasoning call that never produced an answer. Per-call token use, not the model
+price, is the cost driver. `judges/judges.json` pins `high`; the two filed calls
+ran at `low` after `high` failed to converge, and `calls.json` records the
+setting each call actually used.
 
-`ask-judge.mjs` enforces the rest of the budget: one retry when a reply is not
-valid JSON, then a recorded failure; and any call where the judge spawned a
-subagent is void, because the helper would be doing the scoring. It keeps the
-model, cost, turn count and subagent count in `rounds/round-<n>/comparative/<category>/call.json`.
+The caps are code, not prose:
 
-`aggregate-comparative.mjs` turns the answers into a verdict per category, win,
-loss or tie, and prints the citations. `aggregate-round.mjs` assembles the whole
-round: the median absolute score across viewports plus the verdict and citation
-per category. A category with no answer and no recorded failure is
-`not_judged`, never a win. Round 0 used the older four-source comparative pass
-in `judges/aggregate.mjs`; that file stays for reproducing `round-0.json`, and
-`rounds/smoke-1-typography.md` is the hand-written record of the first blind
-call.
+- `prepare.mjs` refuses to build a panel over ten images, and `--stage` refuses
+  to run one.
+- `--stage` refuses a third attempt: one retry, then `--collect --failed`.
+- `--collect` refuses to file a call whose `--subagents` count is above zero,
+  and writes `void.json` instead. A judge that spawns a helper does not get
+  paid for a score.
+- `--collect` refuses an answer whose model is not the pinned judge.
+- A win with no checkable citation is filed as a tie (`normalizeComparative`),
+  with the original winner kept in the record.
+- `--collect --as repeat` files a second independent call as `repeat.json`,
+  which is how a category is checked for stability without disturbing the
+  round record.
 
-Prompts live in `judges/prompts/` and are built from the rubric and the current
-shot set. A judge prompt never names a target score, never says which pool is
-this repository, and never mentions optimizing anything. During iteration run
-the absolute role alone; run the comparative pairs at a round boundary.
+`aggregate-comparative.mjs` prints the verdict and citation per category and the
+credit cost. `aggregate-round.mjs` assembles the whole round: median absolute
+score across viewports plus the verdict per category. A category with no answer
+and no recorded failure is `not_judged`, never a win. `rounds/smoke-1-typography.md`
+is the hand-written record of the first blind call.
 
-`rubric.md` defines the eight categories and the 1-10 anchors.
+Round 0 used the older four-source comparative pass in `judges/aggregate.mjs`;
+that file stays for reproducing `round-0.json`.
 
 ## Portability
 

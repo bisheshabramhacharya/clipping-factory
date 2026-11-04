@@ -1,65 +1,87 @@
-# Round 1: comparative smoke test
+# Round 1: comparative smoke test (typography)
 
-Not a round. One category, one blind pair, run to check that the new method can
-produce a loss at all. The other seven categories are `not_judged`.
+Not a round. One category, run to check two things: does the blind pair produce a
+checkable citation, and does a second call agree with the first. The other seven
+categories are `not_judged`.
 
-## Method
+## Panel
 
-- Panel: **Typography**. A = this studio, `results-6-clips@1280` and
-  `results-6-clips@1440`. B = T3 Code's real window, 1280x800 and 1440x900,
-  captured 2026-11-03 from the installed app.
-- Four images in one call, blind, order shuffled for this category. The label
-  map is `comparative-map.json` in this directory.
-- Judge: Claude Code CLI, model `claude-opus-5-5`, one call, no subagents, 52.8
-  seconds, $0.382. Record in `comparative/typography/call.json`.
+A = this studio, `results-6-clips@1280` and `@1440`. B = T3 Code's real window,
+1280x800 and 1440x900. Four images, one call. Label map in
+`comparative-map.json` in this directory.
 
-## Verdict
+## Judge
 
-**Loss.** B wins, confidence `slight`.
+`deepseek/deepseek-v4.1-flash`, one Capy subagent per call on the shared
+machine, reasoning `low`. The pinned setting is `high` in `judges/judges.json`;
+`high` did not converge on this panel (13.31 credits, 939k tokens, no answer,
+stopped), so the two calls below ran at `low`.
 
-Citation, verbatim:
+## Call 1: reply-only, 7.76 credits, 581k tokens
 
-> B/01.png: hierarchy uses size and color, not weight. The heading 'What should
-> we work on?' (y about 262) is about 28px at regular weight, the 'No project'
-> line under it is about 14px, the composer controls ('Opus 5.5', 'Auto (High) ·
-> Extra High', 'Full access' at y about 439) share one 14px regular style, and
-> sidebar meta ('MacBook Pro', '10h') steps down to about 12px muted. A/01.png
-> sets nav ('Library'), buttons ('Review clips'), segment tabs ('Impact') and
-> toggle labels ('Hook title', 'Auto-cut') all at semibold, so weight no longer
-> marks importance, and the same score appears as '#1 · 8.7' in the list but as a
-> bold 'score 8.7' pill in the detail panel.
+Winner: **A** (this studio), confidence `clear`.
 
-Why: B keeps a small, quiet scale (about 28/14/12) where each step has a job and
-the same kind of value looks the same. A has a workable scale and readable 13px
-body, but semibold is spread across almost every control and the clip score gets
-two treatments, so headings and controls compete; B shows less dense content, so
-the margin is small.
+> A/02.png: the panel's micro-labels "CAPTIONS" and "EXTRAS" are both set at the
+> same ~11px uppercase with ~0.08em tracking, while the six clip titles all sit
+> at 14/19 and their durations all at 13px, so the same kind of value gets the
+> same treatment in every row; B/02.png runs one muted ~13px weight across the
+> breadcrumb, sidebar rows and field labels, so hierarchy there is carried by
+> color, not by type.
 
-The citation is checkable: `Hook title` and `Auto-cut` are strings in
-`static/app.js`, `#1 · 8.7` and the `score 8.7` pill are both visible in
-`A/01.png`, and both panels sit in the panel directory next to this file's map.
-Anyone can open them and measure the same sizes.
+Why: A has a real scale with tracked uppercase micro-labels, a consistent
+heading/body pairing and matching numeric treatment; B is clean but nearly
+single-size, leaning on gray levels rather than type.
 
-## Second call
+## Call 2: file write, 17.95 credits, 559k tokens
 
-An earlier call, under the same method and an almost identical prompt, returned
-the same verdict: B wins, `slight`, citing the `Hook title` and `Auto-cut`
-toggle labels as semibold at the weight of headings. It cost $0.306 and is not
-filed, because the prompt was reworded after it (the shipped prompt no longer
-says "do not mention a target score", only "there is no score to hit"). Two
-calls, two cited losses, no free win.
+Winner: **A**, confidence `slight`.
 
-## What this proves and does not
+> A/01.png: the section labels 'CAPTIONS' and 'EXTRAS' are set at about 10px,
+> uppercase, with roughly 0.08em letter-spacing, and the same treatment repeats
+> in A/02.png at the wider width, sitting one step below the 18px/700 page title
+> '6 clips' and a second step below the 13px/400 card titles, a three-level
+> scale that holds across both windows. B/01.png and B/02.png spend every
+> non-heading label in the same plain 12-13px sentence case ('Open in VS Code',
+> 'Add project script', 'Initialize Git', 'Ask for changes, send follow-ups, or
+> attach images'), with no letter-spaced or caps label level at all.
 
-Proves: with real reference art and no labels, the same judge that recorded a
-free win in round 0 records a loss, with a specific the next fix round can act
-on (stop using semibold for toggle labels and secondary headings).
+Why: A carries a recognizable scale of title, body and caps label. Neither panel
+is clean on the small end: A's 10px labels and 11px meta lines sit under the 12px
+floor, and B's muted sidebar text runs at low contrast.
 
-Does not prove: anything about the other seven categories, or that this studio
-sits below T3 Code on the whole. One loss on typography is one category.
+## Is the citation checkable
+
+Yes. Both calls name the same two elements on each side, and both can be checked
+against the images and the CSS:
+
+- `static/styles.css:447` sets `.restyle-label` at 11px, weight 700, letter
+  spacing .06em, uppercase. The judges said 10 to 11px and 0.08em, so the level
+  is right and the tracking is overstated by two hundredths of an em.
+- The B-side labels they quote (`Open in VS Code`, `Add project script`,
+  `Initialize Git`) are all visible in `B/01.png`.
+
+Nothing in either citation is invented. One number is slightly off, which is
+what a citation is for: a person opens the image and the stylesheet and sees it.
+
+## Is the verdict stable
+
+Within this model, yes: two independent calls both give the win to A, with
+different confidence (`clear`, `slight`) and different wording.
+
+Across models, no. The same panel judged by `claude-opus-5-5` gave the win to B
+and cited the studio's semibold spread across nav, buttons, tabs and toggle
+labels. That answer is kept as `superseded/claude-opus-5-5.json`. Two models
+looking at the same pixels read the same facts differently: our caps labels are
+a scale to one judge and decoration to the other. That is an argument for
+recording the citation as the finding and for not treating a single call as
+truth.
 
 ## Cost
 
-$0.688 for both calls ($0.306 and $0.382). The filed record carries only the
-second call's $0.382. Billed to the person's own Claude Code subscription, zero
-Capy credits.
+- Call 1 (reply-only): 7.76 credits, 581k tokens.
+- Call 2 (file write): 17.95 credits, 559k tokens.
+- Failed `high` attempt: 13.31 credits, 939k tokens, no answer.
+- Vision probe on the same model: 7.22 credits, 109k tokens.
+
+Total spent on this backend: 46.24 credits. Per-call token use, not the model's
+price, is what makes these calls expensive.

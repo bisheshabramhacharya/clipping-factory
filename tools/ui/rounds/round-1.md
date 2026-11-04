@@ -6,7 +6,7 @@ One call per category, blind pair, one winner with a citation or a tie.
 
 | Category | Verdict | Confidence |
 | --- | --- | --- |
-| Typography | loss | slight |
+| Typography | win | clear |
 | Hierarchy | not judged | n/a |
 | Spacing and rhythm | not judged | n/a |
 | Color and contrast | not judged | n/a |
@@ -15,16 +15,16 @@ One call per category, blind pair, one winner with a citation or a tie.
 | Clarity of the primary action | not judged | n/a |
 | Empty and error states | not judged | n/a |
 
-Wins 0 · losses 1 · ties 0 · not judged 7
+Wins 1 · losses 0 · ties 0 · not judged 7
 
-### Typography: loss (slight)
+### Typography: win (clear)
 
-Citation, winner is side B:
+Citation, winner is side A:
 
-> B/01.png: hierarchy uses size and color, not weight. The heading 'What should we work on?' (y about 262) is about 28px at regular weight, the 'No project' line under it is about 14px, the composer controls ('Opus 5.5', 'Auto (High) · Extra High', 'Full access' at y about 439) share one 14px regular style, and sidebar meta ('MacBook Pro', '10h') steps down to about 12px muted. A/01.png sets nav ('Library'), buttons ('Review clips'), segment tabs ('Impact') and toggle labels ('Hook title', 'Auto-cut') all at semibold, so weight no longer marks importance, and the same score appears as '#1 · 8.7' in the list but as a bold 'score 8.7' pill in the detail panel.
+> A/02.png: the panel's micro-labels "CAPTIONS" and "EXTRAS" are both set at the same ~11px uppercase with ~0.08em tracking, while the six clip titles all sit at 14/19 and their durations all at 13px, so the same kind of value gets the same treatment in every row; B/02.png runs one muted ~13px weight across the breadcrumb, sidebar rows and field labels, so hierarchy there is carried by color, not by type.
 
-Why: B keeps a small, quiet scale (about 28/14/12) where each step has a job and the same kind of value looks the same. A has a workable scale and readable 13px body, but semibold is spread across almost every control and the clip score gets two treatments, so headings and controls compete; B shows less dense content, so the margin is small.
+Why: A has a real scale of four or five sizes with tracked uppercase micro-labels, a consistent heading/body pairing and matching numeric treatment across list rows and the score badge; B is clean but nearly single-size, leaning on gray levels rather than type to separate a heading from its own subtitle.
 
-Judge: claude, claude-opus-5-5.
+Judge: capy-subagent, deepseek/deepseek-v4.1-flash.
 
 Findings: 0.

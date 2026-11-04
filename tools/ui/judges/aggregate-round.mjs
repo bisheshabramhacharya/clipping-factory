@@ -88,7 +88,7 @@ async function main() {
     const panel = map?.categories?.[category.key];
     const answer = panel ? await readJson(path.join(dir, "comparative", category.key, "answer.json")) : null;
     const failed = panel ? await readJson(path.join(dir, "comparative", category.key, "failed.json")) : null;
-    const call = panel ? await readJson(path.join(dir, "comparative", category.key, "call.json")) : null;
+    const call = panel ? await readJson(path.join(dir, "comparative", category.key, "calls.json")) : null;
     if (!answer) {
       verdicts[category.key] = { label: category.label, verdict: "not_judged", failure: failed?.reason || null };
       tally.not_judged += 1;
@@ -105,8 +105,8 @@ async function main() {
       citation: answer.citation,
       why: answer.why,
       confidence: answer.confidence,
-      judge: call?.judge || null,
-      model: call?.attempts?.at(-1)?.model || null,
+      judge: call?.calls?.at(-1)?.judge || null,
+      model: call?.calls?.at(-1)?.model || null,
     };
   }
 
