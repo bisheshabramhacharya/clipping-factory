@@ -23,7 +23,10 @@
     </header>
 
     <div class="banners">
-      <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive"></div>
+      <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive">
+        <strong>Setup needs attention</strong>
+        <p id="setup-banner-text"></p>
+      </div>
       <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
       <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
     </div>
@@ -37,7 +40,8 @@
             <div id="drop-empty" class="drop-panel">
               <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <strong>Drop a podcast</strong>
-              <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+              <span class="drop-support">MP4 or M4V. The file never leaves this machine.</span>
+              <button id="choose-btn" class="primary" type="button">Choose a video</button>
             </div>
             <div id="drop-staged" class="drop-panel hidden" aria-live="polite">
               <span class="staged-kicker">Ready to clip</span>
@@ -118,7 +122,7 @@
             <label class="opt opt-wide" for="focus-prompt">
               <span class="opt-label">Focus</span>
               <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
-                placeholder="Optional — e.g. pricing, or where they disagree">
+                placeholder="Optional, e.g. pricing or where they disagree">
             </label>
           </div>
         </div>
@@ -135,7 +139,7 @@
 
       <!-- Processing state -->
       <section id="processing-state" class="hidden" aria-labelledby="processing-title">
-        <h2 id="processing-title" class="sr-only">Processing</h2>
+        <h2 id="processing-title" class="proc-title">Making clips</h2>
         <div class="source-line">
           <div>
             <span id="source-name" class="source-name"></span>
@@ -155,7 +159,6 @@
           </div>
         </div>
         <div id="current-op" class="current-op hidden">
-          <span class="spinner"></span>
           <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>
           <span id="elapsed" class="muted" aria-hidden="true"></span>
         </div>
@@ -179,13 +182,14 @@
             <p class="muted small" id="results-sub"></p>
           </div>
           <div class="results-actions">
-            <button id="review-clips-btn" class="primary" type="button" hidden>Review clips <kbd>R</kbd></button>
             <button id="open-folder-btn" type="button">Open folder</button>
             <button id="new-project-btn" type="button">New project</button>
+            <button id="review-clips-btn" type="button" hidden>Review clips <kbd>R</kbd></button>
           </div>
         </div>
         <div class="studio">
           <nav class="clip-rail" aria-label="Clips">
+            <div class="rail-head"><span class="rail-head-label">Clips</span><span id="rail-count" class="rail-head-count"></span></div>
             <div id="clip-rail-list" class="clip-rail-list"></div>
             <details id="rejected-details" class="rejected hidden">
               <summary>Rejected</summary>
@@ -276,9 +280,11 @@
       <button id="review-close" class="review-close" type="button">Close <kbd>Esc</kbd></button>
     </div>
     <div class="review-stage">
-      <button id="review-prev" class="review-arrow" type="button" aria-label="Previous clip">‹</button>
-      <div class="review-phone"><video id="review-video" controls playsinline muted></video></div>
-      <button id="review-next" class="review-arrow" type="button" aria-label="Next clip">›</button>
+      <div class="review-media">
+        <button id="review-prev" class="review-arrow" type="button" aria-label="Previous clip">‹</button>
+        <div class="review-phone"><video id="review-video" controls playsinline muted></video></div>
+        <button id="review-next" class="review-arrow" type="button" aria-label="Next clip">›</button>
+      </div>
       <div class="review-copy">
         <p id="review-meta" class="review-meta"></p>
         <h2 id="review-title"></h2>
@@ -299,9 +305,9 @@
         <div id="review-done-stats" class="review-done-stats"></div>
         <div id="review-done-kept" class="review-done-kept"></div>
         <div class="review-done-actions">
-          <button id="review-done-download" class="primary" type="button">Download kept clips</button>
           <button id="review-done-again" type="button">Review again</button>
           <button id="review-done-close" type="button">Back to studio</button>
+          <button id="review-done-download" class="primary" type="button">Download kept clips</button>
         </div>
       </div>
     </div>

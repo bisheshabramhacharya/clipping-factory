@@ -133,7 +133,7 @@
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       populateLanguagePicker(s);
       if (problems.length) {
-        banner.textContent = problems.join("\n");
+        $("setup-banner-text").textContent = problems.map((text) => `· ${text}`).join("\n");
         banner.classList.remove("hidden");
       } else {
         banner.classList.add("hidden");
@@ -1095,16 +1095,13 @@
       } else {
         thumb.innerHTML = c.status === "rendering" ? `<span class="spinner"></span>` : "";
       }
-      const dur = document.createElement("span");
-      dur.className = "rail-dur";
-      dur.textContent = fmtMs(c.duration_ms);
-      thumb.appendChild(dur);
       const text = document.createElement("span");
       text.className = "rail-text";
       const top = document.createElement("span");
       top.className = "rail-rank";
-      top.textContent = captionOnly ? "Full video" : `#${c.rank}` +
+      top.textContent = captionOnly ? "Full video" : String(c.rank).padStart(2, "0") +
         (typeof c.score === "number" ? ` · ${c.score.toFixed(1)}` : "") +
+        (c.duration_ms ? ` · ${fmtMs(c.duration_ms)}` : "") +
         (c.status === "rendering" ? " · rendering" : c.status === "failed" ? " · failed" : c.status === "ready" ? "" : " · queued");
       const title = document.createElement("span");
       title.className = "rail-title";
@@ -1116,6 +1113,8 @@
       b.addEventListener("click", () => selectClip(c.id));
       list.appendChild(b);
     });
+    const count = $("rail-count");
+    if (count) count.textContent = ranked.length ? String(ranked.length) : "";
     document.dispatchEvent(new CustomEvent("cf-rail-rendered"));
   }
 
@@ -1143,11 +1142,11 @@
   // bridge below instead of scraping this DOM.
   function clipRankText(c) {
     if (view.caption_only === true) return `Full video · ${fmtMs(c.duration_ms)}`;
-    return `${c.rank === 1 ? "Best clip" : `Clip ${c.rank}`} · ${fmtMs(c.duration_ms)}`;
+    return c.rank === 1 ? "Best clip" : `Clip ${c.rank}`;
   }
 
   function clipTitleText(c) {
-    return view.caption_only === true ? "Captioned video" : `“${c.headline}”`;
+    return view.caption_only === true ? "Captioned video" : c.headline;
   }
 
   function clipWhyText(c) {
@@ -1209,7 +1208,6 @@
     body.className = "clip-info";
     const captionOnly = view.caption_only === true;
     const badges = [];
-    if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">unclear audio</span>`);
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
@@ -1221,10 +1219,11 @@
       <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
     body.querySelector(".rank").textContent = clipRankText(c);
     body.querySelector("h3").textContent = clipTitleText(c);
+    const range = captionOnly
+      ? `Full ${fmtMs(c.duration_ms)} video`
+      : `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)}`;
     body.querySelector(".times").textContent =
-      captionOnly
-        ? `Full ${fmtMs(c.duration_ms)} video`
-        : `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)}`;
+      typeof c.score === "number" ? `${range} · ${c.score.toFixed(1)}` : range;
     body.querySelector(".why").textContent = clipWhyText(c);
     if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
@@ -1407,7 +1406,7 @@
     const customPicker = document.createElement("label");
     customPicker.className = "custom-color-picker";
     const customLabel = document.createElement("span");
-    customLabel.textContent = "";
+    customLabel.textContent = "Custom";
     const custom = document.createElement("input");
     custom.type = "color";
     custom.className = "custom-color";
@@ -1868,7 +1867,7 @@
         title: clipTitleText(c),
         rank: clipRankText(c),
         reason: clipWhyText(c) || "",
-        score: typeof c.score === "number" ? `score ${c.score.toFixed(1)}` : "",
+        score: typeof c.score === "number" ? c.score.toFixed(1) : "",
         downloadHref: apiPath("projects", projectId, "clips", c.id, "download"),
         downloadName: c.filename || "",
       });

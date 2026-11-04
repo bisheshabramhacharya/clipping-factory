@@ -1,1148 +1,131 @@
 {
   "checked": {
-    "states": 9,
+    "states": 11,
     "viewports": [
       "1280x800",
       "1440x900",
       "1920x1080"
     ],
-    "shots": 27,
-    "text_pairs": 1140
+    "shots": 33,
+    "text_pairs": 1629
   },
   "wcag": {
-    "failures": [
-      {
-        "state": "empty-upload",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "empty-upload",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "empty-upload",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "staged-file",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "staged-file",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "staged-file",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(4) > strong",
-        "text": "4. Find candidates",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(5) > strong",
-        "text": "5. Validate",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(6) > strong",
-        "text": "6. Analyze framing",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(7) > strong",
-        "text": "7. Render",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(4) > strong",
-        "text": "4. Find candidates",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(5) > strong",
-        "text": "5. Validate",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(6) > strong",
-        "text": "6. Analyze framing",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(7) > strong",
-        "text": "7. Render",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(4) > strong",
-        "text": "4. Find candidates",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(5) > strong",
-        "text": "5. Validate",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(6) > strong",
-        "text": "6. Analyze framing",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-mid-run",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(7) > strong",
-        "text": "7. Render",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(4) > strong",
-        "text": "4. Find candidates",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(5) > strong",
-        "text": "5. Validate",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(6) > strong",
-        "text": "6. Analyze framing",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(7) > strong",
-        "text": "7. Render",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1280,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#error-box:nth-of-type(5) > div:nth-of-type(1) > p#error-text",
-        "text": "Transcription failed: whisper-cli exited with code 134. Check that the model fil",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(239, 227, 222)",
-        "ratio": 4.43,
-        "required": 4.5,
-        "font_size": "13px",
-        "font_weight": "400"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(4) > strong",
-        "text": "4. Find candidates",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(5) > strong",
-        "text": "5. Validate",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(6) > strong",
-        "text": "6. Analyze framing",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(7) > strong",
-        "text": "7. Render",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1440,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#error-box:nth-of-type(5) > div:nth-of-type(1) > p#error-text",
-        "text": "Transcription failed: whisper-cli exited with code 134. Check that the model fil",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(239, 227, 222)",
-        "ratio": 4.43,
-        "required": 4.5,
-        "font_size": "13px",
-        "font_weight": "400"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(4) > strong",
-        "text": "4. Find candidates",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(5) > strong",
-        "text": "5. Validate",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(6) > strong",
-        "text": "6. Analyze framing",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#stages:nth-of-type(2) > div.step:nth-of-type(7) > strong",
-        "text": "7. Render",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "13.5px",
-        "font_weight": "550"
-      },
-      {
-        "state": "processing-error",
-        "viewport": 1920,
-        "selector": "main#stage > section#processing-state:nth-of-type(2) > div#error-box:nth-of-type(5) > div:nth-of-type(1) > p#error-text",
-        "text": "Transcription failed: whisper-cli exited with code 134. Check that the model fil",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(239, 227, 222)",
-        "ratio": 4.43,
-        "required": 4.5,
-        "font_size": "13px",
-        "font_weight": "400"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-6-clips",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "results-rejected-expanded",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "library-open",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1280,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1440,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(1) > span.restyle-label",
-        "text": "Captions",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "clip-detail-restyle",
-        "viewport": 1920,
-        "selector": "div.inspector:nth-of-type(2) > div.restyle:nth-of-type(3) > div.restyle-scroll:nth-of-type(1) > div.restyle-section:nth-of-type(2) > span.restyle-label",
-        "text": "Extras",
-        "foreground": "rgb(154, 150, 141)",
-        "background": "rgb(255, 255, 255)",
-        "ratio": 2.95,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "700"
-      },
-      {
-        "state": "setup-missing-runtime",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "setup-missing-runtime",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "setup-missing-runtime",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      }
-    ],
-    "count": 78,
-    "unique": 8
+    "failures": [],
+    "count": 0,
+    "unique": 0
   },
   "distinct_values": {
-    "radius": 13,
-    "font_sizes": 13,
-    "shadows": 6,
-    "colors": 9,
-    "font_families": 3
+    "radius": 6,
+    "font_sizes": 7,
+    "shadows": 2,
+    "colors": 8,
+    "font_families": 1
   },
   "values": {
     "radius": [
       {
         "value": "0px",
-        "count": 1653
-      },
-      {
-        "value": "999px",
-        "count": 435
-      },
-      {
-        "value": "50%",
-        "count": 150
-      },
-      {
-        "value": "12px",
-        "count": 141
-      },
-      {
-        "value": "6px",
-        "count": 114
+        "count": 2553
       },
       {
         "value": "4px",
-        "count": 72
+        "count": 468
       },
       {
-        "value": "8px",
-        "count": 72
+        "value": "6px",
+        "count": 468
       },
       {
-        "value": "22px",
-        "count": 24
+        "value": "50%",
+        "count": 243
       },
       {
-        "value": "18px",
-        "count": 15
+        "value": "999px",
+        "count": 81
       },
       {
-        "value": "0px 0px 22px 22px",
-        "count": 12
-      },
-      {
-        "value": "16px",
-        "count": 12
-      },
-      {
-        "value": "5px",
-        "count": 12
-      },
-      {
-        "value": "24px",
-        "count": 9
+        "value": "10px",
+        "count": 27
       }
     ],
     "fontSizes": [
       {
-        "value": "14px",
-        "count": 927
-      },
-      {
         "value": "13px",
-        "count": 771
+        "count": 1941
       },
       {
         "value": "12px",
-        "count": 315
-      },
-      {
-        "value": "12.5px",
-        "count": 270
+        "count": 843
       },
       {
         "value": "11px",
-        "count": 90
-      },
-      {
-        "value": "11.5px",
-        "count": 87
+        "count": 552
       },
       {
         "value": "10px",
-        "count": 72
-      },
-      {
-        "value": "13.3333px",
-        "count": 69
-      },
-      {
-        "value": "13.5px",
-        "count": 57
+        "count": 420
       },
       {
         "value": "15px",
-        "count": 27
+        "count": 42
       },
       {
-        "value": "18px",
-        "count": 15
+        "value": "20px",
+        "count": 33
       },
       {
-        "value": "16px",
-        "count": 12
-      },
-      {
-        "value": "19px",
+        "value": "26px",
         "count": 9
       }
     ],
     "shadows": [
       {
-        "value": "rgba(27, 26, 25, 0.22) 0px 0px 0px 1px",
-        "count": 117
+        "value": "rgba(0, 0, 0, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 18px 48px 0px",
+        "count": 18
       },
       {
-        "value": "rgba(27, 26, 25, 0.06) 0px 1px 2px 0px",
-        "count": 57
-      },
-      {
-        "value": "rgba(27, 26, 25, 0.08) 0px 8px 28px 0px, rgba(27, 26, 25, 0.06) 0px 1px 3px 0px",
-        "count": 30
-      },
-      {
-        "value": "rgb(27, 26, 25) 0px 0px 0px 2px",
-        "count": 21
-      },
-      {
-        "value": "rgba(0, 0, 0, 0.45) 0px 20px 60px 0px",
-        "count": 12
-      },
-      {
-        "value": "rgba(27, 26, 25, 0.18) 0px 24px 64px 0px",
-        "count": 3
+        "value": "rgba(0, 0, 0, 0.14) 0px 12px 40px 0px, rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+        "count": 6
       }
     ],
     "colors": [
       {
-        "value": "rgb(27, 26, 25)",
-        "count": 1803
+        "value": "rgb(10, 10, 10)",
+        "count": 2682
       },
       {
-        "value": "rgb(107, 104, 96)",
-        "count": 567
+        "value": "rgb(86, 86, 86)",
+        "count": 534
       },
       {
-        "value": "rgb(255, 255, 255)",
-        "count": 144
-      },
-      {
-        "value": "rgb(154, 150, 141)",
-        "count": 84
+        "value": "rgb(110, 110, 110)",
+        "count": 462
       },
       {
         "value": "rgb(0, 0, 0)",
-        "count": 69
+        "count": 99
       },
       {
-        "value": "rgb(156, 152, 143)",
-        "count": 24
+        "value": "rgb(255, 255, 255)",
+        "count": 45
       },
       {
-        "value": "rgb(179, 64, 46)",
-        "count": 18
+        "value": "rgb(23, 105, 63)",
+        "count": 12
       },
       {
-        "value": "rgb(166, 75, 43)",
-        "count": 9
+        "value": "rgb(138, 90, 0)",
+        "count": 3
       },
       {
-        "value": "rgb(47, 122, 82)",
+        "value": "rgb(163, 33, 22)",
         "count": 3
       }
     ],
     "fonts": [
       {
-        "value": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 2640
-      },
-      {
-        "value": "Arial",
-        "count": 69
-      },
-      {
-        "value": "ui-monospace, SFMono-Regular, Menlo, monospace",
-        "count": 12
+        "value": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+        "count": 3840
       }
     ]
   },
@@ -1151,7 +134,98 @@
     "count": 0
   },
   "clipped_text": {
-    "count": 0,
-    "items": []
+    "count": 9,
+    "items": [
+      {
+        "state": "processing-mid-run",
+        "viewport": 1280,
+        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
+        "scroll_width": 729,
+        "client_width": 519,
+        "delta": 210,
+        "ellipsis": true
+      },
+      {
+        "state": "processing-mid-run",
+        "viewport": 1440,
+        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
+        "scroll_width": 729,
+        "client_width": 519,
+        "delta": 210,
+        "ellipsis": true
+      },
+      {
+        "state": "processing-mid-run",
+        "viewport": 1920,
+        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
+        "scroll_width": 729,
+        "client_width": 519,
+        "delta": 210,
+        "ellipsis": true
+      },
+      {
+        "state": "processing-error",
+        "viewport": 1280,
+        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
+        "scroll_width": 729,
+        "client_width": 600,
+        "delta": 129,
+        "ellipsis": true
+      },
+      {
+        "state": "processing-error",
+        "viewport": 1440,
+        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
+        "scroll_width": 729,
+        "client_width": 600,
+        "delta": 129,
+        "ellipsis": true
+      },
+      {
+        "state": "processing-error",
+        "viewport": 1920,
+        "selector": "div.shell:nth-of-type(1) > main#stage > section#processing-state:nth-of-type(2) > div.source-line:nth-of-type(1) > div",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4 1280×720 · 04:48",
+        "scroll_width": 729,
+        "client_width": 600,
+        "delta": 129,
+        "ellipsis": true
+      },
+      {
+        "state": "library-open",
+        "viewport": 1280,
+        "selector": "section#library-state > div#library-list > div.library-card.open:nth-of-type(1) > button.library-open:nth-of-type(1) > span.name:nth-of-type(1)",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4",
+        "scroll_width": 482,
+        "client_width": 279,
+        "delta": 203,
+        "ellipsis": true
+      },
+      {
+        "state": "library-open",
+        "viewport": 1440,
+        "selector": "section#library-state > div#library-list > div.library-card.open:nth-of-type(1) > button.library-open:nth-of-type(1) > span.name:nth-of-type(1)",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4",
+        "scroll_width": 482,
+        "client_width": 279,
+        "delta": 203,
+        "ellipsis": true
+      },
+      {
+        "state": "library-open",
+        "viewport": 1920,
+        "selector": "section#library-state > div#library-list > div.library-card.open:nth-of-type(1) > button.library-open:nth-of-type(1) > span.name:nth-of-type(1)",
+        "text": "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4",
+        "scroll_width": 482,
+        "client_width": 279,
+        "delta": 203,
+        "ellipsis": true
+      }
+    ]
   }
 }

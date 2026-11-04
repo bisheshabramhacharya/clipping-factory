@@ -1,0 +1,455 @@
+{
+  "round": 5,
+  "panels": [
+    {
+      "panel": "absolute-1280-library",
+      "screens": [],
+      "role": "absolute"
+    },
+    {
+      "panel": "absolute-1280-process",
+      "screens": [],
+      "role": "absolute"
+    },
+    {
+      "panel": "absolute-1280-studio",
+      "screens": [],
+      "role": "absolute"
+    },
+    {
+      "panel": "absolute-1280-theater",
+      "screens": [],
+      "role": "absolute"
+    },
+    {
+      "panel": "absolute-1280-upload",
+      "screens": [],
+      "role": "absolute"
+    }
+  ],
+  "categories": {
+    "typography": {
+      "median": 7,
+      "low": 6,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 6,
+          "evidence": "library-open@1280 and results-rejected-expanded@1280 share one neutral sans on a coherent scale (page heading 24px, clip title ~26px, row titles 14px, meta 12-13px), but the same kind of value gets different treatments: a score is '01 · 8.7' in the clip rail and an uppercase letterspaced 'SCORE 8.7' pill in the rail panel, and file status is inline 'Complete' in library-open but a separate letterspaced 'open'. Rejected reasons at ~12px in a ~220px column wrap to five lines, which is heavy scanning for a list of scores."
+        },
+        {
+          "panel": "1280-process",
+          "score": 7,
+          "evidence": "processing-mid-run@1280: one family throughout, a tight scale (12px meta, ~13px semibold row titles, 12px body), and the right-aligned tabular values '1280×720 · h264 / aac · 04:48' and '48 kHz mono · 13 MB' line up on the same edge across two rows. setup-missing-runtime@1280 adds a consistent uppercase micro-label treatment (CAPTIONS, FRAMING, ACCENT, LANGUAGE, LENGTH, FOCUS) with even tracking. Deduction: the filename line truncates two different ways at the same width, '...(720p).mp4 12...' on processing-mid-run@1280 versus '...1280×720 · 04:...' on processing-error@1280, so the most important string has no deliberate truncation rule."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 7,
+          "evidence": "results-6-clips@1280 and clip-detail-restyle@1280: one family throughout, a readable scale (24px page title, 21-23px inspector title, 13-14px list and body, 11px letterspaced uppercase eyebrows like CLIPS / BEST CLIP / CAPTIONS / EXTRAS). The same kind of value keeps the same treatment across both screens: clip index and score always '01 - 8.7', durations always tabular inside a black badge, ranges always '00:21 - 00:52'. Deductions: headings and meta sit close enough in size that the panel title fights the 24px page title, and several strings drop to 11px uppercase (SRT VTT META POSTER, 'Why this clip', 'Unsaved changes') so the low end of the scale carries real interactive text."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 7,
+          "evidence": "review-theater@1280: one family throughout, ~28px/1.25 title against 13px description and 11px hint row, with the eyebrow set at ~10px uppercase with wide tracking, so a real scale exists rather than per-element sizes. review-done@1280 reuses it: 22px modal title, 20px stat numerals, 10px tracked labels, 12px list rows. Docked one point because the eyebrow run 'BEST CLIP - SCORE 8.7' sets a qualitative label and a numeric score in the same small tracked run, and the 13px description and 11px shortcut hint are close enough to read as one tier."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 7,
+          "evidence": "empty-upload@1280 and staged-file@1280: one family throughout, a working scale (10px tracked caps section labels, 13px controls and body hints, 19px/600 filename, 11px caps wordmark). Numeric treatments match across screens (\"2.3 MB\" at 12px, \"Library 5\" in the nav). Headings clear body without shouting. Held back from 8 by the 10px uppercase labels doing duty as both eyebrow (\"READY TO CLIP\") and field label (\"CAPTIONS\"), two different jobs in near-identical type."
+        }
+      ]
+    },
+    "hierarchy": {
+      "median": 6,
+      "low": 5,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 6,
+          "evidence": "results-rejected-expanded@1280 has a real focal point (the portrait player) and the right rail steps down cleanly: eyebrow label, title, score, downloads, captions, extras. But that rail's clip title is set near the page heading '6 clips' in size and weight, so two headings compete at the top of one screen. library-open@1280 is unambiguous: dimmed app behind a 370px drawer, one reading path down the rows."
+        },
+        {
+          "panel": "1280-process",
+          "score": 5,
+          "evidence": "processing-mid-run@1280: nothing on the screen names the state as a title; the filename is the loudest text at ~13px and everything under it is 12px, so a single ~600px card in a 1280 canvas has to carry the focal point from ~200px of dead space above. The screen exists to show progress, yet progress appears three times at equal weight: 'Working...' on row 3, the 'Overall 34% · ~34m left' block, and the footer '3. Transcribe · 38% · ~10m remaining'. setup-missing-runtime@1280 has the dependency block and the 'Drop a podcast' heading at nearly the same weight, so neither reads first."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 7,
+          "evidence": "Both screens hold a clean three-region read: clip list left of a hairline, video centre, inspector right of a hairline, with a stable header above. Eyebrow, title, range, score chip and disclosure step down in that order inside the panel, and section rules (CAPTIONS, EXTRAS) group without boxes. The weak point is weight allocation: the solid black 'Review clips' button at top right is the loudest thing on both screens even though the user is already on the results screen, while the panel's own action ('Apply changes') is a pale fill at the far bottom right."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 6,
+          "evidence": "review-theater@1280 has a genuine focal point (the 394x663 still) and the right column steps down cleanly: eyebrow, title, one-line rationale, controls. review-done@1280 leads with '6 clips worth posting' and then the three stat cards. Weakened on both screens: theater leaves the title block dominated by two equal-weight action rows beneath it, and done sets the bordered stat cards at a size that competes with its own heading instead of supporting it."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 7,
+          "evidence": "staged-file@1280 has a clean reading path: teal eyebrow, filename as the loudest element, size, one-line hint, then the action pair, then the options panel stepped down. empty-upload@1280 puts the drop zone and its black button at the centre of the card with nothing competing. Options rows group by space rather than borders. Not 8 because the options panel is a long undifferentiated run of four label/control pairs with no cue about which matter."
+        }
+      ]
+    },
+    "spacing_rhythm": {
+      "median": 6,
+      "low": 6,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 6,
+          "evidence": "Both screens hold a 24px page gutter and the three columns of results-rejected-expanded@1280 land on consistent edges. Gaps drift inside the panels though: the right rail uses hairline rules between CAPTIONS and EXTRAS but plain gaps elsewhere, and 'Apply changes' floats roughly 110px below the last toggle it applies to. In library-open@1280 the selected row has more left padding than the rows under it and the row separators stop short of the Delete column."
+        },
+        {
+          "panel": "1280-process",
+          "score": 6,
+          "evidence": "processing-mid-run@1280 and processing-error@1280: the seven stage rows share an identical 39px rhythm with one hairline between each, and the card's left edge lines up exactly with the filename above and the Overall block below. Loose ends: the Cancel button butts against the truncated filename with no measured gap, the footer status line hangs under the overall bar with no relationship drawn to it, and the content block starts ~200px down on mid-run/error against ~62px on setup-missing-runtime@1280, so vertical placement is not shared across states."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 7,
+          "evidence": "A small scale is visibly in use and holds across the two screens: 24px page padding, 24px gutter around the video, hairline separators at identical offsets in the inspector (CAPTIONS at the same y, EXTRAS at the same y, in both states), 8px between the caption tabs and the swatch row, 16px between the toggle rows. Inspector edges line up with the download row and the footer row. It loses points for density drift at the tight end: 4-6px gaps between swatches, the Font label and its select make that block read as one clump, and the score chip sits only 8px under the timestamp line."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 6,
+          "evidence": "review-theater@1280: consistent 32px page padding, a 146px gutter between the still (ends 642) and the text column (starts 715), 12px between the three choice buttons, and roughly 24-48px between text tiers. Alignment holds inside each panel. But the column stops near x=980 and leaves roughly 300px of untouched white on the right while the still hugs the left, so the composition reads as one heavy side and one empty side rather than a centered pair."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 6,
+          "evidence": "Both screens: consistent 24px card padding, uniform 20px gaps between option rows, and the two-column rows (Framing/Accent, Language/Length) split at a single midpoint on both screens. But the dashed drop zone is inset 16px from the card edge (empty-upload@1280: x=336 vs card x=320) while the CAPTIONS label and every control start at x=344, so the left edge of the top region is 8px off the left edge of everything under it. Same 8px mismatch in staged-file@1280."
+        }
+      ]
+    },
+    "color_contrast": {
+      "median": 6,
+      "low": 6,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 6,
+          "evidence": "Warm off-white ground with near-black body text and one gray for secondary; body and meta copy stay readable in both shots. Status words in library-open@1280 ('Complete', 'Failed', 'Cancelled', 'Transcribing...') are all the same gray with no distinguishing mark or shape, so a failed import reads the same as a finished one at a glance. The four caption swatches add four hues that carry no meaning yet."
+        },
+        {
+          "panel": "1280-process",
+          "score": 6,
+          "evidence": "processing-error@1280: red does exactly one job (the 'Failed' label, the pink panel, its dark heading) and the black 'Retry stage' fill stays clearly separate from it; setup-missing-runtime@1280 keeps the same monochrome shell around a red-bordered notice. Weak spots: the not-yet-run stages and their metadata are light gray at ~12px on white (rows 4-7 on processing-mid-run@1280), below a normal body contrast, and the 'COMING SOON' chip is gray-on-gray in the header on all three shots."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 6,
+          "evidence": "Body and titles are comfortably dark on a warm near-white page, and the system is disciplined: black is the only UI accent, the five caption swatches are content choices rather than decoration, and the score chip reads as status. What keeps this at 6 is the muted tier: the episode subtitle, 'Why this clip', 'SRT VTT META POSTER', 'REJECTED' and 'Unsaved changes' are all around 11-12px in a light grey that sits near the edge of readable, and the unselected caption tabs are so faint in clip-detail-restyle@1280 ('Impact') and results-6-clips@1280 ('Cinema') that they look disabled rather than selectable."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 7,
+          "evidence": "review-done@1280 keeps a small semantic palette: green for KEEP, amber for MAYBE, near-black for SKIP, and the numerals carry the meaning rather than color alone since the label sits under each. Body and secondary text are readable in both screens. Docked for the low-contrast chrome in review-theater@1280, where the prev/next chevrons are a pale gray ring and glyph on white, and the 0 keep / 0 maybe / 0 skip counter and the six progress dots are faint enough to need a second look."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 7,
+          "evidence": "Both screens: near-black primary text on near-white, mid-grey hints that stay legible, one black action colour, hairline borders that read as structure. Status colour is distinct from the accent, and the disabled \"COMING SOON\" badge is visibly inert. The teal \"READY TO CLIP\" eyebrow (staged-file@1280) is the one place that hue appears and it is small and low-contrast against the panel grey, so colour there is decoration rather than signal."
+        }
+      ]
+    },
+    "component_consistency": {
+      "median": 6,
+      "low": 6,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 6,
+          "evidence": "Buttons come from one small family across the set: filled black 'Review clips', outlined 'Open folder' / 'New project' / 'Download MP4', pale 'Apply changes'. The break is the repeated Delete affordance in library-open@1280, plain gray text on four rows and an outlined pill on the fifth, and the Font control falling back to a native select while the same rail uses custom chevrons for disclosure."
+        },
+        {
+          "panel": "1280-process",
+          "score": 6,
+          "evidence": "processing-error@1280 and setup-missing-runtime@1280: 'Choose another MP4' and 'Choose MP4' are the same outlined, ~8px-radius button, and the primary uses one filled black treatment on both screens; the segmented controls (Impact/Clean/Pop/Cinema, Fill/Fit) and the selects share a single shape. Drift: heights disagree with no logic (Cancel on processing-mid-run@1280 is the tallest at ~36px, 'Retry stage' ~30px, 'Choose MP4' ~32px), and the error panel is a borderless tinted block that has no counterpart anywhere else in the set."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 7,
+          "evidence": "One button family across both screens: 'Open folder' and 'New project' share outline, height and radius, 'Review clips' is the same box in solid black, 'Download MP4' is the same height with a heavier label, and 'Apply changes' is the same box in a filled variant. Segmented tabs, select, toggles, textarea and clip cards keep one 6-8px radius and one border weight. Drift is small but real: the 'Download MP4' label weight differs from its sibling text links more than its role justifies, and the pale 'Apply changes' variant has no visible enabled/disabled distinction between the two screens."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 6,
+          "evidence": "The two screens share one outlined button family: Close with its Esc keycap, the three keyed Keep/Maybe/Skip buttons, Review again and Back to studio all read as siblings with the same radius, height and border. Drift shows up twice: the Download MP4 button in review-theater@1280 drops the keycap pattern its neighbors all use and takes a heavier border than the row above it, and the filled-primary treatment only exists on review-done@1280's 'Download kept clips', so the same system looks like it has a different emphasis rule on each screen."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 6,
+          "evidence": "Segmented controls, selects, text input, primary and secondary buttons all share a family across empty-upload@1280 and staged-file@1280, and the active segment (white fill plus hairline) looks identical whether it is Impact or Pop. States are visibly distinct. Drift: text inputs and selects are 36px tall while segmented controls are about 28px and the buttons about 32px, so three control heights sit in one 120px band; the Random/Auto segment group also borrows the Captions track styling at half the width."
+        }
+      ]
+    },
+    "iconography_detail": {
+      "median": 6,
+      "low": 5,
+      "high": 6,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 5,
+          "evidence": "There is barely an icon set to judge: the REJECTED disclosure chevron is fine, but the marker before 'Why this clip' and 'Edit text' in results-rejected-expanded@1280 is a bare bullet dot that reads as an unstyled list marker, the four toggles are hairline gray tracks that read as disabled rather than off, and duration badges over the thumbnails sit at inconsistent insets from the frame edge."
+        },
+        {
+          "panel": "1280-process",
+          "score": 5,
+          "evidence": "processing-mid-run@1280: done rows use a text checkmark glyph, the running row has no mark at all, and the footer '3. Transcribe · 38% · ~10m remaining' is led by a faint hollow circle that reads as an unloaded spinner or a stray dot. processing-error@1280 marks failure with red text only, no cross or icon to complete the checkmark grammar. The one cleanly drawn icon in the set is the circled up-arrow in setup-missing-runtime@1280's drop zone, which is optically centered and consistent in stroke."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 6,
+          "evidence": "The screens are close to icon-free, which keeps style mismatch out of the picture, and the details that are there hold up: identical black duration badges bottom-left of every thumbnail, consistent toggle geometry in the EXTRAS grid, one small chevron on the Font select, tabular numerals inside the badges. The cost is that the disclosure affordances ('Why this clip', 'Edit text', 'REJECTED') are marked by a bare bullet-like dot that reads as a list marker rather than a control, and the 'COMING SOON' badge next to 'AI connection' sits at a different optical weight than the Library count beside it."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 6,
+          "evidence": "review-theater@1280 uses one thin-stroke family: curved chevrons in bordered 28px circles and boxed arrow/Space keycaps in the hint row. review-done@1280 uses small check marks aligned to the list rows. Details carry the right meaning but are uneven: the six progress dots at the top are not one size (the current dot reads larger and darker than the rest), and the chevron circles are pulled well inside the frame from the still's edge, so they read as decorative floats rather than attached controls."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 6,
+          "evidence": "empty-upload@1280: one thin-stroke upload glyph in a bordered circle, aligned to the label below it; staged-file@1280: no file-type glyph at all, the state is carried by the teal caps eyebrow instead. Chevrons in both selects match in weight and sit at the same 16px inset. Small details are consistent (hairline swatch rings, uniform segment separators), but the set is so thin that the staged screen loses the one visual anchor the empty screen had."
+        }
+      ]
+    },
+    "primary_action": {
+      "median": 6,
+      "low": 5,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 6,
+          "evidence": "results-rejected-expanded@1280 answers 'what now' well: 'Review clips R' is the only filled black button and sits where the eye lands after the player, with Downloads and Apply changes stepping down. library-open@1280 has no primary action at all; the loudest thing on every row is a destructive Delete repeated at equal weight five times, with only a text 'Close' to leave the drawer."
+        },
+        {
+          "panel": "1280-process",
+          "score": 6,
+          "evidence": "processing-error@1280: 'Retry stage' is the only filled black control and sits immediately under the failure text with 'Choose another MP4' correctly left as an outline, so the next move is obvious. processing-mid-run@1280 offers only a quiet Cancel, which is right for a non-interruptible job. setup-missing-runtime@1280 is where it breaks: the loudest control is 'Choose MP4', which cannot succeed while FFmpeg and whisper-cli are missing, and the notice above it carries no action, so two next steps compete and the emphasized one is the wrong one."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 5,
+          "evidence": "On both screens the loudest element is 'Review clips' in solid black, but the user is already past review; the action the inspector exists for, 'Apply changes', is a pale grey fill in the bottom right corner, and it looks the same in results-6-clips@1280 (no pending edits) and clip-detail-restyle@1280, where 'Unsaved changes' appears beside it. So the enabled state is indistinguishable from the disabled one at the exact moment it matters, and three export paths (Download MP4 plus SRT/VTT/META/POSTER links) sit at near-equal weight with no stated priority."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 5,
+          "evidence": "review-done@1280 answers 'what now?' in one glance: one filled 'Download kept clips' against two outlined secondaries. review-theater@1280 does not: Keep, Maybe and Skip are three equal-weight outlined buttons, and Download MP4 sits directly under them at the same weight and zero fill, so the screen offers two action rows with no primary and one of them (downloading mid-review) invites leaving the task. The choice-row hint numbers help, but the eye has no single landing point."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 7,
+          "evidence": "empty-upload@1280: \"Choose MP4\" is the only filled button and sits directly under the drop target. staged-file@1280: \"Make clips\" is filled black, \"Change video\" is a bordered secondary beside it, and the reading order lands on the black button. Deduction: on empty-upload@1280 the button says \"Choose MP4\" while the line above it says \"MP4, MOV or M4V\" and the heading says \"Drop a podcast\", so the label narrows the offer and names the file format rather than the outcome."
+        }
+      ]
+    },
+    "empty_error_states": {
+      "median": 6,
+      "low": 4,
+      "high": 7,
+      "calls": [
+        {
+          "panel": "1280-library",
+          "score": 4,
+          "evidence": "The only error signal in the set is the word 'Failed' inside a metadata line in library-open@1280 ('Mar 10, 2026 · Failed · 113 MB'): no cause, no retry, no visual difference from Complete. 'Transcribing...' likewise carries no progress. Neither screen shows an empty state, and the pale 'Apply changes' in results-rejected-expanded@1280 gives no reason it is inactive or what would enable it."
+        },
+        {
+          "panel": "1280-process",
+          "score": 6,
+          "evidence": "processing-error@1280 is the strong one: it names the failing step ('3. Transcribe failed'), states the cause with the exit code and a concrete check, keeps the stage list intact, and offers retry plus swap-file. setup-missing-runtime@1280 is the weak one: five separate problems are dumped as consecutive lines with no heading, no per-problem fix control, no dismissal, and on a Windows shot the whisper line prescribes 'brew install whisper-cpp'; the block also overlaps the drop-zone card so its top border vanishes. The running state (processing-mid-run@1280) is well handled: per-stage status, percentage with time left, and a Cancel that never leaves the screen."
+        },
+        {
+          "panel": "1280-studio",
+          "score": 5,
+          "evidence": "Neither screen shows a designed empty, loading or error state, so this is scored from the one partial signal on offer: the collapsed 'REJECTED' group at the bottom of the clip list appears in both states with a bare label, no count and no explanation of what lands there. That is the shape of a group that would read as a broken or empty panel when opened with nothing in it. The rest of the layout stays intact in what is visible, and the 'AI connection' entry carries a 'COMING SOON' badge rather than a bare dead control."
+        },
+        {
+          "panel": "1280-theater",
+          "score": 6,
+          "evidence": "review-done@1280 is a designed completion state rather than a bare alert: it names the outcome, splits the counts three ways with color and label, lists each kept clip, and offers a forward action plus two ways back, with the layout intact behind it. No empty, loading or error state appears in either shot, so this is scored from the one non-default state present."
+        },
+        {
+          "panel": "1280-upload",
+          "score": 7,
+          "evidence": "empty-upload@1280 is a real designed empty state: what to drop, which formats, and a reassurance about privacy (\"The file never leaves this machine.\"), with the card layout fully intact and the options panel visible and usable underneath. staged-file@1280 confirms the state change is handled by swapping the panel contents rather than shifting the page. No loading or error state appears in either image."
+        }
+      ]
+    }
+  },
+  "panel_medians": {
+    "typography": 7,
+    "hierarchy": 6,
+    "spacing_rhythm": 6,
+    "color_contrast": 6,
+    "component_consistency": 6,
+    "iconography_detail": 6,
+    "primary_action": 6,
+    "empty_error_states": 6
+  },
+  "issues": [
+    {
+      "state": "library-open",
+      "viewport": "1280",
+      "expected": "A failed import names what failed and offers the recovery in place, visually distinct from a completed one.",
+      "actual": "Failure is the single gray word 'Failed' in a metadata string, with no retry and no distinct treatment from 'Complete'.",
+      "panel": "1280-library"
+    },
+    {
+      "state": "results-rejected-expanded",
+      "viewport": "1280",
+      "expected": "One heading owns the screen; the side panel's content sits a step below it.",
+      "actual": "The clip title in the right rail is set at roughly the page heading's size and weight, so '6 clips' and 'The window closes faster than you think' compete.",
+      "panel": "1280-library"
+    },
+    {
+      "state": "results-rejected-expanded",
+      "viewport": "1280",
+      "expected": "The control that commits the caption and extras edits sits with those controls and states why it is inactive.",
+      "actual": "'Apply changes' is pinned alone at the bottom of the rail in a pale disabled fill, far from the toggles it affects.",
+      "panel": "1280-library"
+    },
+    {
+      "state": "library-open",
+      "viewport": "1280",
+      "expected": "The same destructive action looks identical on every row.",
+      "actual": "Delete is plain gray text on four rows and an outlined button on the fifth.",
+      "panel": "1280-library"
+    },
+    {
+      "state": "setup-missing-runtime",
+      "viewport": "1280",
+      "expected": "A titled, grouped list of what is missing, each item with the fix that applies to this platform and a single obvious way forward, laid out in flow rather than over the upload area.",
+      "actual": "Five ungrouped diagnostic lines in a red-bordered box that floats over the drop-zone card and hides its top edge, with no heading, no dismiss, no per-item action, and macOS brew commands shown on the Windows build.",
+      "panel": "1280-process"
+    },
+    {
+      "state": "processing-mid-run",
+      "viewport": "1280",
+      "expected": "One progress readout for the job and one for the current stage, and an intentional running marker beside the active stage.",
+      "actual": "The same 38% and ~10m is stated on the stage row, again in the footer with a faint empty circle as its marker, and the overall 34% sits a third time, so the eye has to reconcile three numbers to learn one fact.",
+      "panel": "1280-process"
+    },
+    {
+      "state": "processing-mid-run",
+      "viewport": "1280",
+      "expected": "The filename truncates at a deliberate point and its technical metadata is treated as secondary text wherever it appears.",
+      "actual": "The filename cuts mid-number to '...(720p).mp4 12...' while processing-error@1280 keeps the dimensions and cuts the duration instead ('...1280×720 · 04:...'), and on the error screen the dimensions sit inside the filename string at the same size and weight.",
+      "panel": "1280-process"
+    },
+    {
+      "state": "clip-detail-restyle",
+      "viewport": "1280",
+      "expected": "With 'Unsaved changes' showing, 'Apply changes' should become the solid primary control so the committed and uncommitted states differ visibly",
+      "actual": "'Apply changes' keeps the same pale grey fill and border it has in results-6-clips@1280, where nothing is pending, so the enabled state and the disabled state look identical",
+      "panel": "1280-studio"
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1280",
+      "expected": "The primary action should belong to the screen the user is on, and the second-order navigation should recede",
+      "actual": "'Review clips' in solid black is the heaviest element on a screen that already shows the reviewed results, outranking both the panel action and the export",
+      "panel": "1280-studio"
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1280",
+      "expected": "Secondary export formats should read as clearly lighter than the main download while staying legible",
+      "actual": "SRT, VTT, META and POSTER sit at 11px uppercase in a very light grey next to 'Download MP4', closer to disabled text than to a secondary link row",
+      "panel": "1280-studio"
+    },
+    {
+      "state": "clip-detail-restyle",
+      "viewport": "1280",
+      "expected": "Unselected tabs in the CAPTIONS segmented control should read as available options",
+      "actual": "The label on unselected tabs is faint enough ('Impact' here, 'Cinema' in results-6-clips@1280) that it reads as disabled, leaving the selected tab as the only one that looks clickable",
+      "panel": "1280-studio"
+    },
+    {
+      "state": "results-6-clips",
+      "viewport": "1280",
+      "expected": "Selecting a clip should produce an unmistakable row state, distinct from the card borders it sits between",
+      "actual": "The selected row is a very light grey fill inside a hairline border, a difference of only a few percent from the unselected rows in both screens",
+      "panel": "1280-studio"
+    },
+    {
+      "state": "review-theater",
+      "viewport": "1280",
+      "expected": "One unmistakable primary for the review decision, filled, with download demoted to a quiet secondary or moved out of the flow.",
+      "actual": "Keep, Maybe and Skip plus Download MP4 are four outlined buttons in two stacked rows at the same weight; nothing is filled, so the page has no single next step.",
+      "panel": "1280-theater"
+    },
+    {
+      "state": "review-theater",
+      "viewport": "1280",
+      "expected": "A balanced composition, with the still and the text column centered as a pair or the column stretched to use the width it was given.",
+      "actual": "The still sits at x=248-642 and the text ends near x=980, leaving about 300px of dead white on the right while the left edge is tight.",
+      "panel": "1280-theater"
+    },
+    {
+      "state": "review-theater",
+      "viewport": "1280",
+      "expected": "Navigation chevrons attached to the media they move, at readable contrast.",
+      "actual": "28px pale-ring chevrons float in open white, one of them about 58px from the still's edge, with a glyph light enough to miss.",
+      "panel": "1280-theater"
+    },
+    {
+      "state": "review-done",
+      "viewport": "1280",
+      "expected": "Supporting detail sized below the heading it supports.",
+      "actual": "The three bordered stat cards sit nearly as loud as the 22px '6 clips worth posting' title, so the eye lands on the boxes before the sentence.",
+      "panel": "1280-theater"
+    },
+    {
+      "state": "empty-upload",
+      "viewport": "1280",
+      "expected": "One offer stated once: if the picker accepts MP4, MOV and M4V, the button should say so or say \"Choose video\", matching the heading \"Drop a podcast\".",
+      "actual": "The heading says \"Drop a podcast\", the sub-line says \"MP4, MOV or M4V\", and the button says \"Choose MP4\", which reads as MP4-only and as a format rather than an action.",
+      "panel": "1280-upload"
+    },
+    {
+      "state": "empty-upload",
+      "viewport": "1280",
+      "expected": "The top region and the options panel below it share one content edge, so the eye follows a single left margin down the card.",
+      "actual": "The dashed drop zone is inset 16px from the card (x=336) while the CAPTIONS label, the segmented track and every input start at x=344, leaving an 8px step between the two halves of the card. The same step appears in staged-file@1280.",
+      "panel": "1280-upload"
+    },
+    {
+      "state": "staged-file",
+      "viewport": "1280",
+      "expected": "Control height comes from one small set, so a row of mixed controls on the same line reads as one band.",
+      "actual": "Selects and the text input are 36px tall, segmented controls about 28px, and buttons about 32px, so three heights coexist in the same card with no stated reason.",
+      "panel": "1280-upload"
+    }
+  ],
+  "notes": [
+    {
+      "panel": "1280-library",
+      "notes": "Screens read: results-rejected-expanded@1280, library-open@1280. No empty, loading or error-recovery screen was in this call, so the empty/error category is scored from the Cancelled/Failed/Transcribing rows in library-open only. Hover, focus and true disabled states are not visible in stills. The rejected list is clipped by the bottom edge of the rail, so its overflow treatment could not be judged."
+    },
+    {
+      "panel": "1280-process",
+      "notes": "Scored from three screens only: processing-mid-run@1280, processing-error@1280 and setup-missing-runtime@1280, all Windows. No library, completed or settings states were available, so component consistency and iconography rest on a narrow sample. The narrow centered column leaves roughly half the 1280 canvas empty on the two process screens; that reads as deliberate calm for this state rather than a defect, but it is why hierarchy is not higher."
+    },
+    {
+      "panel": "1280-studio",
+      "notes": "Scored from two screens only: results-6-clips@1280 and clip-detail-restyle@1280, which are the same results screen in two states (first clip vs third clip, collapsed vs expanded Edit text). No empty, loading, error, modal, settings or library screen was in this call, so empty/error is judged mostly from the collapsed REJECTED group and from what the visible states imply. No other widths were supplied. Fixture content (episode name, clip titles, the video still) was ignored; the parenthetical '(720p)' next to the filename reads as fixture detail and was not counted against typography. Chrome above the page header is not part of the product."
+    },
+    {
+      "panel": "1280-theater",
+      "notes": "Two screens only, both 1280 on Windows: review-theater and review-done. No empty, loading, error, hover, focus or disabled state was available, so categories 1-7 are judged on those two states and category 8 on the completion state alone. The keyboard-shortcut affordances (Esc, 1/2/3, arrow keys, Space) are a genuine strength of the theater screen and are not fully captured by any single category. Browser chrome excluded; episode, titles and video frames treated as fixture content."
+    },
+    {
+      "panel": "1280-upload",
+      "notes": "Only two states were supplied, both at 1280 on Windows: empty-upload and staged-file. No error, loading, processing, or results state, so the error half of category 8 is unscored rather than penalised. Both screens share one card shell (640px wide, centred in a wide empty field) and the large empty margins above and below are the page's normal frame, not a defect. Nav (Library / AI connection) is consistent between the two screens; the item count \"5\" is a quiet inline numeral rather than a pill, which works."
+    }
+  ]
+}

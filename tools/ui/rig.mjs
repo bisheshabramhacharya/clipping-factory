@@ -4,7 +4,7 @@
 // static/ or the server; it only drives the fixture studio.
 
 import { chromium } from "playwright-core";
-import { PROJECT_ID, STATES as FIXTURE_STATES, FIXED_NOW, CLIP_FRAME_INDEX } from "./fixtures/state.mjs";
+import { PROJECT_ID, SOURCE_NAME, STATES as FIXTURE_STATES, FIXED_NOW, CLIP_FRAME_INDEX } from "./fixtures/state.mjs";
 
 export const VIEWPORTS = [
   { width: 1280, height: 800 },
@@ -24,8 +24,8 @@ export const DISABLE_MOTION_CSS = `
   html { scrollbar-width: none; }
   .preview .rig-poster {
     display: block; aspect-ratio: 9 / 16;
-    border-radius: 16px; background: #000;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+    border-radius: 6px; background: #000;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .08), 0 18px 48px rgba(0, 0, 0, .16);
   }
 `;
 
@@ -65,11 +65,13 @@ const PROJECT_STATES = new Set([
   "results-rejected-expanded",
   "library-open",
   "clip-detail-restyle",
+  "review-theater",
+  "review-done",
 ]);
 
 async function setStagedFile(page) {
   await page.setInputFiles("#file-input", {
-    name: "Example Episode.mp4",
+    name: SOURCE_NAME,
     mimeType: "video/mp4",
     buffer: Buffer.alloc(2_411_724, 7),
   });
@@ -78,7 +80,7 @@ async function setStagedFile(page) {
   await page.locator('.upload-swatch[data-color="#FF4F4F"]').click();
   await page.selectOption("#upload-language", "es");
   await page.selectOption("#upload-platform", "tiktok");
-  await page.fill("#focus-prompt", "clips about pricing");
+  await page.fill("#focus-prompt", "clips about compute and safety");
   await page.waitForSelector("#drop-staged:not(.hidden)");
 }
 
@@ -89,6 +91,22 @@ async function openRejected(page) {
     const rail = document.querySelector(".clip-rail");
     if (rail) rail.scrollTop = rail.scrollHeight;
   });
+}
+
+async function openTheater(page) {
+  await page.locator("#review-clips-btn").click();
+  await page.waitForSelector("#review-theater:not([hidden])");
+  await page.waitForFunction(() => (document.querySelector("#review-title")?.textContent || "").length > 0);
+}
+
+// Six keeps walk the whole set, which is how the payoff card is reached.
+async function finishReview(page) {
+  await openTheater(page);
+  for (let i = 0; i < 6; i += 1) {
+    await page.keyboard.press("1");
+    await page.waitForTimeout(30);
+  }
+  await page.waitForSelector("#review-done:not([hidden])");
 }
 
 async function openLibrary(page) {
@@ -110,6 +128,8 @@ async function openRestyle(page) {
 
 const ACTIONS = {
   "staged-file": setStagedFile,
+  "review-theater": openTheater,
+  "review-done": finishReview,
   "results-rejected-expanded": openRejected,
   "library-open": openLibrary,
   "clip-detail-restyle": openRestyle,
@@ -138,6 +158,10 @@ const READY = {
     document.querySelectorAll(".rail-item.active").length === 1 &&
     document.querySelector(".restyle") !== null &&
     document.querySelector(".caption-text") !== null,
+  "review-theater": () =>
+    document.querySelector("#review-theater:not([hidden])") !== null &&
+    document.querySelector("#review-done[hidden]") !== null,
+  "review-done": () => document.querySelector("#review-done:not([hidden])") !== null,
   "setup-missing-runtime": () => document.querySelector("#setup-banner:not(.hidden)") !== null,
 };
 
@@ -169,11 +193,11 @@ async function pinPosters(page) {
       const index = id ? frameIndex[id] : null;
       if (index) image.src = `/fixtures/frames/thumb-${index}.png`;
     }
-    const videos = [...document.querySelectorAll(".preview video")];
+    const videos = [...document.querySelectorAll(".preview video"), ...document.querySelectorAll("#review-video")];
     await Promise.all(videos.map(async (video) => {
       const match = /Preview clip (\d+)/.exec(video.getAttribute("aria-label") || "");
-      if (!match) return;
-      const url = `/fixtures/frames/frame-${match[1]}.png`;
+      // The theater opens on the best-ranked clip, which is frame 1.
+      const url = match ? `/fixtures/frames/frame-${match[1]}.png` : `/fixtures/frames/frame-1.png`;
       // Draw the still at the exact box the player occupies. A scaled raster
       // inside a rounded clip is the one Chrome path that is not byte-stable
       // between runs; a 1:1 canvas is.

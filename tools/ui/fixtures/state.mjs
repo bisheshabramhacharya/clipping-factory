@@ -3,12 +3,12 @@
 // Every payload here mirrors the shapes in src/domain.rs and src/api.rs:
 // Project, StageRecord, SourceInfo, ClipRecord, Scores, LayoutPlan,
 // LibraryEntry, /api/setup and /api/settings/ai. All content is deliberately
-// fake and stable ("Example Episode", 00:47). If a field changes in the Rust
+// fake and stable (fixture titles over real stills of a 04:48 episode). If a field changes in the Rust
 // structs, change it here too or a state will stop rendering truthfully.
 
 export const FIXED_NOW = Date.UTC(2026, 2, 12, 16, 26, 0); // 2026-03-12T16:26:00Z
 export const PROJECT_ID = "a1b2c3d4e5";
-export const SOURCE_NAME = "Example Episode.mp4";
+export const SOURCE_NAME = "Avoiding Bankruptcy Before AGI – Dario Amodei - Dwarkesh Clips (720p).mp4";
 export const STAGE_NAMES = [
   "inspecting",
   "extracting_audio",
@@ -32,14 +32,14 @@ const SCORES = {
 
 const SOURCE = {
   filename: SOURCE_NAME,
-  duration_ms: 2_832_000, // 47:12
-  width: 1920,
-  height: 1080,
-  fps: 29.97,
+  duration_ms: 288_182, // 04:48
+  width: 1280,
+  height: 720,
+  fps: 23.976,
   video_codec: "h264",
   audio_codec: "aac",
-  size_bytes: 1_284_000_000,
-  scene_boundaries_ms: [41_000, 122_500, 344_000, 612_000, 901_000],
+  size_bytes: 23_020_602,
+  scene_boundaries_ms: [41_000, 122_500, 171_000, 211_000, 251_000],
 };
 
 function crop(t_ms, cx, cy = 0.5, zoom = 1.0) {
@@ -49,17 +49,20 @@ function crop(t_ms, cx, cy = 0.5, zoom = 1.0) {
 const FACE = { mode: "face_crop", keyframes: [crop(0, 0.42), crop(9_400, 0.58), crop(21_000, 0.46, 0.46, 1.18)] };
 const PAD = { mode: "blur_pad" };
 
+// Titles are fixture copy, not transcript lines. The frames are real stills
+// from the source named above; the words are the rig's stand-in for what a
+// selector would have written.
 const CLIPS = [
   {
     id: "c1a2b3c4d5",
     rank: 1,
-    headline: "The pricing floor nobody says out loud",
-    filename: "01-the-pricing-floor-nobody-says-out-loud.mp4",
-    start_ms: 724_000,
-    end_ms: 761_000,
-    duration_ms: 37_000,
+    headline: "The window closes faster than you think",
+    filename: "01-the-window-closes-faster-than-you-think.mp4",
+    start_ms: 21_000,
+    end_ms: 52_000,
+    duration_ms: 31_000,
     selection_reason:
-      "Names the number everyone avoids, then walks through the two deals that set it. Stands alone without the rest of the episode.",
+      "Names a deadline, then gives the two numbers behind it. Stands alone without the rest of the episode.",
     scores: SCORES,
     score: 8.7,
     layout: FACE,
@@ -82,13 +85,13 @@ const CLIPS = [
   {
     id: "c2b3c4d5e6",
     rank: 2,
-    headline: "Why the launch slipped twice",
-    filename: "02-why-the-launch-slipped-twice.mp4",
-    start_ms: 1_699_000,
-    end_ms: 1_732_000,
-    duration_ms: 33_000,
+    headline: "The compute number is the whole argument",
+    filename: "02-the-compute-number-is-the-whole-argument.mp4",
+    start_ms: 64_000,
+    end_ms: 98_000,
+    duration_ms: 34_000,
     selection_reason:
-      "A clean before-and-after: the date, the reason it moved, and what changed the second time. Opens mid-thought.",
+      "A clean before-and-after: the figure, where it comes from, and what changes if it holds. Opens mid-thought but recovers in two sentences.",
     scores: SCORES,
     score: 8.2,
     layout: PAD,
@@ -111,11 +114,11 @@ const CLIPS = [
   {
     id: "c3c4d5e6f7",
     rank: 3,
-    headline: "A hiring bar that hides the real problem",
-    filename: "03-a-hiring-bar-that-hides-the-real-problem.mp4",
-    start_ms: 2_467_000,
-    end_ms: 2_504_000,
-    duration_ms: 37_000,
+    headline: "What nobody says about the safety race",
+    filename: "03-what-nobody-says-about-the-safety-race.mp4",
+    start_ms: 112_000,
+    end_ms: 139_000,
+    duration_ms: 27_000,
     selection_reason:
       "Turns a familiar complaint into a concrete diagnosis in the first ten seconds, then pays it off with one example.",
     scores: SCORES,
@@ -126,7 +129,7 @@ const CLIPS = [
     low_confidence: false,
     caption_style: "pop",
     accent_color: "#FF4F4F",
-    caption_font: "Anton",
+    caption_font: "Inter",
     caption_text: null,
     width: 1080,
     height: 1920,
@@ -140,13 +143,13 @@ const CLIPS = [
   {
     id: "c4d5e6f7a8",
     rank: 4,
-    headline: "The part of the demo that broke",
-    filename: "04-the-part-of-the-demo-that-broke.mp4",
-    start_ms: 3_303_000,
-    end_ms: 3_329_000,
-    duration_ms: 26_000,
+    headline: "One chart ended that objection",
+    filename: "04-one-chart-ended-that-objection.mp4",
+    start_ms: 146_000,
+    end_ms: 181_000,
+    duration_ms: 35_000,
     selection_reason:
-      "A short, self-contained story with a real failure in it. The laughter at the end lands without context.",
+      "A short, self-contained answer with a real turn in it. The payoff lands without context.",
     scores: SCORES,
     score: 7.1,
     layout: PAD,
@@ -155,7 +158,7 @@ const CLIPS = [
     low_confidence: false,
     caption_style: "cinema",
     accent_color: "#4FB5FF",
-    caption_font: "Georgia",
+    caption_font: "Inter",
     caption_text: null,
     width: 1080,
     height: 1920,
@@ -169,13 +172,13 @@ const CLIPS = [
   {
     id: "c5e6f7a8b9",
     rank: 5,
-    headline: "One metric that turned the room",
-    filename: "05-one-metric-that-turned-the-room.mp4",
-    start_ms: 3_798_000,
-    end_ms: 3_835_000,
-    duration_ms: 37_000,
+    headline: "The part everyone clips, and why it misses",
+    filename: "05-the-part-everyone-clips-and-why-it-misses.mp4",
+    start_ms: 192_000,
+    end_ms: 224_000,
+    duration_ms: 32_000,
     selection_reason:
-      "The number does the work: one chart, one reaction, one decision. Audio is rough in the middle but the words are clear.",
+      "Pushes back on the most quoted line of the episode. Audio is rough in the middle but the words are clear.",
     scores: SCORES,
     score: 6.8,
     layout: FACE,
@@ -198,13 +201,13 @@ const CLIPS = [
   {
     id: "c6f7a8b9c0",
     rank: 6,
-    headline: "Where the advice stops working",
-    filename: "06-where-the-advice-stops-working.mp4",
-    start_ms: 4_660_000,
-    end_ms: 4_692_000,
-    duration_ms: 32_000,
+    headline: "Where the optimistic case breaks",
+    filename: "06-where-the-optimistic-case-breaks.mp4",
+    start_ms: 238_000,
+    end_ms: 264_000,
+    duration_ms: 26_000,
     selection_reason:
-      "Pushes back on the episode's own conclusion. Slightly dependent on the earlier segment, but the caveat is fully stated.",
+      "Concedes the strongest counter-argument and then answers it. Slightly dependent on the earlier segment, but the caveat is fully stated.",
     scores: SCORES,
     score: 6.2,
     layout: FACE,
@@ -236,22 +239,22 @@ const REJECTED = [
   },
   {
     headline: "So yeah, that was pretty much it",
-    start_ms: 2_831_000,
-    end_ms: 2_858_000,
+    start_ms: 271_000,
+    end_ms: 283_000,
     reasons: ["Payoff: no conclusion", "Slop risk: filler-heavy, nothing at stake"],
     score: 3.1,
   },
   {
     headline: "Um, I mean, I guess",
-    start_ms: 542_000,
-    end_ms: 560_000,
+    start_ms: 47_000,
+    end_ms: 51_000,
     reasons: ["Cold-open guard: lone filler word", "Self-contained: no claim to stand on"],
     score: 1.8,
   },
   {
     headline: "Anyway, back to the topic",
-    start_ms: 3_750_000,
-    end_ms: 3_778_000,
+    start_ms: 226_000,
+    end_ms: 231_000,
     reasons: ["Scene guard: opens inside a camera transition", "Clarity: refers to an earlier thread"],
     score: 3.9,
   },
@@ -262,8 +265,8 @@ function stage(name, { started = null, completed = null, progress = null, detail
 }
 
 const DONE_STAGES = [
-  stage("inspecting", { started: "2026-03-12T14:02:03Z", completed: "2026-03-12T14:02:06Z", progress: 1, detail: "1920×1080 · h264 / aac · 47:12" }),
-  stage("extracting_audio", { started: "2026-03-12T14:02:06Z", completed: "2026-03-12T14:02:39Z", progress: 1, detail: "48 kHz mono · 263 MB" }),
+  stage("inspecting", { started: "2026-03-12T14:02:03Z", completed: "2026-03-12T14:02:06Z", progress: 1, detail: "1280×720 · h264 / aac · 04:48" }),
+  stage("extracting_audio", { started: "2026-03-12T14:02:06Z", completed: "2026-03-12T14:02:39Z", progress: 1, detail: "48 kHz mono · 13 MB" }),
   stage("transcribing", { started: "2026-03-12T14:02:39Z", completed: "2026-03-12T14:08:14Z", progress: 1, detail: "1,284 words · confidence 0.94" }),
   stage("selecting_candidates", { started: "2026-03-12T14:08:14Z", completed: "2026-03-12T14:08:19Z", progress: 1, detail: "12 candidates" }),
   stage("validating_candidates", { started: "2026-03-12T14:08:19Z", completed: "2026-03-12T14:08:21Z", progress: 1, detail: "6 kept · 4 rejected" }),
@@ -497,6 +500,8 @@ export const STATES = [
   { name: "results-rejected-expanded", ...BASE, view: view(), project: true },
   { name: "library-open", ...BASE, view: view(), project: true },
   { name: "clip-detail-restyle", ...BASE, view: view(), project: true },
+  { name: "review-theater", ...BASE, view: view(), project: true },
+  { name: "review-done", ...BASE, view: view(), project: true },
   { name: "setup-missing-runtime", ...BASE, setup: MISSING_RUNTIME_SETUP },
 ];
 

@@ -1,6 +1,8 @@
 // Build the prompt packet for one judge role.
 //
 //   node judges/prepare.mjs --round 0 --role absolute
+//   node judges/prepare.mjs --round 5 --role absolute --viewport 1440 --states a,b,c
+//     (there are more states than one call may carry; --states names the subset)
 //   node judges/prepare.mjs --round 0 --role defect-hunter
 //   node judges/prepare.mjs --round 1 --role comparative --category typography
 //   node judges/prepare.mjs --round 1 --role comparative --category all
@@ -42,7 +44,7 @@ const HARD_CATEGORY_CAP = 3;
 const MAX_IMAGES_PER_CALL = 10;
 
 function parseArgs(argv) {
-  const args = { round: 0, role: null, category: null, platforms: null, viewport: null, widths: null };
+  const args = { round: 0, role: null, category: null, platforms: null, viewport: null, widths: null, states: null, tag: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--round") args.round = Number(argv[++i]);
     else if (argv[i] === "--role") args.role = argv[++i];
@@ -50,6 +52,8 @@ function parseArgs(argv) {
     else if (argv[i] === "--platforms") args.platforms = argv[++i].split(",").map((value) => value.trim());
     else if (argv[i] === "--viewport") args.viewport = Number(argv[++i]);
     else if (argv[i] === "--widths") args.widths = argv[++i].split(",").map(Number).filter(Boolean);
+    else if (argv[i] === "--states") args.states = argv[++i].split(",").map((value) => value.trim()).filter(Boolean);
+    else if (argv[i] === "--tag") args.tag = argv[++i];
   }
   if (!["absolute", "comparative", "defect-hunter"].includes(args.role)) {
     throw new Error("--role must be absolute, comparative or defect-hunter");
@@ -309,13 +313,21 @@ async function main() {
     return;
   }
 
-  const selected = entries.filter((entry) => entry.width === args.viewport);
+  const selected = entries.filter((entry) =>
+    entry.width === args.viewport && (!args.states || args.states.includes(entry.state)));
   if (!selected.length) throw new Error(`no ${args.viewport} shots; run npm run shots first`);
+  if (args.states) {
+    const missing = args.states.filter((name) => !selected.some((entry) => entry.state === name));
+    if (missing.length) throw new Error(`no ${args.viewport} shots for: ${missing.join(", ")}`);
+  }
   if (selected.length > MAX_IMAGES_PER_CALL) {
     throw new Error(`${args.role} would carry ${selected.length} images, over the ${MAX_IMAGES_PER_CALL} cap; split the call further`);
   }
 
-  const inbox = path.join(ROOT, "inbox", `round-${args.round}`, `${args.role}-${args.viewport}`);
+  // --tag splits one round into panels: a call may carry at most ten images,
+  // and a panel of four is cheap enough for a judge to read carefully.
+  const panelName = `${args.role}-${args.viewport}${args.tag ? `-${args.tag}` : ""}`;
+  const inbox = path.join(ROOT, "inbox", `round-${args.round}`, panelName);
   await mkdir(inbox, { recursive: true });
   const answerPath = path.join(inbox, "answer.json");
   const template = await readFile(path.join(ROOT, "prompts", `${args.role}.md`), "utf8");

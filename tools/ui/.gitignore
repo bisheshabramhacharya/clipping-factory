@@ -3,3 +3,5 @@ judges/inbox/
 shots/.verify-*/
 shots-windows/.verify-*/
 fixtures/frames/sized/
+fixtures/frames/*.png
+shots-windows/

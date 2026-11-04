@@ -47,7 +47,12 @@ Two passes on this commit produce **0 differing files of 30**.
 
 The states are: `empty-upload`, `staged-file`, `processing-mid-run`,
 `processing-error`, `results-6-clips`, `results-rejected-expanded`,
-`library-open`, `clip-detail-restyle`, `setup-missing-runtime`.
+`library-open`, `clip-detail-restyle`, `review-theater`, `review-done`,
+`setup-missing-runtime`.
+
+`review-theater` and `review-done` are the keyboard triage screen and its payoff
+card: the player with Keep/Maybe/Skip, and the summary after the last decision.
+Both open from real fixture data, so they are shot like any other state.
 
 There used to be a tenth, `ai-connection-disabled`, captured as a header-only
 strip. It is gone, not fixed: its full-page capture is byte-identical to
@@ -74,10 +79,33 @@ a rounded clip is the one Chrome path that is not byte-stable; removing the
 resampling keeps two runs identical. Native video controls are omitted for the
 same reason: the player chrome is not part of the product's design.
 
-Fixture content is deliberately fake and stable (`Example Episode.mp4`,
-`00:47`) and mirrors the Rust structs in `src/domain.rs` and the API payloads in
-`src/api.rs`. Do not invent fields: if the backend changes, change
-`fixtures/state.mjs` with it.
+Fixture copy is deliberately fake and stable and mirrors the Rust structs in
+`src/domain.rs` and the API payloads in `src/api.rs`. Do not invent fields: if
+the backend changes, change `fixtures/state.mjs` with it.
+
+## Frames
+
+The previews are stills, and they come from a real episode:
+
+```bash
+node fixtures/frames-from-video.mjs --source "C:/path/to/episode.mp4"
+node fixtures/frames-from-video.mjs      # first MP4 in evals/sources
+```
+
+Six fixed timestamps, one centre crop to 9:16 at 540x960, one pre-sized
+thumbnail each, all from ffmpeg with fixed flags. Two runs on the same source
+produce byte-identical PNGs. `fixtures/frames/` is gitignored: stills derived
+from licensed media stay out of the repository.
+
+Without the episode, `node fixtures/make-frames.mjs` builds synthetic stand-ins
+with Chrome so the rig still runs on a machine with no media. Same filenames,
+same sizes, obviously not real footage. Running `frames-from-video.mjs`
+overwrites them.
+
+The source behind the current shots is a 1280x720, 04:48 episode, and
+`fixtures/state.mjs` describes it: 288_182 ms of duration, six clip ranges
+inside it, `1280x720` in the stage detail. Change the video and those numbers
+move with it, or the screens lie about what they show.
 
 ## Reference panel
 
@@ -108,6 +136,8 @@ records why the pin is `low` rather than `high` or `max`.
 ```bash
 # absolute and defect hunter: one call per viewport
 node judges/prepare.mjs --round 2 --role absolute --viewport 1280
+# eleven states and a ten-image cap: --states names the subset a call carries
+node judges/prepare.mjs --round 5 --role absolute --viewport 1440 --states empty-upload,staged-file,results-6-clips
 node judges/ask-judge.mjs --stage   --round 2 --role absolute --viewport 1280
 node judges/ask-judge.mjs --collect --round 2 --role absolute --viewport 1280 --subagent 4 --credits 0.2 --subagents 0
 
