@@ -72,7 +72,8 @@ const CLIPS = [
     caption_style: "impact",
     accent_color: "#FFDD00",
     caption_font: "Inter",
-    caption_text: null,
+    caption_text:
+      "How long does it take to cure all the diseases? That's one of the ways that drives a huge amount of economic value. You cure every disease. There's a question of how much of that goes to the pharmaceutical company, to the AI company, but there's an enormous consumer surplus because I assume we can get access for everyone, which I care about greatly. We cure all of these diseases. How long does it take? You have to do the biological discovery, you have to manufacture the new drug, you have to go through the regulatory process. We saw this with vaccines and COVID. There's just this, we got the vaccine out to everyone, but it took a year and a half.",
     width: 1080,
     height: 1920,
     auto_cut: false,
@@ -101,7 +102,8 @@ const CLIPS = [
     caption_style: "clean",
     accent_color: "#7CFF4F",
     caption_font: "Inter",
-    caption_text: null,
+    caption_text:
+      "My question is, how long does it take to get the cure for everything, which AI is the genius that can in theory invent out to everyone? How long from when that AI first exists in the lab to when diseases have actually been cured for everyone? We've had a polio vaccine for 50 years. We're still trying to eradicate it in the most remote corners of Africa. The Gates Foundation is trying as hard as they can. Others are trying as hard as they can, but that's difficult. Again, I don't expect most of the economic diffusion to be as difficult as that.",
     width: 1080,
     height: 1920,
     auto_cut: true,
@@ -130,7 +132,8 @@ const CLIPS = [
     caption_style: "pop",
     accent_color: "#FF4F4F",
     caption_font: "Inter",
-    caption_text: null,
+    caption_text:
+      "Basically, I'm saying in 2027, how much compute do I get? I could assume that the revenue will continue growing 10x a year, so it will be $100 billion at the end of 2026, and $1 trillion at the end of 2027. I could buy a trillion dollars, actually it would be like $5 trillion of compute, because it would be a trillion dollar a year for five years. I could buy a trillion dollars of compute that starts at the end of 2027. If my revenue is not a trillion dollars, if it's even $800 billion, there's no foreson earth.",
     width: 1080,
     height: 1920,
     auto_cut: false,
@@ -159,7 +162,8 @@ const CLIPS = [
     caption_style: "cinema",
     accent_color: "#4FB5FF",
     caption_font: "Inter",
-    caption_text: null,
+    caption_text:
+      "Even if the technology goes as fast as I suspect that it will, we don't know exactly how fast it's going to drive revenue. We know it's coming, but with the way you buy these data centers, if you're off by a couple years, that can be ruinous. It is just like how I wrote in machines of loving grace, I said, \"Look, I think we might get this powerful AI, this country of genius in the data center, that description you gave comes from the machines of loving grace.\" I said, \"We'll get that 2026, maybe 2027 again. That is my hunch. Wouldn't be surprised if I'm off by a year or two, but that is my hunch.\" Let's say that happens, that's the starting gun. How long does it take to cure all the diseases? That's one of the ways that drives a huge amount of economic value.",
     width: 1080,
     height: 1920,
     auto_cut: false,
@@ -188,7 +192,8 @@ const CLIPS = [
     caption_style: "impact",
     accent_color: "#FF9F1C",
     caption_font: "Inter",
-    caption_text: null,
+    caption_text:
+      "If my revenue is not a trillion dollars, if it's even $800 billion, there's no foreson earth. There's no hedge on earth that could stop me from going bankrupt if I buy that much compute. Even though a part of my brain wonders if it's going to keep growing 10x, I can't buy a trillion dollars a year of compute in 2027. If I'm just off by a year in that rate of growth, or if the growth rate is 5x a year instead of 10x a year, then you go bankrupt. And so, you end up in a world where you're supporting hundreds of billions, not trillions, and you accept some risk that there's so much demand that you can't support the revenue, and you accept still some risk that you got it wrong and it's still slow.",
     width: 1080,
     height: 1920,
     auto_cut: false,
@@ -217,7 +222,8 @@ const CLIPS = [
     caption_style: "clean",
     accent_color: "#C77DFF",
     caption_font: "Inter",
-    caption_text: null,
+    caption_text:
+      "The Gates Foundation is trying as hard as they can. Others are trying as hard as they can, but that's difficult. Again, I don't expect most of the economic diffusion to be as difficult as that. That's the most difficult case, but there's a real dilemma here. Where I've settled on it is, it will be faster than anything we've seen in the world, but it still has its limits. Then, when we go to buying data centers, again, the curve I'm looking at is we've had a 10x a year increase every year. Main of this year, we're looking at $10 billion in rate of annualized revenue at the beginning of the year.",
     width: 1080,
     height: 1920,
     auto_cut: false,
