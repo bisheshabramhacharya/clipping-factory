@@ -7,7 +7,7 @@
       "1920x1080"
     ],
     "shots": 30,
-    "text_pairs": 1359
+    "text_pairs": 1377
   },
   "wcag": {
     "failures": [],
@@ -19,13 +19,13 @@
     "font_sizes": 6,
     "shadows": 3,
     "colors": 8,
-    "font_families": 2
+    "font_families": 1
   },
   "values": {
     "radius": [
       {
         "value": "0px",
-        "count": 1947
+        "count": 1971
       },
       {
         "value": "999px",
@@ -47,7 +47,7 @@
     "fontSizes": [
       {
         "value": "14px",
-        "count": 1041
+        "count": 1077
       },
       {
         "value": "13px",
@@ -63,7 +63,7 @@
       },
       {
         "value": "16px",
-        "count": 60
+        "count": 48
       },
       {
         "value": "19px",
@@ -87,7 +87,7 @@
     "colors": [
       {
         "value": "rgb(27, 26, 25)",
-        "count": 2124
+        "count": 2148
       },
       {
         "value": "rgb(78, 73, 65)",
@@ -120,12 +120,8 @@
     ],
     "fonts": [
       {
-        "value": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 3156
-      },
-      {
-        "value": "ui-monospace, SFMono-Regular, Menlo, monospace",
-        "count": 12
+        "value": "Inter, -apple-system, \"system-ui\", \"SF Pro Text\", \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+        "count": 3192
       }
     ]
   },

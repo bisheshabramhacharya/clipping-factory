@@ -9,16 +9,25 @@
 <body>
   <div class="shell">
     <header>
-      <div class="brand">
-        <span class="wordmark">Clipping Factory</span>
+      <span class="wordmark">Clipping Factory</span>
+      <div class="page-context">
+        <h1 id="page-title" aria-live="polite">New project</h1>
+        <span id="page-sub" class="page-sub"></span>
       </div>
       <div class="header-actions">
-        <button id="library-btn" type="button" aria-controls="library-drawer" aria-expanded="false">
-          Library <span id="library-count" class="count hidden"></span>
-        </button>
-        <button id="ai-btn" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
-          <span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
-        </button>
+        <div id="page-actions" class="action-group hidden">
+          <button id="review-clips-btn" class="primary" type="button" hidden>Review clips <kbd>R</kbd></button>
+          <button id="open-folder-btn" type="button">Open folder</button>
+          <button id="new-project-btn" type="button">New project</button>
+        </div>
+        <div class="action-group">
+          <button id="library-btn" type="button" aria-controls="library-drawer" aria-expanded="false">
+            Library <span id="library-count" class="count hidden"></span>
+          </button>
+          <button id="ai-btn" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
+            <span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -38,8 +47,7 @@
       </div>
 
       <!-- Empty / import state -->
-      <section id="upload-state" aria-labelledby="upload-title">
-        <h1 id="upload-title" class="sr-only">Create clips</h1>
+      <section id="upload-state" aria-label="Create clips">
         <div id="drop" class="upload">
           <div class="drop-target">
             <div id="drop-empty" class="drop-panel">
@@ -94,19 +102,6 @@
                 </label>
               </div>
             </div>
-            <div class="opt">
-              <span class="opt-label">Accent</span>
-              <div class="accent-row">
-                <label class="sr-only"><input type="radio" name="accent-mode" value="manual" checked>Choose a color</label>
-                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Accent color"></div>
-                <input id="upload-accent-color" type="hidden" value="#FFDD00">
-                <div class="choice-seg small-seg" role="radiogroup" aria-label="Automatic accent color">
-                  <label title="A fresh readable color"><input type="radio" name="accent-mode" value="random"><span>Random</span></label>
-                  <label title="Matched to the video"><input type="radio" name="accent-mode" value="optimized"><span>Auto</span></label>
-                </div>
-                <small id="upload-accent-hex" class="sr-only" aria-live="polite"></small>
-              </div>
-            </div>
             <label class="opt">
               <span class="opt-label">Language</span>
               <select id="upload-language" aria-label="Language">
@@ -123,6 +118,19 @@
                 <option value="shorts">Shorts · 45–60s</option>
               </select>
             </label>
+            <div class="opt opt-wide">
+              <span class="opt-label">Accent</span>
+              <div class="accent-row">
+                <label class="sr-only"><input type="radio" name="accent-mode" value="manual" checked>Choose a color</label>
+                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Accent color"></div>
+                <input id="upload-accent-color" type="hidden" value="#FFDD00">
+                <div class="choice-seg small-seg" role="radiogroup" aria-label="Automatic accent color">
+                  <label title="A fresh readable color"><input type="radio" name="accent-mode" value="random"><span>Random</span></label>
+                  <label title="Matched to the video"><input type="radio" name="accent-mode" value="optimized"><span>Auto</span></label>
+                </div>
+                <small id="upload-accent-hex" class="sr-only" aria-live="polite"></small>
+              </div>
+            </div>
             <label class="opt opt-wide" for="focus-prompt">
               <span class="opt-label">Focus</span>
               <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
@@ -142,8 +150,7 @@
       </section>
 
       <!-- Processing state -->
-      <section id="processing-state" class="hidden" aria-labelledby="processing-title">
-        <h1 id="processing-title" class="sr-only">Processing</h1>
+      <section id="processing-state" class="hidden" aria-label="Processing">
         <div class="source-line">
           <div>
             <span id="source-name" class="source-name"></span>
@@ -180,18 +187,7 @@
       </section>
 
       <!-- Results state -->
-      <section id="results-state" class="hidden" aria-labelledby="results-title">
-        <div class="results-head">
-          <div class="results-title-wrap">
-            <h1 id="results-title" aria-live="polite"></h1>
-            <p class="muted small" id="results-sub"></p>
-          </div>
-          <div class="results-actions">
-            <button id="review-clips-btn" class="primary" type="button" hidden>Review clips <kbd>R</kbd></button>
-            <button id="open-folder-btn" type="button">Open folder</button>
-            <button id="new-project-btn" type="button">New project</button>
-          </div>
-        </div>
+      <section id="results-state" class="hidden" aria-label="Clips">
         <div class="studio">
           <nav class="clip-rail" aria-label="Clips">
             <div id="clip-rail-list" class="clip-rail-list"></div>
