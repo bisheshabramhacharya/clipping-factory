@@ -14,13 +14,9 @@
     "results-rejected-expanded",
     "library-open",
     "clip-detail-restyle",
-    "setup-missing-runtime",
-    "ai-connection-disabled"
+    "setup-missing-runtime"
   ],
   "files": {
-    "ai-connection-disabled@1280.macos.png": "186c6fea44c5e131fac51f713c65703b75a77e678f6d69903af3507e2254178a",
-    "ai-connection-disabled@1440.macos.png": "b23aeadd14ccfc77d2b7ab2d06b35e17a324b8c71738c1b6f4ea59c6642d2f2f",
-    "ai-connection-disabled@1920.macos.png": "234975c05349d4f6c73f5bb37246e3c960ff6a6d660e9da5f2cd42e7d7036fa1",
     "clip-detail-restyle@1280.macos.png": "478f733420f0bfeafe01cf2f7f5e52c73c7a177744b93c9b40f8324f8e320a44",
     "clip-detail-restyle@1440.macos.png": "ea5343e6cb4580a470e1bbca82d37fdd02984d42e5f6452a24548745c9403859",
     "clip-detail-restyle@1920.macos.png": "4a0607ef2f5262f53a752ce6524252bde4e252613bc84cca1e92398e50154b7d",
@@ -51,6 +47,6 @@
   },
   "verify": {
     "diff_count": 0,
-    "compared": 30
+    "compared": 27
   }
 }

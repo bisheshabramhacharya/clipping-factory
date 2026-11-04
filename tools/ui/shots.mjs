@@ -66,11 +66,7 @@ async function captureAll({ out, platform, only, widths }) {
         try {
           const name = shotName(state, viewport.width, platform);
           const target = path.join(out, name);
-          if (state === "ai-connection-disabled") {
-            await handle.page.locator("header").screenshot({ path: target, animations: "disabled", caret: "hide", scale: "css" });
-          } else {
-            await handle.page.screenshot({ path: target, animations: "disabled", caret: "hide", scale: "css" });
-          }
+          await handle.page.screenshot({ path: target, animations: "disabled", caret: "hide", scale: "css" });
           files.push(name);
         } finally {
           await closeState(handle);

@@ -1,0 +1,42 @@
+{
+  "round": 4,
+  "categories": {
+    "hierarchy": {
+      "labels": {
+        "A": "reference",
+        "B": "studio"
+      },
+      "files": {
+        "A/01.png": {
+          "side": "reference",
+          "viewport": "1280",
+          "origin": "reference/t3-code-window@1280.png"
+        },
+        "B/01.png": {
+          "side": "studio",
+          "viewport": "1280",
+          "origin": "shots/results-6-clips@1280.macos.png"
+        }
+      }
+    },
+    "hierarchy-swapped": {
+      "labels": {
+        "A": "studio",
+        "B": "reference"
+      },
+      "files": {
+        "A/01.png": {
+          "side": "studio",
+          "viewport": "1280",
+          "origin": "shots/results-6-clips@1280.macos.png"
+        },
+        "B/01.png": {
+          "side": "reference",
+          "viewport": "1280",
+          "origin": "reference/t3-code-window@1280.png"
+        }
+      },
+      "swap_of": "hierarchy"
+    }
+  }
+}

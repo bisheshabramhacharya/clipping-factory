@@ -1,0 +1,17 @@
+{
+  "calls": [
+    {
+      "run": "answer",
+      "judge": "capy-subagent",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "machine": "shared",
+      "reasoning": "max",
+      "subagent": "6",
+      "credits": 12.450468,
+      "tokens": null,
+      "images": 2,
+      "staged_at": "2026-11-04T08:08:17.335Z",
+      "collected_at": "2026-11-04T08:10:07.812Z"
+    }
+  ]
+}

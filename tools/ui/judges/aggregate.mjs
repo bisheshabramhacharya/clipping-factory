@@ -62,7 +62,7 @@ async function main() {
     readJson(path.join(dir, "deterministic.json")),
   ]);
   if (!absolute || !comparative || !defects) {
-    throw new Error(`round ${args.round} needs absolute.json, comparative.json and defect-hunter.json in ${path.join(dir, "raw")}`);
+    throw new Error(`round ${args.round} needs absolute.json, comparative.json and defect-hunter.json in ${path.join(dir, "raw")}; for the blind per-category comparative pass use judges/aggregate-comparative.mjs`);
   }
   if (!map) throw new Error(`missing ${path.join(dir, "comparative-map.json")}; rerun judges/prepare.mjs --role comparative`);
 

@@ -1,0 +1,30 @@
+{
+  "calls": [
+    {
+      "run": "answer",
+      "judge": "capy-subagent",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "machine": "shared",
+      "reasoning": "low",
+      "subagent": "5",
+      "credits": 7.760448,
+      "tokens": null,
+      "images": 4,
+      "staged_at": "2026-11-04T08:01:44.246Z",
+      "collected_at": "2026-11-04T08:05:38.044Z"
+    },
+    {
+      "run": "repeat",
+      "judge": "capy-subagent",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "machine": "shared",
+      "reasoning": "low",
+      "subagent": "4",
+      "credits": 17.947908,
+      "tokens": null,
+      "images": 4,
+      "staged_at": "2026-11-04T08:01:44.246Z",
+      "collected_at": "2026-11-04T08:05:38.098Z"
+    }
+  ]
+}

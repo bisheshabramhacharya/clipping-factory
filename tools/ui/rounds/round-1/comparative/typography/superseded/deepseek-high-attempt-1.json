@@ -1,0 +1,11 @@
+{
+  "model": "deepseek/deepseek-v4.1-flash",
+  "reasoning_mode": "high",
+  "machine": "shared",
+  "staged": "2026-11-04T07:58:42.442Z",
+  "stopped": "2026-11-04T08:01:00Z",
+  "credits": 13.313712,
+  "tokens": 939499,
+  "outcome": "stopped with no answer file; the panel gained no output",
+  "note": "Cost climbed about 1 credit every 6 seconds with no file written. A vision probe on the same model and setting answered a one-image question correctly for 7.2 credits, so image reading works; the four-image judge task did not converge."
+}

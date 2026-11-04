@@ -9,7 +9,9 @@ scale.
 
 ## Screens
 
-Every file is labeled with its state and viewport width. Read every image.
+Every file is labeled with its state. This call carries the {{IMAGE_COUNT}} shots
+at {{VIEWPORT}} px only; other widths are separate calls. Read every image in
+this call.
 
 {{IMAGES}}
 
@@ -18,8 +20,11 @@ Every file is labeled with its state and viewport width. Read every image.
 - Score all eight categories from the rubric. Whole numbers from 1 to 10.
 - Judge the interface, not the fixture content. The episode name, clip titles
   and video stills are placeholders. Browser chrome is not part of the product.
-- Base a category score on the whole set of screens, not one favorite screen.
-  Cite the screen (`state@width`) that supports each claim.
+- Base a category score on the whole set of screens in this call, not one
+  favorite screen. Cite the screen (`state@{{VIEWPORT}}`) that supports each
+  claim.
+- The call budget is {{IMAGE_COUNT}} images. Do not ask for other widths or more
+  images, and do not spawn a helper to look at them.
 - No score is expected to be high or low. If something is genuinely strong,
   say why; if it is weak, say what is weak.
 - Do not mention targets, roadmaps, or what the product ought to become. Review

@@ -1,0 +1,157 @@
+{
+  "round": 3,
+  "note": "PR #117 static/ at commit 49e7d30, shots re-captured from that tree, static/ restored afterwards",
+  "viewports": [],
+  "verdicts": {
+    "typography": {
+      "label": "Typography",
+      "verdict": "not_judged",
+      "citation": null,
+      "why": null,
+      "confidence": null,
+      "order_checked": false,
+      "swapped_winner": null,
+      "judge": null,
+      "model": null,
+      "failure": "no panel built"
+    },
+    "hierarchy": {
+      "label": "Hierarchy",
+      "verdict": "tie",
+      "citation": "A/01.png: the right inspector runs a deliberate three-level scale, the meta line \"Best clip · 00:37\" at 12px muted gray, the clip title below it at 16px bold near-black, and the section labels \"CAPTIONS\", \"FONT\", \"EXTRAS\" at 11px uppercase letter-spaced gray, so the eye reads meta then title then group without any borders.",
+      "why": "A carries four levels (page title, section count, muted panel labels, bold values) with the video preview as the one loud region, while B's empty state mutes almost everything to the same gray and lets the top-right card's blue \"Open in VS Code\" sit at the same weight as the centered prompt, so the eye lands on the corner before the heading. B's single centered question is a clean focal point, but nothing steps down from it.",
+      "confidence": "slight",
+      "order_checked": true,
+      "swapped_winner": "reference",
+      "judge": "capy-subagent",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "order_note": "Verdict flipped: studio won as built, reference won swapped, so the preference followed the position. Recorded as a tie."
+    },
+    "spacing_rhythm": {
+      "label": "Spacing and rhythm",
+      "verdict": "not_judged",
+      "citation": null,
+      "why": null,
+      "confidence": null,
+      "order_checked": false,
+      "swapped_winner": null,
+      "judge": null,
+      "model": null,
+      "failure": "no panel built"
+    },
+    "color_contrast": {
+      "label": "Color and contrast",
+      "verdict": "not_judged",
+      "citation": null,
+      "why": null,
+      "confidence": null,
+      "order_checked": false,
+      "swapped_winner": null,
+      "judge": null,
+      "model": null,
+      "failure": "no panel built"
+    },
+    "component_consistency": {
+      "label": "Component consistency",
+      "verdict": "not_judged",
+      "citation": null,
+      "why": null,
+      "confidence": null,
+      "order_checked": false,
+      "swapped_winner": null,
+      "judge": null,
+      "model": null,
+      "failure": "no panel built"
+    },
+    "iconography_detail": {
+      "label": "Iconography and detail",
+      "verdict": "win",
+      "citation": "A/01.png: the 'Library 5', 'Coming soon' and 'score 8.7' chips are one pill family, same ~24px height, same 12px radius, same neutral fill, so three unrelated bits of metadata read as one treatment; the four identical toggle switches and the 26px color dots with a single ring on the selected swatch repeat that consistency.",
+      "why": "A uses few icons but every small detail is a member of a system: one pill, one toggle, one swatch row, a keycap hint inside the primary button. B's line icons are evenly weighted but sparse, and its sidebar hairlines under 'Snoozed (2)' stop short of the row edge while the composer's machine chip sits half-clipped against the box.",
+      "confidence": "slight",
+      "order_checked": true,
+      "swapped_winner": "studio",
+      "judge": "capy-subagent",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "order_note": "survived the swap"
+    },
+    "primary_action": {
+      "label": "Clarity of the primary action",
+      "verdict": "not_judged",
+      "citation": null,
+      "why": null,
+      "confidence": null,
+      "order_checked": false,
+      "swapped_winner": null,
+      "judge": null,
+      "model": null,
+      "failure": "no panel built"
+    },
+    "empty_error_states": {
+      "label": "Empty and error states",
+      "verdict": "not_judged",
+      "citation": null,
+      "why": null,
+      "confidence": null,
+      "order_checked": false,
+      "swapped_winner": null,
+      "judge": null,
+      "model": null,
+      "failure": "no panel built"
+    }
+  },
+  "tally": {
+    "win": 1,
+    "loss": 0,
+    "tie": 1,
+    "not_judged": 6
+  },
+  "scores": {
+    "typography": {
+      "label": "Typography",
+      "per_viewport": {},
+      "median": null
+    },
+    "hierarchy": {
+      "label": "Hierarchy",
+      "per_viewport": {},
+      "median": null
+    },
+    "spacing_rhythm": {
+      "label": "Spacing and rhythm",
+      "per_viewport": {},
+      "median": null
+    },
+    "color_contrast": {
+      "label": "Color and contrast",
+      "per_viewport": {},
+      "median": null
+    },
+    "component_consistency": {
+      "label": "Component consistency",
+      "per_viewport": {},
+      "median": null
+    },
+    "iconography_detail": {
+      "label": "Iconography and detail",
+      "per_viewport": {},
+      "median": null
+    },
+    "primary_action": {
+      "label": "Clarity of the primary action",
+      "per_viewport": {},
+      "median": null
+    },
+    "empty_error_states": {
+      "label": "Empty and error states",
+      "per_viewport": {},
+      "median": null
+    }
+  },
+  "findings": [],
+  "cost": {
+    "credits": 28.6412,
+    "calls": 4
+  },
+  "deterministic": null
+}

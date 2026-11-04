@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 2,
+  "category": "typography",
+  "winner": "A",
+  "citation": "A/01.png: the meta line '#1 · 8.7' and the 'CAPTIONS' eyebrow are both set at ~11px caps, while clip titles and the caption tabs sit at ~13px and '6 clips' at ~18px, so a four-step 11/13/18/30 scale repeats across three columns and the times (00:37, 12:04, 12:41) share one tabular treatment; B/01.png runs its ~30px 'What should we work on?' straight into a 13px bold 'No project' subtitle and then 13px helper text, collapsing the middle steps.",
+  "why": "A holds one scale with deliberate small caps labels and consistently aligned numeric data, so the panel reads at a glance; B is coherent but flat, with nearly every non-heading line at 13px and muted gray that shrinks the hierarchy to two levels.",
+  "confidence": "clear"
+}

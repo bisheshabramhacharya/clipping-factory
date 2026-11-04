@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 3,
+  "category": "iconography_detail",
+  "winner": "B",
+  "citation": "B/01.png: each of the six clip thumbnails carries the same duration badge at bottom-left (e.g. 00:37, 00:33) with an identical thin yellow progress line pinned to the thumbnail's bottom edge, and the disclosure marks before 'Why this clip' and 'Edit text' are the same small solid triangle at the same size and left inset; A/01.png has no repeated small-detail treatment of that kind, its sidebar mixes an outlined folder, a filled VS Code mark and a purple arrow at different weights.",
+  "why": "B's small details are few but repeated exactly, so badges and separators read as one system; A's icons are present but mix fill, stroke weight and optical size, and its bottom-left control row of four 16px glyphs sits at uneven spacing.",
+  "confidence": "slight"
+}

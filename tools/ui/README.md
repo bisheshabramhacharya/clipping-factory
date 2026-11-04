@@ -47,11 +47,14 @@ Two passes on this commit produce **0 differing files of 30**.
 
 The states are: `empty-upload`, `staged-file`, `processing-mid-run`,
 `processing-error`, `results-6-clips`, `results-rejected-expanded`,
-`library-open`, `clip-detail-restyle`, `setup-missing-runtime`,
-`ai-connection-disabled`. The last one is a header-only crop, because the
-disabled AI control lives in the header and is never the whole screen. Round
-0's judges flagged that crop as unreviewable (two roles), so the next round
-should decide between a full-screen duplicate of `empty-upload` and the crop.
+`library-open`, `clip-detail-restyle`, `setup-missing-runtime`.
+
+There used to be a tenth, `ai-connection-disabled`, captured as a header-only
+strip. It is gone, not fixed: its full-page capture is byte-identical to
+`empty-upload` at 1280 and 1440, because the AI control already renders
+disabled with the same "Coming soon" pill in the default state. A duplicate
+shot is worse than no shot, since a judge counts it as evidence of a state the
+product does not actually show.
 
 ## Determinism
 
@@ -78,31 +81,87 @@ Fixture content is deliberately fake and stable (`Example Episode.mp4`,
 
 ## Reference panel
 
-`reference/` holds published screenshots of T3 Code, Opus Clip and Descript,
-with source URLs in `reference/manifest.json`. The comparative judge sees them
-in a shuffled A-D pool; the label map lives only in
-`rounds/round-<n>/comparative-map.json`. Three copies of one model with the same
-prompt is not a council, so the roles are deliberately different: an absolute
-scorer, a comparative scorer, and a defect hunter with no scores.
+`reference/manifest.json` gives every file a `role`. Only `role: "reference"`
+files are ever scored against, and there are two of them: T3 Code's real window
+at 1280x800 and 1440x900, captured locally on 2026-11-03 from the installed app
+with `reference/capture-t3-window.mjs`. They are Chromium renders at a CSS
+viewport, device scale factor 1, exactly like `shots/*.png`, so the two sides of
+a comparison are the same kind of image.
+
+The seven vendor marketing files are `role: "aspiration"`: 720 to 1400 px
+crops of single surfaces, not whole windows at native size. They stay for
+people to look at and are never put in front of a scoring judge. Round 0 scored
+against them, and that is a large part of why the studio looked unbeatable.
+
+Three copies of one model with the same prompt is not a council, so the roles
+stay different: an absolute scorer, a blind comparative judge, and a defect
+hunter with no scores.
 
 ## Judges
 
+Every judge call is one Capy subagent on this machine, running the model pinned
+in `judges/judges.json`: `deepseek/deepseek-v4.1-flash`, reasoning `low`. No
+Claude, no Codex, no Capy cloud machine. A call is staged, started, and then
+collected, so the caps can be enforced between the steps. `rounds/reasoning-test.md`
+records why the pin is `low` rather than `high` or `max`.
+
 ```bash
-node judges/prepare.mjs --round 0 --role absolute
-node judges/prepare.mjs --round 0 --role comparative
-node judges/prepare.mjs --round 0 --role defect-hunter
-# run each role as a subagent on the shared machine, read prompt.md, write answer.json
-node judges/ingest.mjs --round 0 --role absolute --file ...
-node judges/aggregate.mjs --round 0
+# absolute and defect hunter: one call per viewport
+node judges/prepare.mjs --round 2 --role absolute --viewport 1280
+node judges/ask-judge.mjs --stage   --round 2 --role absolute --viewport 1280
+node judges/ask-judge.mjs --collect --round 2 --role absolute --viewport 1280 --subagent 4 --credits 0.2 --subagents 0
+
+# comparative: two categories per round, each pair judged twice with the sides swapped
+node judges/prepare.mjs --round 3 --role comparative --category worst --widths 1280
+node judges/ask-judge.mjs --stage   --round 3 --category typography
+node judges/ask-judge.mjs --collect --round 3 --category typography --subagent 5 --credits 6.6 --subagents 0
+node judges/ask-judge.mjs --stage   --round 3 --category typography --swap
+node judges/ask-judge.mjs --collect --round 3 --category typography --swap --subagent 6 --credits 6.7 --subagents 0
+
+# the whole round
+node judges/aggregate-comparative.mjs --round 2
+node judges/aggregate-round.mjs --round 2
 ```
 
-Prompts live in `judges/prompts/` and are built from the rubric and the current
-shot set. The judge prompt never names a target score, never says which pool is
-this repository, and never mentions optimizing anything. During iteration run
-the absolute role alone; run all three only at a round boundary. Ingest rejects
-a malformed answer instead of filing a score nobody explained.
+`--stage` writes `task.md` next to the panel and prints the subagent settings.
+Start one subagent with that task on `machine: "shared"`, save its final message
+to the panel's `reply.txt`, then read its credit cost and whether it spawned
+anything and pass both to `--collect`. The task file tells the judge to read
+each file once, answer in one reply, write nothing, and work alone. Replies are
+cheaper than file writes: on the typography smoke test the reply-only call cost
+7.76 credits and the same task asking for a written file cost 17.95.
 
-`rubric.md` defines the eight categories and the 1-10 anchors.
+Measured per call: 12.45 credits at `max`, 6.65 at `low` on a two-image panel,
+7.76 at `low` on a four-image panel, and 17.95 when the same task asks for a
+written file. Per-call token use, not the model price, is the cost driver. A
+round is two categories with two calls each, so about 27 credits at the pinned
+setting; `rounds/reasoning-test.md` has the table.
+
+The caps are code, not prose:
+
+- `prepare.mjs` refuses to build a panel over ten images, and `--stage` refuses
+  to run one.
+- `--stage` refuses a third attempt: one retry, then `--collect --failed`.
+- `--collect` refuses to file a call whose `--subagents` count is above zero,
+  and writes `void.json` instead. A judge that spawns a helper does not get
+  paid for a score.
+- `--collect` refuses an answer whose model is not the pinned judge.
+- A win with no checkable citation is filed as a tie (`normalizeComparative`),
+  with the original winner kept in the record.
+- `--swap` stages the same pair with A and B exchanged. A verdict that flips
+  between the two orientations is filed as a tie, because the judge preferred
+  the position rather than the design.
+- `--max-reply-tokens` (300 by default) rejects a reply over the cap.
+- `--collect --as repeat` files a second independent call as `repeat.json`.
+
+`aggregate-comparative.mjs` prints the verdict and citation per category and the
+credit cost. `aggregate-round.mjs` assembles the whole round: median absolute
+score across viewports plus the verdict per category. A category with no answer
+and no recorded failure is `not_judged`, never a win. `rounds/smoke-1-typography.md`
+is the hand-written record of the first blind call.
+
+Round 0 used the older four-source comparative pass in `judges/aggregate.mjs`;
+that file stays for reproducing `round-0.json`.
 
 ## Portability
 

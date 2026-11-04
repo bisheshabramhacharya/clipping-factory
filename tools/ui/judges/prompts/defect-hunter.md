@@ -5,7 +5,9 @@ Do not praise anything. Do not redesign the product.
 
 ## Screens
 
-Every file is labeled with its state and viewport width. Read every image.
+Every file is labeled with its state. This call carries the {{IMAGE_COUNT}} shots
+at {{VIEWPORT}} px only; other widths are separate calls. Read every image in
+this call.
 
 {{IMAGES}}
 
@@ -22,6 +24,8 @@ Every file is labeled with its state and viewport width. Read every image.
 - `kind: "defect"` for something objectively wrong. `kind: "taste"` for a
   judgment the team could reasonably reject. Keep taste items rare.
 - `severity: "high"` only when the defect blocks reading or acting.
+- The call budget is {{IMAGE_COUNT}} images at {{VIEWPORT}} px. Do not ask for
+  other widths or more images, and do not spawn a helper to look at them.
 - Do not mention targets, roadmaps, or what the product ought to become.
 - Do not run any application or test. Do not modify any file except the answer file below.
 

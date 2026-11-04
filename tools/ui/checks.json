@@ -1,13 +1,13 @@
 {
   "checked": {
-    "states": 10,
+    "states": 9,
     "viewports": [
       "1280x800",
       "1440x900",
       "1920x1080"
     ],
-    "shots": 30,
-    "text_pairs": 1203
+    "shots": 27,
+    "text_pairs": 1140
   },
   "wcag": {
     "failures": [
@@ -946,45 +946,9 @@
         "required": 4.5,
         "font_size": "11px",
         "font_weight": "650"
-      },
-      {
-        "state": "ai-connection-disabled",
-        "viewport": 1280,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "ai-connection-disabled",
-        "viewport": 1440,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
-      },
-      {
-        "state": "ai-connection-disabled",
-        "viewport": 1920,
-        "selector": "div.shell:nth-of-type(1) > header > div.header-actions:nth-of-type(2) > button#ai-btn:nth-of-type(2) > span.soon-pill:nth-of-type(2)",
-        "text": "Coming soon",
-        "foreground": "rgb(107, 104, 96)",
-        "background": "rgb(230, 227, 219)",
-        "ratio": 4.34,
-        "required": 4.5,
-        "font_size": "11px",
-        "font_weight": "650"
       }
     ],
-    "count": 81,
+    "count": 78,
     "unique": 8
   },
   "distinct_values": {
@@ -998,15 +962,15 @@
     "radius": [
       {
         "value": "0px",
-        "count": 1758
+        "count": 1653
       },
       {
         "value": "999px",
-        "count": 483
+        "count": 435
       },
       {
         "value": "50%",
-        "count": 171
+        "count": 150
       },
       {
         "value": "12px",
@@ -1014,7 +978,7 @@
       },
       {
         "value": "6px",
-        "count": 123
+        "count": 114
       },
       {
         "value": "4px",
@@ -1030,7 +994,7 @@
       },
       {
         "value": "18px",
-        "count": 18
+        "count": 15
       },
       {
         "value": "0px 0px 22px 22px",
@@ -1041,26 +1005,26 @@
         "count": 12
       },
       {
-        "value": "24px",
+        "value": "5px",
         "count": 12
       },
       {
-        "value": "5px",
-        "count": 12
+        "value": "24px",
+        "count": 9
       }
     ],
     "fontSizes": [
       {
         "value": "14px",
-        "count": 1023
+        "count": 927
       },
       {
         "value": "13px",
-        "count": 825
+        "count": 771
       },
       {
         "value": "12px",
-        "count": 339
+        "count": 315
       },
       {
         "value": "12.5px",
@@ -1068,7 +1032,7 @@
       },
       {
         "value": "11px",
-        "count": 96
+        "count": 90
       },
       {
         "value": "11.5px",
@@ -1080,7 +1044,7 @@
       },
       {
         "value": "13.3333px",
-        "count": 72
+        "count": 69
       },
       {
         "value": "13.5px",
@@ -1088,7 +1052,7 @@
       },
       {
         "value": "15px",
-        "count": 30
+        "count": 27
       },
       {
         "value": "18px",
@@ -1100,25 +1064,25 @@
       },
       {
         "value": "19px",
-        "count": 12
+        "count": 9
       }
     ],
     "shadows": [
       {
         "value": "rgba(27, 26, 25, 0.22) 0px 0px 0px 1px",
-        "count": 132
+        "count": 117
       },
       {
         "value": "rgba(27, 26, 25, 0.06) 0px 1px 2px 0px",
-        "count": 63
+        "count": 57
       },
       {
         "value": "rgba(27, 26, 25, 0.08) 0px 8px 28px 0px, rgba(27, 26, 25, 0.06) 0px 1px 3px 0px",
-        "count": 33
+        "count": 30
       },
       {
         "value": "rgb(27, 26, 25) 0px 0px 0px 2px",
-        "count": 24
+        "count": 21
       },
       {
         "value": "rgba(0, 0, 0, 0.45) 0px 20px 60px 0px",
@@ -1132,23 +1096,23 @@
     "colors": [
       {
         "value": "rgb(27, 26, 25)",
-        "count": 1935
+        "count": 1803
       },
       {
         "value": "rgb(107, 104, 96)",
-        "count": 612
+        "count": 567
       },
       {
         "value": "rgb(255, 255, 255)",
-        "count": 147
+        "count": 144
       },
       {
         "value": "rgb(154, 150, 141)",
-        "count": 90
+        "count": 84
       },
       {
         "value": "rgb(0, 0, 0)",
-        "count": 72
+        "count": 69
       },
       {
         "value": "rgb(156, 152, 143)",
@@ -1170,11 +1134,11 @@
     "fonts": [
       {
         "value": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 2826
+        "count": 2640
       },
       {
         "value": "Arial",
-        "count": 72
+        "count": 69
       },
       {
         "value": "ui-monospace, SFMono-Regular, Menlo, monospace",

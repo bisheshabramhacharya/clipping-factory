@@ -1,10 +1,12 @@
 # UI review rubric
 
-Eight categories, scored 1–10. The prompt for a scoring judge uses this file
-verbatim, so the meaning of a score stays stable from round to round. The
-anchors describe 2, 4, 6 and 8; interpolate for odd numbers. A 1 is broken and
-a score above the top anchor means the work is indistinguishable from the best
-production software you know and leaves you nothing to note.
+Eight categories. The absolute pass scores them 1–10; the comparative pass uses
+the same definitions and returns a winner instead of a score. The prompt for a
+judge uses this file verbatim, so the meaning of a category stays stable from
+round to round. The anchors describe 2, 4, 6 and 8; interpolate for odd numbers.
+A 1 is broken and a score above the top anchor means the work is
+indistinguishable from the best production software you know and leaves you
+nothing to note.
 
 Score the set of screens as a whole, not one favorite screen. When a claim is
 about a specific screen, name it (`state@width`). A category score is not an
@@ -117,3 +119,51 @@ average of per-screen scores.
   placeholder video frames). Judge the interface around it.
 - Browser chrome, scrollbars and the operating system's window frame are not
   part of the product.
+
+## Comparison method
+
+The comparative pass exists to stop an absolute score from flattering the work.
+It is run as one call per category, on a blind pair, and it has four rules.
+
+1. **Blind panels.** Every panel is copied into `pool/A/` and `pool/B/` under
+   opaque names, in an order shuffled per category. The judge is never told
+   which side is this studio, which side is the reference, or which product
+   either one is. The label map lives in `rounds/round-<n>/comparative-map.json`,
+   outside the judge's input directory.
+2. **One winner per category, with a citation.** The judge returns `A`, `B` or
+   `tie` and must cite a specific, checkable detail from the winning panel: a
+   measured distance, a spacing decision, a type-scale move, a control's exact
+   height or weight. The citation names the panel file and the value so a
+   person can open the image and check it.
+3. **A tie is not a win.** No citation means a tie. A tie is recorded as a tie
+   and never counted as a win, and the judge must say what is equal and what
+   neither panel gets right.
+4. **No target score, ever.** A judge is never told the score anyone wants, the
+   round's previous results, or that the work is being optimized. A category is
+   judged on the two panels in front of the judge.
+
+The budget is part of the method too: at most ten images in one call, no
+subagents or helpers, and one retry when a reply cannot be parsed. A call that
+spawns a helper is a failed call, because the helper would be scoring the panel
+on the judge's behalf.
+
+## Run policy
+
+These lines are for the people running rounds. They are not instructions to a
+judge, and a judge should not change what it looks at because of them.
+
+- **Scope.** A round judges at most two categories, chosen from the lowest
+  absolute score. Each category costs two calls (see order check) and a round is
+  held under 30 credits.
+- **Order check.** Every pair is judged twice, once with the sides swapped. A
+  verdict that flips when the panels exchange places is recorded as a tie: the
+  judge preferred the position, not the design.
+- **Reasoning.** The judge runs at `low`. `high` did not converge on a
+  four-image panel (13.31 credits, 939k tokens, no answer). `max` returned a
+  checkable citation on a two-image panel but cost 12.45 credits for one call,
+  which puts a three-category round at about 75 credits, and two of its
+  specifics did not survive checking against the stylesheet. `low` cost 6.65
+  credits for a two-image call and its measurements matched within .02em.
+  Measurements are in `rounds/reasoning-test.md`.
+- **Presentation.** A round file leads with the citation and states the verdict
+  after it, so a reader adjudicates the evidence instead of reading a score.

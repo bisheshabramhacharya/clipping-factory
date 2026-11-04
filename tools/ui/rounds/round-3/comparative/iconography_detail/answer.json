@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 3,
+  "category": "iconography_detail",
+  "winner": "A",
+  "citation": "A/01.png: the 'Library 5', 'Coming soon' and 'score 8.7' chips are one pill family, same ~24px height, same 12px radius, same neutral fill, so three unrelated bits of metadata read as one treatment; the four identical toggle switches and the 26px color dots with a single ring on the selected swatch repeat that consistency.",
+  "why": "A uses few icons but every small detail is a member of a system: one pill, one toggle, one swatch row, a keycap hint inside the primary button. B's line icons are evenly weighted but sparse, and its sidebar hairlines under 'Snoozed (2)' stop short of the row edge while the composer's machine chip sits half-clipped against the box.",
+  "confidence": "slight"
+}

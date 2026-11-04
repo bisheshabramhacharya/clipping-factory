@@ -1,57 +1,117 @@
 {
-  "purpose": "Published screenshots of three other products, used only as an outside comparison for design review of the Clipping Factory studio.",
+  "purpose": "Screenshots of other products, used as the outside comparison for design review of the Clipping Factory studio.",
   "retrieved": "2026-11-03",
-  "note": "Third-party screenshots, kept for internal design reference. Each file was published by its vendor. Files were normalized to PNG (and capped at 1400 px wide when larger) for the review harness; the source URL is the original asset.",
+  "captured": "2026-11-03",
+  "roles": {
+    "reference": "A real application window captured at a native viewport size. These are the only files a comparative judge is scored against.",
+    "aspiration": "Vendor marketing art: cropped single surfaces, 720 to 1400 px wide, not a whole app window at a native size. Kept for looking at, never scored against."
+  },
+  "note": "Files marked role \"reference\" were captured from the running application on this machine, at the same CSS pixel sizes and device scale factor as the studio's own shots, so both sides of a comparison are the same kind of image. Files marked role \"aspiration\" are third-party marketing assets kept for internal design reference; each was published by its vendor. Do not redistribute either kind as part of the product.",
   "files": [
+    {
+      "file": "t3-code-window@1280.png",
+      "source": "T3 Code",
+      "role": "reference",
+      "kind": "real app window",
+      "viewport": "1280",
+      "size": "1280x800",
+      "captured": "2026-11-03",
+      "captured_on": "Mac mini (Apple M1, macOS 26.0.1), remote over ssh",
+      "app_version": "0.1.1-nightly.20261020.3386",
+      "method": "Launched the installed app with --remote-debugging-port and captured its own Chromium renderer at a 1280x800 CSS viewport, device scale factor 1, through reference/capture-t3-window.mjs. This is the app's window content, not the vendor site and not a window screenshot with macOS chrome.",
+      "shows": "The app's new-thread screen: sidebar with search and thread groups, breadcrumb header, the empty workspace headline, the composer with its model, reasoning, access and machine selectors, and the project panel on the right.",
+      "note": "The sidebar shows the capture machine's own project and device names. Nothing was edited."
+    },
+    {
+      "file": "t3-code-window@1440.png",
+      "source": "T3 Code",
+      "role": "reference",
+      "kind": "real app window",
+      "viewport": "1440",
+      "size": "1440x900",
+      "captured": "2026-11-03",
+      "captured_on": "Mac mini (Apple M1, macOS 26.0.1), remote over ssh",
+      "app_version": "0.1.1-nightly.20261020.3386",
+      "method": "Same capture as t3-code-window@1280.png at a 1440x900 CSS viewport.",
+      "shows": "The same screen at the wider viewport, where the composer stays a fixed measure and the extra width lands as margin.",
+      "note": "The sidebar shows the capture machine's own project and device names. Nothing was edited."
+    },
     {
       "file": "t3-code-desktop.png",
       "source": "T3 Code",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "1400x875",
       "source_url": "https://t3.codes/_astro/app-desktop.BHuzLVLF.webp",
       "page_url": "https://t3.codes/",
       "shows": "Desktop app: thread list, message timeline, composer and the right-hand inspector.",
-      "note": "The GitHub README (github.com/pingdotgg/t3code) currently has no inline product screenshots, so this is the desktop-app screenshot published on the product site."
+      "note": "Superseded by t3-code-window@1280.png and t3-code-window@1440.png, which are the same app at native size. This one is a website asset, resized to 1400 px wide, and is not scored against."
     },
     {
       "file": "opus-clip-editor.png",
       "source": "Opus Clip",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "1400x840",
       "source_url": "https://cdn.prod.website-files.com/6388604483b03a9ecb34d695/683810bc964908007e1963cb_AI%20captioning.avif",
       "page_url": "https://www.opus.pro/",
-      "shows": "Clip editor: vertical preview with burned captions and the right-hand caption/style panel."
+      "shows": "Clip editor: vertical preview with burned captions and the right-hand caption/style panel.",
+      "note": "Cropped surface from a marketing page, not a whole window. Not scored against."
     },
     {
       "file": "opus-clip-result.png",
       "source": "Opus Clip",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "1168x792",
       "source_url": "https://cdn.prod.website-files.com/6388604483b03a9ecb34d695/684c2798958314e4a8958d21_ClipAnything.avif",
       "page_url": "https://www.opus.pro/",
-      "shows": "A finished vertical clip with captions, shown as the product's output."
+      "shows": "A finished vertical clip with captions, shown as the product's output.",
+      "note": "Product output, not an interface. Not scored against."
     },
     {
       "file": "opus-clip-grid.png",
       "source": "Opus Clip",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "1400x840",
       "source_url": "https://public.cdn.opus.pro/assets/AI_clipping.avif",
       "page_url": "https://www.opus.pro/",
-      "shows": "A grid of generated clips with per-clip duration badges above an upload strip."
+      "shows": "A grid of generated clips with per-clip duration badges above an upload strip.",
+      "note": "Cropped surface from a marketing page, not a whole window. Not scored against."
     },
     {
       "file": "descript-editor.png",
       "source": "Descript",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "1208x680",
       "source_url": "https://cdn.sanity.io/images/lsw4j9eq/production/6b37baf49bedeef47d0ef7ccba0045e560634cb1-1208x680.webp",
       "page_url": "https://www.descript.com/",
-      "shows": "Editor: vertical video canvas, transcript document and the right-hand properties panel."
+      "shows": "Editor: vertical video canvas, transcript document and the right-hand properties panel.",
+      "note": "Cropped surface from a marketing page, not a whole window. Not scored against."
     },
     {
       "file": "descript-underlord-clips.png",
       "source": "Descript",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "720x630",
       "source_url": "https://cdn.sanity.io/images/lsw4j9eq/production/35343bc5d9fcec263120efad2bbbdf423ae81e2b-720x630.png",
       "page_url": "https://www.descript.com/features",
-      "shows": "Underlord prompt: a natural-language request with a visible plan of steps and a media card."
+      "shows": "Underlord prompt: a natural-language request with a visible plan of steps and a media card.",
+      "note": "720 px marketing crop. Not scored against."
     },
     {
       "file": "descript-underlord-edit.png",
       "source": "Descript",
+      "role": "aspiration",
+      "kind": "vendor marketing art",
+      "size": "720x630",
       "source_url": "https://cdn.sanity.io/images/lsw4j9eq/production/d0fafe4735f2cd9a6aebb2cbb9f47f7e1abde646-720x630.png",
       "page_url": "https://www.descript.com/features",
-      "shows": "Underlord chat editing: a transcript panel beside a conversation about the change."
+      "shows": "Underlord chat editing: a transcript panel beside a conversation about the change.",
+      "note": "720 px marketing crop. Not scored against."
     }
   ]
 }

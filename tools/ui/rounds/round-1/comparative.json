@@ -1,0 +1,56 @@
+{
+  "round": 1,
+  "categories": {
+    "typography": {
+      "label": "Typography",
+      "verdict": "win",
+      "winner_label": "A",
+      "studio_label": "A",
+      "reference_label": "B",
+      "reference_source": "T3 Code",
+      "citation": "A/02.png: the panel's micro-labels \"CAPTIONS\" and \"EXTRAS\" are both set at the same ~11px uppercase with ~0.08em tracking, while the six clip titles all sit at 14/19 and their durations all at 13px, so the same kind of value gets the same treatment in every row; B/02.png runs one muted ~13px weight across the breadcrumb, sidebar rows and field labels, so hierarchy there is carried by color, not by type.",
+      "why": "A has a real scale of four or five sizes with tracked uppercase micro-labels, a consistent heading/body pairing and matching numeric treatment across list rows and the score badge; B is clean but nearly single-size, leaning on gray levels rather than type to separate a heading from its own subtitle.",
+      "confidence": "clear",
+      "judge": "capy-subagent",
+      "model": "deepseek/deepseek-v4.1-flash"
+    },
+    "hierarchy": {
+      "label": "Hierarchy",
+      "verdict": "not_judged"
+    },
+    "spacing_rhythm": {
+      "label": "Spacing and rhythm",
+      "verdict": "not_judged"
+    },
+    "color_contrast": {
+      "label": "Color and contrast",
+      "verdict": "not_judged"
+    },
+    "component_consistency": {
+      "label": "Component consistency",
+      "verdict": "not_judged"
+    },
+    "iconography_detail": {
+      "label": "Iconography and detail",
+      "verdict": "not_judged"
+    },
+    "primary_action": {
+      "label": "Clarity of the primary action",
+      "verdict": "not_judged"
+    },
+    "empty_error_states": {
+      "label": "Empty and error states",
+      "verdict": "not_judged"
+    }
+  },
+  "summary": {
+    "win": 1,
+    "loss": 0,
+    "tie": 0,
+    "not_judged": 7
+  },
+  "cost": {
+    "credits": 25.7084,
+    "calls": 2
+  }
+}
