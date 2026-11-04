@@ -1,16 +1,16 @@
-// Fold one round's blind comparative calls into rounds/round-<n>/comparative.json
-// and print the verdict table.
+// The comparative-only view of one round: the citation, then the verdict, per
+// category, with the order-check result and the credit cost.
 //
-//   node judges/aggregate-comparative.mjs --round 1
+//   node judges/aggregate-comparative.mjs --round 3
 //
-// Each category is one blind pair, so the result is a verdict per category, not
-// a score: win, loss or tie against the real reference window. A category with
-// no answer and no recorded failure is listed as not judged, never as a win.
+// judges/aggregate-round.mjs is the whole-round view; this one exists so a
+// round can be read without the absolute scores in the way.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CATEGORIES } from "./categories.mjs";
+import { readCategoryVerdict } from "./verdict.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(ROOT, "..", "..", "..");
@@ -38,64 +38,29 @@ async function main() {
   const map = await readJson(path.join(roundDir, "comparative-map.json"));
   if (!map) throw new Error(`missing ${path.join(roundDir, "comparative-map.json")}; run judges/prepare.mjs --role comparative first`);
 
-  const manifest = await readJson(path.join(REPO, "tools", "ui", "reference", "manifest.json"));
-  const sourceOfFile = new Map((manifest?.files || []).map((file) => [`reference/${file.file}`, file.source]));
-
   const categories = {};
   const tally = { win: 0, loss: 0, tie: 0, not_judged: 0 };
-  let spentUsd = 0;
+  let credits = 0;
   let calls = 0;
 
   for (const category of CATEGORIES) {
-    const panel = map.categories?.[category.key];
-    if (!panel) {
-      categories[category.key] = { label: category.label, verdict: "not_judged" };
-      tally.not_judged += 1;
-      continue;
+    const record = await readCategoryVerdict(roundDir, map, category.key, category.label);
+    categories[category.key] = record;
+    tally[record.verdict] += 1;
+    for (const key of [category.key, `${category.key}-swapped`]) {
+      const recorded = await readJson(path.join(roundDir, "comparative", key, "calls.json"));
+      for (const call of recorded?.calls || []) {
+        calls += 1;
+        credits += Number(call.credits || 0);
+      }
     }
-    const answer = await readJson(path.join(roundDir, "comparative", category.key, "answer.json"));
-    const failed = await readJson(path.join(roundDir, "comparative", category.key, "failed.json"));
-    const call = await readJson(path.join(roundDir, "comparative", category.key, "calls.json"));
-    for (const entry of call?.calls || []) {
-      calls += 1;
-      spentUsd += Number(entry.credits || 0);
-    }
-    if (!answer) {
-      categories[category.key] = {
-        label: category.label,
-        verdict: "not_judged",
-        failure: failed?.reason || null,
-      };
-      tally.not_judged += 1;
-      continue;
-    }
-
-    const studioLabel = Object.entries(panel.labels).find(([, side]) => side === "studio")?.[0];
-    const referenceLabel = Object.entries(panel.labels).find(([, side]) => side === "reference")?.[0];
-    const verdict = answer.winner === "tie" ? "tie" : answer.winner === studioLabel ? "win" : "loss";
-    tally[verdict] += 1;
-
-    const referenceFile = Object.entries(panel.files).find(([, file]) => file.side === "reference")?.[1];
-    categories[category.key] = {
-      label: category.label,
-      verdict,
-      winner_label: answer.winner,
-      studio_label: studioLabel,
-      reference_label: referenceLabel,
-      reference_source: sourceOfFile.get(referenceFile?.origin) || "reference",
-      citation: answer.citation,
-      why: answer.why,
-      confidence: answer.confidence,
-      judge: call?.calls?.at(-1)?.judge || null,
-      model: call?.calls?.at(-1)?.model || null,
-    };
   }
 
   const result = {
     round: args.round,
     categories,
     summary: tally,
-    cost: { credits: Math.round(spentUsd * 10000) / 10000, calls },
+    cost: { credits: Math.round(credits * 10000) / 10000, calls },
   };
   await mkdir(roundDir, { recursive: true });
   await writeFile(path.join(roundDir, "comparative.json"), `${JSON.stringify(result, null, 2)}\n`);

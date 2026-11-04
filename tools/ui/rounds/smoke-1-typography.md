@@ -4,6 +4,10 @@ Not a round. One category, run to check two things: does the blind pair produce 
 checkable citation, and does a second call agree with the first. The other seven
 categories are `not_judged`.
 
+This record uses the rule in force on the day: one call per category, no order
+check. Every round from round 2 on judges both orientations, and a verdict that
+flips with position is filed as a tie.
+
 ## Panel
 
 A = this studio, `results-6-clips@1280` and `@1440`. B = T3 Code's real window,

@@ -100,9 +100,10 @@ hunter with no scores.
 ## Judges
 
 Every judge call is one Capy subagent on this machine, running the model pinned
-in `judges/judges.json`: `deepseek/deepseek-v4.1-flash`, reasoning `high`. No
+in `judges/judges.json`: `deepseek/deepseek-v4.1-flash`, reasoning `low`. No
 Claude, no Codex, no Capy cloud machine. A call is staged, started, and then
-collected, so the caps can be enforced between the steps.
+collected, so the caps can be enforced between the steps. `rounds/reasoning-test.md`
+records why the pin is `low` rather than `high` or `max`.
 
 ```bash
 # absolute and defect hunter: one call per viewport
@@ -110,10 +111,12 @@ node judges/prepare.mjs --round 2 --role absolute --viewport 1280
 node judges/ask-judge.mjs --stage   --round 2 --role absolute --viewport 1280
 node judges/ask-judge.mjs --collect --round 2 --role absolute --viewport 1280 --subagent 4 --credits 0.2 --subagents 0
 
-# comparative: one blind pair per category, one call each
-node judges/prepare.mjs --round 2 --role comparative --category typography
-node judges/ask-judge.mjs --stage   --round 2 --category typography
-node judges/ask-judge.mjs --collect --round 2 --category typography --subagent 5 --credits 0.3 --subagents 0
+# comparative: two categories per round, each pair judged twice with the sides swapped
+node judges/prepare.mjs --round 3 --role comparative --category worst --widths 1280
+node judges/ask-judge.mjs --stage   --round 3 --category typography
+node judges/ask-judge.mjs --collect --round 3 --category typography --subagent 5 --credits 6.6 --subagents 0
+node judges/ask-judge.mjs --stage   --round 3 --category typography --swap
+node judges/ask-judge.mjs --collect --round 3 --category typography --swap --subagent 6 --credits 6.7 --subagents 0
 
 # the whole round
 node judges/aggregate-comparative.mjs --round 2
@@ -128,12 +131,11 @@ each file once, answer in one reply, write nothing, and work alone. Replies are
 cheaper than file writes: on the typography smoke test the reply-only call cost
 7.76 credits and the same task asking for a written file cost 17.95.
 
-Observed on the typography smoke test: 7.76 credits and 17.95 credits for the
-two filed calls, about 570k tokens each, and 13.31 credits for a `high`
-reasoning call that never produced an answer. Per-call token use, not the model
-price, is the cost driver. `judges/judges.json` pins `high`; the two filed calls
-ran at `low` after `high` failed to converge, and `calls.json` records the
-setting each call actually used.
+Measured per call: 12.45 credits at `max`, 6.65 at `low` on a two-image panel,
+7.76 at `low` on a four-image panel, and 17.95 when the same task asks for a
+written file. Per-call token use, not the model price, is the cost driver. A
+round is two categories with two calls each, so about 27 credits at the pinned
+setting; `rounds/reasoning-test.md` has the table.
 
 The caps are code, not prose:
 
@@ -146,9 +148,11 @@ The caps are code, not prose:
 - `--collect` refuses an answer whose model is not the pinned judge.
 - A win with no checkable citation is filed as a tie (`normalizeComparative`),
   with the original winner kept in the record.
-- `--collect --as repeat` files a second independent call as `repeat.json`,
-  which is how a category is checked for stability without disturbing the
-  round record.
+- `--swap` stages the same pair with A and B exchanged. A verdict that flips
+  between the two orientations is filed as a tie, because the judge preferred
+  the position rather than the design.
+- `--max-reply-tokens` (300 by default) rejects a reply over the cap.
+- `--collect --as repeat` files a second independent call as `repeat.json`.
 
 `aggregate-comparative.mjs` prints the verdict and citation per category and the
 credit cost. `aggregate-round.mjs` assembles the whole round: median absolute

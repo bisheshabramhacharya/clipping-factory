@@ -1,9 +1,13 @@
 {
   "comparative": {
     "model": "deepseek/deepseek-v4.1-flash",
-    "reasoning_mode": "high",
+    "reasoning_mode": "low",
     "machine": "shared",
     "max_images": 10,
-    "max_attempts": 2
+    "max_attempts": 2,
+    "max_categories_per_round": 2,
+    "max_reply_tokens": 300,
+    "widths": [1280],
+    "note": "Reasoning pin is low, not high or max, and rounds run at most 2 categories. max returned a checkable citation on a two-image panel but cost 12.45 credits for one call, which puts a 3-category round at about 75 credits against a 30 credit target, and two of its specifics (a mono face for durations, one 221px right edge) do not survive checking against styles.css. low cost 6.65 credits a call and its citations matched the stylesheet within .02em. Measurements in rounds/reasoning-test.md."
   }
 }

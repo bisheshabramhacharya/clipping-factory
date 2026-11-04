@@ -146,3 +146,24 @@ The budget is part of the method too: at most ten images in one call, no
 subagents or helpers, and one retry when a reply cannot be parsed. A call that
 spawns a helper is a failed call, because the helper would be scoring the panel
 on the judge's behalf.
+
+## Run policy
+
+These lines are for the people running rounds. They are not instructions to a
+judge, and a judge should not change what it looks at because of them.
+
+- **Scope.** A round judges at most two categories, chosen from the lowest
+  absolute score. Each category costs two calls (see order check) and a round is
+  held under 30 credits.
+- **Order check.** Every pair is judged twice, once with the sides swapped. A
+  verdict that flips when the panels exchange places is recorded as a tie: the
+  judge preferred the position, not the design.
+- **Reasoning.** The judge runs at `low`. `high` did not converge on a
+  four-image panel (13.31 credits, 939k tokens, no answer). `max` returned a
+  checkable citation on a two-image panel but cost 12.45 credits for one call,
+  which puts a three-category round at about 75 credits, and two of its
+  specifics did not survive checking against the stylesheet. `low` cost 6.65
+  credits for a two-image call and its measurements matched within .02em.
+  Measurements are in `rounds/reasoning-test.md`.
+- **Presentation.** A round file leads with the citation and states the verdict
+  after it, so a reader adjudicates the evidence instead of reading a score.

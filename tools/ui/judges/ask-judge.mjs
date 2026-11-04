@@ -31,7 +31,7 @@ function parseArgs(argv) {
   const args = {
     round: 0, category: null, stage: false, collect: false, failed: null,
     as: "answer", subagent: null, credits: null, tokens: null, subagents: 0, model: null,
-    from: null, reasoning: null,
+    from: null, reasoning: null, maxReplyTokens: 300, swap: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -48,6 +48,8 @@ function parseArgs(argv) {
     else if (arg === "--model") args.model = argv[++i];
     else if (arg === "--from") args.from = argv[++i];
     else if (arg === "--reasoning") args.reasoning = argv[++i];
+    else if (arg === "--max-reply-tokens") args.maxReplyTokens = Number(argv[++i]);
+    else if (arg === "--swap") args.swap = true;
   }
   if (!CATEGORY_KEYS.includes(args.category)) throw new Error(`--category must be one of ${CATEGORY_KEYS.join(", ")}`);
   if (!["answer", "repeat"].includes(args.as)) throw new Error('--as must be "answer" or "repeat"');
@@ -77,10 +79,11 @@ async function main() {
   const policy = (await readJson(path.join(ROOT, "judges.json")))?.comparative;
   if (!policy) throw new Error("judges/judges.json has no comparative policy");
 
-  const panelDir = path.join(ROOT, "inbox", `round-${args.round}`, "comparative", args.category);
+  const panelKey = args.swap ? `${args.category}-swapped` : args.category;
+  const panelDir = path.join(ROOT, "inbox", `round-${args.round}`, "comparative", panelKey);
   const panel = await readJson(path.join(panelDir, "panel.json"));
   if (!panel) throw new Error(`no panel at ${panelDir}; run judges/prepare.mjs --role comparative first`);
-  const outDir = path.join(ROUNDS, `round-${args.round}`, "comparative", args.category);
+  const outDir = path.join(ROUNDS, `round-${args.round}`, "comparative", panelKey);
   await mkdir(outDir, { recursive: true });
   const attemptsPath = path.join(panelDir, "attempts.json");
   const attempts = (await readJson(attemptsPath)) || { attempts: [] };
@@ -100,8 +103,9 @@ You are the only judge for this call. Work alone.
 
 1. Read \`${path.join(panelDir, "prompt.md")}\` and follow every rule in it.
 2. Read the rubric it names, then look at the ${panel.images} images it lists.
-3. Reply with one JSON object and nothing else. Do not write any file, do not
-   run any command, and do not list directories.
+3. Reply with one JSON object and nothing else, at most ${args.maxReplyTokens}
+   tokens in total. Do not write any file, do not run any command, and do not
+   list directories.
 
 Read the prompt, the rubric and each image exactly once. Do not re-read a file
 you have already read. Answer in one pass.
@@ -113,7 +117,7 @@ which. Use ${policy.model} as your model; you are running on ${policy.machine}.
     await writeFile(path.join(panelDir, "task.md"), task);
     attempts.attempts.push({ attempt: attempts.attempts.length + 1, repeat: args.as === "repeat", staged: new Date().toISOString() });
     await writeFile(attemptsPath, `${JSON.stringify(attempts, null, 2)}\n`);
-    console.log(`staged ${args.category}: ${panel.images} images, attempt ${attempts.attempts.length} of ${policy.max_attempts}`);
+    console.log(`staged ${panelKey}: ${panel.images} images, attempt ${attempts.attempts.length} of ${policy.max_attempts}`);
     console.log(`task: ${path.join(panelDir, "task.md")}`);
     console.log(`start with: machine "${policy.machine}", model ${policy.model}, reasoning ${policy.reasoning_mode}`);
     return;
@@ -163,6 +167,10 @@ which. Use ${policy.model} as your model; you are running on ${policy.machine}.
   }
 
   const errors = [];
+  const approxTokens = Math.ceil(raw.trim().length / 4);
+  if (approxTokens > args.maxReplyTokens) {
+    errors.push(`reply is about ${approxTokens} tokens, over the ${args.maxReplyTokens} cap`);
+  }
   let value;
   try {
     value = normalizeComparative(extractJson(raw));
@@ -201,7 +209,7 @@ which. Use ${policy.model} as your model; you are running on ${policy.machine}.
   calls.calls = calls.calls.filter((entry) => entry.run !== filedStem).concat(call);
   await writeFile(path.join(outDir, "calls.json"), `${JSON.stringify(calls, null, 2)}\n`);
   await rm(path.join(outDir, "failed.json"), { force: true });
-  console.log(`filed comparative/${args.category} as ${filedStem} (${call.model}, ${call.credits ?? "?"} credits, ${panel.images} images)`);
+  console.log(`filed comparative/${panelKey} as ${filedStem} (${call.model}, ${call.credits ?? "?"} credits, ${panel.images} images)`);
   console.log(JSON.stringify(value));
 }
 

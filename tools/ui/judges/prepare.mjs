@@ -37,17 +37,19 @@ const CATEGORY_STATE = {
   empty_error_states: "processing-error",
 };
 
-const PANEL_WIDTHS = [1280, 1440];
+const DEFAULT_PANEL_WIDTHS = [1280];
+const HARD_CATEGORY_CAP = 3;
 const MAX_IMAGES_PER_CALL = 10;
 
 function parseArgs(argv) {
-  const args = { round: 0, role: null, category: null, platforms: null, viewport: null };
+  const args = { round: 0, role: null, category: null, platforms: null, viewport: null, widths: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--round") args.round = Number(argv[++i]);
     else if (argv[i] === "--role") args.role = argv[++i];
     else if (argv[i] === "--category") args.category = argv[++i];
     else if (argv[i] === "--platforms") args.platforms = argv[++i].split(",").map((value) => value.trim());
     else if (argv[i] === "--viewport") args.viewport = Number(argv[++i]);
+    else if (argv[i] === "--widths") args.widths = argv[++i].split(",").map(Number).filter(Boolean);
   }
   if (!["absolute", "comparative", "defect-hunter"].includes(args.role)) {
     throw new Error("--role must be absolute, comparative or defect-hunter");
@@ -59,8 +61,17 @@ function parseArgs(argv) {
   }
   if (args.role === "comparative") {
     if (!args.category) throw new Error("comparative needs --category <key> or --category all");
-    if (args.category !== "all" && !CATEGORY_KEYS.includes(args.category)) {
-      throw new Error(`--category must be one of ${CATEGORY_KEYS.join(", ")} or all`);
+    if (args.category === "all") {
+      throw new Error(`at most ${HARD_CATEGORY_CAP} categories per round; name them, or use --category worst`);
+    }
+    if (args.category !== "worst") {
+      const list = args.category.split(",").map((value) => value.trim()).filter(Boolean);
+      if (!list.length || list.some((key) => !CATEGORY_KEYS.includes(key))) {
+        throw new Error(`--category must be worst, or one to ${MAX_CATEGORIES_PER_ROUND} of ${CATEGORY_KEYS.join(", ")}`);
+      }
+      if (list.length > HARD_CATEGORY_CAP) {
+        throw new Error(`at most ${HARD_CATEGORY_CAP} categories per round; got ${list.length}`);
+      }
     }
   }
   return args;
@@ -139,7 +150,45 @@ async function loadReferenceManifest() {
   return { scored, aspirational };
 }
 
-async function buildComparative({ round, categories, entries }) {
+
+// The three weakest categories by absolute score, so a round spends its calls
+// where the work is. Absolute answers are filed per viewport; the category score
+// here is the median across them, same rule as the round file.
+async function comparativePolicy() {
+  try {
+    return JSON.parse(await readFile(path.join(ROOT, "judges.json"), "utf8")).comparative || {};
+  } catch {
+    return {};
+  }
+}
+
+async function worstCategories(round, count) {
+  const dir = path.join(REPO, "tools", "ui", "rounds", `round-${round}`, "raw");
+  const parts = [];
+  for (const width of [1280, 1440, 1920]) {
+    try {
+      parts.push(JSON.parse(await readFile(path.join(dir, `absolute-${width}.json`), "utf8")));
+    } catch {
+      /* viewport not judged; the others still count */
+    }
+  }
+  if (!parts.length) {
+    throw new Error(`round ${round} has no absolute answers; run --role absolute --viewport <width> first, or name categories`);
+  }
+  const scored = CATEGORIES.map((category) => {
+    const values = parts
+      .map((part) => part.categories?.[category.key]?.score)
+      .filter((value) => typeof value === "number")
+      .sort((a, b) => a - b);
+    if (!values.length) return null;
+    const middle = Math.floor(values.length / 2);
+    const median = values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+    return { key: category.key, median };
+  }).filter(Boolean);
+  return scored.sort((a, b) => a.median - b.median).slice(0, count).map((entry) => entry.key);
+}
+
+async function buildComparative({ round, categories, entries, widths }) {
   const { scored, aspirational } = await loadReferenceManifest();
   const inboxRoot = path.join(ROOT, "inbox", `round-${round}`, "comparative");
   const mapPath = path.join(REPO, "tools", "ui", "rounds", `round-${round}`, "comparative-map.json");
@@ -151,74 +200,89 @@ async function buildComparative({ round, categories, entries }) {
 
   for (const category of categories) {
     const state = CATEGORY_STATE[category];
-    const studioShots = PANEL_WIDTHS.map((width) => {
+    const studioShots = widths.map((width) => {
       const candidates = entries.filter((entry) => entry.state === state && entry.width === width);
       if (!candidates.length) throw new Error(`no ${state}@${width} shot; run npm run shots first`);
       return candidates.find((entry) => entry.platform === "macos") || candidates[0];
     });
-    const references = PANEL_WIDTHS.map((width) => {
+    const references = widths.map((width) => {
       const match = scored.find((file) => file.viewport === String(width));
       if (!match) throw new Error(`reference/manifest.json has no role "reference" file at viewport ${width}`);
       return match;
     });
 
     const sides = shuffle(["studio", "reference"], hashKey(`round-${round}:${category}`));
-    const labels = { A: sides[0], B: sides[1] };
-    const dir = path.join(inboxRoot, category);
-    const poolRoot = path.join(dir, "pool");
-    await rm(poolRoot, { recursive: true, force: true });
+    const categoryLabel = CATEGORIES.find((entry) => entry.key === category).label;
 
-    const files = {};
-    for (const label of ["A", "B"]) {
-      const side = labels[label];
-      const outDir = path.join(poolRoot, label);
-      await mkdir(outDir, { recursive: true });
-      for (const [index, width] of PANEL_WIDTHS.entries()) {
-        const name = `${String(index + 1).padStart(2, "0")}.png`;
-        const target = path.join(outDir, name);
-        if (side === "studio") {
-          const shot = studioShots[index];
-          await copyFile(shot.absolute, target);
-          files[`${label}/${name}`] = { side, viewport: String(width), origin: shot.relative };
-        } else {
-          const reference = references[index];
-          await copyFile(path.join(RIG, "reference", reference.file), target);
-          files[`${label}/${name}`] = { side, viewport: String(width), origin: `reference/${reference.file}` };
+    // Two orientations of the same pair. The second swaps A and B so the judge
+    // cannot win a category by preferring whatever sits on the left.
+    const orientations = [
+      { key: category, labels: { A: sides[0], B: sides[1] } },
+      { key: `${category}-swapped`, labels: { A: sides[1], B: sides[0] }, swapOf: category },
+    ];
+
+    for (const orientation of orientations) {
+      const dir = path.join(inboxRoot, orientation.key);
+      const poolRoot = path.join(dir, "pool");
+      await rm(poolRoot, { recursive: true, force: true });
+
+      const files = {};
+      for (const label of ["A", "B"]) {
+        const side = orientation.labels[label];
+        const outDir = path.join(poolRoot, label);
+        await mkdir(outDir, { recursive: true });
+        for (const [index, width] of widths.entries()) {
+          const name = `${String(index + 1).padStart(2, "0")}.png`;
+          const target = path.join(outDir, name);
+          if (side === "studio") {
+            const shot = studioShots[index];
+            await copyFile(shot.absolute, target);
+            files[`${label}/${name}`] = { side, viewport: String(width), origin: shot.relative };
+          } else {
+            const reference = references[index];
+            await copyFile(path.join(RIG, "reference", reference.file), target);
+            files[`${label}/${name}`] = { side, viewport: String(width), origin: `reference/${reference.file}` };
+          }
         }
       }
+
+      const imageCount = Object.keys(files).length;
+      if (imageCount > MAX_IMAGES_PER_CALL) {
+        throw new Error(`${orientation.key} panel has ${imageCount} images, over the ${MAX_IMAGES_PER_CALL} limit`);
+      }
+
+      mapping.categories[orientation.key] = {
+        labels: orientation.labels,
+        files,
+        ...(orientation.swapOf ? { swap_of: orientation.swapOf } : {}),
+      };
+
+      const answerPath = path.join(dir, "answer.json");
+      const pools = ["A", "B"]
+        .map((label) => `${label}:\n${widths.map((_, index) => `  ${path.join(poolRoot, label, `${String(index + 1).padStart(2, "0")}.png`)}`).join("\n")}`)
+        .join("\n\n");
+
+      const prompt = (await readFile(path.join(ROOT, "prompts", "comparative.md"), "utf8"))
+        .replaceAll("{{ROUND}}", String(round))
+        .replaceAll("{{CATEGORY}}", category)
+        .replaceAll("{{CATEGORY_LABEL}}", categoryLabel)
+        .replaceAll("{{RUBRIC}}", path.join(RIG, "rubric.md"))
+        .replaceAll("{{POOLS}}", pools)
+        .replaceAll("{{IMAGE_COUNT}}", String(imageCount))
+        .replaceAll("{{ANSWER}}", answerPath);
+      await writeFile(path.join(dir, "prompt.md"), prompt);
+      await writeFile(path.join(dir, "panel.json"), `${JSON.stringify({
+        round,
+        category,
+        orientation: orientation.swapOf ? "swapped" : "normal",
+        images: imageCount,
+        widths,
+        pool: poolRoot,
+        answer: answerPath,
+      }, null, 2)}\n`);
+
+      built.push({ category: orientation.key, dir, answerPath, imageCount });
     }
-
-    const imageCount = Object.keys(files).length;
-    if (imageCount > MAX_IMAGES_PER_CALL) {
-      throw new Error(`${category} panel has ${imageCount} images, over the ${MAX_IMAGES_PER_CALL} limit`);
-    }
-
-    mapping.categories[category] = { labels, files };
-    const categoryLabel = CATEGORIES.find((entry) => entry.key === category).label;
-    const answerPath = path.join(dir, "answer.json");
-    const pools = ["A", "B"]
-      .map((label) => `${label}:\n${PANEL_WIDTHS.map((_, index) => `  ${path.join(poolRoot, label, `${String(index + 1).padStart(2, "0")}.png`)}`).join("\n")}`)
-      .join("\n\n");
-
-    const prompt = (await readFile(path.join(ROOT, "prompts", "comparative.md"), "utf8"))
-      .replaceAll("{{ROUND}}", String(round))
-      .replaceAll("{{CATEGORY}}", category)
-      .replaceAll("{{CATEGORY_LABEL}}", categoryLabel)
-      .replaceAll("{{RUBRIC}}", path.join(RIG, "rubric.md"))
-      .replaceAll("{{POOLS}}", pools)
-      .replaceAll("{{IMAGE_COUNT}}", String(imageCount))
-      .replaceAll("{{ANSWER}}", answerPath);
-    await writeFile(path.join(dir, "prompt.md"), prompt);
-    await writeFile(path.join(dir, "panel.json"), `${JSON.stringify({
-      round,
-      category,
-      images: imageCount,
-      widths: PANEL_WIDTHS,
-      pool: poolRoot,
-      answer: answerPath,
-    }, null, 2)}\n`);
-
-    built.push({ category, dir, answerPath, imageCount });
   }
 
   await writeFile(mapPath, `${JSON.stringify(mapping, null, 2)}\n`);
@@ -231,8 +295,11 @@ async function main() {
   if (!entries.length) throw new Error("no shots found; run npm run shots first");
 
   if (args.role === "comparative") {
-    const categories = args.category === "all" ? CATEGORY_KEYS : [args.category];
-    const result = await buildComparative({ round: args.round, categories, entries });
+    const policy = await comparativePolicy();
+    const categories = args.category === "worst"
+      ? await worstCategories(args.round, Math.min(policy.max_categories_per_round || 2, HARD_CATEGORY_CAP))
+      : args.category.split(",").map((value) => value.trim()).filter(Boolean);
+    const result = await buildComparative({ round: args.round, categories, entries, widths: args.widths || DEFAULT_PANEL_WIDTHS });
     console.log(`role: comparative · round ${args.round} · ${categories.length} category call(s)`);
     for (const call of result.built) {
       console.log(`  ${call.category}: ${call.imageCount} images → ${call.dir}`);
