@@ -25,8 +25,14 @@
 
     <div class="banners">
       <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive">
-        <strong>Setup needs attention</strong>
-        <div id="setup-banner-text"></div>
+        <div class="banner-line">
+          <span class="state-mark" data-kind="cross" aria-hidden="true"></span>
+          <details id="setup-details" class="banner-details">
+            <summary><strong>Setup needs attention</strong><span id="setup-count" class="banner-count"></span></summary>
+            <div id="setup-banner-text"></div>
+          </details>
+          <button id="setup-check" class="ghost" type="button">Check again</button>
+        </div>
       </div>
       <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
       <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
@@ -49,6 +55,7 @@
                 <button id="choose-btn" class="primary" type="button">Choose a video</button>
                 <span class="drop-hint">or drop it anywhere in the window</span>
               </div>
+              <p id="upload-blocked" class="drop-blocked hidden">Fix the setup problems above to make clips.</p>
             </div>
             <div id="drop-staged" class="drop-panel hidden" aria-live="polite">
               <span class="staged-kicker">Ready to clip</span>
@@ -151,16 +158,6 @@
       <!-- Processing state -->
       <section id="processing-state" class="hidden" aria-labelledby="processing-title">
         <h2 id="processing-title" class="proc-title">Making clips</h2>
-        <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
-          <div>
-            <strong id="error-stage"></strong>
-            <p id="error-text"></p>
-          </div>
-          <div class="error-actions">
-            <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
-            <button id="retry-btn" class="primary" type="button">Retry stage</button>
-          </div>
-        </div>
         <div class="source-line">
           <div>
             <span id="source-name" class="source-name"></span>
@@ -168,6 +165,16 @@
             <span id="source-focus" class="muted"></span>
           </div>
           <button id="cancel-btn" type="button">Cancel</button>
+        </div>
+        <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
+          <span class="state-mark" data-kind="cross" aria-hidden="true"></span>
+          <div class="error-body">
+            <strong id="error-stage" class="error-cause"></strong>
+            <p id="error-text" class="error-next"></p>
+          </div>
+          <div class="error-actions">
+            <button id="retry-btn" class="primary" type="button">Retry stage</button>
+          </div>
         </div>
         <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
         <div id="overall" class="overall hidden">
@@ -206,6 +213,7 @@
               <summary>Rejected</summary>
               <div id="rejected-list"></div>
             </details>
+            <div class="rail-fade" aria-hidden="true"></div>
           </nav>
           <div id="clips" class="clip-stage"></div>
           <div id="empty-results" class="empty-results hidden">
@@ -232,7 +240,13 @@
     </div>
     <section id="library-state">
       <div id="library-list" class="library-list"></div>
-      <p id="library-empty" class="muted small library-empty hidden">No projects yet. Drop an MP4 to start one.</p>
+      <div id="library-empty" class="library-empty state hidden">
+        <span class="state-mark" data-kind="dash" aria-hidden="true"></span>
+        <div class="state-body">
+          <p class="state-cause">No projects yet.</p>
+          <p class="state-next">Drop an MP4 anywhere to start one.</p>
+        </div>
+      </div>
     </section>
   </aside>
 
@@ -289,24 +303,27 @@
         <div id="review-dots" class="review-dots" aria-hidden="true"></div>
         <span id="review-counts" class="review-counts"></span>
       </div>
-      <button id="review-close" class="review-close" type="button">Close <kbd>Esc</kbd></button>
+      <div class="review-actions">
+        <a id="review-download" class="review-download" href="#">Download MP4</a>
+        <button id="review-close" class="review-close" type="button">Close <kbd>Esc</kbd></button>
+      </div>
     </div>
     <div class="review-stage">
       <div class="review-media">
-        <button id="review-prev" class="review-arrow" type="button" aria-label="Previous clip">‹</button>
+        <button id="review-prev" class="review-arrow" type="button" aria-label="Previous clip"></button>
         <div class="review-phone"><video id="review-video" controls playsinline muted></video></div>
-        <button id="review-next" class="review-arrow" type="button" aria-label="Next clip">›</button>
+        <button id="review-next" class="review-arrow" type="button" aria-label="Next clip"></button>
       </div>
       <div class="review-copy">
         <p id="review-meta" class="review-meta"></p>
         <h2 id="review-title"></h2>
+        <p id="review-caption" hidden></p>
         <p id="review-reason"></p>
         <div class="review-decisions">
           <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
           <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
           <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
         </div>
-        <a id="review-download" class="review-download" href="#">Download MP4</a>
         <p class="review-kbd"><kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> play</p>
       </div>
     </div>

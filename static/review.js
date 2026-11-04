@@ -11,6 +11,7 @@
   const title = document.getElementById("review-title");
   const meta = document.getElementById("review-meta");
   const reason = document.getElementById("review-reason");
+  const caption = document.getElementById("review-caption");
   const download = document.getElementById("review-download");
   const progress = document.getElementById("review-progress");
   const counts = document.getElementById("review-counts");
@@ -119,6 +120,9 @@
       video.src = item.player.src;
     }
     title.textContent = item.title;
+    const captionText = item.caption || "";
+    caption.textContent = captionText;
+    caption.hidden = !captionText;
     meta.textContent = [item.rank, item.score].filter(Boolean).join(" · ");
     reason.textContent = item.reason;
     if (item.downloadHref) {

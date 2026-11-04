@@ -132,19 +132,48 @@
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       populateLanguagePicker(s);
+      const check = $("setup-check");
+      if (check) {
+        check.disabled = false;
+        check.textContent = "Check again";
+      }
       if (problems.length) {
         const box = $("setup-banner-text");
         box.textContent = "";
+        $("setup-count").textContent = `${problems.length} problem${problems.length === 1 ? "" : "s"}`;
         for (const text of problems) {
           const row = document.createElement("div");
-          row.className = "setup-problem";
-          row.textContent = text;
+          row.className = "state setup-problem";
+          const mark = document.createElement("span");
+          mark.className = "state-mark";
+          mark.dataset.kind = "cross";
+          mark.setAttribute("aria-hidden", "true");
+          const body = document.createElement("div");
+          body.className = "state-body";
+          const cause = document.createElement("p");
+          cause.className = "state-cause";
+          const next = document.createElement("p");
+          next.className = "state-next";
+          const cut = text.indexOf(". ");
+          cause.textContent = cut > 0 ? text.slice(0, cut + 1) : text;
+          next.textContent = cut > 0
+            ? text.slice(cut + 2)
+            : /low disk/i.test(text) ? "Free up space, then check again." : "";
+          next.classList.toggle("hidden", !next.textContent);
+          body.appendChild(cause);
+          body.appendChild(next);
+          row.appendChild(mark);
+          row.appendChild(body);
           box.appendChild(row);
         }
         banner.classList.remove("hidden");
       } else {
         banner.classList.add("hidden");
       }
+      const choose = $("choose-btn");
+      if (choose) choose.disabled = problems.length > 0;
+      const blocked = $("upload-blocked");
+      if (blocked) blocked.classList.toggle("hidden", problems.length === 0);
       clearActionMessage("reconnect");
       if (view) render();
     } catch {
@@ -523,9 +552,9 @@
     cancelled: "Cancelled",
     failed: "Failed",
   };
-  // A stage in progress reads as a verb, not as a clipped noun. The old label
-  // took the stage name and appended an ellipsis, which looked like the text
-  // had been cut off rather than like the project was working.
+  // A stage in progress reads as a verb. The old label took the stage name and
+  // appended an ellipsis, so "transcribing" rendered as "Transcribe…" and looked
+  // like text that had been cut off rather than a project that was working.
   const LIBRARY_PROGRESS = {
     inspecting: "Inspecting",
     extracting_audio: "Extracting audio",
@@ -562,7 +591,7 @@
         : "";
       const rest = [date];
       if (entry.clips_ready) rest.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
-      rest.push(fmtBytes(entry.size_bytes));
+      rest.push(fmtBytes(entry.size_bytes).replace(" ", " "));
 
       const card = document.createElement("div");
       card.className = `library-card${isOpen ? " open" : ""}`;
@@ -574,23 +603,58 @@
       const nameEl = document.createElement("span");
       nameEl.className = "name";
       nameEl.textContent = name;
+      const bad = entry.status === "failed" || entry.status === "cancelled";
+      let stateEl = null;
+      if (bad) {
+        const state = document.createElement("span");
+        state.className = "lib-state";
+        const mark = document.createElement("span");
+        mark.className = "state-mark";
+        mark.dataset.kind = entry.status === "failed" ? "cross" : "dash";
+        mark.setAttribute("aria-hidden", "true");
+        const body = document.createElement("span");
+        body.className = "state-body";
+        const cause = document.createElement("span");
+        cause.className = "state-cause";
+        cause.textContent = entry.status === "failed"
+          ? entry.clips_ready
+            ? `Failed with ${entry.clips_ready} of ${entry.clips_total} clips ready`
+            : "Failed, no clips written"
+          : "Cancelled before any clip was written";
+        const next = document.createElement("span");
+        next.className = "state-next";
+        next.textContent = entry.status === "failed"
+          ? "Open it to retry the failed stage."
+          : "Open it to run it again.";
+        body.appendChild(cause);
+        body.appendChild(next);
+        state.appendChild(mark);
+        state.appendChild(body);
+        stateEl = state;
+      }
       const meta = document.createElement("span");
       meta.className = "meta";
-      const status = document.createElement("span");
-      status.className = "lib-status";
-      status.dataset.status = entry.status || "";
-      status.textContent = entry.status === "failed" && !entry.clips_ready
-        ? "Failed, no clips written"
-        : libraryStatus(entry);
-      meta.appendChild(status);
-      meta.appendChild(document.createTextNode(" · " + rest.filter(Boolean).join(" · ")));
+      if (!bad) {
+        const status = document.createElement("span");
+        status.className = "lib-status";
+        status.dataset.status = entry.status || "";
+        status.textContent = libraryStatus(entry);
+        meta.appendChild(status);
+      }
+      for (const bit of rest.filter(Boolean)) {
+        const fact = document.createElement("span");
+        fact.className = "lib-fact";
+        fact.textContent = bit;
+        meta.appendChild(fact);
+      }
       if (isOpen) {
         const tag = document.createElement("span");
         tag.className = "open-tag";
-        tag.textContent = " · Open";
+        tag.textContent = "Open";
         meta.appendChild(tag);
       }
       open.appendChild(nameEl);
+      if (stateEl) open.appendChild(stateEl);
       open.appendChild(meta);
       open.addEventListener("click", () => openProject(entry.id));
 
@@ -614,8 +678,9 @@
         const go = document.createElement("button");
         go.type = "button";
         go.className = "library-go";
-        go.textContent = "Open";
-        go.setAttribute("aria-label", `Open ${name}`);
+        const retry = entry.status === "failed";
+        go.textContent = retry ? "Retry" : "Open";
+        go.setAttribute("aria-label", `${retry ? "Retry" : "Open"} ${name}`);
         go.addEventListener("click", () => openProject(entry.id));
         card.appendChild(go);
       }
@@ -949,10 +1014,7 @@
   function renderError(p) {
     const box = $("error-box");
     const clips = view.clips || [];
-    const chooseAnother = $("choose-another-btn");
     const retryButton = $("retry-btn");
-    const zeroClipFailure = clips.length === 0 && (p.status === "failed" || p.status === "cancelled");
-    chooseAnother.classList.toggle("hidden", !zeroClipFailure);
     retryButton.disabled = retryPending;
     retryButton.textContent = retryPending
       ? "Retrying…"
@@ -1003,13 +1065,7 @@
         : "Captioning full video";
       $("results-sub").textContent = view.source_name || "";
     } else {
-      $("results-title").textContent =
-        total === 0 ? "No clips produced" :
-        failed.length > 0
-          ? `${ready.length} of ${total} clips ready · ${failed.length} failed`
-          : p.status === "complete"
-          ? `${ready.length} clip${ready.length === 1 ? "" : "s"}`
-          : `${ready.length} of ${total} clips ready`;
+      $("results-title").textContent = total === 0 ? "No clips produced" : "Clips";
 
       $("results-sub").textContent = view.source_name || "";
     }
@@ -1416,6 +1472,25 @@
     return { row, box };
   }
 
+  // One filled control per view: while any inspector draft is unsaved, the
+  // global Review entry point steps back to its outlined treatment.
+  function syncPrimaryState() {
+    const results = $("results-state");
+    if (!results) return;
+    const dirty = Object.values(restyleState).some((s) => s.dirty && !s.busy);
+    results.classList.toggle("has-dirty", dirty);
+  }
+
+  // The rail fade says "there is more below" only where the rejected section
+  // is open and actually continues past the panel edge.
+  function syncRailFade() {
+    const rail = document.querySelector(".clip-rail");
+    const rejected = $("rejected-details");
+    if (!rail || !rejected) return;
+    const more = rail.scrollHeight - rail.scrollTop - rail.clientHeight > 2;
+    rail.classList.toggle("can-scroll-more", !rejected.hidden && rejected.open && more);
+  }
+
   // Per-clip caption restyle: pick style + accent color, re-burn from the
   // cached base render (seconds, not a full re-render), reload the preview.
   function restyleControls(c) {
@@ -1600,7 +1675,7 @@
       custom.classList.toggle("active", customSelected);
       customPicker.classList.toggle("on", customSelected);
       custom.setAttribute("aria-pressed", String(customSelected));
-      custom.value = state.draft.color;
+      custom.value = customSelected ? state.draft.color : "#FFFFFF";
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
@@ -1609,9 +1684,10 @@
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.classList.toggle("primary", !apply.disabled);
-      apply.textContent = state.busy ? "Applying…" : state.dirty ? "Apply changes" : "No changes";
+      apply.textContent = state.busy ? "Applying…" : "Apply changes";
       status.className = `small restyle-status ${state.kind || ""}`;
-      status.textContent = state.message || "";
+      status.textContent = state.message || (state.dirty ? "" : "No changes");
+      syncPrimaryState();
     }
 
     apply.addEventListener("click", async () => {
@@ -1952,6 +2028,7 @@
         rank: clipRankText(c),
         reason: clipWhyText(c) || "",
         score: typeof c.score === "number" ? c.score.toFixed(1) : "",
+        caption: c.caption_text || "",
         downloadHref: apiPath("projects", projectId, "clips", c.id, "download"),
         downloadName: c.filename || "",
       });
@@ -1970,10 +2047,22 @@
     wireDeleteModal();
     wireLibrary();
     loadLibrary();
+    $("setup-check").addEventListener("click", async () => {
+      const b = $("setup-check");
+      b.disabled = true;
+      b.textContent = "Checking…";
+      await loadSetup();
+      b.disabled = false;
+      b.textContent = "Check again";
+    });
+    $("rejected-details").addEventListener("toggle", (event) => {
+      if (event.target.open) event.target.scrollIntoView({ block: "start" });
+      syncRailFade();
+    });
+    document.querySelector(".clip-rail").addEventListener("scroll", syncRailFade, { passive: true });
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
-    $("choose-another-btn").addEventListener("click", resetToEmpty);
     $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);
