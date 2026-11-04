@@ -23,12 +23,20 @@
     </header>
 
     <div class="banners">
-      <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive"></div>
       <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
       <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
     </div>
 
     <main id="stage">
+      <!-- Missing dependencies: in the flow, above whatever screen is up -->
+      <div id="setup-banner" class="setup-banner hidden" role="alert">
+        <div class="setup-head">
+          <strong id="setup-title">Setup needs attention</strong>
+          <button id="setup-recheck" type="button">Recheck</button>
+        </div>
+        <ul id="setup-problems" class="setup-list"></ul>
+      </div>
+
       <!-- Empty / import state -->
       <section id="upload-state" aria-labelledby="upload-title">
         <h2 id="upload-title" class="sr-only">Create clips</h2>
@@ -213,7 +221,7 @@
       <div>
         <h2 id="library-title">Library</h2>
       </div>
-      <button id="library-close" type="button" class="ghost" aria-label="Close library">Close</button>
+      <button id="library-close" type="button" aria-label="Close library">Close</button>
     </div>
     <section id="library-state">
       <div id="library-list" class="library-list"></div>
