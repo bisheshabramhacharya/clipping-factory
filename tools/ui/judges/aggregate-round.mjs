@@ -130,7 +130,7 @@ async function main() {
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(ROUNDS, `round-${args.round}.json`), `${JSON.stringify(round, null, 2)}\n`);
 
-  const lines = [`# Round ${args.round} — design review`, ""];
+  const lines = [`# Round ${args.round}: design review`, ""];
   if (round.viewports.length) {
     lines.push(`## Absolute score by category`, "");
     lines.push(`Viewports judged: ${round.viewports.join(", ")}. A category's score is the median across them.`, "");
@@ -138,8 +138,8 @@ async function main() {
     lines.push("| --- |" + round.viewports.map(() => " ---:").join("") + " ---: |");
     for (const category of CATEGORIES) {
       const row = scores[category.key];
-      const cells = round.viewports.map((width) => row.per_viewport[width]?.score ?? "—");
-      lines.push(`| ${category.label} | ${cells.join(" | ")} | **${row.median ?? "—"}** |`);
+      const cells = round.viewports.map((width) => row.per_viewport[width]?.score ?? "n/a");
+      lines.push(`| ${category.label} | ${cells.join(" | ")} | **${row.median ?? "n/a"}** |`);
     }
     lines.push("");
   }
@@ -151,7 +151,7 @@ async function main() {
   lines.push("| --- | --- | --- |");
   for (const category of CATEGORIES) {
     const row = verdicts[category.key];
-    lines.push(`| ${category.label} | ${row.verdict === "not_judged" ? "not judged" : row.verdict} | ${row.confidence || (row.failure ? "failed" : "—")} |`);
+    lines.push(`| ${category.label} | ${row.verdict === "not_judged" ? "not judged" : row.verdict} | ${row.confidence || (row.failure ? "failed" : "n/a")} |`);
   }
   lines.push("");
   lines.push(`Wins ${tally.win} · losses ${tally.loss} · ties ${tally.tie} · not judged ${tally.not_judged}`, "");
@@ -161,7 +161,7 @@ async function main() {
       if (row.failure) lines.push(`- **${category.label}**: not judged, ${row.failure}`);
       continue;
     }
-    lines.push(`### ${category.label} — ${row.verdict} (${row.confidence})`, "");
+    lines.push(`### ${category.label}: ${row.verdict} (${row.confidence})`, "");
     lines.push(`Citation, winner is side ${row.winner_label}:`, "", `> ${row.citation}`, "");
     lines.push(`Why: ${row.why}`, "");
     if (row.model) lines.push(`Judge: ${row.judge}, ${row.model}.`, "");

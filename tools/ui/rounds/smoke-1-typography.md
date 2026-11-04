@@ -1,4 +1,4 @@
-# Round 1 — comparative smoke test
+# Round 1: comparative smoke test
 
 Not a round. One category, one blind pair, run to check that the new method can
 produce a loss at all. The other seven categories are `not_judged`.

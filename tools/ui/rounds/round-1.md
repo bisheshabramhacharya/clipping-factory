@@ -1,4 +1,4 @@
-# Round 1 — design review
+# Round 1: design review
 
 ## Blind comparison
 
@@ -7,17 +7,17 @@ One call per category, blind pair, one winner with a citation or a tie.
 | Category | Verdict | Confidence |
 | --- | --- | --- |
 | Typography | loss | slight |
-| Hierarchy | not judged | — |
-| Spacing and rhythm | not judged | — |
-| Color and contrast | not judged | — |
-| Component consistency | not judged | — |
-| Iconography and detail | not judged | — |
-| Clarity of the primary action | not judged | — |
-| Empty and error states | not judged | — |
+| Hierarchy | not judged | n/a |
+| Spacing and rhythm | not judged | n/a |
+| Color and contrast | not judged | n/a |
+| Component consistency | not judged | n/a |
+| Iconography and detail | not judged | n/a |
+| Clarity of the primary action | not judged | n/a |
+| Empty and error states | not judged | n/a |
 
 Wins 0 · losses 1 · ties 0 · not judged 7
 
-### Typography — loss (slight)
+### Typography: loss (slight)
 
 Citation, winner is side B:
 
