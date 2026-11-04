@@ -35,6 +35,7 @@
   let library = []; // LibraryEntry rows from GET /api/projects
   let librarySig = ""; // last-rendered signature — skips pointless rebuilds
   let liveProgress = null; // LiveStage + receivedAt (client receipt time)
+  let setupBlocked = false; // a missing dependency makes a run fail every time
   // Progress samples for the active stage — the ETA's rolling-rate window.
   let liveSamples = { stage: null, pts: [] };
   let firstClipAnnounced = false; // jump to the first ready clip once per run
@@ -121,28 +122,74 @@
     try {
       const s = await requestJson("/api/setup", {}, "Couldn't reconnect to the local server.");
       const problems = [];
-      if (!s.ffmpeg) problems.push("FFmpeg was not found. Install it and restart.");
-      else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. macOS: brew install ffmpeg-full, then restart.");
-      if (!s.ffprobe) problems.push("FFprobe was not found. It ships with FFmpeg.");
-      if (!s.whisper_ok) problems.push("whisper-cli was not found. macOS: brew install whisper-cpp, or set CF_WHISPER_BIN.");
-      if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
-      if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push(`Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`);
-      const banner = $("setup-banner");
+      const missing = (text) => problems.push({ text, severity: "bad" });
+      if (!s.ffmpeg) missing("FFmpeg was not found. Install it and restart.");
+      else if (!s.ffmpeg_ass) missing("This FFmpeg build cannot burn captions. macOS: brew install ffmpeg-full, then restart.");
+      if (!s.ffprobe) missing("FFprobe was not found. It ships with FFmpeg.");
+      if (!s.whisper_ok) missing("whisper-cli was not found. macOS: brew install whisper-cpp, or set CF_WHISPER_BIN.");
+      if (!s.model_ok) missing(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
+      if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push({ text: `Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`, severity: "warn" });
       captionDefaultFont = s.caption_font || captionDefaultFont;
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       populateLanguagePicker(s);
-      if (problems.length) {
-        banner.textContent = problems.join("\n");
-        banner.classList.remove("hidden");
-      } else {
-        banner.classList.add("hidden");
-      }
+      showSetupProblems(problems);
       clearActionMessage("reconnect");
       if (view) render();
     } catch {
       showActionMessage("Couldn't reconnect to the local server. Refresh to try again.", "reconnect");
     }
+  }
+
+  function showSetupProblems(problems) {
+    const banner = $("setup-banner");
+    const list = $("setup-problems");
+    list.innerHTML = "";
+    if (!problems.length) {
+      banner.classList.add("hidden");
+      return;
+    }
+    const blocking = problems.filter((problem) => problem.severity === "bad").length;
+    const warnings = problems.length - blocking;
+    setupBlocked = blocking > 0;
+    syncRunGate();
+    banner.dataset.severity = blocking > 0 ? "bad" : "warn";
+    // The title has to add up to the list under it: blocking items are
+    // dependencies, the rest are warnings (low disk, for now).
+    $("setup-title").textContent = blocking > 0
+      ? `${blocking} missing ${blocking === 1 ? "dependency" : "dependencies"}` +
+        (warnings ? ` · ${warnings} warning${warnings === 1 ? "" : "s"}` : "")
+      : "Setup needs attention";
+    for (const problem of problems) {
+      const item = document.createElement("li");
+      item.dataset.severity = problem.severity;
+      item.textContent = problem.text;
+      list.appendChild(item);
+    }
+    banner.classList.remove("hidden");
+  }
+
+  // A run that cannot finish is not offered: while a dependency is missing the
+  // upload path is inert and says why, instead of failing at the last step.
+  function syncRunGate() {
+    const why = "Install the missing dependencies above, then press Recheck.";
+    for (const id of ["choose-btn", "start-btn"]) {
+      const button = $(id);
+      if (!button) continue;
+      button.disabled = setupBlocked;
+      button.title = setupBlocked ? why : "";
+    }
+  }
+
+  // Re-probe the machine without a reload: a dependency installed in another
+  // window should clear the notice in place.
+  async function recheckSetup() {
+    const button = $("setup-recheck");
+    button.disabled = true;
+    button.textContent = "Checking…";
+    await loadSetup();
+    button.disabled = false;
+    button.textContent = "Recheck";
   }
 
   // The language list comes from the backend so the picker always matches what
@@ -250,6 +297,10 @@
   }
 
   function stageFile(file) {
+    if (setupBlocked) {
+      showActionMessage("Install the missing dependencies above before adding a video.", "notice");
+      return;
+    }
     if (!/\.(mp4|m4v)$/i.test(file.name)) {
       showActionMessage("Attach an .mp4 file. Other containers are not supported yet.");
       return;
@@ -511,15 +562,23 @@
   }
 
   const LIBRARY_STATUS = {
-    created: "Queued",
-    complete: "Complete",
-    cancelled: "Cancelled",
-    failed: "Failed",
+    created: { label: "Queued", kind: "queued" },
+    complete: { label: "Complete", kind: "complete" },
+    cancelled: { label: "Cancelled", kind: "cancelled" },
+    failed: { label: "Failed", kind: "failed" },
+  };
+  const LIBRARY_STAGE = {
+    inspecting: "Inspecting",
+    extracting_audio: "Extracting",
+    transcribing: "Transcribing",
+    selecting_candidates: "Selecting",
+    validating_candidates: "Validating",
+    analyzing_layout: "Analyzing",
+    rendering: "Rendering",
   };
   function libraryStatus(entry) {
     if (LIBRARY_STATUS[entry.status]) return LIBRARY_STATUS[entry.status];
-    const stage = STAGE_LABELS[entry.status];
-    return stage ? stage.replace(/^\d+\.\s*/, "") + "…" : entry.status;
+    return { label: LIBRARY_STAGE[entry.status] || entry.status, kind: "active" };
   }
 
   function renderLibrary() {
@@ -540,7 +599,8 @@
       const date = entry.created_at
         ? new Date(entry.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
         : "";
-      const bits = [date, libraryStatus(entry)];
+      const status = libraryStatus(entry);
+      const bits = [date];
       if (entry.clips_ready) bits.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
       bits.push(fmtBytes(entry.size_bytes));
 
@@ -554,23 +614,25 @@
       const nameEl = document.createElement("span");
       nameEl.className = "name";
       nameEl.textContent = name;
+      const nameRow = document.createElement("span");
+      nameRow.className = "library-name-row";
+      nameRow.appendChild(nameEl);
+      const chip = document.createElement("span");
+      chip.className = "status-chip";
+      chip.dataset.status = status.kind;
+      chip.textContent = status.label;
+      nameRow.appendChild(chip);
       const meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = bits.filter(Boolean).join(" · ") + (isOpen ? " " : "");
-      if (isOpen) {
-        const tag = document.createElement("span");
-        tag.className = "open-tag";
-        tag.textContent = "· open";
-        meta.appendChild(tag);
-      }
-      open.appendChild(nameEl);
+      meta.textContent = bits.filter(Boolean).join(" · ");
+      open.appendChild(nameRow);
       open.appendChild(meta);
       open.addEventListener("click", () => openProject(entry.id));
 
       const del = document.createElement("button");
       del.type = "button";
       del.className = "library-delete";
-      del.textContent = "Delete";
+      del.innerHTML = `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4.2 4.5l.6 7.6a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.6-7.6M6.6 7v4M9.4 7v4"/></svg>`;
       del.setAttribute("aria-label", `Delete ${name} from this computer`);
       const blocked = isProcessing(entry.status);
       const styling = isOpen && restyleBusy;
@@ -748,7 +810,7 @@
     $("source-name").textContent = view.source_name || "source.mp4";
     $("source-name").title = view.source_name || "source.mp4";
     $("source-meta").textContent = src
-      ? `${src.width}×${src.height} · ${fmtMs(src.duration_ms)} · ${src.video_codec}/${src.audio_codec}`
+      ? `${src.width}×${src.height} · ${fmtMs(src.duration_ms)} · ${src.video_codec} / ${src.audio_codec}`
       : "";
     $("source-focus").textContent = p.focus_prompt ? ` · focus: "${p.focus_prompt}"` : "";
 
@@ -884,10 +946,8 @@
       }
     }
     if (!cancellationPending) {
-      const label =
-        liveProgress.detail || `${STAGE_LABELS[stage] || stage}`;
-      $("current-op-text").textContent =
-        `${label} · ${percent}%${etaText ? `${etaText} remaining` : ""}`;
+      const label = liveProgress.detail || `${(STAGE_LABELS[stage] || stage).replace(/^\d+\.\s*/, "")}…`;
+      $("current-op-text").textContent = label;
     }
     renderOverall(liveProgress, etaMs);
   }
@@ -1056,8 +1116,9 @@
       for (const r of rej) {
         const d = document.createElement("div");
         d.className = "rejected-item";
-        d.innerHTML = `<div></div><div class="reasons"></div>`;
-        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}` +
+        d.innerHTML = `<div class="rejected-line"><span class="rejected-quote"></span><span class="rejected-range"></span></div><div class="reasons"></div>`;
+        d.querySelector(".rejected-quote").textContent = `“${r.headline || "(untitled)"}”`;
+        d.querySelector(".rejected-range").textContent = `${fmtMs(r.start_ms)}–${fmtMs(r.end_ms)}` +
           (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}` : "");
         d.children[1].textContent = (r.reasons || []).join("; ");
         list.appendChild(d);
@@ -1071,7 +1132,8 @@
     renderResults(view.project);
   }
 
-  // Left rail: one compact card per clip — poster, rank, headline, score.
+  // Left rail: one compact card per clip — poster, rank, headline. The score
+  // is stated once, in the detail panel; the rail is already ranked by it.
   function renderRail(ranked) {
     const list = $("clip-rail-list");
     list.innerHTML = "";
@@ -1104,7 +1166,6 @@
       const top = document.createElement("span");
       top.className = "rail-rank";
       top.textContent = captionOnly ? "Full video" : `#${c.rank}` +
-        (typeof c.score === "number" ? ` · ${c.score.toFixed(1)}` : "") +
         (c.status === "rendering" ? " · rendering" : c.status === "failed" ? " · failed" : c.status === "ready" ? "" : " · queued");
       const title = document.createElement("span");
       title.className = "rail-title";
@@ -1232,7 +1293,7 @@
     actions.className = "actions";
     if (c.status === "ready") {
       const a = document.createElement("a");
-      a.className = "primary action-button";
+      a.className = "action-button";
       a.href = apiPath("projects", projectId, "clips", c.id, "download");
       a.download = c.filename;
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
@@ -1406,8 +1467,6 @@
     });
     const customPicker = document.createElement("label");
     customPicker.className = "custom-color-picker";
-    const customLabel = document.createElement("span");
-    customLabel.textContent = "";
     const custom = document.createElement("input");
     custom.type = "color";
     custom.className = "custom-color";
@@ -1418,8 +1477,10 @@
       state.draft.color = e.target.value.toUpperCase();
       markDirty();
     });
-    customPicker.appendChild(customLabel);
+    const customLabel = document.createElement("span");
+    customLabel.textContent = "Custom";
     customPicker.appendChild(custom);
+    customPicker.appendChild(customLabel);
     swatches.appendChild(customPicker);
 
     const font = document.createElement("select");
@@ -1443,6 +1504,7 @@
     const fontPicker = document.createElement("label");
     fontPicker.className = "font-picker";
     const fontLabel = document.createElement("span");
+    fontLabel.className = "opt-label";
     fontLabel.textContent = "Font";
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
@@ -1528,7 +1590,7 @@
       apply.disabled = Boolean(state.busy) || !state.dirty;
       apply.textContent = state.busy ? "Applying…" : "Apply changes";
       status.className = `small restyle-status ${state.kind || ""}`;
-      status.textContent = state.message || "";
+      status.textContent = state.message || (state.dirty ? "" : "Up to date");
     }
 
     apply.addEventListener("click", async () => {
@@ -1887,6 +1949,7 @@
     wireDeleteModal();
     wireLibrary();
     loadLibrary();
+    $("setup-recheck").addEventListener("click", recheckSetup);
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
