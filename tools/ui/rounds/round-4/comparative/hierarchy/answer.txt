@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 4,
+  "category": "hierarchy",
+  "winner": "B",
+  "citation": "B/01.png: the right panel steps down in three clear levels - quoted clip title at ~15px semibold, then section labels CAPTIONS / FONT / EXTRAS at ~11px muted uppercase, then control labels at ~13px - and the left rail marks one row (#1) with a white card on a cream field, so the eye goes clip list -> preview -> inspector. A/01.png has no such step: its centered 'What should we work on?' headline and the 'No project' line under it differ by only a few px, while the fixed 'bishesha's MacBook Pro' card at top right carries the same weight as the headline and sits outside the reading path.",
+  "why": "B has a deliberate left-to-right path with one selected row and a panel that ranks title above labels above controls; A has a focal headline but no second or third level, and a competing floating card plus a stray machine chip under the composer that breaks the single-column stack.",
+  "confidence": "clear"
+}

@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 4,
+  "category": "hierarchy",
+  "winner": "A",
+  "citation": "A/01.png: the 9:16 preview is the single focal region, centered in a ~570px span (x≈291–860), flanked by a fixed ~375px inspector column (x≈878–1253) and a clip list whose rows repeat at a constant pitch; B/01.png has no focal region, since the only content is one prompt card at x≈310–950 under an oversized empty canvas.",
+  "why": "A steps down cleanly: preview first, then the clip list at muted weight, then the inspector with small uppercase section labels (CAPTIONS, FONT, EXTRAS) so the eye can follow one path. B's screen is mostly void, and its right-side settings card floats at the same weight as the prompt, so nothing says where to look.",
+  "confidence": "clear"
+}
