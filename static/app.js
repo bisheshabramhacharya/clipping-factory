@@ -1132,8 +1132,11 @@
     renderResults(view.project);
   }
 
-  // Left rail: one compact card per clip — poster, rank, headline. The score
-  // is stated once, in the detail panel; the rail is already ranked by it.
+  // Left rail: one compact card per clip: poster, rank, score, headline. The
+  // composite score is product truth (CONTEXT.md: surfaced on every Clip card
+  // and in the rejected list), so it rides the rank line in the same badge the
+  // detail panel uses. One treatment, two places; the rail is not a teaser for
+  // a number you have to click to read.
   function renderRail(ranked) {
     const list = $("clip-rail-list");
     list.innerHTML = "";
@@ -1167,6 +1170,12 @@
       top.className = "rail-rank";
       top.textContent = captionOnly ? "Full video" : `#${c.rank}` +
         (c.status === "rendering" ? " · rendering" : c.status === "failed" ? " · failed" : c.status === "ready" ? "" : " · queued");
+      if (typeof c.score === "number") {
+        const score = document.createElement("span");
+        score.className = "badge score";
+        score.textContent = `score ${c.score.toFixed(1)}`;
+        top.appendChild(score);
+      }
       const title = document.createElement("span");
       title.className = "rail-title";
       title.textContent = captionOnly ? "Captioned video" : c.headline;

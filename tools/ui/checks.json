@@ -7,7 +7,7 @@
       "1920x1080"
     ],
     "shots": 30,
-    "text_pairs": 1287
+    "text_pairs": 1359
   },
   "wcag": {
     "failures": [],
@@ -25,15 +25,15 @@
     "radius": [
       {
         "value": "0px",
-        "count": 1950
+        "count": 1947
       },
       {
         "value": "999px",
-        "count": 660
+        "count": 732
       },
       {
         "value": "8px",
-        "count": 279
+        "count": 282
       },
       {
         "value": "12px",
@@ -51,32 +51,32 @@
       },
       {
         "value": "13px",
-        "count": 1002
+        "count": 999
       },
       {
         "value": "12px",
-        "count": 630
+        "count": 627
       },
       {
         "value": "11px",
-        "count": 354
+        "count": 429
       },
       {
         "value": "16px",
-        "count": 45
+        "count": 60
       },
       {
         "value": "19px",
-        "count": 24
+        "count": 12
       }
     ],
     "shadows": [
       {
-        "value": "rgba(27, 26, 25, 0.06) 0px 1px 2px 0px",
+        "value": "rgba(27, 26, 25, 0.08) 0px 1px 2px 0px",
         "count": 66
       },
       {
-        "value": "rgba(27, 26, 25, 0.08) 0px 8px 28px 0px, rgba(27, 26, 25, 0.06) 0px 1px 3px 0px",
+        "value": "rgba(27, 26, 25, 0.11) 0px 10px 30px 0px, rgba(27, 26, 25, 0.07) 0px 1px 3px 0px",
         "count": 30
       },
       {
@@ -87,14 +87,14 @@
     "colors": [
       {
         "value": "rgb(27, 26, 25)",
-        "count": 2112
+        "count": 2124
       },
       {
-        "value": "rgb(92, 88, 80)",
-        "count": 540
+        "value": "rgb(78, 73, 65)",
+        "count": 600
       },
       {
-        "value": "rgb(110, 106, 98)",
+        "value": "rgb(99, 93, 84)",
         "count": 294
       },
       {
@@ -121,7 +121,7 @@
     "fonts": [
       {
         "value": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 3084
+        "count": 3156
       },
       {
         "value": "ui-monospace, SFMono-Regular, Menlo, monospace",

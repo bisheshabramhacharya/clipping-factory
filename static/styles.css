@@ -4,19 +4,27 @@
 html { color-scheme: light; }
 
 :root {
-  /* Surfaces, paper to raised. */
-  --paper: #F6F5F1;
+  /* Four surfaces, one job each. The page is a warm ground, not a white one:
+     a card has to sit ON something before a shadow means anything, and at 20%
+     zoom the page/card seam is the composition.
+       --paper     chrome and page. The ground everything rests on.
+       --surface   content, raised. Cards and panels are the only white.
+       --surface-2 a well inside a card: tracks, chips, segmented troughs.
+       --media     the recessed dark stage. The darkest thing on screen, and
+                   the one surface allowed to dominate. */
+  --paper: #E9E5DC;
   --surface: #FFFFFF;
-  --surface-2: #EFEDE7;
-  --surface-3: #E6E3DB;
+  --surface-2: #E4DFD4;
+  --media: #17150F;
 
   /* Ink in three tiers. Every tier clears 4.5:1 on every surface above,
      so a muted color is a hierarchy choice, never a contrast debt. */
   --ink: #1B1A19;
-  --ink-2: #5C5850;
-  --ink-3: #6E6A62;
+  --ink-2: #4E4941;
+  --ink-3: #635D54;
   --hairline: rgba(27, 26, 25, .10);
   --hairline-strong: rgba(27, 26, 25, .22);
+  --scrim: rgba(20, 19, 18, .5);
 
   /* State colors, each readable on its own soft tint. */
   --accent: #C15F3C;
@@ -28,9 +36,19 @@ html { color-scheme: light; }
   --bad: #A8392A;
   --bad-soft: rgba(168, 57, 42, .10);
 
-  /* Type: seven steps, 11 to 24, and three weights. Headings carry the
-     hierarchy; a control is medium; body is regular. The one semibold control
-     is the primary action, which is also the only one that is filled. */
+  /* Emphasis budget.
+     650 is rationed: one element per screen, and it is the subject of that
+     screen, which is the drop invitation or the staged file (19px), the
+     selected clip's headline (19px), the stage that is running or that has
+     failed (16px).
+     Nothing else is 650, so weight always answers "where do I look".
+     500 is things you operate or scan: buttons, chips, form labels, rail meta.
+     400 is things you read: body copy, rail headlines, nav, secondary actions.
+     The filled black surface marks the primary action, never the weight, so a
+     control is never both black and 650.
+     Sizes follow the same budget: 19 belongs to that one focal element, 16 to
+     section headings and screen labels, 13-14 to controls and body, 11-12 to
+     meta and the caps micro-label. */
   --fw-body: 400;
   --fw-medium: 500;
   --fw-heading: 650;
@@ -49,9 +67,11 @@ html { color-scheme: light; }
   --r-lg: 16px;
   --r-pill: 999px;
 
-  /* Elevation: three steps. */
-  --shadow-sm: 0 1px 2px rgba(27, 26, 25, .06);
-  --shadow-md: 0 8px 28px rgba(27, 26, 25, .08), 0 1px 3px rgba(27, 26, 25, .06);
+  /* Elevation: three steps, and only three jobs. A raised card gets the one
+     step between white and the page; the media well and the drawer get the
+     deep one; a selected row picks up the faint one. */
+  --shadow-sm: 0 1px 2px rgba(27, 26, 25, .08);
+  --shadow-md: 0 10px 30px rgba(27, 26, 25, .11), 0 1px 3px rgba(27, 26, 25, .07);
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, .45);
 
   --ease: cubic-bezier(.32, .72, 0, 1);
@@ -78,7 +98,11 @@ body {
 }
 
 h1, h2, h3, p { margin: 0; }
-h2 { font-size: var(--fs-5); font-weight: var(--fw-heading); letter-spacing: -0.02em; }
+/* A screen label names the screen; the content under it is what the eye gets.
+   So h1 and h2 are 500, and 650 is spent on the one focal element instead. */
+h1 { font-size: var(--fs-5); font-weight: var(--fw-medium); letter-spacing: -0.02em; }
+h2 { font-size: var(--fs-5); font-weight: var(--fw-medium); letter-spacing: -0.02em; }
+h3 { font-weight: var(--fw-medium); }
 .muted { color: var(--ink-2); }
 .small { font-size: var(--fs-2); }
 .hidden { display: none !important; }
@@ -114,9 +138,10 @@ button:disabled { color: var(--ink-3); border-color: var(--hairline); cursor: de
 button.primary:disabled, button.danger:disabled {
   background: var(--surface-2); border-color: var(--hairline); color: var(--ink-3);
 }
+/* The primary is marked by the filled surface, not by weight. */
 button.primary, .primary.action-button {
   background: var(--ink); border-color: var(--ink); color: #fff;
-  font-weight: var(--fw-heading);
+  font-weight: var(--fw-medium);
 }
 button.primary:hover:not(:disabled), .primary.action-button:hover { background: #33312E; }
 button.primary kbd { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.25); }
@@ -140,7 +165,7 @@ select option:disabled { color: var(--ink-3); }
 input.switch {
   appearance: none; flex: none; margin: 0;
   width: 34px; height: 20px; border-radius: var(--r-pill);
-  background: var(--surface-3); position: relative; cursor: pointer;
+  background: var(--surface-2); position: relative; cursor: pointer;
   outline: 1px solid var(--hairline-strong); outline-offset: -1px;
   transition: background var(--t-fast);
 }
@@ -177,19 +202,18 @@ header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.02em; }
-.wordmark { display: flex; align-items: center; font-size: var(--fs-5); font-weight: var(--fw-heading); letter-spacing: -0.025em; white-space: nowrap; }
+.wordmark { display: flex; align-items: center; font-size: var(--fs-5); font-weight: var(--fw-medium); letter-spacing: -0.025em; white-space: nowrap; }
 /* Ghost buttons carry 14px of empty padding, so the last one pulls its
    edge back to the content column instead of hanging 14px short of it. */
 .header-actions { display: flex; gap: 6px; }
 .count {
   min-width: 20px; height: 18px; padding: 0 6px; border-radius: var(--r-pill);
-  background: var(--surface-3); font-size: var(--fs-1); line-height: 18px; font-weight: var(--fw-medium);
+  background: var(--surface-2); font-size: var(--fs-1); line-height: 18px; font-weight: var(--fw-medium);
 }
 #ai-btn:disabled { opacity: 1; color: var(--ink-3); cursor: default; }
 .soon-pill {
   height: 18px; padding: 0 8px; border-radius: var(--r-pill);
-  background: var(--surface-3); color: var(--ink-2);
+  background: var(--surface-2); color: var(--ink-2);
   font-size: var(--fs-1); line-height: 18px; font-weight: var(--fw-medium);
 }
 
@@ -220,7 +244,7 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 }
 .setup-banner[data-severity="warn"] { border-left-color: var(--warn); }
 .setup-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.setup-head strong { font-size: var(--fs-3); font-weight: var(--fw-heading); }
+.setup-head strong { font-size: var(--fs-4); font-weight: var(--fw-medium); }
 .setup-head button { height: 28px; padding: 0 12px; font-size: var(--fs-2); }
 .setup-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .setup-list li {
@@ -250,10 +274,12 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 }
 .shell:has(.setup-banner:not(.hidden)) #upload-state { place-items: start center; }
 .shell:has(.setup-banner:not(.hidden)) .drop-target { min-height: 180px; }
+/* The well is the focal point of the upload screen, so its edge is drawn, not
+   suggested: a dashed ink line on the page tone, inside a white card. */
 .drop-target {
   margin: 10px; min-height: 210px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  border: 1.5px dashed var(--hairline-strong); border-radius: var(--r-lg);
+  border: 1.5px dashed var(--ink-3); border-radius: var(--r-lg);
   background: var(--paper); text-align: center; padding: 28px;
   transition: border-color var(--t-fast), background var(--t-fast);
 }
@@ -264,7 +290,7 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 .drop-panel { display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; max-width: 100%; }
 #drop-staged { gap: 8px; }
 #drop-staged strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.staged-kicker { font-size: var(--fs-2); font-weight: var(--fw-heading); color: var(--ok); letter-spacing: .02em; text-transform: uppercase; }
+.staged-kicker { font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ok); letter-spacing: .06em; text-transform: uppercase; }
 .staged-actions { display: flex; gap: 10px; margin-top: 8px; }
 
 .upload-options {
@@ -276,7 +302,7 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 .opt-wide { grid-column: 1 / -1; }
 /* A control-group label reads the same in the upload form and the inspector. */
 .opt-label, .restyle-label {
-  font-size: var(--fs-1); font-weight: var(--fw-heading); letter-spacing: .06em;
+  font-size: var(--fs-1); font-weight: var(--fw-medium); letter-spacing: .06em;
   text-transform: uppercase; color: var(--ink-3);
 }
 
@@ -317,7 +343,7 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 .upload-progress-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 
 /* ---- Bars ---- */
-.bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
 .bar-fill {
   height: 100%; background: var(--ink); border-radius: inherit;
   transform: scaleX(0); transform-origin: left; transition: transform var(--t-med) var(--ease);
@@ -336,7 +362,7 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 #processing-state:not(.compact) > * { flex: none; }
 .source-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .source-line > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.source-name { font-weight: var(--fw-heading); }
+.source-name { font-weight: var(--fw-medium); }
 .source-meta, #source-focus { font-size: var(--fs-2); margin-left: 6px; }
 .progress {
   background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-md);
@@ -349,21 +375,31 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 .step + .step { border-top: 1px solid var(--hairline); }
 .step strong { font-size: var(--fs-3); font-weight: var(--fw-medium); }
 .step.done, .step.active, .step.failed { color: var(--ink); }
+/* The step that is running is the subject of the processing screen: the one
+   650 line on it, on a tinted band, so the eye lands there from across the
+   room instead of scanning seven equal rows. */
+.step.active {
+  background: var(--surface-2); border-radius: var(--r-sm);
+  margin: 0 -10px; padding: 10px;
+}
+.step.active strong { font-weight: var(--fw-heading); }
 .step .status { font-size: var(--fs-2); color: var(--ink-2); text-align: right; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .step.done strong::before { content: "✓ "; color: var(--ok); }
 .step.failed strong::before { content: "✕ "; color: var(--bad); }
 .step.active .status { color: var(--ink); }
 .step.failed .status { color: var(--bad); }
 .step .step-meta { grid-column: 1 / -1; font-size: var(--fs-1); }
-.step .mini-bar { grid-column: 1 / -1; height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.step .mini-bar { grid-column: 1 / -1; height: 4px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
 .step .mini-fill { height: 100%; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform var(--t-med) var(--ease); }
 .overall-head { display: flex; justify-content: space-between; font-size: var(--fs-3); margin-bottom: 6px; }
+.overall-head strong { font-weight: var(--fw-medium); }
 .current-op { display: flex; align-items: center; gap: 8px; font-size: var(--fs-3); }
 .error {
   display: flex; flex-direction: column; align-items: stretch; gap: 12px;
   padding: 14px 16px; border-radius: var(--r-md);
   background: var(--bad-soft); border: 1px solid rgba(168, 57, 42, .25);
 }
+.error strong { font-size: var(--fs-5); font-weight: var(--fw-heading); letter-spacing: -0.01em; }
 .error p { margin-top: 2px; font-size: var(--fs-3); color: var(--ink-2); }
 .error-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
@@ -412,7 +448,7 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 .rail-item.active { background: var(--surface); border-color: var(--hairline-strong); box-shadow: var(--shadow-sm); }
 .rail-thumb {
   position: relative; width: 48px; aspect-ratio: 9 / 16; border-radius: var(--r-sm); overflow: hidden;
-  background: #1B1A19; display: grid; place-items: center;
+  background: var(--media); display: grid; place-items: center;
 }
 .rail-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .rail-thumb .spinner { border-color: rgba(255,255,255,.2); border-top-color: #fff; }
@@ -421,20 +457,26 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
   background: rgba(0,0,0,.65); color: #fff; font-size: var(--fs-1); font-weight: var(--fw-medium); line-height: 15px;
 }
 .rail-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rail-rank { font-size: var(--fs-1); color: var(--ink-2); font-weight: var(--fw-medium); }
+/* The score rides the rank line, in the same badge the detail panel uses:
+   one treatment, two places, because the composite score is product truth. */
+.rail-rank { display: flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--ink-2); font-weight: var(--fw-medium); }
+/* Six candidates are six options, not six headlines: the unselected titles step
+   back to the second ink so the one clip under the preview is the only one
+   written in full contrast. */
 .rail-title {
-  font-size: var(--fs-3); line-height: 1.35; color: var(--ink);
+  font-size: var(--fs-3); line-height: 1.35; color: var(--ink-2);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+.rail-item.active .rail-title { color: var(--ink); }
 .rail-item.failed .rail-rank { color: var(--bad); }
 .rail-item[data-decision] .rail-rank::after {
   margin-left: 6px; padding: 0 6px; border-radius: var(--r-pill);
   font-size: var(--fs-1); text-transform: capitalize;
 }
-.rail-item[data-decision="keep"] .rail-rank::after { content: "Keep"; background: var(--ok-soft); color: var(--ok); }
-.rail-item[data-decision="maybe"] .rail-rank::after { content: "Maybe"; background: var(--warn-soft); color: var(--warn); }
+.rail-item[data-decision="keep"] .rail-rank::after { content: "Keep"; background: var(--surface); color: var(--ok); }
+.rail-item[data-decision="maybe"] .rail-rank::after { content: "Maybe"; background: var(--surface); color: var(--warn); }
 .rail-item[data-decision="skip"] { opacity: .55; }
-.rail-item[data-decision="skip"] .rail-rank::after { content: "Skip"; background: var(--surface-3); color: var(--ink-2); }
+.rail-item[data-decision="skip"] .rail-rank::after { content: "Skip"; background: var(--surface); color: var(--ink-2); }
 
 .rejected { margin-top: 6px; font-size: var(--fs-2); }
 .rejected summary { cursor: pointer; color: var(--ink-2); padding: 6px 8px; font-weight: var(--fw-medium); }
@@ -451,13 +493,15 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
   display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px;
 }
 
-/* The player: a full 9:16 phone-shaped frame, as tall as the room allows. */
+/* The player: a full 9:16 phone-shaped frame, as tall as the room allows.
+   The well is the recessed layer: the darkest surface on screen, and the one
+   thing allowed to be. The vignette is the room's light, not decoration. */
 .preview {
   min-height: 0; min-width: 0;
   display: flex; align-items: center; justify-content: center;
-  border-radius: var(--r-lg); padding: 14px;
+  border-radius: var(--r-lg); padding: 16px;
   background:
-    radial-gradient(120% 80% at 50% 0%, #2A2926 0%, #121211 70%);
+    radial-gradient(120% 80% at 50% 0%, #26241E 0%, var(--media) 70%);
   color: var(--theater-muted);
 }
 .preview video {
@@ -469,8 +513,11 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 .rendering-note { display: flex; align-items: center; gap: 10px; color: var(--theater-text); }
 .rendering-note .spinner { border-color: rgba(255,255,255,.2); border-top-color: #fff; }
 
+/* A plate, not a column: the card ends where its content ends, so a short form
+   leaves page under it instead of a dead white half inside it. */
 .inspector {
-  min-height: 0; display: flex; flex-direction: column; gap: 12px;
+  min-height: 0; align-self: start; max-height: 100%;
+  display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-md);
   padding: 18px 18px 0; overflow: hidden auto;
 }
@@ -553,12 +600,15 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
   padding: 32px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-md);
   display: flex; flex-direction: column; gap: 10px;
 }
-.empty-results strong { font-size: var(--fs-5); font-weight: var(--fw-heading); }
+.empty-results strong { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.02em; }
 .empty-actions { display: flex; justify-content: center; margin-top: 6px; }
 
 /* ---- Library drawer ---- */
+/* The drawer is a layer over the page, not a third column: the page goes down
+   under a real scrim, the drawer keeps the page tone, and the deep shadow does
+   the lifting, so the seam reads as something that came over the content. */
 .drawer-backdrop {
-  position: fixed; inset: 0; z-index: 900; background: rgba(20, 19, 18, .34);
+  position: fixed; inset: 0; z-index: 900; background: var(--scrim);
   animation: fade-in var(--t-med) var(--ease) both;
 }
 .drawer {
@@ -612,14 +662,14 @@ h1 { font-size: var(--fs-6); font-weight: var(--fw-heading); letter-spacing: -0.
 /* ---- Modals ---- */
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px;
-  background: rgba(20, 19, 18, .36); animation: fade-in var(--t-med) var(--ease) both;
+  background: var(--scrim); animation: fade-in var(--t-med) var(--ease) both;
 }
 .modal {
   width: min(440px, 100%); padding: 22px; border-radius: var(--r-lg);
   background: var(--surface); box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; gap: 12px;
 }
-.modal h3 { font-size: var(--fs-5); }
+.modal h3 { font-size: var(--fs-5); font-weight: var(--fw-medium); }
 .modal label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-2); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 body.modal-open { overflow: hidden; }
@@ -671,7 +721,7 @@ body.modal-open { overflow: hidden; }
 .review-arrow { width: 44px; height: 44px; padding: 0; font-size: var(--fs-7); line-height: 1; border-radius: var(--r-pill); }
 .review-copy { display: flex; flex-direction: column; gap: 12px; }
 .review-meta { font-size: var(--fs-2); color: var(--theater-muted); font-weight: var(--fw-medium); }
-.review-copy h2 { font-size: var(--fs-7); line-height: 1.3; }
+.review-copy h2 { font-size: var(--fs-7); font-weight: var(--fw-heading); line-height: 1.3; }
 #review-reason { font-size: var(--fs-3); color: var(--theater-muted); max-height: 30vh; overflow-y: auto; }
 .review-decisions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
 .review-decisions button { height: 48px; border-radius: var(--r-md); font-size: var(--fs-4); gap: 8px; }
@@ -694,8 +744,8 @@ body.modal-open { overflow: hidden; }
   display: flex; flex-direction: column; gap: 16px; text-align: center;
   animation: rise-in var(--t-med) var(--ease) both;
 }
-.review-done-kicker { font-size: var(--fs-2); font-weight: var(--fw-heading); letter-spacing: .08em; text-transform: uppercase; color: #4CC38A; }
-.review-done-card h2 { font-size: var(--fs-7); }
+.review-done-kicker { font-size: var(--fs-2); font-weight: var(--fw-medium); letter-spacing: .08em; text-transform: uppercase; color: #4CC38A; }
+.review-done-card h2 { font-size: var(--fs-7); font-weight: var(--fw-heading); }
 .review-done-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .review-done-stat { padding: 12px; border-radius: var(--r-md); background: rgba(255,255,255,.05); display: flex; flex-direction: column; }
 .review-done-stat strong { font-size: var(--fs-7); }
@@ -722,6 +772,30 @@ body.modal-open { overflow: hidden; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes rise-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---- Wide screens: a wider room, not a stretched one ----
+   At 1920 the page stops being a 1440 island. The shell grows to 1680, the rail
+   and the inspector grow with it, and the inspector becomes a plate that ends
+   where its content ends instead of a column stretched to the floor. Extra
+   width goes to bigger targets and more air, never to a taller empty card. */
+@media (min-width: 1600px) {
+  .shell { max-width: 1680px; }
+  .studio { grid-template-columns: 300px minmax(0, 1fr); }
+  .clip { grid-template-columns: minmax(0, 1fr) 400px; }
+  .clip { gap: 20px; }
+  .studio { gap: 20px; }
+  .inspector { padding: 22px 22px 0; gap: 14px; }
+  .restyle { gap: 18px; padding-top: 18px; }
+  .restyle-scroll { gap: 20px; }
+  .restyle-footer { padding: 14px 0 22px; }
+  .switch-row { padding: 12px 14px; }
+  .seg-btn { height: 34px; }
+  .caption-text { min-height: 120px; }
+  .upload { width: min(760px, 100%); }
+  .setup-banner { width: min(760px, 100%); }
+  .drop-target { min-height: 260px; }
+  .upload-options { padding: 22px 28px 26px; gap: 18px 24px; }
+}
 
 /* ---- Smaller screens: stack, and let the page scroll ---- */
 @media (max-width: 1100px) {
