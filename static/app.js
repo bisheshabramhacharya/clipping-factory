@@ -122,9 +122,9 @@
       const s = await requestJson("/api/setup", {}, "Couldn't reconnect to the local server.");
       const problems = [];
       if (!s.ffmpeg) problems.push("FFmpeg was not found. Install it and restart.");
-      else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. macOS: brew install ffmpeg-full, then restart.");
+      else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. Install a build with libass, then restart.");
       if (!s.ffprobe) problems.push("FFprobe was not found. It ships with FFmpeg.");
-      if (!s.whisper_ok) problems.push("whisper-cli was not found. macOS: brew install whisper-cpp, or set CF_WHISPER_BIN.");
+      if (!s.whisper_ok) problems.push("whisper-cli was not found. Install whisper.cpp, or set CF_WHISPER_BIN to its binary.");
       if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
       if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push(`Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`);
       const banner = $("setup-banner");
@@ -133,7 +133,14 @@
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       populateLanguagePicker(s);
       if (problems.length) {
-        $("setup-banner-text").textContent = problems.map((text) => `· ${text}`).join("\n");
+        const box = $("setup-banner-text");
+        box.textContent = "";
+        for (const text of problems) {
+          const row = document.createElement("div");
+          row.className = "setup-problem";
+          row.textContent = text;
+          box.appendChild(row);
+        }
         banner.classList.remove("hidden");
       } else {
         banner.classList.add("hidden");
@@ -540,9 +547,9 @@
       const date = entry.created_at
         ? new Date(entry.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
         : "";
-      const bits = [date, libraryStatus(entry)];
-      if (entry.clips_ready) bits.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
-      bits.push(fmtBytes(entry.size_bytes));
+      const rest = [date];
+      if (entry.clips_ready) rest.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
+      rest.push(fmtBytes(entry.size_bytes));
 
       const card = document.createElement("div");
       card.className = `library-card${isOpen ? " open" : ""}`;
@@ -556,11 +563,18 @@
       nameEl.textContent = name;
       const meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = bits.filter(Boolean).join(" · ") + (isOpen ? " " : "");
+      const status = document.createElement("span");
+      status.className = "lib-status";
+      status.dataset.status = entry.status || "";
+      status.textContent = entry.status === "failed" && !entry.clips_ready
+        ? "Failed, no clips written"
+        : libraryStatus(entry);
+      meta.appendChild(status);
+      meta.appendChild(document.createTextNode(" · " + rest.filter(Boolean).join(" · ")));
       if (isOpen) {
         const tag = document.createElement("span");
         tag.className = "open-tag";
-        tag.textContent = "· open";
+        tag.textContent = " · Open";
         meta.appendChild(tag);
       }
       open.appendChild(nameEl);
@@ -583,6 +597,15 @@
       del.addEventListener("click", () => askDelete(entry));
 
       card.appendChild(open);
+      if (!isOpen) {
+        const go = document.createElement("button");
+        go.type = "button";
+        go.className = "library-go";
+        go.textContent = "Open";
+        go.setAttribute("aria-label", `Open ${name}`);
+        go.addEventListener("click", () => openProject(entry.id));
+        card.appendChild(go);
+      }
       card.appendChild(del);
       list.appendChild(card);
     }
@@ -1056,10 +1079,26 @@
       for (const r of rej) {
         const d = document.createElement("div");
         d.className = "rejected-item";
-        d.innerHTML = `<div></div><div class="reasons"></div>`;
-        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}` +
-          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}` : "");
-        d.children[1].textContent = (r.reasons || []).join("; ");
+        d.innerHTML = `<div class="rejected-head"></div><div class="rejected-meta"></div><div class="reasons"></div>`;
+        d.querySelector(".rejected-head").textContent = `“${r.headline || "(untitled)"}”`;
+        d.querySelector(".rejected-meta").textContent =
+          `${fmtMs(r.start_ms)} – ${fmtMs(r.end_ms)}` +
+          (typeof r.score === "number" ? ` · ${r.score.toFixed(1)}` : "");
+        const reasons = d.querySelector(".reasons");
+        for (const reason of r.reasons || []) {
+          const line = document.createElement("div");
+          line.className = "reason";
+          const cut = reason.indexOf(": ");
+          const label = document.createElement("span");
+          label.className = "reason-label";
+          label.textContent = cut > 0 ? reason.slice(0, cut) : "Reason";
+          const value = document.createElement("span");
+          value.className = "reason-value";
+          value.textContent = cut > 0 ? reason.slice(cut + 2) : reason;
+          line.appendChild(label);
+          line.appendChild(value);
+          reasons.appendChild(line);
+        }
         list.appendChild(d);
       }
     }
@@ -1097,16 +1136,34 @@
       }
       const text = document.createElement("span");
       text.className = "rail-text";
-      const top = document.createElement("span");
-      top.className = "rail-rank";
-      top.textContent = captionOnly ? "Full video" : String(c.rank).padStart(2, "0") +
-        (typeof c.score === "number" ? ` · ${c.score.toFixed(1)}` : "") +
-        (c.duration_ms ? ` · ${fmtMs(c.duration_ms)}` : "") +
-        (c.status === "rendering" ? " · rendering" : c.status === "failed" ? " · failed" : c.status === "ready" ? "" : " · queued");
+      const line = document.createElement("span");
+      line.className = "rail-line";
+      const rank = document.createElement("span");
+      rank.className = "rail-rank";
+      rank.textContent = captionOnly ? "Full video" : String(c.rank).padStart(2, "0");
+      const facts = document.createElement("span");
+      facts.className = "rail-facts";
+      if (typeof c.score === "number") {
+        const score = document.createElement("span");
+        score.className = "rail-score";
+        score.textContent = c.score.toFixed(1);
+        facts.appendChild(score);
+      }
+      const meta = document.createElement("span");
+      meta.className = "rail-meta";
+      const bits = [];
+      if (c.duration_ms) bits.push(fmtMs(c.duration_ms));
+      if (c.status === "rendering") bits.push("rendering");
+      else if (c.status === "failed") bits.push("failed");
+      else if (c.status !== "ready") bits.push("queued");
+      meta.textContent = bits.join(" · ");
+      if (bits.length) facts.appendChild(meta);
+      line.appendChild(rank);
+      line.appendChild(facts);
       const title = document.createElement("span");
       title.className = "rail-title";
       title.textContent = captionOnly ? "Captioned video" : c.headline;
-      text.appendChild(top);
+      text.appendChild(line);
       text.appendChild(title);
       b.appendChild(thumb);
       b.appendChild(text);
@@ -1212,18 +1269,30 @@
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     body.innerHTML = `
-      <div class="rank"></div>
+      <div class="clip-head"><div class="rank"></div><span class="clip-score"></span></div>
       <h3></h3>
-      <p class="times"></p>
+      <div class="ledger"></div>
       <div class="badges">${badges.join("")}</div>
       <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
     body.querySelector(".rank").textContent = clipRankText(c);
+    const scoreEl = body.querySelector(".clip-score");
+    if (typeof c.score === "number") scoreEl.textContent = c.score.toFixed(1);
+    else scoreEl.remove();
     body.querySelector("h3").textContent = clipTitleText(c);
-    const range = captionOnly
-      ? `Full ${fmtMs(c.duration_ms)} video`
-      : `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)}`;
-    body.querySelector(".times").textContent =
-      typeof c.score === "number" ? `${range} · ${c.score.toFixed(1)}` : range;
+    const ledger = body.querySelector(".ledger");
+    const rows = captionOnly
+      ? [["Length", fmtMs(c.duration_ms)]]
+      : [["In", fmtMs(c.start_ms)], ["Out", fmtMs(c.end_ms)], ["Length", fmtMs(c.duration_ms)]];
+    for (const [label, value] of rows) {
+      const row = document.createElement("div");
+      row.className = "ledger-row";
+      const key = document.createElement("span");
+      key.textContent = label;
+      const val = document.createElement("b");
+      val.textContent = value;
+      row.append(key, val);
+      ledger.appendChild(row);
+    }
     body.querySelector(".why").textContent = clipWhyText(c);
     if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
@@ -1516,6 +1585,7 @@
       }
       const customSelected = !ACCENT_SWATCHES.some((entry) => entry.color === state.draft.color);
       custom.classList.toggle("active", customSelected);
+      customPicker.classList.toggle("on", customSelected);
       custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = state.draft.color;
       font.value = state.draft.font;
@@ -1525,7 +1595,8 @@
       hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
       apply.disabled = Boolean(state.busy) || !state.dirty;
-      apply.textContent = state.busy ? "Applying…" : "Apply changes";
+      apply.classList.toggle("primary", !apply.disabled);
+      apply.textContent = state.busy ? "Applying…" : state.dirty ? "Apply changes" : "No changes";
       status.className = `small restyle-status ${state.kind || ""}`;
       status.textContent = state.message || "";
     }

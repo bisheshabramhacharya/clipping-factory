@@ -11,6 +11,7 @@
     <header>
       <div class="brand">
         <h1>Clipping Factory</h1>
+        <span class="brand-sub">Local studio</span>
       </div>
       <div class="header-actions">
         <button id="library-btn" class="ghost" type="button" aria-controls="library-drawer" aria-expanded="false">
@@ -25,7 +26,7 @@
     <div class="banners">
       <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive">
         <strong>Setup needs attention</strong>
-        <p id="setup-banner-text"></p>
+        <div id="setup-banner-text"></div>
       </div>
       <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
       <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
@@ -38,10 +39,16 @@
         <div id="drop" class="upload">
           <div class="drop-target">
             <div id="drop-empty" class="drop-panel">
-              <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div class="drop-head">
+                <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="drop-kicker">New project</span>
+              </div>
               <strong>Drop a podcast</strong>
               <span class="drop-support">MP4 or M4V. The file never leaves this machine.</span>
-              <button id="choose-btn" class="primary" type="button">Choose a video</button>
+              <div class="drop-actions">
+                <button id="choose-btn" class="primary" type="button">Choose a video</button>
+                <span class="drop-hint">or drop it anywhere in the window</span>
+              </div>
             </div>
             <div id="drop-staged" class="drop-panel hidden" aria-live="polite">
               <span class="staged-kicker">Ready to clip</span>
@@ -56,6 +63,10 @@
             <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
           </div>
           <div class="upload-options">
+            <div class="options-head">
+              <span>Clip settings</span>
+              <span>Applied to this run</span>
+            </div>
             <div class="opt opt-wide">
               <span class="opt-label">Captions</span>
               <div id="upload-caption-style" class="choice-seg" role="radiogroup" aria-label="Caption style">
@@ -140,6 +151,16 @@
       <!-- Processing state -->
       <section id="processing-state" class="hidden" aria-labelledby="processing-title">
         <h2 id="processing-title" class="proc-title">Making clips</h2>
+        <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
+          <div>
+            <strong id="error-stage"></strong>
+            <p id="error-text"></p>
+          </div>
+          <div class="error-actions">
+            <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
+            <button id="retry-btn" class="primary" type="button">Retry stage</button>
+          </div>
+        </div>
         <div class="source-line">
           <div>
             <span id="source-name" class="source-name"></span>
@@ -162,16 +183,6 @@
           <span id="current-op-text" role="status" aria-live="polite" aria-atomic="true"></span>
           <span id="elapsed" class="muted" aria-hidden="true"></span>
         </div>
-        <div id="error-box" class="error hidden" role="alert" aria-live="assertive">
-          <div>
-            <strong id="error-stage"></strong>
-            <p id="error-text"></p>
-          </div>
-          <div class="error-actions">
-            <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
-            <button id="retry-btn" class="primary" type="button">Retry stage</button>
-          </div>
-        </div>
       </section>
 
       <!-- Results state -->
@@ -189,7 +200,7 @@
         </div>
         <div class="studio">
           <nav class="clip-rail" aria-label="Clips">
-            <div class="rail-head"><span class="rail-head-label">Clips</span><span id="rail-count" class="rail-head-count"></span></div>
+            <div class="rail-head"><span class="rail-head-label">Clips <span id="rail-count" class="rail-head-count"></span></span><span class="rail-legend" aria-hidden="true"><span>Score</span><span>Length</span></span></div>
             <div id="clip-rail-list" class="clip-rail-list"></div>
             <details id="rejected-details" class="rejected hidden">
               <summary>Rejected</summary>
@@ -273,6 +284,7 @@
   <div id="review-theater" class="review-theater" role="dialog" aria-modal="true" aria-label="Clip review" hidden>
     <div class="review-top">
       <div class="review-status">
+        <span class="review-kicker">Review</span>
         <strong id="review-progress" aria-live="polite"></strong>
         <div id="review-dots" class="review-dots" aria-hidden="true"></div>
         <span id="review-counts" class="review-counts"></span>
@@ -303,6 +315,7 @@
         <p class="review-done-kicker">Review complete</p>
         <h2 id="review-done-title"></h2>
         <div id="review-done-stats" class="review-done-stats"></div>
+        <p class="review-done-list-label">Kept clips</p>
         <div id="review-done-kept" class="review-done-kept"></div>
         <div class="review-done-actions">
           <button id="review-done-again" type="button">Review again</button>

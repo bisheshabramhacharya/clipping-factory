@@ -108,7 +108,7 @@
     const t = { keep: 0, maybe: 0, skip: 0 };
     for (const [k, v] of Object.entries(decisions)) if (keys.has(k) && v in t) t[v]++;
     const readyText = clipTotal > items.length ? `${items.length} of ${clipTotal} ready · ` : "";
-    counts.textContent = `${readyText}${t.keep} keep · ${t.maybe} maybe · ${t.skip} skip`;
+    counts.innerHTML = `${readyText}<b>${t.keep}</b> keep · <b>${t.maybe}</b> maybe · <b>${t.skip}</b> skip`;
     paintDots();
   }
   function show(autoplay = true) {
@@ -201,6 +201,7 @@
       const stat = document.createElement("div");
       stat.className = "review-done-stat";
       stat.dataset.decision = label.toLowerCase();
+      stat.classList.toggle("zero", n === 0);
       stat.innerHTML = "<strong></strong><span></span>";
       stat.firstChild.textContent = String(n);
       stat.lastChild.textContent = label;
