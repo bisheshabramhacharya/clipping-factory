@@ -7,7 +7,36 @@ files this round added under `tools/ui/`.
 
 ## Scores
 
-{{SCORES}}
+Not a measurement. The eight categories below are the round 0 panel median
+beside four absolute passes of one judge model over two-width samples of this
+branch. The four passes disagree with each other by up to two points per
+category, so the round 1 column is inside the noise; the deterministic numbers
+under it are not. The boundary panel is the number that counts.
+
+| Category | Round 0 median | Round 1 passes | Round 1 median |
+| --- | ---: | --- | ---: |
+| Typography | 6.5 | 7 · 7 · 6 · 6 | 6.5 |
+| Hierarchy | 6.5 | 7 · 6 · 6 · 6 | 6 |
+| Spacing and rhythm | 7 | 7 · 6 · 6 · 6 | 6 |
+| Color and contrast | 7 | 7 · 7 · 6 · 7 | 7 |
+| Component consistency | 6.5 | 7 · 6 · 5 · 6 | 6 |
+| Iconography and detail | 5.5 | 6 · 6 · 5 · 5 | 5.5 |
+| Clarity of the primary action | 6 | 6 · 5 · 6 · 7 | 6 |
+| Empty and error states | 7 | 7 · 6 · 6 · 7 | 6.5 |
+
+The recurring complaints across those passes, and what happened to each:
+
+- `setup-missing-runtime` kept a live upload under a banner of missing tools
+  (two passes). Fixed: the run path is inert while a dependency is missing.
+- The library's Cancelled and Transcribing chips read as the same grey (one
+  pass), and the ink chip that replaced one of them broke the chip family (the
+  next pass). Now one tinted family with a leading dot for the in-flight state.
+- `FONT` was the only field label not using the section-label treatment.
+  Fixed.
+- The disabled `Apply changes` read as broken. It now says "Up to date" when
+  nothing is dirty.
+- The 1920 canvas, the drawer's hard edge over the page, and the inspector's
+  empty lower half at 1920 came up repeatedly and are unchanged; see below.
 
 ## Deterministic checks
 
