@@ -7,7 +7,7 @@
       "1920x1080"
     ],
     "shots": 33,
-    "text_pairs": 2427
+    "text_pairs": 2436
   },
   "wcag": {
     "failures": [],
@@ -16,7 +16,7 @@
   },
   "distinct_values": {
     "radius": 6,
-    "font_sizes": 8,
+    "font_sizes": 9,
     "shadows": 1,
     "colors": 7,
     "font_families": 1
@@ -25,11 +25,11 @@
     "radius": [
       {
         "value": "0px",
-        "count": 4398
+        "count": 4446
       },
       {
         "value": "6px",
-        "count": 321
+        "count": 324
       },
       {
         "value": "999px",
@@ -37,7 +37,7 @@
       },
       {
         "value": "4px",
-        "count": 204
+        "count": 171
       },
       {
         "value": "10px",
@@ -50,20 +50,20 @@
     ],
     "fontSizes": [
       {
-        "value": "13px",
-        "count": 1917
+        "value": "12px",
+        "count": 1923
       },
       {
-        "value": "12px",
-        "count": 1914
+        "value": "13px",
+        "count": 1920
       },
       {
         "value": "10px",
-        "count": 735
+        "count": 699
       },
       {
         "value": "11px",
-        "count": 609
+        "count": 645
       },
       {
         "value": "20px",
@@ -76,6 +76,10 @@
       {
         "value": "0px",
         "count": 12
+      },
+      {
+        "value": "15px",
+        "count": 6
       },
       {
         "value": "34px",
@@ -91,15 +95,15 @@
     "colors": [
       {
         "value": "rgb(10, 10, 10)",
-        "count": 3075
-      },
-      {
-        "value": "rgb(110, 110, 110)",
-        "count": 1023
+        "count": 3090
       },
       {
         "value": "rgb(86, 86, 86)",
-        "count": 987
+        "count": 1239
+      },
+      {
+        "value": "rgb(110, 110, 110)",
+        "count": 774
       },
       {
         "value": "rgb(0, 0, 0)",
@@ -121,7 +125,7 @@
     "fonts": [
       {
         "value": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 5262
+        "count": 5280
       }
     ]
   },

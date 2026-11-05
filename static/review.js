@@ -120,6 +120,7 @@
       video.src = item.player.src;
     }
     title.textContent = item.title;
+    theater.classList.toggle("best", item.rank === "Best clip");
     const captionText = item.caption || "";
     caption.textContent = captionText;
     caption.hidden = !captionText;

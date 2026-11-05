@@ -552,23 +552,10 @@
     cancelled: "Cancelled",
     failed: "Failed",
   };
-  // A stage in progress reads as a verb. The old label took the stage name and
-  // appended an ellipsis, so "transcribing" rendered as "Transcribe…" and looked
-  // like text that had been cut off rather than a project that was working.
-  const LIBRARY_PROGRESS = {
-    inspecting: "Inspecting",
-    extracting_audio: "Extracting audio",
-    transcribing: "Transcribing",
-    selecting_candidates: "Finding candidates",
-    validating_candidates: "Validating",
-    analyzing_layout: "Analyzing framing",
-    rendering: "Rendering",
-  };
   function libraryStatus(entry) {
     if (LIBRARY_STATUS[entry.status]) return LIBRARY_STATUS[entry.status];
-    if (LIBRARY_PROGRESS[entry.status]) return LIBRARY_PROGRESS[entry.status];
     const stage = STAGE_LABELS[entry.status];
-    return stage ? stage.replace(/^\d+\.\s*/, "") : entry.status;
+    return stage ? stage.replace(/^\d+\.\s*/, "") + "…" : entry.status;
   }
 
   function renderLibrary() {
@@ -604,27 +591,33 @@
       nameEl.className = "name";
       nameEl.textContent = name;
       const bad = entry.status === "failed" || entry.status === "cancelled";
+      const working = !bad && isProcessing(entry.status);
       let stateEl = null;
-      if (bad) {
+      if (bad || working) {
         const state = document.createElement("span");
         state.className = "lib-state";
         const mark = document.createElement("span");
         mark.className = "state-mark";
-        mark.dataset.kind = entry.status === "failed" ? "cross" : "dash";
+        mark.dataset.kind = working ? "working" : entry.status === "failed" ? "cross" : "dash";
         mark.setAttribute("aria-hidden", "true");
         const body = document.createElement("span");
         body.className = "state-body";
         const cause = document.createElement("span");
         cause.className = "state-cause";
-        cause.textContent = entry.status === "failed"
+        const stage = STAGE_LABELS[entry.status];
+        cause.textContent = working
+          ? entry.status === "transcribing" ? "Transcribing audio" : `${(stage || entry.status).replace(/^\d+\.\s*/, "").replace(/…$/, "")} in progress`
+          : entry.status === "failed"
           ? entry.clips_ready
             ? `Failed with ${entry.clips_ready} of ${entry.clips_total} clips ready`
             : "Failed, no clips written"
           : "Cancelled before any clip was written";
         const next = document.createElement("span");
         next.className = "state-next";
-        next.textContent = entry.status === "failed"
-          ? "Open it to retry the failed stage."
+        next.textContent = working
+          ? "Open it to follow progress and cancel."
+          : entry.status === "failed"
+          ? "Retry opens the project at the failed stage."
           : "Open it to run it again.";
         body.appendChild(cause);
         body.appendChild(next);
@@ -634,7 +627,7 @@
       }
       const meta = document.createElement("span");
       meta.className = "meta";
-      if (!bad) {
+      if (!bad && !working) {
         const status = document.createElement("span");
         status.className = "lib-status";
         status.dataset.status = entry.status || "";
@@ -646,12 +639,6 @@
         fact.className = "lib-fact";
         fact.textContent = bit;
         meta.appendChild(fact);
-      }
-      if (isOpen) {
-        const tag = document.createElement("span");
-        tag.className = "open-tag";
-        tag.textContent = "Open";
-        meta.appendChild(tag);
       }
       open.appendChild(nameEl);
       if (stateEl) open.appendChild(stateEl);
@@ -674,13 +661,14 @@
       del.addEventListener("click", () => askDelete(entry));
 
       card.appendChild(open);
-      if (!isOpen) {
+      {
         const go = document.createElement("button");
         go.type = "button";
         go.className = "library-go";
         const retry = entry.status === "failed";
         go.textContent = retry ? "Retry" : "Open";
         go.setAttribute("aria-label", `${retry ? "Retry" : "Open"} ${name}`);
+        if (isOpen) go.setAttribute("aria-current", "page");
         go.addEventListener("click", () => openProject(entry.id));
         card.appendChild(go);
       }
@@ -1675,7 +1663,7 @@
       custom.classList.toggle("active", customSelected);
       customPicker.classList.toggle("on", customSelected);
       custom.setAttribute("aria-pressed", String(customSelected));
-      custom.value = customSelected ? state.draft.color : "#FFFFFF";
+      custom.value = customSelected ? state.draft.color : "#E9E9E9";
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
@@ -2056,7 +2044,10 @@
       b.textContent = "Check again";
     });
     $("rejected-details").addEventListener("toggle", (event) => {
-      if (event.target.open) event.target.scrollIntoView({ block: "start" });
+      if (event.target.open) {
+        const rail = document.querySelector(".clip-rail");
+        rail.scrollTop = rail.scrollHeight;
+      }
       syncRailFade();
     });
     document.querySelector(".clip-rail").addEventListener("scroll", syncRailFade, { passive: true });
