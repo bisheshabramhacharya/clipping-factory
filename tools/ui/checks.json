@@ -7,7 +7,7 @@
       "1920x1080"
     ],
     "shots": 33,
-    "text_pairs": 2427
+    "text_pairs": 2424
   },
   "wcag": {
     "failures": [],
@@ -25,7 +25,7 @@
     "radius": [
       {
         "value": "0px",
-        "count": 4419
+        "count": 4416
       },
       {
         "value": "6px",
@@ -55,11 +55,11 @@
       },
       {
         "value": "11px",
-        "count": 669
+        "count": 618
       },
       {
         "value": "10px",
-        "count": 303
+        "count": 351
       },
       {
         "value": "15px",
@@ -71,11 +71,11 @@
       },
       {
         "value": "26px",
-        "count": 21
+        "count": 18
       },
       {
         "value": "34px",
-        "count": 12
+        "count": 15
       }
     ],
     "shadows": [
@@ -91,7 +91,7 @@
       },
       {
         "value": "rgb(86, 86, 86)",
-        "count": 1854
+        "count": 1851
       },
       {
         "value": "rgb(110, 110, 110)",
@@ -117,7 +117,7 @@
     "fonts": [
       {
         "value": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        "count": 5211
+        "count": 5208
       }
     ]
   },
@@ -130,47 +130,8 @@
     "items": []
   },
   "gates": {
-    "count": 7,
-    "failing": [
-      {
-        "gate": "one-line-height-per-size",
-        "found": "15px: 23.25px×24, 24px×3"
-      },
-      {
-        "gate": "one-line-height-per-size",
-        "found": "12px: 18.6px×30, 19.2px×6, 16.2px×9"
-      },
-      {
-        "gate": "one-line-height-per-size",
-        "found": "11px: 17.05px×18, 16px×3"
-      },
-      {
-        "gate": "one-line-height-per-size",
-        "found": "13px: 20.15px×15, 19.5px×6, 21.45px×3, 18.2px×2, 17.55px×3, 18.85px×6, 21px×3, 20.8px×3"
-      },
-      {
-        "gate": "one-line-height-per-size",
-        "found": "10px: 15.5px×21, 14px×9"
-      },
-      {
-        "gate": "one-caps-size",
-        "found": [
-          "11px",
-          "10px"
-        ]
-      },
-      {
-        "gate": "one-caps-tracking",
-        "found": [
-          "1.54px",
-          "1px",
-          "1.2px",
-          "0.8px",
-          "0.88px",
-          "1.1px"
-        ]
-      }
-    ]
+    "count": 0,
+    "failing": []
   },
   "edges": [
     {
@@ -197,8 +158,8 @@
     {
       "where": "studio@1280",
       "found": [
+        "84:review-theater",
         "88:results-6-clips/results-rejected-expanded/clip-detail-restyle",
-        "91:review-theater",
         "280:review-done",
         "866:library-open"
       ]
@@ -207,8 +168,8 @@
       "where": "studio@1440",
       "found": [
         "24:results-rejected-expanded",
+        "84:review-theater",
         "88:results-6-clips/clip-detail-restyle",
-        "91:review-theater",
         "360:review-done",
         "1026:library-open"
       ]
@@ -217,8 +178,8 @@
       "where": "studio@1920",
       "found": [
         "24:results-rejected-expanded",
+        "84:review-theater",
         "88:results-6-clips/clip-detail-restyle",
-        "91:review-theater",
         "600:review-done",
         "1506:library-open"
       ]

@@ -655,10 +655,12 @@
           : "Cancelled before any clip was written";
         const next = document.createElement("span");
         next.className = "state-next";
+        const rawStage = entry.stage || entry.failed_stage || entry.last_stage || "";
+        const failedStage = (STAGE_LABELS[rawStage] || "").replace(/^\d+\.\s*/, "");
         next.textContent = working
           ? "Open it to follow progress and cancel."
           : entry.status === "failed"
-          ? "Retry opens the project at the failed stage."
+          ? `Retry resumes at ${failedStage || "the failed stage"}.`
           : "Open it to run it again.";
         body.appendChild(cause);
         body.appendChild(next);
@@ -2107,9 +2109,25 @@
       b.disabled = false;
       b.textContent = "Check again";
     });
-    $("rejected-details").addEventListener("toggle", () => {
-      // Opening the section must never move the rail: the clip being worked
-      // in stays put, and the rejected block scrolls inside its own box.
+    // Expanding the section must not move the rail. The browser scrolls the
+    // focused summary into view when it is clicked or keyed, so hold the rail
+    // where it was for the frame that focus lands in.
+    const railEl = document.querySelector(".clip-rail");
+    const rejected = $("rejected-details");
+    let railTop = railEl.scrollTop;
+    const holdRail = () => {
+      railEl.scrollTop = railTop;
+      requestAnimationFrame(() => { railEl.scrollTop = railTop; });
+    };
+    rejected.querySelector("summary").addEventListener("pointerdown", (event) => {
+      // Keep the click from focusing the summary, which is what makes the
+      // browser scroll the rail; a keyboard user moves there deliberately.
+      railTop = railEl.scrollTop;
+      event.preventDefault();
+    });
+    rejected.querySelector("summary").addEventListener("keydown", () => { railTop = railEl.scrollTop; });
+    rejected.addEventListener("toggle", () => {
+      holdRail();
       syncRailFade();
     });
     document.querySelector(".clip-rail").addEventListener("scroll", syncRailFade, { passive: true });

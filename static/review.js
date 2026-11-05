@@ -13,6 +13,8 @@
   const reason = document.getElementById("review-reason");
   const caption = document.getElementById("review-caption");
   const captionLabel = document.getElementById("review-caption-label");
+  const captionMore = document.getElementById("review-caption-more");
+  const copy = document.querySelector(".review-copy");
   const download = document.getElementById("review-download");
   const progress = document.getElementById("review-progress");
   const counts = document.getElementById("review-counts");
@@ -125,6 +127,14 @@
     caption.textContent = captionText;
     caption.hidden = !captionText;
     captionLabel.hidden = !captionText;
+    copy.classList.remove("expanded");
+    captionMore.textContent = "Show full transcript";
+    captionMore.hidden = true;
+    if (captionText) {
+      requestAnimationFrame(() => {
+        captionMore.hidden = caption.scrollHeight <= caption.clientHeight + 1;
+      });
+    }
     meta.textContent = "";
     if (item.rank) meta.append(item.rank);
     if (item.score) {
@@ -259,6 +269,10 @@
     return target instanceof Element && (target.matches("input,select,textarea") || target.isContentEditable);
   }
 
+  captionMore.addEventListener("click", () => {
+    const expanded = copy.classList.toggle("expanded");
+    captionMore.textContent = expanded ? "Show less" : "Show full transcript";
+  });
   openBtn.addEventListener("click", openReview);
   closeBtn.addEventListener("click", closeReview);
   prevBtn.addEventListener("click", () => move(-1));
