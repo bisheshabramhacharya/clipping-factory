@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 7,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 6,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The 860px tinted \"Create project\" block at the top (y46-196) is the loudest element on a screen whose job is reopening existing projects, and the Projects grid it serves sits below two full rows of promotional tool cards."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In \"More tools\" the captions (\"Long video to shorts\", \"AI dialogue scene\") wrap to two lines at the smallest size on the page while the saturated blue AI badge above each tile is louder than the tile's own label."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The Details panel sets labels and values (Name 1025 (1), Saved path, Ratio Original) in the same grey at the same 12px weight, so the panel is a list of equals rather than label/value pairs and cannot be scanned."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right settings rail clips its own labels against the panel edge: \"Color correction: OFF\" and \"Tracker: O\" are cut mid-word at x1075-1130, leaving visible fragments beside the Audio icon."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The full-width \"Auto headline\" explainer (y290-370) occupies more vertical space than one clip row and ends in a lone \"Disable it\" text link at the far right, so it delays the clip grid without offering an action in the reading path."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The per-clip scores (97, 94, 92, 90, 87) are the largest type on the screen after the thumbnails, set in a monospace face in lime with no legend, so the first thing read at each card is a number whose scale is unexplained."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every clip row shows the same \"check Keep\" with \"Maybe Skip\" beside it, so Keep reads as both the row's current state and one of three actions, and no row shows which of the three was actually chosen."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The score is set 37.2 at 17px with a 10px \"/40\" denominator, then repeated at a different size in the right panel (\"Best clip 37.2/40\"), so the number the product is built around has two treatments and an unreadably small denominator."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The Style swatch control wraps into three rows (Sun yellow/Lime/Coral, Sky blue/Violet/Orange, Custom alone) while every other control in that panel is a single row, breaking the panel's rhythm at its first control."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The priority column is inconsistent down the list: ENG-139 and ENG-416 show the three-bar glyph at x370 while ENG-811, ENG-810, ENG-786, ENG-784 and ENG-722 show bare dashes in the same slot."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The group header \"In Review 12\" is set at the same size and weight as the row titles under it, so the section boundary is carried only by a hairline and reads as another row."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The document column holds a 640px measure at 16px while the Properties rail begins at x905, leaving the widest text block in the panel with no max measure and no reason for the reader to look right."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The bottom transport is cut by the AI Tools panel: the zoom cluster and a following button are clipped at x950, and the transcript ribbon runs underneath the panel, so the transport is never fully visible."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Column headers (Name/Duration/Created/Last viewed) and dates sit at roughly #8b8b8b on the warm grey page, and the selected row's purple tint pushes \"Ram Create Clips\" to the lowest contrast in the list."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled AI rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are so faint they read as absent, and their \"Beta\" tags are fainter still, so disabled and unavailable look identical."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) are printed as unstyled body text between the tabs and Tracks, so the top of the screen reads as debug output."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right panel is on the \"Sound Effects\" tab but its search field still reads \"Search music\", so the panel's own control contradicts the state it is in."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The transcript column carries small circular-arrow glyphs mid-sentence (before \"tech aspects\" at y352 and before \"depending\" at y423) with no label, sitting inline like broken characters rather than a control."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so the empty/error category could not be compared across the panel; the other five were scored from the states they show, and no empty state appears anywhere. P3's failure screen (numbered stages, exit code, Retry stage with the cost of retrying spelled out) is the standard the rest were measured against."
+}

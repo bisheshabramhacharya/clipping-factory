@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 9,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Create project' banner is a cyan gradient block about 150px tall (y 45-195) holding a single 14px label, and it carries more visual weight than the Projects grid of seven items beneath it."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In the Details panel the only committing control, 'Modify', is a grey #2b2b2b button with the same tone as the muted label rows above it, so it reads as disabled while the cyan Export carries all the emphasis."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The seven 'More tools' captions share one 11px style, but 'Long video to shorts' wraps onto a second line (y 446-455 and 463-469) while 'AI image' stays on one, so the captions in that row have no common baseline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Keep, Maybe and Skip are three identical text links in every clip row and no row shows a settled choice; the only state signal on the whole list is a focus rectangle with a checkmark after 'Keep' on clip 02."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The style swatch set breaks its own four-column grid: row two fills columns 1, 2 and 4 (Violet, Orange, Custom) and leaves column 3 empty, so the swatch group reads as a broken grid with a hole in it."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The export formats SRT, VTT, Meta and Poster sit as plain 13px words on the same row as the boxed 'Download MP4' button, at the same weight as inert labels elsewhere on the screen, so four controls read as body text."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Auto headline' notice sets its body copy in one unbroken line roughly 940px wide at 13px, about 120 characters before the first wrap, with no measure cap."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Each clip card ends with an unlabeled 14px scissors icon at an identical x position, drawn at the same weight as the copy and download icons beside it, so 15 unlabeled icons compete across the row and no card has a clear single action."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The transcript highlights words in five colors (yellow, green, pink, purple, blue) with no legend, and the same yellow marks 'Captions already done', 'style' and 'edit', so the color carries emphasis without carrying meaning."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw record IDs (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) print as unlabeled 13px body text directly under the tabs and above 'Tracks', so internal identifiers occupy content position."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Audio panel's tab group has no resting selected style: 'Music' and 'Sound Effects' look identical until a white 2px outline lands on one, so the tab you are on is only visible while it holds focus."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The timeline toolbar runs about 15 controls of four kinds in one unseparated row, mixing a boxed text glyph ('1x') with 16px line icons, a dot-badged icon, and the zoom pair at the far end, so speed, transport and view controls read as one strip."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Label chips truncate mid-word at different lengths across rows: 'Squa' on ENG-811 and 'Migra' on ENG-810 next to 'Currency Support...' on the same row, while 'Frontend User Experience...' renders as 'Frontend User d...' one row below."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The date column mixes granularity within one table: ENG-139 shows 'Dec 2023' while every row below it shows 'Jun 5', 'Jan 3' and 'Jan 16', so the column cannot be scanned as a single time scale."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The column before each issue ID alternates between a small bar-chart glyph (five rows, e.g. ENG-139 and ENG-416) and a plain '---' (four rows, e.g. ENG-811 and ENG-786) with nothing explaining the difference, so it reads as missing data."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Opening the row menu lays a scrim that takes the page white down to about #AEACAB across the header and every row, the same value the product uses for inactive surfaces, so live rows read as disabled."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The five unavailable tools (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are drawn at about #C2C0C2 on white, roughly 1.8:1, so they are present but unreadable."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' header wraps to two lines ('Last' at y 259-265, 'Viewed' at y 276-282) with the sort chevron on the first line only, so this single header sets the table's header height."
+    }
+  ],
+  "notes": "Ties at 10: P5 for typography, spacing, color and components; P2 for hierarchy and for error states; P6 for iconography and primary action. Only P2 has an error screen and no product shows an empty state, so that category is scored from the error and notice states that exist."
+}

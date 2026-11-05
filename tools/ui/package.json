@@ -16,7 +16,9 @@
     "verify": "node shots.mjs --verify && node checks.mjs",
     "judges:ask": "node judges/ask-judge.mjs",
     "judges:aggregate-comparative": "node judges/aggregate-comparative.mjs",
-    "judges:aggregate-round": "node judges/aggregate-round.mjs"
+    "judges:aggregate-round": "node judges/aggregate-round.mjs",
+    "tour": "node tour.mjs",
+    "live": "node live.mjs"
   },
   "dependencies": {
     "playwright-core": "^1.49.0"

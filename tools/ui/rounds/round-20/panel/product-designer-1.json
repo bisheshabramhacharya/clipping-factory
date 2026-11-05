@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 7
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 10,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 9.5,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 7,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: three unlabeled raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as body copy between the tab bar and the Tracks heading, so debug output is the first content on screen."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: the filled purple Create button and the near-equal-width Ask Co-Creator button sit side by side in the top right, two primaries competing for the same corner."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: in the Details panel every label and value is the same size and weight, and the Saved path breaks mid-string across two lines ('C:/Users/Admin/Desktop/CapCut Drafts/' then '1025 (1)') with no truncation rule."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: a cyan AI badge is stamped on three module cards and seven of the eight More tools tiles, so the badge marks nearly everything and therefore marks nothing."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P2 editor: four saturated multi-color avatar circles sit in a row immediately left of the Export button at the same height and weight, pulling the eye off the only action that finishes the job."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P2 editor: the Audio panel's Sound Effects tab is drawn as a white outlined pill while the Music tab beside it is a plain label with no container, so one tab family has two states."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the Auto headline paragraph is 11px text running the full content width, and its only action ('Disable it') floats at the far right, roughly 1100px away from the sentence it acts on."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P3 cliplist: the left rail is eight unlabeled outline icons (home, blocks, folder, calendar, chart, link, download, document) with no active marker for the current screen and no tooltip affordance."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the green rank score (97, 94, 92) is set far larger than the clip title under it, and titles truncate at different points per card, so rank reads before content across the row."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: all six clips show Keep / Maybe / Skip as three identical 11px pills with no selected state on any row, so you cannot tell which clips were already triaged."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P4 editor: Save changes (grey filled) and Export (white filled) sit adjacent as two filled buttons of the same size and radius, so which one completes the work is a guess."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P4 editor: the transcript tints individual words cyan, lime, purple and orange with no legend or on-screen key, so color reads as content when it is only styling markup."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P5 editor: the Properties sidebar stacks Done, Urgent, olivia, Bug, Cycle 6 as one unbroken list of label-plus-icon pairs with no value column, so the field names and their values read at the same level."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: Add sub-issues, Links 1 and the reaction/attach icons under the body are set at 11px in the same grey as muted body text and have no button container, so controls look like prose."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: Record (outline pill with a red dot) and New project (black filled rectangle) sit side by side at the top right as two different shapes of equal weight, with no stated default."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: rows pack priority bars, ID, status ring, title, two to four chips, comment count, date and avatar into one 40px line with no shared columns, so the date starts at a different x on nearly every row (Dec 2023, Jun 5, Jan 3)."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: chips mix colored emoji-style glyphs (lightning, euro, tag) with single-weight outline icons and 16px avatars in the same row at 10px type, so no mark family reads as one system."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: three AI panel rows (Eye Contact, Center active speaker, Blur speaker background) are disabled at roughly 30% opacity, below a readable contrast, so they look broken rather than unavailable."
+    }
+  ],
+  "notes": "P3 is the only product with an error screen, so the other five are scored for empty/error from their visible states only. Two of the six sets pair interfaces in visibly different design languages (P2 and P6 each combine a dark and a light product), which limited cross-screen consistency judging; P5 and P6 are the strongest overall, P5 on type, hierarchy and system discipline, P3 on state design and action clarity."
+}

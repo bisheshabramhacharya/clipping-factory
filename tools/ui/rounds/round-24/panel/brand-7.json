@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Under the Projects heading each card is identified only by an 11px grey filename and an 11px '215.4K | 00:03' meta line on near-black, the smallest and lowest-contrast type on the screen."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The More tools row fires seven identical cyan 'AI' chips and the three cards above fire three more, in the same cyan as the Create project call to action, so the badge marks nothing."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The 'More tools' heading and the Projects heading and cards all start at about x=272, but the seven More tools icon tiles start at about x=318, so the page's left rule breaks for exactly one section."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each row in the left Clips column (01 to 06) stacks score, quote, timestamp and Keep / Maybe / Skip inside 77px, with the decision words at 11px, so the action the screen exists for is the smallest thing in the row."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The Impact / Clean / Pop / Cinema preset strip sits on the same four-column rhythm as the colour grid directly beneath it, so the active 'Clean' tab reads as a column header for the Coral swatch instead of as a preset."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The 'Custom' colour swatch in the Style grid renders as a near-white circle with no border, so it reads as an empty slot rather than the seventh member of the six filled swatches beside it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The transcript colours keywords green and phrases yellow with no legend and no text cue; this screen alone carries well over ten green words plus two yellow phrases, so two emphasis colours compete and neither reads as meaning."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "All body copy is set in monospace at loose tracking, including the two-line 'Auto headline' explanation, so a paragraph read once in a row is the slowest text on the screen."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The top toolbar truncates mid-word ('Tracker: O') and jams 'Color correction: OFF' beside Layout, B and the crop controls at about 11px, so three state readouts compete for one 200px strip."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) print as bold body text above the Tracks heading with no label, so the first thing the eye lands on is debug output."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Export all' carries a 2px white focus ring while 'Generate with AI' beside it is a plain secondary and the real primary 'Create' is purple, so a secondary action reads as the selected one."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The active 'Sound Effects' tab draws a white rounded outline and an inset white underline at once, while 'Music' beside it gets only a thin grey underline, so one tab state has two incompatible treatments."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "On row ENG-139 the label chips are squeezed to stubs ('1.', 'Squa', 'A', 'Migra') with no ellipsis and shove 'Dec 2023' about 20px left of where every other row's date sits, so the date column stops aligning."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The cliplist is dark and the editor screen is light, and the dark screen's green 'In Review' ring and coloured label dots have no counterpart in the light screen, so the two surfaces share type but not palette."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In the properties rail 'Done', 'Urgent' and 'olivia' sit as plain rows with no chevron, 'Labels' gets a '+' and 'Add to project' gets a glyph, so editable rows and static values look identical."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The page is entirely warm grey with black text; the only colour is a red record dot, a few blue workspace glyphs and the lavender selection on the 'Ram Create Clips' row, and the 'New project' primary is plain black, so no hue carries the product's identity."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled entries in the AI Tools panel ('Eye Contact', 'Center active speaker', 'Green screen', 'Automatic multicam', 'Blur speaker background') fade to roughly 25% grey on white and are interleaved with enabled rows, so the fade is the only cue that they are unavailable."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "'AI Tools' is announced twice, by the active rail icon and by a chip in the panel header, and the 'Write' action top right is a bare pen plus text while 'Export' beside it is a filled black pill."
+    }
+  ],
+  "notes": "Only P2 has an error screen, so the other five were scored on cliplist and editor alone; their empty/error scores are a limit of evidence, not a judgment of screens the panel did not show. P5's set also mixes a dark list with a light detail view, and P4 and P6 read as the same product family in two themes, which I scored as shown."
+}

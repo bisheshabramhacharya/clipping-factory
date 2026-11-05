@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 4.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 5.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 4.5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 5,
+      "empty_error_states": 4
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 9,
+      "empty_error_states": 8.5
+    },
+    "P6": {
+      "typography": 6,
+      "hierarchy": 5,
+      "spacing_rhythm": 6,
+      "color_contrast": 4.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 5,
+      "primary_action": 6.5,
+      "empty_error_states": 4
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "Right rail: the first item renders the label 'B-roll' with no icon above it while the other five items each have one, and that label measures 1.5:1 against the #09090b rail, so the entry reads as missing rather than available."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Each card's '00:00 00:43' chip is anchored to the card box and not the frame: on card 1 the chip spans x=241-329 while its 138px-wide frame ends at x=276, so it overhangs 53px of bare background, repeated on all five cards."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Auto headline' banner sets its body copy in a mono face across a line running from x=112 to x=1190 (about 150 characters) under a sans-bold heading, so heading and body use different voices and the paragraph cannot be scanned."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled AI Tools rows ('Eye Contact', 'Green screen', 'Automatic multicam') measure 1.61:1 against white (sampled foreground #cccccc), the same value as their 'Beta' badges, so five rows read as blank gaps."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In the open row menu, 'Delete project' carries the same weight and colour and no divider as 'Rename project' and 'Copy project link', so the one destructive item is indistinguishable from the safe ones."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' header wraps to two lines (y=267 and y=280) while Name, Duration and Created stay on one, so the fourth column label drops below the shared header baseline."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three unlabeled raw IDs (d591db2c-0a82-482e-..., 69e48d8e849ab..., composer-5gohk1eo6) sit in mono at full content weight between the tab bar and the 'Tracks' heading, competing with the real content."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The transcript renders a waveform squiggle glyph and a stray bullet mid-sentence ('... a challenge, [squiggle] •', 'That's not my wheelhouse. •'), which reads as corrupted text inside the primary reading column."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Two different tab components on one screen: the centre group (Scene / Layout / Design) uses a filled pill at x=631-930 while the Audio panel's Music / Sound Effects switch uses a bare underline, for the same kind of choice."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Label pills mix full-colour emoji (the euro note on 'Currency Support...', the gear on 'Settings Refresh', the flame on 'MIC Release', the page on 'Frontend User Experience...') with 1px monochrome line icons in the same rows."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail offers no action at all: no comment field, no status change, no save. The only controls are a '+' at x=1086 in the title bar and three unlabeled icons above the properties list."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The date column mixes granularity down one right-aligned column at x=1222: 'Dec 2023' sits above 'Jun 5', 'Jan 3' and 'Dec 20', so the column cannot be compared by reading."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Caption colour is six unlabeled dots (yellow, green, red, blue, violet, orange) carried by hue alone, and 'Custom' is drawn as an empty ring identical to an unselected radio, so the option reads as disabled."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In the export row at y=536, 'Download MP4' has the same 36px height, 1px border and 6px radius as the SRT, VTT, Meta and Poster chips beside it, so a primary download and four sidecar exports read as five peers."
+    },
+    {
+      "product": "P5",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "'Start over' discards the three completed steps above it but is styled as a plain white outline beside the black 'Retry stage', with no warning and no destructive treatment on the control at x=1198-1281."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The 'Auto removal' promo tile sets white copy over its cyan gradient: 1.7:1 where the text crosses x=1160, y=240 (background #55D9F8), and the same cyan is the Export accent, so one hue does accent and decoration."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The timeline toolbar packs 15 icon-only controls, including three near-identical split icons at x=352, 396 and 440 and three teal-filled buttons at x=1032, 1075 and 1118 that all read as active."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Projects grid stops at x=1188 after seven 96px tiles starting at 277, while the toolbar that governs it (search, view toggles, 'Trash', 'Project sync') ends at x=1345, leaving a 157px dead column under the controls."
+    }
+  ],
+  "notes": "Only P5 ships an error screen, so P1, P2, P3, P4 and P6 are scored on cliplist and editor alone for that category. P2's cliplist screenshot is dimmed by an open context menu's scrim, so contrast there is read against the scrimmed values rather than the undimmed page."
+}

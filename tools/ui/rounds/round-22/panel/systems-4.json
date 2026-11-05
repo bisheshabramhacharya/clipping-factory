@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 4.5
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 5,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In the AI Tools panel the five disabled rows (Eye Contact, Center active speaker Beta, Green screen, Automatic multicam, Blur speaker background) peak at roughly 1.8:1 and 1.2:1 against white, so they read as missing text rather than unavailable, and no lock icon or reason explains the state."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' column header wraps to two lines while 'Duration' and 'Created' sit on one, so the header baselines break and the sort caret floats against the middle of the row."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The Created column mixes relative and absolute formats in one column ('Tuesday' next to 'March 6' and 'April 9'), and durations carry an unexplained '+1' suffix on two rows."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "empty_error_states",
+      "issue": "The sidebar's top block is an unlabeled dark mosaic tile above 'Video editing' with no caption, frame or affordance, so it reads as a broken image or a stalled loading skeleton."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The full-width cyan gradient 'Create project' banner is the largest and loudest surface on the screen while the Projects grid, the actual work, is pushed below three 56px tool cards with a section label in between."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Sidebar nav labels (Home, Templates, Spaces) are set a step larger than the project titles they lead to, and the card metadata line '215.4K | 00:03' drops to 11px in a single dim gray."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit unlabeled in body-semibold white directly above 'Tracks', so developer data outranks every content label on the screen."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Create' is a purple filled 40px button sitting directly beside 'Ask Co-Creator', an equally tall dark button, so two primary-weight actions compete on a Recordings screen and 'Create' never says what it creates."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The Transcript row is cut by the viewport bottom, and at its right edge a '?' button and a stray separator dot are clipped by the container boundary at about x=1370, y=845."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Unselected 'Maybe' and 'Skip' in every clip row render about #7a7a7a on the #e9e9e9 row fill, roughly 3.5:1 at 13px, under the 4.5:1 bar for normal text."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Keep/Maybe/Skip group has no fixed column positions: 'Maybe' starts near x=145 in clip 01 and near x=167 in clip 02, so every option shifts about 20px as the selection moves between rows."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The selected clip's index is a filled black chip in cliplist row 01, a plain bold numeral in editor row 03, and the editor header calls the same value 'Clip 3', so one value gets three treatments."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The only create affordances are two bare '+' buttons, one at the toolbar's top right (about x=1392, y=100) and one beside the 'In Review 12' header (about x=1392, y=255); neither carries a label."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Seven tabs (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, '5 more...') plus two unlabeled icons share one 40px strip, and the active tab is marked only by a slightly lighter fill."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The Discussion summary bullets carry dashed underlines that start and stop mid-phrase, so generated text reads as a spellcheck artifact rather than a deliberate provenance mark."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Auto headline' announcement body is set in a monospace face at 13px across two full-width lines, the only monospace type in the product, and it pushes the clip grid down about 90px."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 20px lime score (97, 94, 92, 90, 87) is the largest and brightest type in the grid and sits above an unlabeled three-icon row, so the number reads as attached to the icons instead of the clip title below."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The only filled, highest-contrast button on the screen is 'Add more credits' in the top bar, while nothing in the clip grid carries a primary action."
+    }
+  ],
+  "notes": "Only P4 has an error screen, so empty/error for the other five was scored from their list and editor screens alone. P1's cliplist is captured under an open context menu with a page-wide scrim (its white page reads as #bdbdbd), so its contrast was read from the undimmed editor screen, and P6's editor screenshot carries a hand-drawn red arrow that was not scored."
+}

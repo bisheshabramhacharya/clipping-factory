@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 6,
+      "empty_error_states": 9.5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 5.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 4.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 5.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 5.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 5.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The only solid white button on the screen is \"Add more credits\" in the top right; the clip grid itself offers no review or export control, so the loudest control is a billing upsell."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "\"Video aspect ratio conflict resolution\" renders as 15 px grey text at the toolbar's left with no label, icon or control beside it, reading as leftover status copy between the toolbar and \"Original clips (20)\"."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The five export chips under the In/Out/Length grid (\"Download MP4\", \"SRT\", \"VTT\", \"Meta\", \"Poster\") share one height and radius but four different widths and no divider, so one action family reads as two."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Two full-strength solid black buttons sit on one screen: \"Review 6 clips\" in the header and \"Apply changes\" at the bottom right, so the eye has no single next step."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The disabled \"Apply changes\" at the bottom right uses a #f0f1f3 fill with a #b4b8bd label, roughly 2:1, which reads closer to a decorative chip than a clearly unavailable control next to the muted \"No changes\"."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The Caption \"Style\" row offers five unlabeled colour dots plus \"Custom\", and the selected swatch is marked only by a thin ring, so the choice cannot be named without seeing the colour."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The open row menu in \"Ram Create Clips\" is anchored flush to the row's top edge and covers the \"Last viewed\" header, its own trigger cell and the \"9:24 AM\" value behind it, breaking the table's column alignment in the open state."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Every \"Last viewed\" value truncates (\"Thur...\", \"Apri...\") because the column has no reserved width and the header itself is clipped, so the table cannot be scanned by recency."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The whole canvas sits under a light scrim while the menu is pure white, so sidebar labels, table values and the \"Duration/Created\" headers all read far below normal body contrast."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "No create action appears anywhere on the screen; the only solid button is \"Display\", a view setting, so the list offers no next step."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "ENG-139's chips (\"Squade\", \"Migra\", \"MIC Release\", \"Internal Release\") run to the right edge and collide with its \"Dec 2023\" date and avatar while carrying internal ellipses."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Row metadata (dates, comment counts, \"5 more...\", the Backlog tab) sits in low-contrast grey on the near-black rows, so the right half of every row disappears at a glance."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three bare identifiers (\"d591db2c-0a82-482e-a8c8-5f93768b9a24\" and two more) render as unstyled body text directly above the \"Tracks\" heading, reading as leaked debug output in the content area."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "\"Export all\" carries a 2 px white ring that no other button in the product has and sits at equal weight with \"Generate with AI\", so the Tracks header shows two primaries and one control in a state the rest of the system doesn't define."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The Transcript row's trailing controls run \"Copy\", \"Download\", then a \"?\" glyph and a lone \".\" button clipped by the row's right edge, and only the first two read as labeled actions."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project tiles are captioned with raw filenames (\"0918 (3)\", \"0919(1)\", \"0926\") at 12 px over 11 px grey meta on black, making the Projects row the least legible block on the screen."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "\"AI\" badges appear on eleven separate tiles (three banner cards, seven tool tiles and the promo card) in two different badge shapes, so the mark no longer distinguishes anything."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "\"Create project\" is an 860 x 210 gradient block with a plus glyph and no button affordance, while \"Templates\", \"Spaces\", \"Trash\" and \"Project sync\" all use bordered controls, so the primary action is the one thing that doesn't look like a control."
+    }
+  ],
+  "notes": "Only P1 has an error screen in this panel, so P2 through P6 were scored for empty and error from their cliplist and editor screens alone. No product showed a loading, empty-list, permission or offline state, and P1's editor and cliplist share one shell that P1's error screen restates at a different width."
+}

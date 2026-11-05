@@ -13,6 +13,63 @@
     rendering: "7. Render",
   };
   const STAGE_ORDER = Object.keys(STAGE_LABELS);
+  const SCORE_MAX = 40;
+  const FAILURE_CAUSES = {
+    inspecting: "Could not read the video",
+    extracting_audio: "Could not extract the audio",
+    transcribing: "Transcription failed",
+    selecting_candidates: "Finding clips failed",
+    validating_candidates: "Checking clips failed",
+    analyzing_layout: "Framing analysis failed",
+    rendering: "Rendering clips failed",
+  };
+
+  const ICONS = {
+    keep: '<path d="M5 12.6l4.5 4.6L19 6.9"/>',
+    maybe: '<path d="M6.4 13c1.7-3 3.5-3 5.2 0s3.5 3 5.2 0"/>',
+    skip: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    download: '<path d="M12 4v10.6M7.6 10.2L12 14.6l4.4-4.4M5 19h14"/>',
+    folder: '<path d="M3.5 7.5a2 2 0 0 1 2-2h3.7l2 2.4h7.3a2 2 0 0 1 2 2v7.6a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+    library: '<path d="M5 4.5h3v15H5zM10.9 4.5h3v15h-3zM17.2 5.3l2.8.9-3.9 12.1-2.8-.9z"/>',
+    play: '<path d="M8.7 5.7l9.8 6.3-9.8 6.3z"/>',
+    pause: '<path d="M9 5.5v13M15 5.5v13"/>',
+    caption: '<path d="M3.5 6h17v9.5h-17zM7 11.6h3.4M12.6 11.6h4.4"/>',
+    style: '<path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"/>',
+    font: '<path d="M6 19L11.6 5 17.2 19M8.4 13.8h6.4"/>',
+    extras: '<path d="M12 4.4l1.9 5.2 5.2 1.9-5.2 1.9-1.9 5.2-1.9-5.2L4.9 11.5l5.2-1.9z"/>',
+    clock: '<path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 7.6v4.8l3 1.8"/>',
+    check: '<path d="M5 12.6l4.5 4.6L19 6.9"/>',
+    cross: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    chevron: '<path d="M9.5 6l6 6-6 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    ai: '<path d="M9 3.5v4.5M15 3.5v4.5M6.8 8h10.4v2.8a5.2 5.2 0 0 1-10.4 0zM12 16v4.5"/>',
+    review: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M10.5 9.5l4.5 2.5-4.5 2.5z"/>',
+    copy: '<rect x="9" y="9" width="10.5" height="10.5" rx="1.5"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H5.5A1.5 1.5 0 0 0 4 5v8.5A1.5 1.5 0 0 0 5.5 15H6"/>',
+    trash: '<path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l.9 12h9.2l.9-12M10 10.5v5M14 10.5v5"/>',
+    working: '<circle cx="12" cy="12" r="3.2"/>',
+  };
+
+  function icon(name, size = 16) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.6");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("class", size === 20 ? "ic ic-20" : "ic");
+    svg.innerHTML = ICONS[name] || "";
+    return svg;
+  }
+
+  function paintIcons(root = document) {
+    for (const holder of root.querySelectorAll("[data-icon]")) {
+      const svg = icon(holder.dataset.icon, Number(holder.dataset.iconSize) || 16);
+      if (holder.dataset.iconClass) svg.classList.add(holder.dataset.iconClass);
+      holder.replaceWith(svg);
+    }
+  }
 
   const PROJECT_ID_RE = /^[0-9a-f]{10}$/;
   const restoredProjectId = localStorage.getItem("cf-project");
@@ -110,34 +167,94 @@
     banner.classList.add("hidden");
   }
 
+  let errorCopyText = "";
+
   function accentLabel(color) {
     const normalized = String(color || "").toUpperCase();
     const swatch = ACCENT_SWATCHES.find((entry) => entry.color === normalized);
     return swatch ? `${swatch.name} (${swatch.color})` : `Custom color (${normalized})`;
   }
 
+  function readableOn(color) {
+    const value = String(color || "").replace("#", "");
+    const channel = (offset) => {
+      const c = parseInt(value.slice(offset, offset + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance =
+      0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+    return luminance > 0.18 ? "#0A0A0A" : "#FFFFFF";
+  }
+
   // ------------------------------------------------------------------ setup
+  let setupProblems = 0;
+
+  // Missing setup makes the setup itself the page: the drop box steps aside
+  // until the machine can actually run a project.
+  function syncSetupState() {
+    const blocked = setupProblems > 0 && !projectId;
+    $("setup-state").classList.toggle("hidden", !blocked);
+    $("upload-state").classList.toggle("hidden", blocked || !!projectId);
+  }
+
   async function loadSetup() {
     try {
       const s = await requestJson("/api/setup", {}, "Couldn't reconnect to the local server.");
       const problems = [];
       if (!s.ffmpeg) problems.push("FFmpeg was not found. Install it and restart.");
-      else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. macOS: brew install ffmpeg-full, then restart.");
+      else if (!s.ffmpeg_ass) problems.push("This FFmpeg build cannot burn captions. Install a build with libass, then restart.");
       if (!s.ffprobe) problems.push("FFprobe was not found. It ships with FFmpeg.");
-      if (!s.whisper_ok) problems.push("whisper-cli was not found. macOS: brew install whisper-cpp, or set CF_WHISPER_BIN.");
+      if (!s.whisper_ok) problems.push("whisper-cli was not found. Install whisper.cpp, or set CF_WHISPER_BIN to its binary.");
       if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
       if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push(`Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`);
-      const banner = $("setup-banner");
+      setupProblems = problems.length;
       captionDefaultFont = s.caption_font || captionDefaultFont;
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       populateLanguagePicker(s);
-      if (problems.length) {
-        banner.textContent = problems.join("\n");
-        banner.classList.remove("hidden");
-      } else {
-        banner.classList.add("hidden");
+      const check = $("setup-check");
+      if (check) {
+        check.disabled = false;
+        check.textContent = "Check again";
       }
+      if (problems.length) {
+        const box = $("setup-banner-text");
+        box.textContent = "";
+        const words = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
+        $("setup-count").textContent = `· ${problems.length} problem${problems.length === 1 ? "" : "s"}`;
+        $("setup-title").textContent =
+          `${words[problems.length] || problems.length} thing${problems.length === 1 ? " is" : "s are"} missing`;
+        for (const text of problems) {
+          const row = document.createElement("div");
+          row.className = "state setup-problem";
+          const mark = document.createElement("span");
+          mark.className = "state-mark";
+          mark.dataset.kind = "cross";
+          mark.setAttribute("aria-hidden", "true");
+          const body = document.createElement("div");
+          body.className = "state-body";
+          const cause = document.createElement("p");
+          cause.className = "state-cause";
+          const next = document.createElement("p");
+          next.className = "state-next";
+          const cut = text.indexOf(". ");
+          cause.textContent = cut > 0 ? text.slice(0, cut + 1) : text;
+          next.textContent = cut > 0
+            ? text.slice(cut + 2)
+            : /low disk/i.test(text) ? "Free up space, then check again." : "";
+          next.classList.toggle("hidden", !next.textContent);
+          body.appendChild(cause);
+          body.appendChild(next);
+          row.appendChild(mark);
+          row.appendChild(body);
+          box.appendChild(row);
+        }
+      }
+      const choose = $("choose-btn");
+      if (choose) choose.disabled = problems.length > 0;
+      const blocked = $("upload-blocked");
+      if (blocked) blocked.classList.toggle("hidden", problems.length === 0);
+      syncSetupState();
       clearActionMessage("reconnect");
       if (view) render();
     } catch {
@@ -271,6 +388,29 @@
   function syncStagedFile() {
     $("drop-empty").classList.toggle("hidden", !!stagedFile);
     $("drop-staged").classList.toggle("hidden", !stagedFile);
+    $("run-footer").hidden = !stagedFile;
+    updateRunSummary();
+  }
+
+  // The footer restates the run in one line so the action at its right end
+  // names what it will do instead of pointing at options above it.
+  function updateRunSummary() {
+    const style = document.querySelector('input[name="caption-style"]:checked');
+    const styleName = style ? style.parentElement.querySelector("span").textContent : "Impact";
+    const frame = document.querySelector('input[name="framing-mode"]:checked');
+    const frameName = frame && frame.value === "background" ? "Fit" : "Fill";
+    const platform = $("upload-platform");
+    const lengthName = platform && platform.selectedOptions[0]
+      ? platform.selectedOptions[0].textContent.trim() : "Any";
+    $("run-summary").innerHTML = "";
+    const parts = [[styleName, "captions"], [frameName, "framing"], [lengthName.replace(" · ", " "), ""]];
+    parts.forEach(([value, label], i) => {
+      if (i) $("run-summary").append(" · ");
+      const b = document.createElement("b");
+      b.textContent = value;
+      $("run-summary").append(b);
+      if (label) $("run-summary").append(` ${label}`);
+    });
   }
 
   function wireUploadOptions() {
@@ -280,9 +420,16 @@
       swatch.type = "button";
       swatch.className = "upload-swatch";
       swatch.dataset.color = color;
-      swatch.style.setProperty("--swatch", color);
       swatch.setAttribute("aria-label", `Use ${name} accent color, ${color}`);
       swatch.title = `${name} (${color})`;
+      const dot = document.createElement("span");
+      dot.className = "swatch-dot";
+      dot.style.background = color;
+      dot.style.setProperty("--check", readableOn(color));
+      const label = document.createElement("span");
+      label.className = "swatch-label";
+      label.textContent = name;
+      swatch.append(dot, label);
       swatchGroup.appendChild(swatch);
       return swatch;
     });
@@ -322,6 +469,7 @@
         if (!input.checked) return;
         captionStyle = input.value;
         localStorage.setItem("cf-caption-style", captionStyle);
+        updateRunSummary();
       });
     }
     // Platform target is a UI pref like caption style: restore the last pick.
@@ -332,7 +480,11 @@
     }
     platformSelect.addEventListener("change", () => {
       localStorage.setItem("cf-platform", platformSelect.value);
+      updateRunSummary();
     });
+    for (const input of document.querySelectorAll('input[name="framing-mode"]')) {
+      input.addEventListener("change", updateRunSummary);
+    }
   }
 
   function uploadFile(file) {
@@ -540,9 +692,9 @@
       const date = entry.created_at
         ? new Date(entry.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
         : "";
-      const bits = [date, libraryStatus(entry)];
-      if (entry.clips_ready) bits.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
-      bits.push(fmtBytes(entry.size_bytes));
+      const rest = [date];
+      if (entry.clips_ready) rest.push(`${entry.clips_ready} clip${entry.clips_ready === 1 ? "" : "s"}`);
+      rest.push(fmtBytes(entry.size_bytes).replace(" ", " "));
 
       const card = document.createElement("div");
       card.className = `library-card${isOpen ? " open" : ""}`;
@@ -554,23 +706,73 @@
       const nameEl = document.createElement("span");
       nameEl.className = "name";
       nameEl.textContent = name;
+      const bad = entry.status === "failed" || entry.status === "cancelled";
+      const working = !bad && isProcessing(entry.status);
+      // One gutter for the whole drawer: every row reserves the same mark
+      // column and every title starts at the same x.
+      const mark = document.createElement("span");
+      mark.className = "state-mark library-mark";
+      mark.dataset.kind = working ? "working" : entry.status === "failed" ? "cross" : entry.status === "cancelled" ? "dash" : "check";
+      mark.setAttribute("aria-hidden", "true");
+      let stateEl = null;
+      if (bad || working) {
+        const state = document.createElement("span");
+        state.className = "lib-state";
+        const body = document.createElement("span");
+        body.className = "state-body";
+        const cause = document.createElement("span");
+        cause.className = "state-cause";
+        const stage = STAGE_LABELS[entry.status];
+        cause.textContent = working
+          ? entry.status === "transcribing" ? "Transcribing audio" : `${(stage || entry.status).replace(/^\d+\.\s*/, "").replace(/…$/, "")} in progress`
+          : entry.status === "failed"
+          ? entry.clips_ready
+            ? `Failed with ${entry.clips_ready} of ${entry.clips_total} clips ready`
+            : "Failed, no clips written"
+          : "Cancelled before any clip was written";
+        const next = document.createElement("span");
+        next.className = "state-next";
+        const rawStage = entry.stage || entry.failed_stage || entry.last_stage || "";
+        const failedStage = (STAGE_LABELS[rawStage] || "").replace(/^\d+\.\s*/, "");
+        next.textContent = working
+          ? "Open it to follow progress and cancel."
+          : entry.status === "failed"
+          ? `Retry resumes at ${failedStage || "the failed stage"}.`
+          : "Open it to run it again.";
+        body.appendChild(cause);
+        body.appendChild(next);
+        state.appendChild(body);
+        stateEl = state;
+      }
       const meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = bits.filter(Boolean).join(" · ") + (isOpen ? " " : "");
-      if (isOpen) {
-        const tag = document.createElement("span");
-        tag.className = "open-tag";
-        tag.textContent = "· open";
-        meta.appendChild(tag);
+      if (!bad && !working) {
+        const status = document.createElement("span");
+        status.className = "lib-status";
+        status.dataset.status = entry.status || "";
+        status.textContent = libraryStatus(entry);
+        meta.appendChild(status);
       }
-      open.appendChild(nameEl);
-      open.appendChild(meta);
+      for (const bit of rest.filter(Boolean)) {
+        const fact = document.createElement("span");
+        fact.className = "lib-fact";
+        fact.textContent = bit;
+        meta.appendChild(fact);
+      }
+      const main = document.createElement("span");
+      main.className = "library-main";
+      main.appendChild(nameEl);
+      if (stateEl) main.appendChild(stateEl);
+      main.appendChild(meta);
+      open.appendChild(main);
+      const chevron = icon("chevron");
+      chevron.classList.add("chev");
+      open.appendChild(chevron);
       open.addEventListener("click", () => openProject(entry.id));
 
       const del = document.createElement("button");
       del.type = "button";
       del.className = "library-delete";
-      del.textContent = "Delete";
       del.setAttribute("aria-label", `Delete ${name} from this computer`);
       const blocked = isProcessing(entry.status);
       const styling = isOpen && restyleBusy;
@@ -580,8 +782,10 @@
         : styling
           ? "Caption update is applying — wait for it to finish."
           : `Delete ${name} from this computer`;
+      del.appendChild(icon("trash"));
       del.addEventListener("click", () => askDelete(entry));
 
+      card.appendChild(mark);
       card.appendChild(open);
       card.appendChild(del);
       list.appendChild(card);
@@ -731,7 +935,8 @@
       if (entry && entry.status !== p.status) entry.status = p.status;
     }
     renderLibrary();
-    $("upload-state").classList.toggle("hidden", !!p);
+    $("upload-state").classList.toggle("hidden", !!p || (setupProblems > 0 && !projectId));
+    $("setup-state").classList.toggle("hidden", !!p || setupProblems === 0 || !!projectId);
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     // Once clips exist the studio owns the screen; progress shrinks to a strip.
     $("processing-state").classList.toggle("compact", !!p && (view.clips || []).length > 0);
@@ -774,26 +979,63 @@
 
   function renderStages(p) {
     const wrap = $("stages");
+    const errorBox = $("error-box");
+    if (errorBox && wrap.contains(errorBox)) errorBox.remove();
     wrap.innerHTML = "";
-    for (const name of STAGE_ORDER) {
+    const failedAt = STAGE_ORDER.findIndex((name) => stageState(p, name) === "failed");
+    const compact = $("processing-state").classList.contains("compact");
+    for (const [i, name] of STAGE_ORDER.entries()) {
       const rec = p.stages.find((s) => s.name === name) || {};
       const st = stageState(p, name);
+      if (failedAt >= 0 && i > failedAt) {
+        if (i === failedAt + 1) {
+          const rest = STAGE_ORDER.slice(failedAt + 1);
+          const div = document.createElement("div");
+          div.className = "step waiting-group";
+          div.setAttribute("role", "listitem");
+          div.innerHTML = `<div class="step-head"><span class="step-icon" data-state="pending"></span><strong></strong><span class="status"></span></div><span class="step-meta muted"></span>`;
+          div.querySelector(".step-icon").appendChild(icon("clock"));
+          div.querySelector("strong").textContent = `Stages ${failedAt + 2} to ${STAGE_ORDER.length}`;
+          div.querySelector(".status").textContent = `Waiting on ${STAGE_LABELS[STAGE_ORDER[failedAt]]}`;
+          div.querySelector(".step-meta").textContent = rest
+            .map((n) => STAGE_LABELS[n].replace(/^\d+\.\s*/, ""))
+            .join(" · ");
+          div.setAttribute("aria-label", `Stages ${failedAt + 2} to ${STAGE_ORDER.length} waiting on ${STAGE_LABELS[STAGE_ORDER[failedAt]]}`);
+          wrap.appendChild(div);
+        }
+        continue;
+      }
+      if (failedAt >= 0 && i === failedAt) {
+        if (!compact) {
+          const div = document.createElement("div");
+          div.className = "step failed has-error";
+          div.dataset.stage = name;
+          div.setAttribute("role", "listitem");
+          if (errorBox) div.appendChild(errorBox);
+          wrap.appendChild(div);
+        }
+        continue;
+      }
       const div = document.createElement("div");
       div.className = `step ${st === "pending" ? "" : st}`;
       div.dataset.stage = name;
       div.setAttribute("role", "listitem");
       const status =
-        st === "failed" ? "Failed" :
-        st === "done" ? (rec.detail || "Done") :
+        st === "done" ? (name === "inspecting" ? "Done" : (rec.detail || "Done")) :
         st === "active" ? (rec.detail || "Working…") : "";
-      div.innerHTML = `<strong>${STAGE_LABELS[name]}</strong><span class="status"></span>` +
+      div.innerHTML = `<div class="step-head"><span class="step-icon"></span><strong></strong><span class="status"></span></div>` +
         (st === "active"
           ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
           : "");
+      const stepIcon = div.querySelector(".step-icon");
+      stepIcon.dataset.state = st;
+      stepIcon.appendChild(icon(st === "done" ? "check" : st === "failed" ? "cross" : st === "active" ? "working" : "clock"));
+      div.querySelector("strong").textContent = STAGE_LABELS[name];
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
       wrap.appendChild(div);
     }
+    if (errorBox && !errorBox.closest(".step")) $("error-slot").appendChild(errorBox);
     renderLive();
   }
 
@@ -910,31 +1152,76 @@
     }
   }
 
+  function splitFailure(message, stage) {
+    const text = String(message || "").trim();
+    const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const instruction = parts.find((part) =>
+      /^(check|try|retry|reinstall|install|make sure|ensure|free|close|open|restart|run|choose|pick|download)\b/i.test(part));
+    let detail = parts.filter((part) => part !== instruction).join(" ");
+    detail = detail.replace(/^[^:]{2,60}\bfailed:\s*/i, "");
+    return {
+      next: instruction || "Retry the stage. If it fails again, start over with another file.",
+      detail: (stage && stage.error) ? String(stage.error).trim() : detail,
+    };
+  }
+
   function renderError(p) {
     const box = $("error-box");
-    const clips = view.clips || [];
-    const chooseAnother = $("choose-another-btn");
     const retryButton = $("retry-btn");
-    const zeroClipFailure = clips.length === 0 && (p.status === "failed" || p.status === "cancelled");
-    chooseAnother.classList.toggle("hidden", !zeroClipFailure);
     retryButton.disabled = retryPending;
     retryButton.textContent = retryPending
       ? "Retrying…"
       : p.status === "cancelled" ? "Retry processing" : "Retry stage";
+    $("processing-state").classList.toggle("errored", !box.classList.contains("hidden"));
+    const kicker = $("error-kicker");
+    const detailRow = $("error-detail-row");
     if (p.status === "failed") {
       const failedStage = p.stages.find((s) => s.error);
+      const failure = splitFailure(p.error, failedStage);
+      kicker.textContent = failedStage ? STAGE_LABELS[failedStage.name] : "Processing";
       $("error-stage").textContent = failedStage
-        ? `${STAGE_LABELS[failedStage.name] || failedStage.name} failed`
+        ? FAILURE_CAUSES[failedStage.name] || "Processing failed"
         : "Processing failed";
-      $("error-text").textContent = p.error || "Processing failed. Try again or choose another MP4.";
+      $("error-text").textContent = failure.next;
+      $("error-detail").textContent = failure.detail;
+      detailRow.classList.toggle("hidden", !failure.detail);
+      errorCopyText = [kicker.textContent, String(p.error || failure.detail || "").trim()]
+        .filter(Boolean)
+        .join("\n");
       box.classList.remove("hidden");
     } else if (p.status === "cancelled") {
+      kicker.textContent = "";
       $("error-stage").textContent = "Cancelled";
       $("error-text").textContent = "Processing was stopped. Completed clips are kept. Retry resumes from the last completed stage.";
+      $("error-detail").textContent = "";
+      detailRow.classList.add("hidden");
+      errorCopyText = "";
       box.classList.remove("hidden");
     } else {
+      errorCopyText = "";
       box.classList.add("hidden");
     }
+  }
+
+  async function copyError() {
+    const text = errorCopyText;
+    if (!text) return;
+    const button = $("copy-error-btn");
+    const label = button.querySelector(".copy-label");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const fallback = document.createElement("textarea");
+      fallback.value = text;
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      document.body.appendChild(fallback);
+      fallback.select();
+      document.execCommand("copy");
+      fallback.remove();
+    }
+    label.textContent = "Copied";
+    setTimeout(() => { label.textContent = "Copy details"; }, 1600);
   }
 
   // Highest validator score first; scoreless rows (caption-only, old
@@ -943,6 +1230,19 @@
     return clips.slice().sort((a, b) =>
       (typeof b.score === "number" ? b.score : -Infinity) -
       (typeof a.score === "number" ? a.score : -Infinity));
+  }
+
+  function scoreLockup(score) {
+    const lockup = document.createElement("span");
+    lockup.className = "score";
+    const value = document.createElement("span");
+    value.className = "score-value";
+    value.textContent = score.toFixed(1);
+    const scale = document.createElement("span");
+    scale.className = "score-scale";
+    scale.textContent = `/${SCORE_MAX}`;
+    lockup.append(value, scale);
+    return lockup;
   }
 
   function renderResults(p) {
@@ -961,19 +1261,19 @@
     if (!showResults) return;
 
     const total = clips.length;
+    const reviewLabel = $("review-clips-label");
+    if (reviewLabel) {
+      reviewLabel.textContent = ready.length
+        ? `Review ${ready.length} clip${ready.length === 1 ? "" : "s"}`
+        : "Review clips";
+    }
     if (view.caption_only === true) {
       $("results-title").textContent = p.status === "complete"
         ? "Captioned video ready"
         : "Captioning full video";
       $("results-sub").textContent = view.source_name || "";
     } else {
-      $("results-title").textContent =
-        total === 0 ? "No clips produced" :
-        failed.length > 0
-          ? `${ready.length} of ${total} clips ready · ${failed.length} failed`
-          : p.status === "complete"
-          ? `${ready.length} clip${ready.length === 1 ? "" : "s"}`
-          : `${ready.length} of ${total} clips ready`;
+      $("results-title").textContent = total === 0 ? "No clips produced" : "Clips";
 
       $("results-sub").textContent = view.source_name || "";
     }
@@ -988,7 +1288,7 @@
     const active = isProcessing(p.status);
     const restyleBusy = Object.values(restyleState).some((state) => state.busy);
     newProject.disabled = cancellationPending || restyleBusy;
-    newProject.textContent = restyleBusy
+    $("new-project-label").textContent = restyleBusy
       ? "Applying captions…"
       : active
       ? cancellationPending ? "Cancelling…" : "Cancel & start over"
@@ -1056,10 +1356,29 @@
       for (const r of rej) {
         const d = document.createElement("div");
         d.className = "rejected-item";
-        d.innerHTML = `<div></div><div class="reasons"></div>`;
-        d.children[0].textContent = `“${r.headline || "(untitled)"}” · ${fmtMs(r.start_ms)}-${fmtMs(r.end_ms)}` +
-          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}` : "");
-        d.children[1].textContent = (r.reasons || []).join("; ");
+        d.innerHTML = `<div class="rejected-head"></div><div class="rejected-meta"></div><div class="reasons"></div>`;
+        d.querySelector(".rejected-head").textContent = `“${r.headline || "(untitled)"}”`;
+        const meta = d.querySelector(".rejected-meta");
+        meta.textContent = `${fmtMs(r.start_ms)} – ${fmtMs(r.end_ms)}`;
+        if (typeof r.score === "number") {
+          meta.append(" · score ");
+          meta.appendChild(scoreLockup(r.score));
+        }
+        const reasons = d.querySelector(".reasons");
+        for (const reason of r.reasons || []) {
+          const line = document.createElement("div");
+          line.className = "reason";
+          const cut = reason.indexOf(": ");
+          const label = document.createElement("span");
+          label.className = "reason-label";
+          label.textContent = cut > 0 ? reason.slice(0, cut) : "Reason";
+          const value = document.createElement("span");
+          value.className = "reason-value";
+          value.textContent = cut > 0 ? reason.slice(cut + 2) : reason;
+          line.appendChild(label);
+          line.appendChild(value);
+          reasons.appendChild(line);
+        }
         list.appendChild(d);
       }
     }
@@ -1071,12 +1390,13 @@
     renderResults(view.project);
   }
 
-  // Left rail: one compact card per clip — poster, rank, headline, score.
   function renderRail(ranked) {
     const list = $("clip-rail-list");
     list.innerHTML = "";
     const captionOnly = view.caption_only === true;
     ranked.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "rail-row";
       const b = document.createElement("button");
       b.type = "button";
       b.className = `rail-item${c.id === selectedClipId ? " active" : ""} ${c.status}`;
@@ -1095,27 +1415,64 @@
       } else {
         thumb.innerHTML = c.status === "rendering" ? `<span class="spinner"></span>` : "";
       }
-      const dur = document.createElement("span");
-      dur.className = "rail-dur";
-      dur.textContent = fmtMs(c.duration_ms);
-      thumb.appendChild(dur);
       const text = document.createElement("span");
       text.className = "rail-text";
-      const top = document.createElement("span");
-      top.className = "rail-rank";
-      top.textContent = captionOnly ? "Full video" : `#${c.rank}` +
-        (typeof c.score === "number" ? ` · ${c.score.toFixed(1)}` : "") +
-        (c.status === "rendering" ? " · rendering" : c.status === "failed" ? " · failed" : c.status === "ready" ? "" : " · queued");
+      const line = document.createElement("span");
+      line.className = "rail-line";
+      const rank = document.createElement("span");
+      rank.className = "rail-rank";
+      rank.textContent = captionOnly ? "Full video" : String(c.rank).padStart(2, "0");
+      line.appendChild(rank);
+      if (typeof c.score === "number") line.appendChild(scoreLockup(c.score));
+      if (c.duration_ms) {
+        const meta = document.createElement("span");
+        meta.className = "rail-meta";
+        meta.textContent = fmtMs(c.duration_ms);
+        line.appendChild(meta);
+      }
       const title = document.createElement("span");
       title.className = "rail-title";
-      title.textContent = captionOnly ? "Captioned video" : c.headline;
-      text.appendChild(top);
+      title.textContent = captionOnly ? "Captioned video" : String(c.headline || "");
+      title.title = captionOnly ? "Captioned video" : String(c.headline || "");
+      text.appendChild(line);
       text.appendChild(title);
       b.appendChild(thumb);
       b.appendChild(text);
       b.addEventListener("click", () => selectClip(c.id));
-      list.appendChild(b);
+      row.appendChild(b);
+      if (c.status === "ready") {
+        const triage = document.createElement("div");
+        triage.className = "rail-triage";
+        triage.dataset.reviewKey = b.dataset.reviewKey;
+        triage.setAttribute("role", "group");
+        triage.setAttribute("aria-label", `Review ${captionOnly ? "the video" : `clip ${c.rank}`}`);
+        for (const [value, label, hint] of [
+          ["keep", "Keep", "Keep this clip"],
+          ["maybe", "Maybe", "Mark this clip as maybe"],
+          ["skip", "Skip", "Skip this clip"],
+        ]) {
+          const t = document.createElement("button");
+          t.type = "button";
+          t.className = "rail-triage-btn";
+          t.dataset.railDecision = value;
+          t.appendChild(icon(value));
+          t.appendChild(document.createTextNode(label));
+          t.title = hint;
+          t.setAttribute("aria-pressed", "false");
+          triage.appendChild(t);
+        }
+        row.appendChild(triage);
+      } else {
+        const note = document.createElement("span");
+        note.className = "rail-note";
+        note.appendChild(icon(c.status === "failed" ? "cross" : "clock"));
+        note.appendChild(document.createTextNode(c.status === "rendering" ? "Rendering" : c.status === "failed" ? "Render failed" : "Queued"));
+        row.appendChild(note);
+      }
+      list.appendChild(row);
     });
+    const count = $("rail-count");
+    if (count) count.textContent = ranked.length ? String(ranked.length) : "";
     document.dispatchEvent(new CustomEvent("cf-rail-rendered"));
   }
 
@@ -1143,11 +1500,24 @@
   // bridge below instead of scraping this DOM.
   function clipRankText(c) {
     if (view.caption_only === true) return `Full video · ${fmtMs(c.duration_ms)}`;
-    return `${c.rank === 1 ? "Best clip" : `Clip ${c.rank}`} · ${fmtMs(c.duration_ms)}`;
+    return c.rank === 1 ? "Best clip" : `Clip ${c.rank}`;
+  }
+
+  function clipDisplayTitle(c) {
+    const raw = String(c.headline || "").trim();
+    if (!/(…|\.\.\.)$/.test(raw)) return raw;
+    const stem = raw.replace(/[\s…]+$/, "").replace(/\.\.\.$/, "").trim();
+    const text = String(c.caption_text || "");
+    const at = text.indexOf(stem);
+    if (at < 0) return raw;
+    const rest = text.slice(at + stem.length);
+    const end = rest.search(/[.!?](?=\s|$)/);
+    if (end < 0) return raw;
+    return `${stem}${rest.slice(0, end + 1)}`;
   }
 
   function clipTitleText(c) {
-    return view.caption_only === true ? "Captioned video" : `“${c.headline}”`;
+    return view.caption_only === true ? "Captioned video" : String(c.headline || "");
   }
 
   function clipWhyText(c) {
@@ -1161,6 +1531,8 @@
 
     const preview = document.createElement("div");
     preview.className = "preview";
+    const player = document.createElement("div");
+    player.className = "player";
     if (c.status === "ready") {
       const v = document.createElement("video");
       v.controls = true;
@@ -1196,7 +1568,8 @@
           }
         }, { once: true });
       }
-      preview.appendChild(v);
+      player.appendChild(v);
+      preview.appendChild(player);
     } else if (c.status === "rendering") {
       preview.innerHTML = `<div class="rendering-note"><span class="spinner"></span><span>Rendering…</span></div>`;
     } else if (c.status === "failed") {
@@ -1205,26 +1578,50 @@
       preview.textContent = "queued";
     }
 
-    const body = document.createElement("div");
-    body.className = "clip-info";
+    const head = document.createElement("div");
+    head.className = "clip-head";
+    head.innerHTML = `<span class="rank"></span><span class="clip-lockup"><span class="score"><span class="score-value"></span><span class="score-scale"></span></span></span>`;
     const captionOnly = view.caption_only === true;
     const badges = [];
-    if (typeof c.score === "number") badges.push(`<span class="badge score">score ${c.score.toFixed(1)}</span>`);
     if (c.low_confidence) badges.push(`<span class="badge warn">unclear audio</span>`);
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
+    head.querySelector(".rank").textContent = clipRankText(c);
+    if (typeof c.score === "number") {
+      head.querySelector(".score-value").textContent = c.score.toFixed(1);
+      head.querySelector(".score-scale").textContent = `/${SCORE_MAX}`;
+    } else {
+      head.querySelector(".clip-lockup").remove();
+    }
+
+    const body = document.createElement("div");
+    body.className = "clip-info";
     body.innerHTML = `
-      <div class="rank"></div>
       <h3></h3>
-      <p class="times"></p>
+      <div class="ledger"></div>
       <div class="badges">${badges.join("")}</div>
-      <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
-    body.querySelector(".rank").textContent = clipRankText(c);
-    body.querySelector("h3").textContent = clipTitleText(c);
-    body.querySelector(".times").textContent =
-      captionOnly
-        ? `Full ${fmtMs(c.duration_ms)} video`
-        : `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)}`;
+      <details class="why-wrap"><summary></summary><p class="why"></p></details>`;
+    const clipTitle = body.querySelector("h3");
+    clipTitle.textContent = captionOnly ? "Captioned video" : clipDisplayTitle(c);
+    clipTitle.title = clipTitle.textContent;
+    const ledger = body.querySelector(".ledger");
+    const rows = captionOnly
+      ? [["Length", fmtMs(c.duration_ms)]]
+      : [["In", fmtMs(c.start_ms)], ["Out", fmtMs(c.end_ms)], ["Length", fmtMs(c.duration_ms)]];
+    for (const [label, value] of rows) {
+      const row = document.createElement("div");
+      row.className = "ledger-row";
+      const key = document.createElement("span");
+      key.textContent = label;
+      const val = document.createElement("b");
+      val.textContent = value;
+      row.append(key, val);
+      ledger.appendChild(row);
+    }
+    const whySummary = body.querySelector(".why-wrap summary");
+    const whyChevron = icon("chevron");
+    whyChevron.classList.add("chev");
+    whySummary.append(document.createTextNode("Why this clip"), whyChevron);
     body.querySelector(".why").textContent = clipWhyText(c);
     if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
@@ -1232,16 +1629,17 @@
     actions.className = "actions";
     if (c.status === "ready") {
       const a = document.createElement("a");
-      a.className = "primary action-button";
+      a.className = "download-link";
       a.href = apiPath("projects", projectId, "clips", c.id, "download");
       a.download = c.filename;
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
-      a.textContent = "Download MP4";
+      a.append(icon("download"), document.createTextNode("Download MP4"));
       actions.appendChild(a);
       // Export pack: the .srt/.vtt/.meta.json sidecars next to every MP4.
       const stem = (c.filename || "clip").replace(/\.mp4$/i, "");
       const pack = document.createElement("div");
       pack.className = "export-links";
+      pack.setAttribute("role", "group");
       pack.setAttribute("aria-label", "Export pack files");
       for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta", "meta", "meta.json"], ["Poster", "poster", "jpg"]]) {
         const link = document.createElement("a");
@@ -1263,12 +1661,25 @@
 
     const inspector = document.createElement("div");
     inspector.className = "inspector";
-    inspector.appendChild(body);
-    inspector.appendChild(actions);
-    if (c.status === "ready") inspector.appendChild(restyleControls(c));
+    inspector.appendChild(head);
+    const scroll = document.createElement("div");
+    scroll.className = "inspector-scroll";
+    let footer = null;
+    let syncPreview = null;
+    if (c.status === "ready") {
+      const restyle = restyleControls(c);
+      scroll.appendChild(restyle.panel);
+      footer = restyle.footer;
+      syncPreview = restyle.syncPreview;
+    }
+    scroll.appendChild(body);
+    scroll.appendChild(actions);
+    if (footer) scroll.appendChild(footer);
+    inspector.appendChild(scroll);
 
     row.appendChild(preview);
     row.appendChild(inspector);
+    if (syncPreview) syncPreview();
     return row;
   }
 
@@ -1335,6 +1746,27 @@
     return { row, box };
   }
 
+  // One filled control per view: while any inspector draft is unsaved, the
+  // global Review entry point steps back to its outlined treatment.
+  function syncPrimaryState() {
+    const results = $("results-state");
+    if (!results) return;
+    const dirty = Object.values(restyleState).some((s) => s.dirty && !s.busy);
+    results.classList.toggle("has-dirty", dirty);
+    const review = $("review-clips-btn");
+    if (review) review.classList.toggle("primary", !dirty);
+  }
+
+  // The rail fade says "there is more below" only where the rejected section
+  // is open and actually continues past the panel edge.
+  function syncRailFade() {
+    const rail = document.querySelector(".clip-rail");
+    const rejected = $("rejected-details");
+    if (!rail || !rejected) return;
+    const more = rail.scrollHeight - rail.scrollTop - rail.clientHeight > 2;
+    rail.classList.toggle("can-scroll-more", !rejected.hidden && rejected.open && more);
+  }
+
   // Per-clip caption restyle: pick style + accent color, re-burn from the
   // cached base render (seconds, not a full re-render), reload the preview.
   function restyleControls(c) {
@@ -1356,15 +1788,24 @@
 
     const captionText = document.createElement("textarea");
     captionText.className = "caption-text";
-    captionText.rows = 3;
+    captionText.rows = 1;
     captionText.value = state.draft.text;
     captionText.placeholder = "Edit caption text";
     captionText.setAttribute("aria-label", "Caption text");
+    const sizeCaption = () => {
+      if (!captionText.closest("details")?.open) return;
+      captionText.style.height = "auto";
+      captionText.style.height = `${Math.min(captionText.scrollHeight + 2, 148)}px`;
+    };
     captionText.addEventListener("input", () => {
       state.draft.text = captionText.value;
       state.draft.textPresent = true;
       markDirty();
+      sizeCaption();
     });
+
+    const styleGrid = document.createElement("div");
+    styleGrid.className = "style-grid";
 
     const seg = document.createElement("div");
     seg.className = "seg";
@@ -1393,10 +1834,17 @@
       const b = document.createElement("button");
       b.type = "button";
       b.className = "swatch";
-      b.style.background = color;
       b.setAttribute("aria-label", `Use ${name} accent color, ${color}`);
       b.setAttribute("aria-pressed", "false");
       b.title = `${name} (${color})`;
+      const dot = document.createElement("span");
+      dot.className = "swatch-dot";
+      dot.style.background = color;
+      dot.style.setProperty("--check", readableOn(color));
+      const label = document.createElement("span");
+      label.className = "swatch-label";
+      label.textContent = name;
+      b.append(dot, label);
       b.addEventListener("click", () => {
         state.draft.color = color;
         markDirty();
@@ -1405,22 +1853,24 @@
       return [color, b];
     });
     const customPicker = document.createElement("label");
-    customPicker.className = "custom-color-picker";
-    const customLabel = document.createElement("span");
-    customLabel.textContent = "";
+    customPicker.className = "swatch swatch-custom";
+    customPicker.title = "Pick any accent color";
+    const customDot = document.createElement("span");
+    customDot.className = "swatch-dot";
     const custom = document.createElement("input");
     custom.type = "color";
     custom.className = "custom-color";
     custom.setAttribute("aria-label", "Custom caption accent color");
-    custom.title = "Custom caption accent color";
-    custom.setAttribute("aria-pressed", "false");
+    const customLabel = document.createElement("span");
+    customLabel.className = "swatch-label";
+    customLabel.textContent = "Custom";
     custom.addEventListener("input", (e) => {
       state.draft.color = e.target.value.toUpperCase();
       markDirty();
     });
-    customPicker.appendChild(customLabel);
-    customPicker.appendChild(custom);
+    customPicker.append(customDot, custom, customLabel);
     swatches.appendChild(customPicker);
+    styleGrid.append(seg, swatches);
 
     const font = document.createElement("select");
     font.className = "font-select";
@@ -1443,7 +1893,7 @@
     const fontPicker = document.createElement("label");
     fontPicker.className = "font-picker";
     const fontLabel = document.createElement("span");
-    fontLabel.textContent = "Font";
+    fontLabel.append(icon("font"), document.createTextNode("Font"));
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
 
@@ -1498,6 +1948,55 @@
     status.className = "muted small restyle-status";
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
+    status.tabIndex = -1;
+
+    const draftPreview = document.createElement("div");
+    draftPreview.className = "caption-draft";
+    draftPreview.hidden = true;
+    const draftLabel = document.createElement("span");
+    draftLabel.className = "caption-draft-label";
+    draftLabel.textContent = "Preview";
+    const draftText = document.createElement("span");
+    draftText.className = "caption-draft-text";
+    draftPreview.append(draftLabel, draftText);
+
+    function syncDraftPreview() {
+      const frame = box.closest(".clip")?.querySelector(".preview .player");
+      if (!frame) return;
+      if (draftPreview.parentElement !== frame) frame.appendChild(draftPreview);
+      const words = [];
+      let length = 0;
+      for (const word of String(state.draft.text || "").split(/\s+/).filter(Boolean)) {
+        if (words.length >= 9 || (length && length + word.length > 46)) break;
+        words.push(word);
+        length += word.length + 1;
+      }
+      const visualDirty =
+        state.draft.style !== applied.style ||
+        state.draft.color !== applied.color ||
+        state.draft.font !== applied.font ||
+        state.draft.textPresent !== applied.textPresent ||
+        (state.draft.textPresent && state.draft.text !== applied.text);
+      const show = Boolean(visualDirty && words.length);
+      draftPreview.hidden = !show;
+      frame.classList.toggle("is-previewing", show);
+      if (!show) return;
+      draftPreview.dataset.style = state.draft.style;
+      draftPreview.style.setProperty("--accent", state.draft.color);
+      if (state.draft.font && state.draft.font !== "Inter") {
+        draftPreview.style.fontFamily = `"${state.draft.font}"`;
+      } else {
+        draftPreview.style.removeProperty("font-family");
+      }
+      draftText.textContent = "";
+      words.forEach((word, i) => {
+        if (i) draftText.append(" ");
+        const span = document.createElement("span");
+        if (i === words.length - 1) span.className = "caption-draft-accent";
+        span.textContent = word;
+        draftText.appendChild(span);
+      });
+    }
 
     function sync() {
       state.dirty = captionBundleChanged(state.draft, applied);
@@ -1516,19 +2015,26 @@
         b.setAttribute("aria-pressed", String(selected));
       }
       const customSelected = !ACCENT_SWATCHES.some((entry) => entry.color === state.draft.color);
-      custom.classList.toggle("active", customSelected);
-      custom.setAttribute("aria-pressed", String(customSelected));
-      custom.value = state.draft.color;
+      customPicker.classList.toggle("active", customSelected);
+      custom.value = customSelected ? state.draft.color : "#E9E9E9";
+      customDot.style.background = customSelected ? state.draft.color : "#E9E9E9";
+      customDot.style.setProperty("--check", readableOn(customSelected ? state.draft.color : "#E9E9E9"));
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
       progBarBox.checked = Boolean(state.draft.progressBar);
       hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
+      const hadFocus = document.activeElement === apply;
+      apply.hidden = !state.dirty && !state.busy;
       apply.disabled = Boolean(state.busy) || !state.dirty;
+      apply.classList.toggle("primary", state.dirty || Boolean(state.busy));
       apply.textContent = state.busy ? "Applying…" : "Apply changes";
+      if (hadFocus && apply.hidden) status.focus();
       status.className = `small restyle-status ${state.kind || ""}`;
-      status.textContent = state.message || "";
+      status.textContent = state.message || (state.dirty ? "Unsaved changes" : "No changes");
+      syncDraftPreview();
+      syncPrimaryState();
     }
 
     apply.addEventListener("click", async () => {
@@ -1571,12 +2077,13 @@
     });
 
     // Grouped: look (style, color, font) · edits (render toggles) · text.
+    const SECTION_ICONS = { Style: "style", Extras: "extras" };
     const section = (title, ...children) => {
       const el = document.createElement("div");
       el.className = "restyle-section";
       const h = document.createElement("span");
       h.className = "restyle-label";
-      h.textContent = title;
+      h.append(icon(SECTION_ICONS[title] || "style"), document.createTextNode(title));
       el.appendChild(h);
       for (const child of children) el.appendChild(child);
       return el;
@@ -1587,23 +2094,33 @@
     const textWrap = document.createElement("details");
     textWrap.className = "caption-text-wrap";
     const textSummary = document.createElement("summary");
-    textSummary.textContent = "Edit text";
+    const textLabel = document.createElement("span");
+    textLabel.textContent = "Caption";
+    const textChevron = icon("chevron");
+    textChevron.classList.add("chev");
+    const textMore = document.createElement("span");
+    textMore.className = "caption-more";
+    const moreClosed = document.createElement("span");
+    moreClosed.className = "when-closed";
+    moreClosed.textContent = "Show full text";
+    const moreOpen = document.createElement("span");
+    moreOpen.className = "when-open";
+    moreOpen.textContent = "Hide";
+    textMore.append(moreClosed, moreOpen);
+    textSummary.append(icon("caption"), textLabel, textMore, textChevron);
     textWrap.appendChild(textSummary);
     textWrap.appendChild(captionText);
+    textWrap.addEventListener("toggle", sizeCaption);
     const footer = document.createElement("div");
     footer.className = "restyle-footer";
     footer.appendChild(status);
     footer.appendChild(apply);
 
-    const scroll = document.createElement("div");
-    scroll.className = "restyle-scroll";
-    scroll.appendChild(section("Captions", seg, swatches, fontPicker));
-    scroll.appendChild(section("Extras", toggles));
-    scroll.appendChild(textWrap);
-    box.appendChild(scroll);
-    box.appendChild(footer);
+    box.appendChild(section("Style", styleGrid, fontPicker));
+    box.appendChild(section("Extras", toggles));
+    box.appendChild(textWrap);
     sync();
-    return box;
+    return { panel: box, footer, syncPreview: syncDraftPreview };
   }
 
   // ------------------------------------------------------------------ elapsed
@@ -1866,9 +2383,12 @@
         player,
         key: apiPath("projects", projectId, "clips", c.id),
         title: clipTitleText(c),
+        fullTitle: view.caption_only === true ? "Captioned video" : clipDisplayTitle(c),
         rank: clipRankText(c),
         reason: clipWhyText(c) || "",
-        score: typeof c.score === "number" ? `score ${c.score.toFixed(1)}` : "",
+        score: typeof c.score === "number" ? c.score.toFixed(1) : "",
+        scoreScale: `/${SCORE_MAX}`,
+        caption: c.caption_text || "",
         downloadHref: apiPath("projects", projectId, "clips", c.id, "download"),
         downloadName: c.filename || "",
       });
@@ -1876,10 +2396,11 @@
     return { items, total: clips.length };
   }
 
-  window.cfStudio = { trapTab: trapTabWithin, reviewItems };
+  window.cfStudio = { trapTab: trapTabWithin, reviewItems, icon };
 
   // ------------------------------------------------------------------ boot
   function boot() {
+    paintIcons();
     wireUpload();
     wireGlobalDrop();
     wireUploadOptions();
@@ -1887,10 +2408,41 @@
     wireDeleteModal();
     wireLibrary();
     loadLibrary();
+    $("setup-check").addEventListener("click", async () => {
+      const b = $("setup-check");
+      b.disabled = true;
+      b.textContent = "Checking…";
+      await loadSetup();
+      b.disabled = false;
+      b.textContent = "Check again";
+    });
+    // Expanding the section must not move the rail. The browser scrolls the
+    // focused summary into view when it is clicked or keyed, so hold the rail
+    // where it was for the frame that focus lands in.
+    const railEl = document.querySelector(".clip-rail");
+    const rejected = $("rejected-details");
+    let railTop = railEl.scrollTop;
+    const holdRail = () => {
+      railEl.scrollTop = railTop;
+      requestAnimationFrame(() => { railEl.scrollTop = railTop; });
+    };
+    rejected.querySelector("summary").addEventListener("pointerdown", (event) => {
+      // Keep the click from focusing the summary, which is what makes the
+      // browser scroll the rail; a keyboard user moves there deliberately.
+      railTop = railEl.scrollTop;
+      event.preventDefault();
+    });
+    rejected.querySelector("summary").addEventListener("keydown", () => { railTop = railEl.scrollTop; });
+    rejected.addEventListener("toggle", () => {
+      holdRail();
+      syncRailFade();
+    });
+    document.querySelector(".clip-rail").addEventListener("scroll", syncRailFade, { passive: true });
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
-    $("choose-another-btn").addEventListener("click", resetToEmpty);
+    $("error-exit").addEventListener("click", () => resetToEmpty());
+    $("copy-error-btn").addEventListener("click", copyError);
     $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);

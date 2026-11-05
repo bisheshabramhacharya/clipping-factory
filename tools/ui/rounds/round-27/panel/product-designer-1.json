@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In P1 editor every Details row (Name, Saved, Ratio, Resolution, Color space, Frame rate) is plain text with no editable affordance, and the only control in the panel, 'Modify', is a low-contrast outline button at the panel's bottom right, roughly 250px below the first field it would change."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P1 cliplist the seven 'More tools' tiles each wear an identical cyan 'AI' chip over an illustration of the same weight, so the row reads as seven equal options and pushes the actual content, the Projects row, to the bottom of the page."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P1 cliplist the caption 'Long video to shorts' wraps to two lines while every neighbouring tile caption stays on one, so the tile row has no shared baseline and that tile's label sits lower than the rest."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P2 cliplist the only filled button in the header is 'Add more credits', while the actual task, deciding on twenty clips, has no keep or skip control anywhere; each card offers only calendar, download and scissors icons plus a 'Select' pill in the toolbar."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P2 cliplist the 'Auto headline' advisory is one full-width paragraph at body size whose 'Disable it' control is pushed to the far right edge, splitting a single message across two distant areas and leaving a wide empty band above the clip grid."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In P2 editor the transcript renders caption words in green, red and yellow with no legend or state key, so highlighted words read as decoration rather than as flagged text."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P3 cliplist each of six rows shows three equal-weight text controls, Keep, Maybe and Skip, and the committed 'Keep' state is a hairline outline, so eighteen identical controls compete under the preview while the decision already made is the quietest mark in the row."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In P3 editor the bordered field holding 'A hiring bar that hides the real problem.' sits directly above the same sentence set as a 15px paragraph with no label between them, so the Caption section shows what looks like the same caption twice in two treatments."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "typography",
+      "issue": "In P3 error the only real diagnostic evidence, 'whisper-cli exited with code 134 (SIGABRT)', is the smallest and lightest text on the screen at 12px, quieter than both action buttons beneath it."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P4 cliplist the 'Last Viewed' column cuts its values at the right edge ('Thur…', 'April…'), so the table's last column never presents a complete date and the column edge collides with the row action."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In P4 cliplist Duration, Created and Last Viewed are set in a gray close to the disabled checkbox gray, so three columns of live data read as inactive next to the near-black project names."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In P4 editor the AI Tools card holds the full right third at the same weight as the transcript it sits beside, and four of its rows (Eye Contact, Center active speaker, Green screen, Blur speaker background) are faded out, so half the editing surface is a menu of unavailable actions."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P5 cliplist the label pills truncate mid-word at three or four characters ('Currency Support…', 'Frontend user d…', 'Develop…'), so the chips meant to categorize a row identify nothing."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P5 cliplist the toolbar spends its weight on 'Select', 'Filter', search and a layout toggle while nothing on the screen says what to do with the twelve items under 'In Review'; the only path forward is guessing that a row opens."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In P5 editor the properties rail runs Done, Urgent, olivia, Bug, Cycle 6 and Add to project as one unlabeled column of 13px rows, so status, priority, assignee, label and cycle all read as the same kind of value."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P6 cliplist three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', 'composer-5gohk1eo6') are set as body text directly under the tabs and above the 'Tracks' heading, so the first content the eye reads is internal plumbing."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In P6 editor every sound-effect row cuts its descriptor at 11px ('00:15 transportation • mo…', '00:14 transportation • mo…'), so the only text distinguishing one effect from another is truncated."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In P6 editor the right rail stacks eleven destinations at 10px labels beside a 300px Audio panel, the active 'Sound Effects' tab carries a heavy white outline no other tab has, and 'Underlord' is clipped at the bottom edge."
+    }
+  ],
+  "notes": "P3 is the only product with an error screen, its stage-by-stage failure page, so empty_error_states for P1, P2, P4, P5 and P6 is judged from their list and editor screens only and none of them shows an empty state either. Category leaders: P5 for typography, spacing, color, components and iconography; P3 for hierarchy, primary action and error states."
+}

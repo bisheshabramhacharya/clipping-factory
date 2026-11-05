@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 5,
+      "component_consistency": 5,
+      "iconography_detail": 5,
+      "primary_action": 4.5,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three unlabeled strings ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') sit at body weight between the tab bar and the 'Tracks' heading with no label or container, so raw IDs are the first thing the eye lands on."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Export all' carries a bright white focus ring and sits level with 'Generate with AI' while 'Download' repeats in all five rows, so the page offers no single obvious next step."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the right audio panel the 'Sound Effects' tab is active but the field beneath it still reads 'Search music', and the 'Audio' rail tile is the only one with a thick filled blue outline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Record' (outlined, red dot) and 'New project' (solid black) sit side by side at the same height on the title row, so the first screen offers two primaries with no stated default."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The globe glyph appears on five of the twelve rows with no column header or legend, so a sharing state reads as random decoration rather than a column."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Nine rows in the AI Tools panel (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) sit at roughly 35% opacity with no label, lock or reason, so the disabled block reads as a rendering fault."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "An unlabeled vertical rail of about eighteen icons on the left edge (home, grid, folder, calendar, chart, link, card, list) precedes all content with no visible labels, so the loudest structure on screen carries no meaning."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only solid high-contrast button in the header, outranking both 'Select' and 'Filter' on a screen whose job is reviewing clips."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each card leads with a bare green score (97, 94, 92, 90, 87) set larger than the clip title, with no scale, denominator or label, so the number outweighs the clip and cannot be read."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Keep / Maybe / Skip renders only inside the selected row of the left clips list, so row 01 is taller than 02 and every selection change re-flows the list."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The properties column ends in the bare string 'No changes' at 12 px with no icon or container, detached from any save control, so the panel's resting state looks like leftover text."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "Steps 4 through 7 each report 'Blocked' in identical gray with no line naming which step they are waiting on, so only step 3 tells the reader what to fix."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Rows with label chips start their chips at different x positions (ENG-811 vs ENG-416), so the right-hand counters and avatars never form a column and the list reads ragged."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The header strip mixes a project ('Engineering'), saved views ('All issues', 'Active', 'Backlog'), a smart list ('Recent Urgent Bugs') and '5 more...' as one row of equal chips, so the scope of the list is unclear."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail's properties panel opens straight into 'Done' and 'Urgent' with no Status or Assignee label above them, and nothing on the screen marks what to do next after reading."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "A 180x60 empty gray block sits at the top of the left sidebar above 'Video editing' with nothing in it, so the frame opens on what looks like an unloaded panel."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 660 px cyan 'Create project' hero, the 'Auto removal' ad card with carousel dots, and seven AI tool tiles all compete at similar scale, giving the home screen four entry points of equal weight."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In Details the 'Saved' value wraps an absolute path onto two lines while Ratio, Resolution, Color space and Frame rate stay single-line, so the label/value column loses its baseline rhythm."
+    }
+  ],
+  "notes": "Only P4 has an error screen, so empty and error states for the other five are scored from the absence of any such state rather than from a screen. P5's two screens show an issue tracker rather than clips, and I scored it as shown."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 4
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 6.5,
+      "empty_error_states": 4.5
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 9,
+      "iconography_detail": 8,
+      "primary_action": 6,
+      "empty_error_states": 4.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P1 cliplist the project tiles are bare thumbnails with no hover, selection or overflow affordance; Trash and Project sync sit in the section header about 60px above and act on the whole set, not on the tile under the cursor."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In P1 editor the 'Shortcut' control is a filled gray button with the same height, radius and width as the teal 'Export' directly beside it, so two actions of different importance sit at one weight."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P1 cliplist each tile's second line reads '215.4K | 00:03', two different units joined by a literal pipe in dim gray at roughly 60% of the name's size, so a file size and a duration read as one value."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In P2 editor the label at the right end of the canvas toolbar reads 'Tracker: Of', clipped mid-word by the right rail instead of truncating with an ellipsis."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P2 cliplist the only filled button on the screen is 'Add more credits' at top right, while Select, Filter, search and sort are outline or ghost, so buying credits is the loudest action on a clip review screen."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P2 cliplist the Auto headline banner carries an 'x' at its top right and a 'Disable it' action at its far right edge roughly 500px from the sentence naming it, so one notice offers two dismissals at different weights."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In P3 editor two black pills appear at once, 'Review 6 clips' in the global header and 'Apply changes' in the inspector footer, so the screen presents two primaries of equal weight."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P3 cliplist all six rows render the identical 'Keep / Maybe / Skip' triplet in the same fill and weights with a check on Keep, so a clip already decided and one not yet touched look the same at a glance."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In P3 editor the 'Style' label and its grid glyph sit on the same baseline and in the same row as the preset tabs 'Impact / Clean / Pop / Cinema', so a section heading reads as a fifth tab."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P4 cliplist row ENG-139 squeezes five label chips into '1.', 'A' and 'MIGRA...' and truncates the title behind them to 'Identify Missing Data ...', so the title loses to its metadata."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In P4 cliplist the label chips mix full-colour emoji glyphs, the orange gear on MIC Release and the red siren on Internal Release, with plain coloured dots on the other chips in the same row at the same size."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In P4 editor no action is presented as primary; the only way to add an issue is a bare '+' glyph at the far right of the title bar, at the same weight as the star and the overflow beside it."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In P5 editor the last control in the transport row is cut by the docked AI Tools panel, leaving a half-visible button at the right edge of the tool row."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P5 cliplist the Last Viewed column runs three formats at once, '9:24 AM', 'Tuesday' and 'March 13', with nothing distinguishing a time from a weekday from a date."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P5 cliplist the 'Last Viewed' header wraps to two lines while Name, Duration and Created stay on one, so the header baselines do not line up and the sort caret hangs off the second line."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P6 cliplist three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') are printed as body text between the tab bar and the 'Tracks' heading with no label."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In P6 editor the third 'Ready-made collections' card ('Educati...') is cut off at the panel edge with no fade or scroll cue, so the row reads as broken rather than scrollable."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In P6 cliplist the track cards are #1d1d1d on a #151515 page with no border or shadow, about eight levels of separation, so the card edges are almost invisible."
+    }
+  ],
+  "notes": "Only P3 shipped an error screen and no product showed an empty state, so empty_error_states for the other five is scored from the states they do show; P1 shows no loading, empty or error surface at all. The red arrow beside 'Audio' in P2 editor is an annotation on the screenshot rather than part of the interface and is not counted against it."
+}

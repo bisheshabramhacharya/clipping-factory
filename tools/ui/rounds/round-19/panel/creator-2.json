@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 9,
+      "primary_action": 6,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every row in the clip rail repeats three equal-weight Keep / Maybe / Skip buttons, so the review decision never resolves, while the only forward action, 'Review 6 clips', sits at the far top right, away from the rail."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The breadcrumb file name and each row's '00:41' duration render at roughly 11px in light gray, so the smallest type on the screen carries the metadata you scan for."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "'Unsaved changes' sits at the bottom left of the properties rail and 'Apply changes' at the bottom right, a full screen width apart, so the state and the control that resolves it are two separate focal points."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Nothing on the clip cards accepts or rejects a clip at batch level and the loudest button on the screen is the filled 'Add more credits' in the top bar; the icons under each score are calendar, download and scissors with no label."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Navigation is a nine-icon unlabeled rail on the left of the cliplist, while the editor puts icon-plus-label buttons stacked on the right, so the same kind of control has two different shapes."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Timeline track labels repeat 'Fill' in roughly 9px uppercase across the filmstrip and the B-roll chunks truncate mid-word ('AI Image B-rol'), so the densest region has the least readable type."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Create project' banner, the three feature tiles and the full-height promo card on the right all compete for the first glance, so the home screen has no single focal point below the top bar."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project captions under the thumbnails run two facts together at roughly 12px ('0926' above '215.4K | 00:03') with the view count in the same gray weight as the name, so the line reads as one string."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The cyan 'AI' badge repeats on all three feature tiles and all seven 'More tools' items, turning a status marker into wallpaper, and the tool icons underneath mix outline and filled styles."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw session ids (d591db2c-0a82-..., 69e48d8e849ab..., composer-5gohk1eo6) sit as unlabeled text directly under the tabs and above the 'Tracks' header, so machine identifiers are the first content the eye lands on."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The right rail stacks two audio tabs, a search field, a category filter, favorites, three collection cards and a six-row sound list beside the transcript, so the audio browser outweighs the footage you opened to edit."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The 'Sound Effects' tab is drawn as a heavy white rounded outline over the underlined 'Music' tab, a shape used nowhere else in either screen, so it reads as a focus ring rather than the active tab."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Values in the Duration, Created and Last Viewed columns sit in mid gray on a dimmed light surface with no stronger text anywhere, so the table's data is the least legible thing on the screen."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The 'Last Viewed' column header wraps to two lines while its values stay on one, and the open context menu clips that column at the table's right edge."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The AI Tools panel gives six enabled actions and six disabled ones identical weight and spacing, so 'Edit for clarity' reads the same as a grayed 'Blur speaker background' and the panel becomes an inventory rather than a recommendation."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "No create or import action appears in the header; the only '+' sits inside the 'In Review' group row, and Filter and Display are the loudest controls, so the screen has no obvious next move."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The issue detail opens as a white card floating on the app's dark surface, so every chip, field and link in that screen uses a palette and elevation the list screen never establishes."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Six rows (ENG-811, ENG-810, ENG-786, ENG-784, ENG-722, ENG-788) begin with a stray '---' where the priority glyph sits on the rows above, which reads as a broken cell rather than a no-priority state."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so P2 through P6 were scored on cliplist and editor alone, and no product showed an empty state. P6's two screens are the only set with no video, clip or playback affordance in either state."
+}

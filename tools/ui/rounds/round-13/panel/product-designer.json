@@ -1,0 +1,116 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 7,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 7.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Under the Recordings tab the main region opens with three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) set at 16px body weight with no label, so the first content on screen is debug strings instead of work."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In the top bar 'Add more credits' is the only filled, high-contrast button while Select is an outline pill and the remaining header actions are 12px grey icons, so the credit purchase reads as the screen's primary action."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The header stacks three near-equal titles: the project name in the top bar ('How To Start A Faceless You...'), 'Video aspect ratio conflict resolution' at 13px grey in the toolbar row, and 'Original clips (20)' at the same size but heavier, so no single string reads as the page title."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The headline in the right rail is cut after four lines at '...to the Al...' even though it is the caption the user is there to review and edit."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "At the right end of the player toolbar (y about 700) the last control is clipped by the AI Tools panel edge, leaving a partly hidden label and chevron at x about 1233."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Label pills truncate mid-word to 'Squa' and 'Migra' in the ENG-139 row and to 'Develop...' and 'Desig...' in the ENG-786 and ENG-788 rows, so the labels stop identifying anything."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "All seven More tools tiles and both AI tool cards carry the same blue AI badge, so nine of the ten tools are marked AI and the badge carries no information."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The content surface is a flat mid grey (#bdbdbd) with no lighter card under the table, while the same product's editor is white, so the list reads as dimmed or behind an overlay at a glance."
+    }
+  ],
+  "notes": "Only P4 had an error screen, so P1, P2, P3, P5 and P6 were scored on empty and error from the disabled, loading and placeholder treatments visible inside their two states. P2's cliplist shows issue records rather than clips and was judged purely as a review list, and I treated the hand-drawn red arrow over P1's Audio rail item as an annotation rather than part of the interface."
+}

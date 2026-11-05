@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as unlabeled 14px body lines directly under the Recordings tabs at y=197-268, reading as debug output between the tabs and the Tracks heading."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Sound Effects tab at x=1162,y=166 carries a 2px white ring identical in weight to the keyboard-focus rings seen on Export all in cliplist, so the selected-tab state and the focus state read as the same treatment while Music beside it is flat."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The third Ready-made collection card is cut mid-word at the right panel edge (\"Educati...\" at x=1345) with no fade or scroll indicator, while the first two cards sit fully inside the same 16px gutter."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Last Viewed column values are clipped hard at the panel edge under the open row menu (\"Thur\" at y=397, \"April\" at y=433 and y=469) with no ellipsis, and the column header itself wraps to two lines at y=265."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The transport row runs under the right panel and is clipped at x=975: the zoom control ends in a stray glyph and a lone \"e:\" (y=706), so the control group has no visible end."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled rows in the Look good group (Eye Contact y=598, Green screen y=686, Blur speaker background y=822) render at roughly #c8c8c8 on white, below any readable contrast, and only the Beta chip separates some of them from an enabled row."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The left rail at x=40 shows nine icon-only entries with no labels on cliplist, while the same rail in editor labels every entry (Hook, Transitions, Text, Graphics, Audio), so an identical navigation component is named on one screen and anonymous on the other."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Toolbar text is clipped by the right rail: \"Color correction: OFF\" at y=137 and \"Tracker: O...\" at x=1236 both run under the rail edge, and \"Layout: Fill\" is followed by a bare \"B\" and a separator with no label (x=926-960)."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Timeline chips break mid-word at track boundaries, producing \"c Fill\", \"F Fill\" and \"F_ Fill\" along y=720 with no ellipsis and inconsistent leading space, while the same chip reads \"Fill\" cleanly when it starts flush."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The score reads \"37.2 /40\" with a space before the slash in every list row and in the panel header (y=195 and y=172), while the adjacent duration reads \"00:41\" tight, so two numbers in one column use two formatting rules."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The selected style swatch is marked only by a white ring (x=1188,y=427) on a white panel, the same white ring used around the yellow swatch in cliplist, so the selected state disappears into the surface instead of using a check or a scale change."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The right panel stops after Caption and leaves roughly 250px of empty column below \"No changes\" (y=742 to the 900px bottom edge), so its bottom edge never resolves against the taller document column beside it."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The leading column gives three different treatments: bar glyphs on ENG-416/742, a literal \"1.\" on ENG-139 (x=723,y=310), and \"---\" on ENG-811 through ENG-788, so one column reads as three unrelated marks."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Label chips are floated per row rather than placed in a column, so their left edges land at x=728, 860, 900, 880 and 860 down the list, and the ENG-139 chip pair wraps to two lines (y=303-325), changing that row's height."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The icon row at x=908-1100 beside the Properties label shows link, copy and branch glyphs with no selected state or labels, so Properties reads as one more icon in the strip rather than the active tab."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Projects row mixes thumbnail shapes in one line: 0926 and 0925 are portrait, 0922 is landscape (x=678-788), and 0919(1) is narrower (x=953-1009), so the row's bottom edges step instead of aligning."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Project metadata (\"215.4K | 00:03\" at y=678) is set around 11px at roughly #8a8a8a on the near-black page, the lowest-contrast text on the screen, so size and duration are the hardest values to read."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The media tool strip mixes drawn outline icons with typographic ones: Text is the letters \"TII\" (x=166,y=120) beside a filled sticker glyph and a crossed-arrows transitions glyph, at three different visual weights."
+    }
+  ],
+  "notes": "Only P4 shows an error state, and no product shows a true empty state, so empty/error scores for the other five are judged from the states each one does show and are capped accordingly. Several screens are cropped at the window edge, which limits what can be said about disabled and focus states."
+}

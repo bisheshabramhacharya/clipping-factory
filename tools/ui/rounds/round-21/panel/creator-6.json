@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 9.5,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The workspace thumbnail in the top-left of the rail is a blurred block of colored rectangles rather than a still or logo, so the first thing in the corner reads as a failed image load."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The seven 'More tools' tiles all get the same blue AI badge and the same 11 px two-line label, so nothing in that row tells a first-time user which tool to start with."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The Details panel's only button, Modify, sits at the bottom edge about 250 px below the Name/Ratio/Frame rate values it changes, so the panel's action is detached from its content."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Each clip card carries three unlabeled 16 px glyphs under the score (a tool/split icon, a download arrow, a scissors icon) with no tooltip text visible, so the actions are unreadable without hovering."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline notice is a two-line 12 px paragraph spanning the full content width at the same weight as the clip titles, so it out-shouts the five clips below it."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The preview toolbar mixes two control languages in one row: 'Color correction: OFF' and 'Tracker: O' render as clipped text ('Tracker: O' cuts off mid-word) while aspect 9:16 and Layout are icon buttons."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "All six clip rows show identical unstyled 12 px 'Keep Maybe Skip' text with no checked or selected state, so after making choices you cannot see which clips you kept."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "'Unsaved changes' and 'Apply changes' sit in the last 30 px of the right panel, below the Download MP4 / SRT / VTT / Meta / Poster links, so the commit action reads as a footer."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The style swatches wrap into a ragged three-column grid of 8 px dots where 'Custom' falls alone to a fourth row, misaligned under the Sun yellow label."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Row meta is set at 11 px gray and several titles truncate with ellipses ('Identify Missing Data ...', 'Integrate internationalization (i18n) supp...'), so the list cannot be read at a glance."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The ID column alternates between real keys ('ENG-139') and a bare '---' for ENG-811, ENG-810, ENG-786 and ENG-788, so the identifier slot is visibly empty on half the rows."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The open item has no save, send or complete affordance anywhere: properties (Done, Urgent, Bug, Cycle 6) are edited in place with no visible commit state."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Record' (outlined, red dot) and 'New project' (dark filled) sit side by side in the same top-right pair at equal size, so the entry point into the product is split."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "AI Tools list items render in two very different grays (Studio Sound and Remove filler words dark; Eye Contact, Green screen, Automatic multicam pale) with no stated reason, so unavailable tools look like a rendering bug."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The row menu is opened from a '...' trigger that only appears on the selected row, and it overlays the Last viewed values while the Name and Duration columns stay at fixed widths."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-..., 69e48d8e849ab9426f17022d, composer-5gohk1e06) are printed as unlabeled body text directly under the tabs, above the Tracks heading."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Create', 'Ask Co-Creator', 'Generate with AI' and 'Export all' are all filled or outlined in the same top band, and 'Export all' carries a white focus ring while nothing indicates which one is the intended next step."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Audio panel's active tab is Sound Effects but the search field directly beneath it reads 'Search music', and the selected tab also carries a white focus outline, so state and label disagree."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so empty/error scores for P1, P2, P4, P5 and P6 rest on the empty, loading and status cues in their cliplist and editor screens. P2 and P4 show no empty state at all, and P6 shows only 'Ready' status pills."
+}

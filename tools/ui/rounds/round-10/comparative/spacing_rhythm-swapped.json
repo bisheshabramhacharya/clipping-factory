@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 10,
+  "category": "spacing_rhythm",
+  "winner": "B",
+  "citation": "B/01.png: the six clip rows repeat on a 96px pitch (thumbnail tops y=283, 379, 475, 571, 668) and every right-column rule, the 37.2 score, the font select, the toggles and the header's Review clips button stop on the same x=1255 edge, with a 32px control height shared by Review clips (y=80-111), Download MP4 (402-433) and the font select (521-552); A/01.png repeats a 21px gap exactly twice (heading bottom 273 to subhead top 294, subhead bottom 307 to composer top 328) and its composer footer sits flush under the composer (y=470 into 471) inset 6px per side (304-955 above, 310-949 below).",
+  "why": "B carries one grid at four scales on a dense screen (96px rows, 32px controls, ~16px section pads, one right edge at 1255), so the same gap does mean the same relationship even where the content is tight. A is the calmer screen and centers its heading, subhead and composer on x=629.5 to the pixel, but two matching gaps and a flush-inset footer are the whole of its rhythm evidence, and its equal 21px spacing gives the heading, subhead and input the same rank instead of grouping the first two.",
+  "confidence": "slight"
+}

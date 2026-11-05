@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 7.5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 5.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 7.5,
+      "empty_error_states": 7.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In the inspector, the six caption swatches (Sun yellow, Lime, Coral, Sky blue, Violet, Orange) show no selected ring or check on any one colour, so the current caption colour is unreadable from the palette."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "All six clip rows repeat Keep/Maybe/Skip as identical grey outlined chips at the same weight as the clip title, and no row shows a chosen state, so the review decision never reads as the work on screen."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "Step 3. Transcribe is marked only by one small red 'Failed' word while four 'Waiting on 3. Transcribe' rows repeat the same grey at the same size, so the actual failure does not own the screen."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only filled high-contrast button in the header, while the clip grid below offers no primary action at all, so the loudest control on the page is a purchase."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The five cards stop around x=1360 under a full-width 'Auto headline' banner, leaving a large dead region on the right of a grid that claims 20 clips."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Transcript words are coloured green, cyan and purple with no legend or matching filter chip, so the highlights read as decoration rather than meaning."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Three saturated gradients share one screen (the cyan 'Create project' hero, the blue tool tiles, and the full-bleed blue product ad), so colour marks no rank and the accent stops guiding the eye."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Details labels and values, timeline ruler ticks and toolbar labels all sit at roughly 11px, and the two-line 'C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' path wraps at the same size as the label it answers."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Ten identical cyan 'AI' badges across the tool tiles and project row compete with the gradient hero, so nothing marks a single next step on the home screen."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw UUID strings (d591db2c-0a82-..., 69e48d8e849ab..., composer-5gohk1eo6) are the first content under the tabs, unlabelled, so the eye lands on machine IDs before anything about the recording."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every track row ends in an identical filled 'Download' button, so five rows present five equal primaries and no row or action reads as the one thing to do."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The active 'Sound Effects' tab is drawn with both a white underline and a second rounded white outline, and its search field directly beneath still reads 'Search music'."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The row context menu opens over the 'Last Viewed' column and covers the dates of the rows beneath it instead of flipping toward the free left side."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The transcript runs nearly 110 characters per line to the panel edge and its last line is cut mid-word ('guests') behind the right rail."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Record' (outlined, red dot) sits immediately left of the solid black 'New project' at the same height and width, so two buttons read as the primary and the header has no single leader."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The header offers only Filter and Display, and the 'Active issues' list shows no create affordance or row-level next step, so the screen answers nothing about what to do now."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "Dotted spell-check underlines sit under body words in the description ('implemented', 'NSCache', 'prepareForReuse') and again in the Discussion summary, leaving stray marks across the reading column."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Label chips on the right of each row each take a different hue and glyph (yellow, grey, blue, orange, red) at 12px, turning the row's quiet right edge into a colour salad with no single accent."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so P2 through P6 were scored on cliplist and editor alone; P6's cliplist and editor are the most disciplined type and icon system in the panel, and P5 is a close second, while P3's gradients and 11px labels are the weakest craft shown."
+}

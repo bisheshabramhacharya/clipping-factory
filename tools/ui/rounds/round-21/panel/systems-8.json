@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Two full-black buttons are on screen at once, 'Review 6 clips' in the header and 'Apply changes' at the bottom right of the properties panel, so the next action needs reading rather than landing."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In the right panel the 'Caption' section stacks a bordered input holding the hook line directly above an unlabeled 22px paragraph, so the two text blocks read as one field twice."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "Stages 4 through 7 each repeat the identical row 'Waiting on 3. Transcribe' with no change in weight, so four rows carry one fact and none of them marks what happens next."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The transcript toolbar's rightmost control is bisected by the AI panel edge, showing only an 'E' and half a rounded border beside the zoom controls."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "'Eye Contact', 'Center active speaker', 'Green screen', 'Automatic multicam' and 'Blur speaker background' sit at roughly #b9b9b9 on white, far below the enabled rows above them."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Every row starts with a selection checkbox at x=291 but the header row puts 'Name' at x=313 with no select-all box above the column."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The seven 'More tools' names under their icons use the same muted gray and near-caption size as the project metadata '215.4K | 00:03', so a clickable section reads as disabled text."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The Details row 'Saved:' wraps its path 'C:/Users/Admin/Desktop/CapCut Drafts/ 1025 (1)' onto two lines while every other value stays one line, breaking the label/value grid."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The same teal/cyan marks the 'Create project' panel, the selected 'Home' nav row, the primary control, and in the editor the timeline clip and selected 'Media' tab, so one hue means both action and media state."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only filled white button on the screen, top right, while reviewing clips offers only an outlined 'Select' toggle, so the loudest control sells credits."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Auto headline' banner sets its two-sentence body copy in a monospace face while every other paragraph on the screen is sans."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In the top bar 'Tracker: O' and the color-correction label run into the right rail and clip mid-word, leaving two controls half rendered."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Label pills start at a different x on every row (MIC Release at 1033, Currency Support at 951, Frontend User Experience at 957) and truncate at different widths, so the label region has no column."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Six of the nine rows render a literal '---' in the gutter left of the issue key, where a priority or estimate glyph belongs."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue screen shows no commit control at all: 'Done', 'Urgent', 'Add to project' and the composer-free body leave no visible way to act on the item."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') sit as unlabeled 13px body text between the tabs and the 'Tracks' heading."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The 'Sound Effects' tab wears a heavy white focus ring about 4px wide while the selected tab's standing cue is a thin underline, so focus and selection cannot be told apart."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The third 'Ready-made collections' tile is cut mid-word at the panel edge, showing 'Educati' plus a chevron, with no scroll cue."
+    }
+  ],
+  "notes": "P3 is the only product with a failure screen (error/P3), so the other five are scored for empty and error from the states they do show; P4 and P6 show no clip review or clip editing screens and are judged as shown. Nothing in the panel shows loading states beyond P5's 'Transcribing... 34%' chip, so recovery from in-flight work could not be compared."
+}

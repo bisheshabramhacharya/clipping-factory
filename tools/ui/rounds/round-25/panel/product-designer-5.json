@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 9.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In cliplist the projects grid, the only place the user's own work appears, gets 92px thumbnails in the bottom fifth while the Create-project banner and the three AI tool cards hold the top 310px."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In cliplist the cyan AI badge repeats on all three tool cards and all seven More tools icons, ten instances of the same marker, so it distinguishes nothing."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In editor the Details panel leaves a bordered empty area from roughly y=470 to y=540 with the Modify button alone at its foot, reading as a panel that failed to load."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor five AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) sit near 2:1 contrast on white, so unavailable reads as broken rather than disabled."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In cliplist the open row menu (Rename project / Duplicate project / Move to) covers the Last Viewed dates of three rows with no scrim, hiding the timestamps the column exists to show."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In cliplist the Last viewed column header wraps onto two lines while every value beneath it is a single right-aligned date, so the header is the tallest cell in its own column."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In cliplist the scores 97, 94, 92, 90, 87 are bare green numbers at each card's left with no label, sitting level with three unlabeled icons (calendar, download, scissors)."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In editor the transcript interleaves timestamp chips (0.58s, 0.38s, 0.36s, 1.31s) inside sentences, so the script cannot be read as prose."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In editor the toolbar above the preview packs 9:16, Layout: Fill, B, text, Color correction: OFF and Tracker into one row, and Tracker's value is clipped to \"Tracker: Ol\" at the panel edge."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In cliplist the leftmost column shows three vertical bars on three rows and \"---\" on the other six with no header, so it reads as stray glyphs before every issue ID."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In editor the properties rail renders Done, Urgent, olivia, Labels, Cycle and Project as identical 12px label rows at one weight, so status, assignee and project land with equal emphasis."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In editor the body ends in three lone rows, the reaction icon at y=453, Add sub-issues at y=497 and Links 1 at y=546, each with about 45px of empty space around it."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In cliplist Keep appears as a white filled pill with a check on the selected row and as plain gray text on the other five rows, so the same action has two shapes on one screen."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor the header's AI connection label and its Coming soon chip wrap inside a 70px slot at roughly 3:1 contrast, so a deliberate roadmap note reads as a broken control."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In editor the export row puts Download MP4 and four bare format links (SRT, VTT, Meta, Poster) on one 11px line with only thin separators, so five different outcomes carry the same weight."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In cliplist three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) print as body text above the Tracks heading with no label."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In editor all six chapter labels above the timeline truncate at 9 to 13 characters (Navigating ..., Budgeting to..., The importan..., Maximizing P...), so the row carries no information."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor lime green and magenta mark speaker segments in the waveform while the same two colors appear in the overlapping top-bar avatars and the purple sparkle markers on the timeline, so color reads as decoration as well as state."
+    }
+  ],
+  "notes": "Only P5 has an error screen, so the other five are scored on empty/error from their other states; P4 and P2 show adjacent screen types (an issue list and a project table) rather than generated-item review, and I judged them as shown. All six have a cliplist and an editor, so those two states carry every other category."
+}

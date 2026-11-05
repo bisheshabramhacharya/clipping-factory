@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 9
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the left sidebar lists Projects and Views twice, once under Workspace and again at the bottom under Your teams, so the same destination appears in two groups with no difference between them."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P4 cliplist: the toolbar row carries five tab pills, a truncated '5 more...' tab and three right-aligned icons, and the last three table columns (globe, chevron, avatar) have no header at all, so the 44px rows end in unlabelled marks."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: in the right Properties rail, group labels (Labels, Cycle, Project) and their values are the same 13px weight, so the three groups separate only by vertical gap and the panel reads as one undifferentiated list."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: the transcript sentence in the right rail is set at roughly 34px serif, the largest and heaviest type on the screen, larger than the Clipping Factory wordmark and louder than the video it describes."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P5 editor: the Caption field is a fixed box about 100px tall holding a single line of text, taller than the Style, Font and Extras rows combined, which pushes the only commit action (Apply changes) to the bottom edge."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: the swatch row ends with a grey 'Custom' circle built at the same size and stroke as the six real colors, and the selected swatch is marked only by a black ring, so 'Custom' and 'selected' are told apart only by position."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: 'Add more credits' is the only filled white button in the header, making buying credits the loudest control on a screen whose job is reviewing generated clips."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P1 cliplist: the left icon rail spaces nine icons at wildly different intervals, with a 48px gap between Home and Grid and a 120px gap above the last two icons, and no group labels to explain the breaks."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P1 editor: the transcript runs four unrelated highlight colors (yellow, green, pink, lavender) on ordinary words with no legend, so emphasis, keyword and warning all look identical and the paragraph is harder to scan than plain text."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: the Created and Last viewed columns are italic grey at about 11px on the same grey page, and every value is truncated ('Thur...', 'Apri...', 'Marc...'), so the right third of the table is unreadable at normal size."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor: the AI Tools panel overlaps the document column and cuts the transcript mid-sentence at its left edge ('Framer, which is-em, it's a bit more'), and the same overlap clips the transport row's right-hand controls."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P2 cliplist: the selected row is filled periwinkle, a hue that appears nowhere else in an otherwise warm-grey palette except the Super fun team avatar, so selection reads as a different product's accent."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are set as body text directly under the tabs, in the same treatment as human labels, with no field names."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: 'Export all' carries a permanent white focus ring that makes a secondary utility look like the primary action on the row, while the actual primary '+ Create' competes with a sparkled 'Ask Co-Creator' beside it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor: the audio waveform is neon lime with magenta blocks, and lime is also the Speaker 1 label color, so the same two hues mean both a speaker identity and a track level with no key."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: an identical blue 'AI' badge is repeated on all seven More tools tiles, both gradient tool cards and the promo card, ten times on one screen, so the badge distinguishes nothing and the same chip floats over unrelated tiles at two different alignments."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P6 editor: 'Modify' is the only action in the Details panel and is drawn in the same mid-grey as the dim label text, so it reads as disabled next to a panel that is otherwise all static values."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: the Saved row prints the raw path C:/Users/Admin/Desktop/CapCut Drafts/1025 (1), wrapping to two lines and becoming the longest value in the Details panel, in the same size as Name and Ratio."
+    }
+  ],
+  "notes": "Only P5 had an error screen in this panel, so every other product's empty/error score is judged from its cliplist and editor alone and may understate it. No product is scored on content: the fixture names, thumbnails and draft paths are ignored except where the UI itself surfaces them as unlabelled content."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 5.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist right panel: the bordered \"Download MP4\" button sits above the style controls as the only outlined control, while the actual commit of the work, \"Apply changes\", is at the panel foot in disabled grey, so export outranks the edit loop."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P1 error pipeline: rows 1 and 2 carry \"Done\" and row 3 carries a red \"Failed\", but the queued rows 4 to 7 have no status text at all, so waiting work is identified only by missing labels."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P1 cliplist Style row: the six accent swatches show no selected ring and the hex line below (\"Sun yellow (#FFDD00)\") is not visually tied to a swatch, so the active accent cannot be read from the row."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the \"Auto headline\" notice is a six line paragraph set in a monospace face at full body weight above the grid, so an announcement is the loudest block on a screen whose work is the clips."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist clip cards: there is no selection state and no primary control per card, and the three ghost glyphs (calendar, download, crop) carry the same weight as the duration badge, so the next step on a clip is not visible."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist left rail: roughly twelve unlabelled icons run top to bottom at low contrast, and several duplicate functions already in the top toolbar, so the rail reads as a texture rather than navigation."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: the screen is an issue tracker list with no clips, projects or recordings to review and no affordance for that work, so the state has no entry point."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist rows: label chips consume up to sixty percent of the row width (ENG-139, ENG-811, ENG-786), so titles truncate to \"Identify Missing Data ...\" while metadata keeps its full space."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P3 editor: \"Fix memory leak in map view controller\" is set twice, once in the modal's top strip and again as the 32px heading directly below, so the loudest element on the screen is a duplicate."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: three promo bands (Create project hero, the three AI cards, the auto-removal ad card) fill the first 500 pixels, so the user's own project grid starts below the fold of attention."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist hero row: the three feature cards are 178px tall while the promo card beside them runs 250px, so the row's bottom edges do not align and the grid reads ragged."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P4 editor timeline: more than twenty glyphs (crop, split, delete, mic, three auto-enhance buttons, transitions, speed) sit at the same 16px weight with no grouping or dividers, so the toolbar needs decoding rather than scanning."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P5 editor AI Tools panel: five rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) sit near #c9c9c9 on white, so disabled reads as missing rather than unavailable."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist table: the \"Last viewed\" header wraps to two lines while every other header is one, and the values beneath truncate to \"Thur…\" and \"April…\" where the open row menu overlaps them."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P5 editor transcript: the \"Transcribing… 34%\" progress bar is set inline in the middle of the document body, where it reads as a paragraph rather than a job status."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: three raw UUID strings (d591db2c-0a82-…) sit as unlabelled body text between the tabs and the \"Tracks\" heading, reading as leaked debug output above the content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P6 cliplist header: a filled purple \"+ Create\", an outlined \"Ask Co-Creator\" and a white ringed \"Export all\" all sit in one row at the same weight, so the page-level action is a choice between three."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the \"Sound Effects\" tab carries a double white focus stroke in a still screenshot, the same stuck-looking ring that appears on \"Export all\" in the cliplist, so focus styling reads as a rendering fault."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so P2 through P6 are scored for empty and error states from their list and editor screens; P3's screens show an issue tracker rather than clips or recordings. P3 and P5 are the most resolved craft here, P2 and P4 the least."
+}

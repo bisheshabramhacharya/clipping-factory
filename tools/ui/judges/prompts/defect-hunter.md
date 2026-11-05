@@ -13,6 +13,11 @@ this call.
 
 ## Rules
 
+- Be exhaustive and unforgiving. Report every defect you can see, including the
+  ones you think are small, and rank them by how visible they are to somebody
+  who glances at the window for two seconds. A defect you left out cannot be
+  fixed.
+
 - Report only what is visible in the pixels: alignment, clipping, overflow,
   overlapping text, unreadable contrast, inconsistent spacing, broken states,
   missing feedback, controls that do not read as controls.
@@ -51,5 +56,6 @@ Return one JSON object in a ```json fence and nothing else:
 }
 ```
 
-Then write that exact object to `{{ANSWER}}` with a heredoc. Change no other
-file.
+Then write that exact object to `{{ANSWER}}` with your file writing tool, in one
+write, so a long list is never cut off. Do not use a shell heredoc: it truncates
+long answers. Change no other file.

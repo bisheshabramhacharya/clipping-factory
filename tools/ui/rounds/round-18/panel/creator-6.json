@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: Keep / Maybe / Skip only render inside the selected left card (01), so clips 02-06 show no way to record a decision without opening each one first, while the top-right 'Review 6 clips' button points at a different flow."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P4 editor and cliplist: the same bottom strip in the right panel reads 'No changes' in cliplist but 'Unsaved changes' plus 'Apply changes' in editor, so the status line and the action disagree about whether the panel is dirty."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P4 error: steps 4-7 each read only 'Blocked' with no line saying what unblocks them, so after 'Retry stage' fails again you cannot tell which step actually has to move."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: three bare identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabeled body text between the tab bar and the 'Tracks' heading with no column or label explaining them."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: 'Download' on every row, 'Export all' and 'Generate with AI' all carry the same pill weight in the same region, so the screen has no single next step."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P1 editor: speaker identity in the transcript rests on hue alone ('Speaker 2' in purple, 'Speaker 1' in green) with only a bold name and dot, and the neon green/magenta waveform is the most saturated thing on the screen."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P3 editor: the 9:16 canvas preview is roughly 160 px wide in a 1440 px window while the transcript column takes most of the width, so the video being trimmed is the smallest object on screen."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor: transcript words are highlighted in four unrelated hues (green 'style'/'templates', yellow 'Great headline', purple 'ClickUp video', blue 'video') with no legend, so the accent reads as decoration."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: each clip card's action row is three unlabeled glyphs (edit, download, scissors) under the title, so it is unclear whether opening, downloading or cutting is the intended next move."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P2 editor: there is no video preview anywhere in the editor; the canvas is transcript prose and the only visual is a 64 px waveform at the bottom edge, so you cannot see the cut you are making."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: unavailable AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) fade to a very light gray that is hard to separate from the enabled rows above them."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P2 cliplist: the 'Last viewed' header wraps onto two lines and its values are cut off behind the open row menu, so that column reads as broken rather than truncated on purpose."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: the review surface is an issue list (ENG-139 to ENG-788) with Filter, Display and seven board tabs at the top, so nothing on the screen tells you where the clips went or what to do with them."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: rows like ENG-139 and ENG-811 carry two to four label chips at the same weight as the title, so the item name stops being the thing your eye lands on."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P5 editor: the properties rail mixes emoji-style marks (Urgent, the olivia avatar, the red-dot Bug pill) with single-weight line icons (link, sub-issue, project) in one column."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: the Projects grid stops after seven thumbnails at 705 px and the rest of the 892 px window is empty canvas, so the page ends in a large void with no footer or next-row hint."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: the Details panel sets its labels at roughly 10-11 px light gray, and the 'Saved' value wraps its path onto a second line that starts outside the value column."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: a cyan 'AI' badge is pinned to all three feature cards and all seven 'More tools' tiles, so the badge no longer marks anything as special."
+    }
+  ],
+  "notes": "Only P4 has an error screen; every other product was scored on cliplist and editor only, and their empty/error scores reflect just the status lines visible there (e.g. P2's 'Transcribing... 34%'). P5's two screens show an issue tracker rather than clips, so its typography and spacing are scored as the interface shown while its primary action is scored against the cliplist state it was submitted for."
+}

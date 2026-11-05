@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 9.5
+    },
+    "P2": {
+      "typography": 5.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6,
+      "component_consistency": 5.5,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 7,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: the Keep / Maybe / Skip row under every card is three identical 10px pale outline chips, visually weaker than the static 37.2/40 score above it, so the decision the screen exists for reads as secondary."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P1 error: the recovery copy says \"Check that the model file is intact, then retry\" but the screen offers no path or link to that model file, so the one instruction that is not the retry button cannot be acted on."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: in the right column an unlabeled input holding \"A hiring bar that hides the real problem.\" sits directly above a second unlabeled text block starting \"Basically, I'm saying in 2027\", two different text bodies with no heading separating them."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: every label, count and clip title renders with added letter spacing at 14px (\"Original clips ( 20 )\", \"Video aspect ratio conflict resolution\"), which slows scanning across the whole screen set."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: the transcript colors individual words green, yellow and gray mid-sentence (\"Captions already done\", \"style\", \"templates\"), so color no longer carries one meaning and the paragraph cannot be skimmed."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the \"Auto headline\" notice spans the full width above the grid in the same 14px weight as content, with its only action \"Disable it\" 500px away at the card's right edge, so it outranks the clip thumbnails."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the Projects grid, the actual work, sits below a gradient hero and two rows of tool tiles, and its labels are 11px gray with name and duration run together (\"215.4K | 00:03\")."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: an unlabeled 220x80 empty block sits above \"Video editing\" in the sidebar at the top-left of the window, reading as a failed image load rather than a deliberate element."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P3 editor: the modifier toolbar above the timeline packs 10 unlabeled icon buttons at equal weight with no group separators, so undo, split and the audio tools are indistinguishable at a glance."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: three raw UUIDs (\"d591db2c-0a82-482e-a8c8-5f93768b9a24\", \"composer-5gohk1eo6\") sit as unstyled body text between the tabs and \"Tracks\", occupying the loudest position on the screen with internal identifiers."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: the Transcript row's action cluster is clipped at the panel's right edge, leaving a cut-off \"?\" icon and a stray control fragment past the Download button at x~1390."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P4 editor: the top bar puts a \"Feedback\" label, five overlapping bright avatar chips and a \"+\" button in the same band as Export, and the cluster carries more visual weight than the file title on the left."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: the \"Last Viewed\" column truncates values mid-word with no ellipsis (\"Thurs\", \"April\"), and the open kebab menu overlaps the column so those dates are unreadable while the menu is open."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the player bar packs about twelve controls (skip, play, split, view, speed, scrub, volume, fit, fullscreen) into one 30px row of equally weighted 14px icons, and the red Record dot is the heaviest mark in it."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: word-level timing chips in the strip under the player are cut to a single clipped line that runs off both edges of the panel, so they render as fragments of text rather than as chips."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: the ENG-139 row's label pills overflow into the date column and truncate to \"1.\", \"Squa...\", \"Migra...\", while every other row's pills start about 140px further right, so the column has no fixed edge."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the same active context is stated twice at equal weight, in the breadcrumb \"Engineering > Active issues\" and again in the tab strip's selected \"Active\" tab, so two rows of chrome compete for the same job."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: the properties panel shows \"Done\", \"Urgent\" and \"olivia\" as three unlabeled rows before the first section heading (\"Labels\"), so status, priority and assignee have no labels while every field below them does."
+    }
+  ],
+  "notes": "P1 is the only product with an error screen, so category 8 for the other five is scored from their notice and in-progress states (P2's Auto headline banner, P5's \"Transcribing... 34%\" row, P6's disabled-free list) rather than from a failure screen; that is the panel's biggest gap and it flatters P1 there. P1, P5 and P6 are within a point of each other overall, and the ordering between them turns on where they put their weight, not on craft."
+}

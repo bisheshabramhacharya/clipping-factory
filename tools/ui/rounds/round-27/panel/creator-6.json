@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw record ids (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) print as unlabelled body text between the breadcrumb and the Tracks heading."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Three header controls compete at equal weight: Create (purple filled), Ask Co-Creator (outlined), and Export all sitting inside a white focus ring that makes the secondary action look live."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Every audio-library item truncates its metadata mid-word (00:15 transportation • mo..., 00:14 transportation + mo...) and the collection tile reads Educati..., cutting the length and mood that decide the pick."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The whole window behind the open row menu is washed to one pale gray, so the selected Ram Create Clips row, the Name/Duration/Created headers and the sidebar labels all sit within a couple of steps of each other in value."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "No video frame appears anywhere on the editor screen: the transcript document and two right-hand columns fill the width, so the clip itself is never visible while trimming."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Two parallel navigation systems stack on the right, the AI Tools list with its own search box and a second icon rail (Project, Properties, Elements, Captions, Stock, Underlord), and neither marks which panel is showing."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In the top row (ENG-139) the label pills clip into each other and truncate to 1.5, Squa..., Migra..., which pushes the issue title to Identify Missing Data ... and makes the row unreadable."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Seven tabs (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, 5 more...) plus Filter and Display stack at one weight above the list, so nothing is the focal point."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue body has no visible edit affordance: no toolbar, no edit control near the title or the description, so there is nothing on the screen that says what to do next."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Add more credits is the only filled, highest-contrast button on the screen while the clip grid carries no primary action of its own, so the paid control outranks reviewing the clips."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline callout paragraph runs the full content width at over 100 characters per line, pushing the clip row well below the middle of the screen."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The left navigation rail is icon-only at any size (dot, four squares, list, folder, calendar, chart, link), with no label to identify any of the sections."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Each of the seven More tools tiles carries an AI badge overlapping the tile's top-right icon corner, so the badge collides with the glyph it is meant to qualify."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The right-hand Auto removal promo card, complete with three carousel dots, sits at the same visual weight as the Create project hero it sits beside."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The media toolbar labels (Media, Audio, Text, Stickers, Effects, Transitions, Filters) are the smallest type on the screen at roughly 10px, below the Details panel's labels."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Keep, Maybe and Skip render as three identical text links under every clip with no selected state on any row, including the open clip 01, so a decision already made cannot be read back."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Why this clip is a collapsed text row wedged between the In/Out/Length fields and the download row, so the reason for the 35.7 score is the quietest thing in the properties panel."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The disabled AI connection / Coming soon chip in the header uses the same gray as the muted metadata text, so it reads as an available control rather than a disabled one."
+    }
+  ],
+  "notes": "Only P3 has a designed error screen, so every other product is scored on its two states with no failure or empty state to judge. P5's screens are an issue tracker rather than a video tool, so its cliplist state shows no clips to review."
+}

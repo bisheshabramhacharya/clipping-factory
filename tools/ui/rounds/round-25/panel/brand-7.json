@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 9.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 10,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 9,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Right panel top: the style tabs (Impact, Clean, Pop, Cinema) and the colour swatches beneath them sit in one unbroken block on the same four-column grid, so \"Clean\" (a style) and \"Lime\" (a colour) read as choices of the same kind; only the thin underline on the active tab separates them."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Left clip list: Keep / Maybe / Skip under each row are plain grey words with no control shape, and only the selected clip's Keep gets a checkmark and box, so the per-clip decision does not look actionable on the other five rows."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Right panel: the caption string is printed twice, editable in the bordered field at the top (\"A hiring bar that hides the real problem.\") and again as 24px display text directly below it, with no rule or label saying the second is a read-only preview."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Table header: \"Last Viewed\" wraps onto two lines while Duration and Created stay on one, so the sort caret sits on a second header line and the column headings no longer share a baseline."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Right side: the \"AI Tools\" card's right edge stops a few pixels inside the \"Sound good\" and \"Look good\" cards stacked below it, so three sibling cards have two different widths."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Right side, \"Look good\" group: disabled rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are dropped to a pale grey that cannot be read, and enabled and disabled differ only by opacity, not by shape or label."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "More tools row: the same cyan \"AI\" pill is repeated over all seven tool tiles at the same size and saturation as the tool names, and the identical cyan is also the Export button and the Create project panel, so the accent marks nothing in particular."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Above the fold: a full-width cyan gradient \"Create project\" block, three equal image cards, and the tall promo carousel beside them all sit in one band at full weight, so nothing on the screen is the obvious first thing."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Details panel: the only control, \"Modify\" at the bottom right, is a grey outline on a grey panel and reads as disabled, while above it \"Saved:\" runs a full desktop path across the value column and \"Import material:\" pushes its value to the panel edge."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Header: \"Add more credits\" is the only filled white button on a screen whose content is 20 clips waiting to be reviewed, so the top-up CTA outranks every review action."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Left edge: a single column of eight or so unlabelled grey glyphs (home, grid, folder, calendar, chart, link and others) with no text and no visible selected state, so navigation cannot be read from the screen."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Header: \"Save changes\" and \"Export\" are the same width, the same height and the same white fill, side by side, so two different outcomes carry one weight and neither is filled."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Issue rows: label chips truncate mid-token and at different widths row to row (\"Currency Support...\", \"Frontend user d...\", \"Desig...\"), so the same chip identifies nothing on one row and is cut off on the next."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Top tab strip: seven tabs (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, 5 more) share one weight and one outline, and the active \"Active\" tab is marked only by a slightly lighter fill, so the current section is not readable at a glance."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "Activity, \"Discussion summary\": dashed grey underlines run beneath whole phrases (\"prepareForReuse, weak self\", \"1 hour\", \"marked closed\"), reading like tracked-change or spell-check marks inside the one block that should be clean prose."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Between the tabs and \"Tracks\": three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as unlabelled body text with no container, and they are the first content after the tab bar."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Track rows: every row repeats an identical full-weight \"Download\" button plus a \"...\" menu, so five rows present five equal calls to action and no row reads as the thing to do next."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Header right: five overlapping member avatars in saturated magenta and lime are the brightest marks on the screen, louder than the purple Export button, and read as a notification badge rather than presence."
+    }
+  ],
+  "notes": "Only P5 has an error screen, so empty/error was scored for the others from their visible loading, disabled and progress states rather than from a failure screen. P4's cliplist is an issue list rather than clips; it was judged on interface only, and P3's editor carries a red annotation arrow that is not part of the product and was ignored."
+}

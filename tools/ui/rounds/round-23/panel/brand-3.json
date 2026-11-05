@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 3.5
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9.5,
+      "empty_error_states": 10
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The Auto headline notice at the top of the clip set offers two dismissal affordances in its top-right corner, an x icon at the far edge and a separate \"Disable it\" label lower down, so the notice's own action is ambiguous."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline body runs as one unbroken paragraph about 1,180px wide at roughly 14px, around 100 characters per line and several times the measure of any other text block on the screen."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In the More tools row every one of the seven tiles carries the same blue \"AI\" badge in its top-right corner, so the badge repeats identically on all seven and stops marking anything as special."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "With the project menu open the whole window sits at a dimmed grey, so the table text, sidebar labels and icons fall to roughly half contrast while only the white menu surface is at full strength."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Last viewed column collapses to \"Thur\" and then to \"April\" with no ellipsis or day, while Name, Duration and Created stay complete, so one column of dates is unreadable."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The document title \"Pixels to Prototypes\" appears twice on the same screen, once in the top bar with a disclosure chevron and again as the 28px body heading, so the screen has two titles of nearly equal weight."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the style panel the Coral swatch carries the selected ring while the preview frame renders the caption word in yellow, so the swatch the panel marks as current is not the colour on screen."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Below the Caption input an unlabelled 20px paragraph of clip text sits directly under the captioned field, so the inspector shows two text regions of different sizes with only one of them named."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The seven colour labels (Sun yellow, Lime, Coral, Sky blue, Violet, Orange, Custom) are set at about 10px, making the densest cluster in the inspector also its least legible text."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail has no primary action anywhere: no close, assign or comment control, and the only prominent affordance is the quiet \"+ Add sub-issues\" text link under the body."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are the first content under the tabs, unlabelled and at metadata size, so the screen opens on machine output instead of the project."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "\"Export all\" carries a white outline ring that appears on no other control on either screen, so it reads as focused and primary at the same time while sitting beside an equally weighted \"Generate with AI\"."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The issue rows set titles at about 12px and label chips at about 11px, with the ENG-xxx identifiers in grey at the same size, so the screen's primary content sits below body size."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Six filter pills across the top (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, 5 more) share one visual weight with only a faint fill on Active, so the filter row reads as six equal destinations."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Audio panel has Sound Effects as its active tab while the search field directly beneath it still reads \"Search music\", so the panel's own control contradicts its state."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The transcript column highlights words in lime, green, yellow, cyan and violet within a single paragraph and no legend explains the colours, so every phrase looks like it carries a different status."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The right tool rail mixes a heavy serif T for Text and a chain link for Graphics with thin stroke sparkle and transition glyphs at the same size, and the \"Tracker: On\" control at the top is cut off at the rail's edge."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The metadata line 1280x720 - 04:48 - h264/aac - focus: \"pricing\" packs a resolution, duration, codec pair and search phrase into one 11px grey line with one separator, the least scannable line on the page."
+    }
+  ],
+  "notes": "Best in panel by category: P3 for typography, hierarchy, spacing, component consistency and primary action; P6 for color and empty/error; P4 for iconography. Only P2 has an error image, and it shows a normal editor with no failure message, so P2's error score reflects an absent state; P1, P3, P4 and P5 were scored from cliplist and editor alone. Some codes pair clearly different apps across states (P1, P2, P5, P6), so cross-state consistency was judged within screens rather than between them."
+}

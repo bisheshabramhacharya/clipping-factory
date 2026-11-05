@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 6.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "All seven 'More tools' tiles carry the identical cyan AI badge, including 'AI dialogue scene', 'AI image' and 'AI video' whose 12 px labels already say AI, so the brightest mark in the section repeats the label under it."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The same cyan marks the Export button, the 'Shortcut' pill, the 'Added' badge on the media thumbnail and the timeline clip body, so the accent cannot tell the eye which of them is the action."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Details panel ends in a lighter grey footer band that the panel above does not share, with 'Modify' floating inside it, so one panel reads as two surfaces."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The top option row runs under the right-hand rail: 'Tracker: O' is cut mid-word at the rail edge and the B-roll group's label is half covered by the open dropdown."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Each clip card puts three unlabeled white line icons (calendar, download, scissors) on the score's baseline and at the title's weight, so the card's controls compete with its name."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In the 'Auto headline' notice the explanation is one full-width paragraph with its 'Disable it' action pushed to the far right of the same line, so the message and its action sit a screen-width apart and the notice reads as body copy."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Keep / Maybe / Skip is the decision this screen exists for, but it renders as three same-weight bare labels on clips 01 and 03 to 06; only clip 02 shows a bordered 'Keep', so the control looks clickable on exactly one row."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "The failed run tells its whole story in a 350 px column (about 160 to 510 px) inside a 1280 px full-width rule, leaving two thirds of the error screen empty white."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Rail headings are formatted differently: 'Clips 6' carries its count beside the label while the collapsed 'Rejected' row below carries no count at all."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The five disabled AI Tools rows ('Eye Contact', 'Center active speaker', 'Green screen', 'Automatic multicam', 'Blur speaker background') sit at roughly 1.8:1 on the off-white card, so unavailable reads as broken rather than unavailable."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The transcript's bottom toolbar is clipped by the panel's right edge: a black button after the cursor dropdown is cut to a sliver with half a glyph showing."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "'Last Viewed' wraps to two lines in the column header while 'Duration' and 'Created' stay on one, so its caret drops onto a second line and the column loses its anchor."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "On the ENG-139 row six label pills overflow the label zone: '1.3' is clipped to '1.' and 'Squa…' is cut by the pill that follows it, so two labels are unreadable."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Titles truncate inside words with a trailing ellipsis ('Integrate internationalization (i18n) supp…', 'Add responsive and accessible UI behavi…') while the pills beside them keep full width, so the title always loses to its metadata."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue screen sets its properties as flat text rows (Done, Urgent, olivia, Bug, Cycle 6) with no chevron, border or other affordance and no save control, so nothing on the screen announces that it can be changed."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three unlabeled identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as body paragraphs between the tabs and 'Tracks', one of them in a heavier weight, so raw machine data reads as page content."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The thick white ring around 'Sound Effects' overlaps the Audio panel header and clips the Music tab, and the same ring appears on 'Export all' on the Projects screen, so one focus style leaks onto a tab and a button at rest."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The right panel truncates its own rows ('00:15 transportation • mo…' repeats on every favourite and sound-effect row), so no track name or duration is readable at the panel's default width."
+    }
+  ],
+  "notes": "P5 sets the type, spacing, palette, component and icon standard across both its screens; P3 owns the action and failure design with the panel's only error screen. Only P3 has an error state, so P1, P2, P4, P5 and P6 were scored on cliplist and editor alone, and their empty/error score reflects only the loading, progress and disabled states visible there."
+}

@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 10,
+  "category": "spacing_rhythm",
+  "winner": "A",
+  "citation": "A/01.png: all three columns start on one top line (the video's top edge at y=145, the CLIPS 6 and BEST CLIP labels at y=148) and the inspector's IN / OUT / LENGTH blocks sit on an exact 128 px pitch (x=866, 994, 1122) inside a 389 px panel, with section gaps near 24 px against roughly 10 px inside the CAPTIONS group (tab block 457-480, swatch centers at y=504).",
+  "why": "A holds one grid across a dense list and a form: 85 px list rows with 1 px hairlines, 24 px inspector section steps, and a top line shared by all three columns, so its spacing is a system a reader can point at and verify. B is clean but thin, with almost no repeated gap to judge; its only dense cluster is three sidebar rows packed at a 23 px pitch (y=119, 142, 165) inside a panel that is otherwise empty.",
+  "confidence": "slight"
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 8
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 5.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 6.5,
+      "empty_error_states": 7.5
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 7.5
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 7.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Editor: roughly 190 px of empty canvas sits between the last description bullet and '+ Add sub-issues', with a lone comment icon and paperclip floating in the middle of it, so the property block above reads as detached from the issue body."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Cliplist: the top-right header controls are three unlabelled glyph buttons (search, sort/arrows, panel toggle) sitting next to a fully labelled 'Display' button, so the same header mixes two labelling rules."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Cliplist: priority is only a bare coloured dot in the leading column (yellow at ENG-139, grey at ENG-811 and ENG-810, dashes further down) with no label and no shape change, so the meaning is carried by hue alone."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Cliplist: the whole project table reads as one washed grey on grey, and the column headers (Duration, Created, Last Viewed) plus every Created and Last Viewed value sit at the same low contrast as the row chrome, so nothing anchors the horizontal scan."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Cliplist: the 'Last Viewed' column header wraps to two lines while Duration and Created stay on one, breaking the header baseline directly above the first row."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Cliplist: several rows append a bare '+1' chip after the duration ('01:26 +1', '01:36 +1') with no label or tooltip shown, so the mark carries no readable meaning."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Editor: 'Color correction: OFF' is truncated at the right panel edge and 'Tracker: OFF' is cut mid-word by the right rail, so two toolbar labels are visibly clipped out of their own row."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Editor: the transcript body sets words in lime green, yellow and white inside one paragraph, with grey timing tokens dropped in, so colour marks emphasis decoratively rather than carrying one consistent meaning."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Cliplist: the highest-contrast control on the screen is the filled 'Add more credits' button in the header, ahead of 'Select' and 'Filter', so a purchase action is the loudest thing above the clips."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Cliplist: three raw identifier strings (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit unlabelled between the tab row and 'Tracks', so debug output occupies the position where the page title should be."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Editor: the caption strip inside the timeline clip is laid over the green waveform peaks, so a line of transcript text and the audio peaks are printed on top of each other."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Editor: the same purple fill is the primary button for 'Create' on cliplist and for 'Export' on editor, while 'Ask Co-Creator' takes a second dark filled style beside it, so one fill treatment means three different things."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Cliplist: every clip row truncates its transcript at three lines with an ellipsis, and rows 03 and 05 differ only in the words that fall past the cut, so the list cannot be scanned to tell the clips apart."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Editor: 'Review 6 clips' is a black filled button in the cliplist header but renders as a white bordered button in the editor header, so the same action changes shape between the two screens."
+    },
+    {
+      "product": "P5",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "Error: the diagnostic line 'whisper-cli exited with code 134 (SIGABRT)' and the 'Copy details' control beside it both sit at the same light grey as disabled text, so the only route to the failure detail reads as unavailable."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Cliplist: a full-width cyan gradient 'Create project' block plus a full-height 'Auto removal' promo card fill the entire first third of the screen, while the real Projects grid is pushed to the bottom third with 11 px captions."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Cliplist: no project tile has a readable name; every caption is a number ('0926', '0191(1)', '0918 (3)') followed by pipe-separated metrics at 11 px, so twelve tiles are indistinguishable by text."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Cliplist: an 'AI' badge is pinned to the corner of nine of the ten tiles and cards, so the badge marks nearly everything and stops distinguishing anything; on the tool tiles it also overlaps the tile's own icon box."
+    }
+  ],
+  "notes": "Only P5 shipped an error screen, so the other five were scored on cliplist and editor and their empty/error scores are inferred. P1 and P5 are the two finished systems here: P1 owns hierarchy, component consistency and iconography, P5 owns typography, spacing, colour and a single unmistakable action on every screen."
+}

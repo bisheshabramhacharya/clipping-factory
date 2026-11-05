@@ -1,0 +1,186 @@
+{
+  "judge": "product-designer",
+  "strongest_by_category": {
+    "typography": "P5",
+    "hierarchy": "P3",
+    "spacing_rhythm": "P3",
+    "color_contrast": "P5",
+    "component_consistency": "P5",
+    "iconography_detail": "P5",
+    "primary_action": "P3",
+    "empty_error_states": "P3"
+  },
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 6.5,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 4.5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 4.5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The Projects grid, the only region where work exists, starts around 550px down the window, below the cyan 'Create project' hero (56 to 194), the three tool cards and the seven 'More tools' tiles."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The per-project metadata line ('215.4K | 00:03') and the 'More tools' labels are the lowest-contrast text on the screen, yet they are the only information that lets you choose a project."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The top bar shows 'Shortcut' as a dark chip and 'Export' as the app's only tinted button three pixels away, while the Details panel's 'Modify' is a third, plainer treatment for an equally committing action."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto headline' notice with 16px body prose takes the full width and top third of the screen, louder than the five clips it is describing and taller than any clip thumbnail."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each clip's score (97, 94, 92 in lime, about 20px bold) is larger and higher-contrast than the clip title two lines below it, so the ranking number reads before the clip's identity."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "'Save changes' (dark) and 'Export' (solid white) sit side by side at the same width and height in the header, both enabled at all times, so neither is the screen's primary."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Caption row is 'Show full text >' in cliplist but a 'Hide v' dropdown in editor, and the extra editable caption field it opens pushes In/Out/Length and 'Why this clip' down about 30px between the two screens."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "The failure screen drops the clips rail and the persistent header controls used by cliplist and editor, landing you on a bare single column where the six clips waiting on transcription are no longer visible."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The selected 'Coral' swatch sets its label in white on a mid-red circle at roughly 5px cap height, the weakest pairing in an otherwise restrained palette."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The selected project row ('Ram Create Clips') uses the same lavender fill as the 'Personal' item in the left sidebar, so row selection and current-location cannot be told apart."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The AI Tools panel holds a 290px column and most of the vertical space with two stacked groups, and half its rows are disabled, so the loudest region on screen is the one you cannot use."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The timeline control row is clipped at the right edge of the text column beside the AI Tools panel, leaving a single letter 'E' visible after the zoom controls at the Split row."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Four bands sit above the first issue row (breadcrumb, six-tab strip ending in '5 more...', then Filter/Display), pushing the list to about 190px down the window and making the tab strip read as the page title."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The priority field is a bar glyph on ENG-139, ENG-416 and ENG-742 but a literal '---' text placeholder on ENG-811, ENG-810, ENG-786, ENG-784, ENG-722 and ENG-788, so one column has two treatments."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The control that closes the issue, the 'Done' checkbox, sits at the top of the right rail below three icon tabs and is styled the same as the 'Urgent' and 'Bug' chips beneath it."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw asset IDs ('d591db2c-0a82-...', '69e48d8e849...', 'composer-5gohk1eo6') sit in 13px monospace at body weight directly under the tab row with no field label, reading as page content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every track row ends in an identical outlined 'Download' while 'Export all', the purple 'Create' and 'Ask Co-Creator' sit at comparable weight in the header, so nothing says whether the next move is per-track or whole-project."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The timeline repeats the transcript as a roughly 9px line inside the clip block while the left column already shows the same words at 14px, so identical content carries two unrelated text sizes on one screen."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so the other five were scored on cliplist and editor alone; their empty_error_states scores reflect what those states do show (muted/disabled treatments, progress and 'Ready' chips) rather than the design of a failure screen. P4 and P5 are light-themed screens whose screens carry no clip content, and P1, P2 and P6 are dark video tools, so the panel mixed product categories the states do not fully account for."
+}

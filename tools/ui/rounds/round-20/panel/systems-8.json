@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 7
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 9,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 7.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: the Properties panel uses three different marker styles in one column (filled check circle for Done, filled square for Urgent, tiny avatar for olivia, ring for Cycle 6, plus glyph for Add to project), so no consistent marker column exists."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P5 cliplist: rows alternate between a bar-chart glyph and a literal '---' before the ENG id, and both sit in the same 16px leading slot, so the leading column reads as partially broken."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: chips truncate to a fixed width mid-word, so ENG-811 'Currency Support...' and ENG-722 'Currency Support Enablement' render as near-identical labels at 12px."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P3 cliplist: every Keep / Maybe / Skip chip row is drawn identically across all six clips, with no selected state, so a clip that was already decided looks like one that was not."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor: the six style swatches are bare coloured dots with labels and show no active ring, so which style is applied is carried by hue alone (Impact in one screen, Clean in the other, no visible difference in the swatch row)."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "typography",
+      "issue": "P3 error: the blocking line 'Waiting on 3. Transcribe' repeats on steps 4 to 7 in the same 12px grey as the quietest meta text, making the single fact a reader needs the least legible line on the page."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P6 editor: the AI Tools panel sits on top of the timeline, cutting the transport row so 'Split' runs into '100%' and a half-clipped control with a dropdown chevron ends at the panel edge."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: disabled AI Tools items (Eye Contact, Green screen, Automatic multicam, Blur speaker background) sit at roughly 3:1 grey on white at the same 15px weight as enabled rows, so unavailability is conveyed by colour alone."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: the leading thumbnail column mixes a globe glyph, a video-clip glyph and a document glyph at different sizes and opacities with no legend, so the column does not read as one icon set."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) print as unlabelled 13px body lines between the tab bar and 'Tracks'."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P1 cliplist: the Download button widths differ by row (wider on 'All participants' and Transcript than on the three participant rows), so the right edge of the action column does not line up."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P1 editor: 'Favorites', 'Ready-made collections' and 'Sound Effects' all render at the same 13px bold weight inside one panel, so the audio panel has no step-down between rail, group and item."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the 'Auto removal' promo panel is the same height and visual weight as the three tool cards beside it and carries the only full-bleed image, so it wins attention over 'Create project'."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P2 editor: the timeline toolbar places three near-identical split/trim glyphs at different stroke weights and sizes in one row, next to a filled and an outline speaker icon."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: project cards label themselves '0926', '0919 (1)' and '0918 (3)' at 12px with no stronger title line, so filenames read as the hierarchy's top level."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P4 editor: 'Color correction: OFF' and 'Tracker: OF' are clipped by the right rail and collide with the Layout and colour controls in the top bar."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: the fifth card in the row is cut by the viewport edge with no scroll affordance, and the row has no container to explain the cut."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P4 cliplist: each card carries four unlabelled icon-only buttons at about 15px directly under the green score, and none of the four is distinguishable from the others at a glance."
+    }
+  ],
+  "notes": "Named strongest per category before scoring: P5 for typography, hierarchy, spacing, colour, components; P3 for icons, primary action and empty/error. Only P3 shipped an error screen, so every other product's empty/error score is read from its non-error states alone; no product showed a true empty state, and P6's cliplist was captured with a context menu and scrim open, which was not scored as a contrast defect."
+}

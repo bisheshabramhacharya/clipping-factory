@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 5.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In the issue rows the estimate column shows bare '---' dashes and the dates ('Dec 2023', 'Jun 5') sit at a grey so close to the row background that the right half of every row reads as empty."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Label chips truncate mid-word in place ('Migra', 'Dev..', 'Frontend user d.') and in the ENG-139 row one chip is clipped down to a bare '1.' at the far right, so the chip row is ragged and unreadable."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The toolbar offers 'Filter' and 'Display' at the same weight, the header has an unlabeled '+' at top right, and no control on the screen says what the next step is."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Row titles such as 'The Science of Coffee Brewing' and 'Hop Couture' are set in the same low-contrast grey as their metadata on a #e9e9ec surface, so no title anchors its row and the whole list reads as grey mush."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' header wraps onto two lines while 'Duration' and 'Created' stay on one, and column values are roughly 11px against 15px row titles."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "'Record' (outlined) and 'New project' (dark fill) sit side by side at identical size over a twelve-row table with no selected or focal row, so the eye has no place to land."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The two-line 'Auto headline' explainer under the heading is set in a monospace face while every other body string on the screen uses the UI sans, so the instruction reads like terminal output."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only filled button on a screen whose job is choosing clips, while each clip card's actions are three unlabeled icon buttons and a click on the card shows no selected state."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Transcript words are randomly tinted green, blue and purple with no legend, and a coin emoji is set inline in the sentence 'pay a small fee', so color on the transcript looks decorative rather than meaningful."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw hashes ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') are printed as page content with no label, above the 'Tracks' heading and in the same weight as body text."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Four sibling-level buttons compete in one view: '+ Create' (purple fill) and 'Ask Co-Creator' at the top, then 'Generate with AI' and 'Export all' in the Tracks header, with 'Export all' carrying the only white focus ring and therefore the loudest mark on the page."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The 'Sound Effects' tab is framed by a white 2px ring that is the brightest thing on the dark screen, brighter than 'Export', and the magenta and green avatar circles at top right are the only saturated colors in the UI."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Style swatch grid breaks as four dots on one row and three on the next, leaving an empty fourth cell after 'Custom', so the nine-swatch set reads as an incomplete grid."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The 400px preview in the center column has no play, scrub or time ruler beneath it, so approving a clip means judging a still with no way to check the cut."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Row 02's 'Keep' carries a checkmark inside a bordered group while every other row's Keep/Maybe/Skip triad is unbordered with no state, so a decided clip and an undecided one look nearly the same."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The cyan gradient banner holding a single 'Create project' button is the largest and brightest element on the page, while the user's actual projects sit third, below the 'More tools' icon grid."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project tile metadata ('215.4K | 00:03') and the tool labels under the More tools row ('Long video to shorts') are set around 10px grey, which is below a comfortable reading size at this density."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The same teal is used for 'Export', the selected timeline clip bar, the playhead and the active panel tab, so the primary action shares its color with every selected state."
+    }
+  ],
+  "notes": "P5 is the only product with an error screen, so it takes that category uncontested; P1, P2, P3, P4 and P6 ship no error or empty screen and are scored there from their two states. P1 shows a dark list and a light detail view, and P3's editor screenshot has a reviewer's red arrow drawn over the Audio icon; I scored the interface, not the annotation."
+}

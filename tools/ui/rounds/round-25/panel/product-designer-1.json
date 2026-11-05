@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In the 'Clips 6' column all six rows repeat Keep / Maybe / Skip under the quote, 18 controls in a 300 px column at the same weight as the text, so the list reads as a form rather than six clips to scan."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The only commit control, 'Unsaved changes / Apply changes', sits at the bottom right of the properties panel below In/Out/Length, 'Why this clip' and the Download MP4 / SRT / VTT / Meta / Poster row, far from the caption field that produced the change."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The panel header calls the open clip 'Best clip 37.2/40' on the cliplist and 'Clip 3 35.7/40' on the editor, so the same panel title changes what it names between states."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Six rows (ENG-811, ENG-810, ENG-786, ENG-784, ENG-722, ENG-788) show '---' in the column left of the issue ID where the first three rows show a priority glyph, so the column reads as missing data."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "ENG-139 carries seven label pills in six colors plus a date and an avatar and truncates its title to 'Identify Missing Data ...', while ENG-416 and ENG-742 show a title and nothing else, so row weights swing wildly inside one group."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the properties rail, status, priority and assignee are icon-plus-word rows with no labels, while Labels, Cycle and Project directly below have headings, so one rail runs two row patterns."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' header wraps to two lines and its values are cut by the open row menu and the panel edge ('Thur…', 'March', 'Apr…'), while Duration and Created stay on one line."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Name fills the left half of each row while Duration, Created and Last Viewed are pinned to the right edge, leaving an empty band of roughly 400 px across every row with no column rules to hold the table together."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The inactive rows in the AI Tools list (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are separated from active tools only by a paler grey, so enabled and disabled differ by color alone."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw record identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabeled body-size lines between the tab bar and the 'Tracks' heading."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Export all' carries a white focus ring beside 'Generate with AI' at the same size, and each of the four track rows repeats its own Download button, so the screen offers five export paths and no clear first move."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "'Sound Effects' is drawn as a thick white outline box beside an unstyled 'Music' label, the only control in the product in that shape, so the selected tab reads as a stray focus ring."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only solid white button on the screen, sitting top-right above Select, Filter and every clip."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The two-line 'Auto headline' explainer, with its own close X and 'Disable it' link, spans the full width above the clip grid and takes the first read before any clip."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Timeline labels clip mid-word with no ellipsis: 'Slow pus' on the 00:02 block, 'Ai ima' on the first B-roll clip, 'Ai image B' near 00:30."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The cyan 'Create project' hero and the three AI tiles fill the top half of the home screen while the project library is a single row at the bottom with 11 px names, so the thing the screen exists to show is its smallest element."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each project's only metadata, '215.4K | 00:03', is set at roughly 10 px in dim grey under an 11 px name, below the readable floor for the numbers that identify the item."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Home cards use soft ~12 px radii and filled tiles while the editor's panels and its Import and Export controls are ~4 px squares, so the two screens have visibly different component shapes."
+    }
+  ],
+  "notes": "Only P5 shows an error screen (a strong one); the other five were scored for empty/error from their cliplist and editor alone, and no product shows a zero-item empty state. P5 is the only set with three screens."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 9,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 8.5,
+      "iconography_detail": 10,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 7.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: 'Add more credits' is the only light-filled button in the header and sits at the top right above the clip grid, so a billing action outranks 'Select' and the review work below it."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P1 editor: the transcript is highlighted in green, yellow and purple mid-sentence ('Captions already done', 'Great headline If I', 'edit', 'effects'), so three emphasis colors carry no distinguishable meaning and the paragraph cannot be scanned."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P1 cliplist: the left rail is a column of about eleven unlabeled glyphs (home, grid, folder, calendar, chart, link) with no section labels or visible tooltips, so it is the only navigation and it says nothing."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: the triage column is ~300px while the preview gets ~400px and the properties ~380px, and three of the six excerpts cut off mid-sentence with an ellipsis (rows 01, 02, 04), so the text you are choosing between is the least legible on the screen."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P2 editor: four actions share one 380px column at nearly equal weight ('Apply changes' filled, 'Download MP4' outlined, the SRT/VTT/Meta/Poster text row, plus the header's 'Review 6 clips'), so what to do after editing is not singular."
+    },
+    {
+      "product": "P2",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P2 error: the file subtitle exposes raw probe output ('1280x720 · 04:48 · h264/aac · focus: \"pricing\"') directly under the file name, so the one line meant to orient the user reads as machine metadata."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P3 across states: the cliplist is a grey workspace shell with a left nav and a Record/New project button pair, while the editor is a white document view with a breadcrumb and property rail; no header, button shape or surface is shared between them."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the grid/list toggle sits alone at x~1345, y~215, about 40px below the Record and New project buttons and separated from the column headers it controls by empty space."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: 'Last viewed' values end abruptly as 'Thurs' and 'April' with no ellipsis or expansion, so the column reads as a rendering fault rather than a truncation."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: the label column truncates to single words or fragments ('A', 'Squa', 'Migra', 'Currency Support…') on rows ENG-139 through ENG-788 even though roughly 120px of unused space sits between the labels and the date column."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P4 editor: five AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are disabled at roughly 30% opacity yet hold the same row height and position as the eight available actions, so half the panel looks clickable and is not."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P4 editor: the right rail's last item 'Underlord' and the transcript pane's final line are both sliced by the window's bottom edge at y~870 with no visible scroll cue in the rail."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1e06') render as body text directly under the project title, unlabeled and above 'Tracks', so the first content a user meets is internal machinery."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: the header carries two co-equal actions, '+ Create' in purple and 'Ask Co-Creator' in dark, plus a '...' menu, and 'Create' names no object."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P5 editor: the Details panel prints the absolute path 'C:/Users/Admin/Desktop/CapCut Drafts/ 1025 (1)' wrapping onto a second line in a value column otherwise filled with short tokens ('Original', 'Adapted', '30.00fps')."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the 'Create project' hero plus a full-width 'Auto removal' promo occupy the top third of the window, so the project grid the screen exists for starts at y~550 and is the third thing read."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: in 'More tools', the first tile's label wraps to two lines ('Long video to / shorts') while the other six stay on one, so the tile row has no common bottom edge under its icons."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: the 'Ready-made collections' row clips its third card to 'Educati' under a gradient fade while the overflow chevron is drawn on top of that card's title area."
+    }
+  ],
+  "notes": "Only P2 ships an error screen in this panel, so every other product's empty_error score is read from the states it actually showed; P2's stage list with a named failing step, kept finished stages and two explained recoveries is the reference for that category. P1, P3, P5 and P6 also differ enough between their two screens that consistency is scored on the pair, not on either alone."
+}

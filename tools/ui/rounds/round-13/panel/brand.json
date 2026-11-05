@@ -1,0 +1,116 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 5.5,
+      "primary_action": 5,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 9.5,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "On row ENG-139 the label chips are cut mid-word ('1.5', 'Squa', 'A', 'Migra') with no ellipsis, because the chip row runs into the date column at x~1250."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-..., 69e48d8e..., composer-5gohk1e06) sit unlabelled at body size directly above the Tracks heading."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The tool row above the preview clips 'Tracker: On' to 'Tracker: O' at the right rail, and that rail shows a 'B-roll' label with no icon above an unlabelled up-arrow."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Auto headline' notice sets two lines of instructional prose in the monospace face under a sans heading, so the body outsizes its own title."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "'Ready-made collections' cuts its third tile to 'Educati' at the panel edge, with white label text sitting on a light gradient patch."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Created column mixes a weekday ('Tuesday') with absolute dates ('March 6', 'March 13')."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The tab row mixes filled (bell, bar chart), outlined (plus-square, panel toggle) and duotone (Engineering gear) icons at one size."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The collaborator stack renders three identical magenta circles overlapped tightly enough that each initial is half cut."
+    }
+  ],
+  "notes": "Only P4 has an error screen, so the other five are scored on the two states they show; P4's error page names the failed step, the cause and one obvious fix. P4's own cliplist header mixes an uppercase tracked 'CLIPS 6' with sentence-case 'Score' and 'Length', the one thing there I would change."
+}

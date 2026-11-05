@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "'Add to project' in the right panel is drawn as an icon plus plain text at the same size and weight as the 'Cycle 6' and 'olivia' values above it, so an action reads as a read-only value."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "No per-row action and no primary control in the list view: Filter and Display sit in the toolbar at equal button weight and the only creation affordance is an unlabeled '+' at the far right of the top bar."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Rows carrying two label chips truncate their title roughly 100px earlier than rows carrying none (ENG-139 stops at 'Identify Missing Data ...' while ENG-742 runs 'Applications' at full width), so titles share no right edge and cannot be compared down the column."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The open row menu sits directly over the Last Viewed column and over the highlighted row's own values, so the row being acted on cannot be read while acting on it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Last Viewed mixes clock times ('9:24 AM') with bare dates ('March 13', 'March 16') and Created mixes 'March 6' with 'Tuesday', so neither column scans as a recency sequence."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The 'AI Tools' rail lists about twelve actions across two headed groups and roughly half of them (Eye Contact, Green screen, Automatic multicam, Blur speaker background) render greyed as unavailable, so the widest surface on the screen is mostly dead."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto headline' notice spans the full content width between the toolbar and the grid with a long 12px paragraph plus its own dismiss X and 'Disable it', pushing the clip row down; it has no bounding surface, so it reads as a permanent section."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "'Save changes' (dark) and 'Export' (white) sit side by side at the same size in the top bar, giving the screen two primaries with no indication which finishes the job."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Each clip card ends in three unlabeled icon buttons (calendar, download, scissors) at identical weight and the scores 97/94/92 sit below the thumbnail at title size, so a card has neither one action nor one reading order."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (two UUID strings and 'composer-5gohk1e06') are printed as unlabeled plain rows above the 'Tracks' heading, so the first content on the project screen is internal debug data."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Create' (purple, filled), 'Ask Co-Creator' (light, filled) and 'Export all' (dark, outlined) all carry primary weight on one screen, and Export all then competes with the per-row Download buttons on the same list."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Cut marks (a small squiggle glyph) plus a '•' sit inline inside running sentences at body size ('So [mark] tech aspects with a guest is always a challenge'), breaking the transcript's prose every line or two."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The clip list is the narrowest of the three columns (about 300px against 405px for the properties panel), so all six headlines truncate mid-sentence and two similar clips cannot be told apart without opening each."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Two text surfaces stack under the single 'Caption' heading, a 14px bordered input ('A hiring bar that hides the real problem.') directly above a 34px paragraph ('Basically, I'm saying in 2027, how much compute do I get?'), with no sub-label saying which is the caption being edited."
+    },
+    {
+      "product": "P5",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "The recovery line says to check that the model file is intact, but the screen offers no way to locate or replace that file; 'Retry stage' and 'Start over' both leave the named cause untouched."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Create project' banner is roughly 850px wide and 140px tall of empty blue gradient carrying one line of text, so the largest surface on Home holds the least information and pushes Projects toward the fold."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "All seven 'More tools' tiles carry an identical blue 'AI' badge in the same corner, so the badge distinguishes nothing; 'AI video' and 'AI image' differ only by their small pictogram."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Details panel prints the full local path 'C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' as a property value wrapping to two lines, in the same row treatment as Ratio and Frame rate."
+    }
+  ],
+  "notes": "Only P5 supplied an error screen, so the other five are scored on two states each and their empty/error scores are inferred from how those two states hold up. P2 is captured with a menu open and a dimming scrim, which was not counted against its contrast."
+}

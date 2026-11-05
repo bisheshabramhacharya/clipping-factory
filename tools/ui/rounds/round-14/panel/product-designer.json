@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 9.5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 5.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 5.5,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: no keep/reject control appears on any clip row; triage sits behind the collapsed 'Rejected' disclosure at the foot of the left list, so the screen reads as a player rather than a review queue."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P1 cliplist: the bottom-right 'Apply changes' button is disabled but keeps the same fill and border as the live outline export buttons directly above it, so only faint grey text separates it from a working control."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P1 error: steps 4 through 7 render with the same weight and numbering as the two completed steps above them, so nothing marks them as blocked by the failed transcribe step."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the 'Auto headline' notice claims a full-width band above the clip grid and puts 'Disable it' at the far right edge, roughly 700 px from the sentence it acts on."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P2 cliplist: five cards are shown for a set labeled 20, with an empty band below that single row and no scroll, count or paging cue."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: transcript words carry four accent colors with no legend, so a styled word, a highlighted word and the current word cannot be told apart."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the tab strip ends in a '5 more...' text button directly above a second toolbar of filter and display controls, so two rows compete for the same navigation job."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: label pills and dates are right-packed per row, so the date column never lines up, and unset fields print '---' in the ID slot (ENG-811, ENG-786, ENG-788) as if it were data."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P3 editor: the only state control is a 'Done' row sitting fourth in the right rail among Urgent, assignee and labels, so the detail screen offers no visible next step."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P4 cliplist: the open context menu dims the table until the 'Duration', 'Created' and 'Last viewed' headers and every row name are near-unreadable, and the menu covers the Last viewed values behind it."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P4 editor: a seven-icon rail plus the AI Tools flyout take about 300 px on the right, and the flyout's ten equal-weight rows pull the eye away from the transcript the screen is for."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: 'Record' and 'New project' sit side by side at near-equal weight as two primaries, while opening the existing project already listed has no affordance until hover."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24 and two more) sit in body type at the top of the Recordings tab with no label, field or section around them."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: 'Download' repeats as a full button on all five track rows while 'Export all' does the same job in a different shape carrying a stray white focus ring, so one action has two looks."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: the 'Sound Effects' tab is drawn inside an oversized white rounded outline that reads as a focused text input and duplicates the tab underline right beneath it."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: the sidebar's top slot holds an empty grey gradient rectangle where the account or asset preview belongs, with no fallback and no label."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the cyan 'Create project' hero is the largest element on screen and one of roughly ten project-entry points, while the user's own projects are the smallest block at the bottom."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: the Details rail prints labels and values at the same 11 px weight and grey, so 'Saved: C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' wraps with nothing marking it as the value."
+    }
+  ],
+  "notes": "Only P1 has an error screen and no product shows an empty state, so those categories were scored from the states each product does show. P1's cliplist and editor are one shell with a different clip selected, which inflates its consistency reading because a single layout is doing all the work."
+}

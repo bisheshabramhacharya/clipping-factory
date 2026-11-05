@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 6.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "P1 error: the top third of the page is empty, with 'Making clips' starting about 225 px down, so the first thing on screen is blank paper rather than the failure."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P1 editor: the bordered 'Download MP4' button sits one gap directly above the solid black 'Apply changes' in the same right column, so the destructive-to-export action and the save action read at nearly the same weight."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: the six clip rows carry no accept, reject or hover control of their own, so the only place to act is the 'Review 6 clips' button in the header and the list itself reads as navigation."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P2 cliplist: about 150 px of empty black sits between the 'Auto headline' banner and the first row of clip cards, pushing the clips low on the screen for no reason."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist: the left rail is seven unlabeled icons (home, grid, folder, calendar, bars, link, tray) with no tooltip or text on screen, so the navigation cannot be read without hovering."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: the transcript is set in a monospaced face with yellow and green highlighted words and inline '0.58s' timestamps, so the copy, the timings and the keywords all shout at the same size."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the date and play-count columns do not line up row to row, because the metadata pills push them (ENG-139's 'Dec 2023' sits roughly 250 px left of ENG-416's 'Jun 5')."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the sidebar shows 'Projects' and 'Views' twice, once under Workspace and once under Your teams, with identical labels and icons, so the two groups cannot be told apart."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P3 editor: nothing on the open item reads as the main action; the 'Done' state chip, star, link icon and '...' all carry the same weight and the only affordance is the small '+' in the top bar."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P4 cliplist: the 'Create project' tile is a full-width cyan-to-teal gradient that is the brightest surface on the screen, so the project thumbnails below it look flat and grayed out by comparison."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P4 cliplist: each of the seven 'More tools' tiles floats a small blue AI badge above its icon at a different offset, and 'Long video to shorts' wraps to two lines while 'AI image' does not, so the labels share no baseline."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: the Details panel prints a raw path ('C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)') at the same size and weight as 'Ratio: Original', so one value wraps and the rest are single short lines."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P5 cliplist: the whole table sits at low contrast, with row names in mid gray on a gray page and the Name/Duration/Created headers barely darker than the background, so the screen reads as disabled."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P5 cliplist: the 24 px leading thumbnail is a globe on some rows, a camera on others and a frame grab on others, so the one column meant to identify each item is the least consistent thing in the row."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P5 editor: 'Eye Contact', 'Center active speaker', 'Green screen', 'Automatic multicam' and 'Blur speaker background' are greyed in the AI Tools panel with no reason on screen, so a third of the panel looks broken rather than gated."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24' and two more) sit unstyled between the tab row and the 'Tracks' heading with no field label or container."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P6 cliplist: 'Export all' carries a thick white outline that makes it the loudest control on the page, louder than the purple 'Create' button beside it, and five per-row 'Download' buttons repeat at full weight below."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the 'Sound Effects' tab is wrapped in a white rounded outline instead of the plain underline 'Audio'/'Music' tabs use, so the tab family breaks inside the Audio panel."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so empty/error for P2-P6 was scored from their cliplist and editor screens alone. P3's two screens are an issue tracker (list, then record detail) and P4's is a video-editor home plus classic editor, so those two were judged on craft rather than as clip-review tools."
+}

@@ -1,0 +1,116 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 5.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 8,
+      "empty_error_states": 4.5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 9,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: three raw IDs ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') sit as unlabeled 13px body lines between the tabs and the Tracks heading, with no label, grouping or copy affordance."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: the Auto headline banner's 'Disable it' action sits at x~1256 on the paragraph's first line immediately after the word 'If', so the sentence reads 'If Disable it'; the copy also quotes a control named 'Disable' while the control says 'Disable it'."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: row ENG-139's labels are hard-clipped to fragments ('1.', 'Squa', 'A', 'Migra') with no ellipsis, while row ENG-786 truncates with 'Frontend User Experience...' and 'Develop...', so one label component has two truncation behaviors."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P2 editor: the issue modal has no close, back or cancel control; the only control in its top-right is a '+' at x~1078, so the white panel has no visible way to dismiss it."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: the disabled rows in the Look good card (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) render at about 1.8:1 (#c2c0c2 on white), so they read as missing rather than disabled."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P3 cliplist: the 9px white 'AI' badges on cyan (#13BFEB) measure about 2.2:1, and the same badge is repeated on all seven More tools tiles and three cards, so a failing, non-differentiating mark is the most repeated detail."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P6 cliplist: the Created column mixes absolute and relative dates in adjacent rows ('March 6' and 'Tuesday'), so the same kind of value needs two readings in one column."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the score appears as '37.2' under the 'Score' header and as 'BEST CLIP 37.2' in the editor panel with no denominator or scale, so the product's main ranking value cannot be read as good or bad."
+    }
+  ],
+  "notes": "Only P4 had an error screen; P1, P2, P3, P5 and P6 showed no empty or error state, so their scores in that category reflect the evidence available. P6's cliplist was captured with a context menu open over a full-page scrim, so its contrast could not be measured, and P1's editor contains an external red annotation arrow pointing at Audio that I did not score as product UI."
+}

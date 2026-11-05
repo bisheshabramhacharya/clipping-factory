@@ -11,7 +11,12 @@
   const title = document.getElementById("review-title");
   const meta = document.getElementById("review-meta");
   const reason = document.getElementById("review-reason");
+  const caption = document.getElementById("review-caption");
+  const captionLabel = document.getElementById("review-caption-label");
+  const captionMore = document.getElementById("review-caption-more");
+  const copy = document.querySelector(".review-copy");
   const download = document.getElementById("review-download");
+  const playBtn = document.getElementById("review-play");
   const progress = document.getElementById("review-progress");
   const counts = document.getElementById("review-counts");
   const buttons = [...theater.querySelectorAll("[data-review-decision]")];
@@ -29,7 +34,6 @@
   const doneStats = document.getElementById("review-done-stats");
   const doneKept = document.getElementById("review-done-kept");
   const doneDownload = document.getElementById("review-done-download");
-  const doneAgain = document.getElementById("review-done-again");
   const doneClose = document.getElementById("review-done-close");
   let items = [], clipTotal = 0, index = 0, decisions = load(), lastFocused = null;
   let announced = false, toastTimer = null;
@@ -88,6 +92,16 @@
       if (decision) rail.dataset.decision = decision;
       else delete rail.dataset.decision;
     }
+    for (const group of document.querySelectorAll(".rail-triage")) {
+      const decision = decisions[group.dataset.reviewKey] || null;
+      if (decision) group.dataset.decision = decision;
+      else delete group.dataset.decision;
+      for (const button of group.querySelectorAll("[data-rail-decision]")) {
+        const selected = button.dataset.railDecision === decision;
+        button.classList.toggle("on", selected);
+        button.setAttribute("aria-pressed", String(selected));
+      }
+    }
   }
   function tally() {
     const t = { keep: 0, maybe: 0, skip: 0 };
@@ -108,7 +122,7 @@
     const t = { keep: 0, maybe: 0, skip: 0 };
     for (const [k, v] of Object.entries(decisions)) if (keys.has(k) && v in t) t[v]++;
     const readyText = clipTotal > items.length ? `${items.length} of ${clipTotal} ready · ` : "";
-    counts.textContent = `${readyText}${t.keep} keep · ${t.maybe} maybe · ${t.skip} skip`;
+    counts.innerHTML = `${readyText}<b>${t.keep}</b> keep · <b>${t.maybe}</b> maybe · <b>${t.skip}</b> skip`;
     paintDots();
   }
   function show(autoplay = true) {
@@ -119,7 +133,36 @@
       video.src = item.player.src;
     }
     title.textContent = item.title;
-    meta.textContent = [item.rank, item.score].filter(Boolean).join(" · ");
+    const captionText = item.caption || "";
+    caption.textContent = captionText;
+    caption.hidden = !captionText;
+    captionLabel.hidden = !captionText;
+    copy.classList.remove("expanded");
+    captionMore.textContent = "Show full transcript";
+    captionMore.hidden = true;
+    if (captionText) {
+      requestAnimationFrame(() => {
+        captionMore.hidden = caption.scrollHeight <= caption.clientHeight + 1;
+      });
+    }
+    meta.textContent = "";
+    if (item.rank) meta.append(`${item.rank} `);
+    if (item.score) {
+      const lockup = document.createElement("span");
+      lockup.className = "score";
+      const score = document.createElement("span");
+      score.className = "score-value";
+      score.textContent = item.score;
+      lockup.append(score);
+      if (item.scoreScale) {
+        const scale = document.createElement("span");
+        scale.className = "score-scale";
+        scale.textContent = item.scoreScale;
+        lockup.append(scale);
+      }
+      meta.append(lockup);
+    }
+    theater.classList.toggle("decided", Boolean(decisions[item.key]));
     reason.textContent = item.reason;
     if (item.downloadHref) {
       download.href = item.downloadHref;
@@ -129,6 +172,7 @@
       download.classList.add("hidden");
     }
     progress.textContent = `Clip ${index + 1} of ${items.length}`;
+    paintTransport();
     prevBtn.disabled = index === 0;
     nextBtn.disabled = index === items.length - 1;
     updateCounts();
@@ -137,7 +181,14 @@
       b.classList.toggle("active", selected);
       b.setAttribute("aria-pressed", String(selected));
     }
+    theater.classList.toggle("decided", Boolean(decisions[item.key]));
     if (autoplay) video.play().catch(() => {});
+  }
+  function paintTransport() {
+    const playing = !video.paused && !video.ended;
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+    playBtn.title = playing ? "Pause" : "Play";
+    playBtn.replaceChildren(window.cfStudio.icon(playing ? "pause" : "play"));
   }
   function showToast(text) {
     toastText.textContent = text;
@@ -176,12 +227,15 @@
     paint();
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
   }
+  function setDecision(key, value) {
+    decisions[key] = value;
+    save();
+    paint();
+  }
   function decide(value) {
     const item = items[index];
     if (!item) return;
-    decisions[item.key] = value;
-    save();
-    paint();
+    setDecision(item.key, value);
     // Next undecided clip after this one, wrapping; none left → summary.
     const order = items.map((_, i) => (index + 1 + i) % items.length);
     const next = order.find((i) => !decisions[items[i].key]);
@@ -201,6 +255,7 @@
       const stat = document.createElement("div");
       stat.className = "review-done-stat";
       stat.dataset.decision = label.toLowerCase();
+      stat.classList.toggle("zero", n === 0);
       stat.innerHTML = "<strong></strong><span></span>";
       stat.firstChild.textContent = String(n);
       stat.lastChild.textContent = label;
@@ -208,9 +263,16 @@
     }
     doneKept.innerHTML = "";
     for (const item of kept) {
-      const row = document.createElement("div");
+      const row = document.createElement("button");
+      row.type = "button";
       row.className = "review-done-row";
-      row.textContent = item.title;
+      row.append(window.cfStudio.icon("check"), document.createTextNode(item.fullTitle || item.title));
+      row.setAttribute("aria-label", `Open clip: ${item.fullTitle || item.title}`);
+      row.addEventListener("click", () => {
+        hideDone();
+        index = items.indexOf(item);
+        show(true);
+      });
       doneKept.appendChild(row);
     }
     doneDownload.hidden = kept.length === 0;
@@ -237,16 +299,27 @@
     return target instanceof Element && (target.matches("input,select,textarea") || target.isContentEditable);
   }
 
+  captionMore.addEventListener("click", () => {
+    const expanded = copy.classList.toggle("expanded");
+    captionMore.textContent = expanded ? "Show less" : "Show full transcript";
+  });
   openBtn.addEventListener("click", openReview);
+  playBtn.addEventListener("click", () => { video.paused ? video.play().catch(() => {}) : video.pause(); });
+  video.addEventListener("play", paintTransport);
+  video.addEventListener("pause", paintTransport);
   closeBtn.addEventListener("click", closeReview);
   prevBtn.addEventListener("click", () => move(-1));
   nextBtn.addEventListener("click", () => move(1));
   toastOpen.addEventListener("click", openReview);
   for (const b of buttons) b.addEventListener("click", () => decide(b.dataset.reviewDecision));
   doneDownload.addEventListener("click", downloadKept);
-  doneAgain.addEventListener("click", () => { hideDone(); index = 0; show(true); });
   doneClose.addEventListener("click", closeReview);
   document.addEventListener("cf-rail-rendered", paint);
+  document.getElementById("clip-rail-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-rail-decision]");
+    const group = button && button.closest(".rail-triage");
+    if (group) setDecision(group.dataset.reviewKey, button.dataset.railDecision);
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return; // don't eat browser shortcuts (Ctrl+R refresh, etc.)

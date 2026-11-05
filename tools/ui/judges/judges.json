@@ -1,13 +1,36 @@
 {
-  "comparative": {
+  "panel": {
+    "judges": 4,
     "model": "deepseek/deepseek-v4.1-flash",
-    "reasoning_mode": "low",
-    "machine": "shared",
-    "max_images": 10,
-    "max_attempts": 2,
-    "max_categories_per_round": 2,
-    "max_reply_tokens": 300,
-    "widths": [1280],
-    "note": "Reasoning pin is low, not high or max, and rounds run at most 2 categories. max returned a checkable citation on a two-image panel but cost 12.45 credits for one call, which puts a 3-category round at about 75 credits against a 30 credit target, and two of its specifics (a mono face for durations, one 221px right edge) do not survive checking against styles.css. low cost 6.65 credits a call and its citations matched the stylesheet within .02em. Measurements in rounds/reasoning-test.md."
+    "reasoning_mode": "max",
+    "machine": "device",
+    "max_reply_tokens": 2000,
+    "max_images": 24,
+    "categories": "all",
+    "fresh_context": true,
+    "max_judge_attempts": 2,
+    "note": "A panel is every product shown at the same screens under opaque codes, scored on all eight categories by every judge. Lenses are pinned and different; the images and the rubric are identical. There is no credit cap and no category limit: one panel scores every category at once so the table is comparable round to round.",
+    "lenses": [
+      {
+        "key": "product-designer",
+        "title": "Senior product designer",
+        "text": "You are a senior product designer who has shipped design systems at Linear and Vercel. You care about structure, hierarchy, density and whether a screen does its job without being explained. You have no patience for decoration that carries no information."
+      },
+      {
+        "key": "creator",
+        "title": "Working creator",
+        "text": "You are a TikTok and YouTube creator who uses CapCut and Opus Clip every day. You care about how fast you can tell what you are looking at, whether the video is the hero, and whether the tool feels like it was made for people who publish. You judge like a user, not like a designer."
+      },
+      {
+        "key": "brand",
+        "title": "Visual and brand designer",
+        "text": "You are a visual designer who cares about color, type, personality and craft. You care whether the product has a face you would remember, whether the palette is doing work, and whether the typography is set rather than defaulted. You are allergic to grey mush and to one-size-fits-all component kits."
+      },
+      {
+        "key": "systems",
+        "title": "Systems and accessibility reviewer",
+        "text": "You are a design systems and accessibility reviewer. You care about alignment, spacing scale, component state coverage, contrast, disabled and enabled states, empty and error states, and whether the same thing looks the same everywhere. You measure rather than estimate."
+      }
+    ]
   }
 }

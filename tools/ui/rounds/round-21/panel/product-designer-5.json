@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 7.5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8.5,
+      "empty_error_states": 7.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 8
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The gradient \"Create project\" banner and the full-colour auto-removal carousel are the two loudest blocks on the screen and sit side by side at full saturation, so the eye has two focals and the actual Projects grid is the third thing it finds."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Under More tools, a cyan \"AI\" pill floats at the top-right of all seven tool icons at slightly different offsets and repeats identically on every tile, so the badge marks nothing beyond \"this row is AI\"."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel the Saved value wraps to a second line (\"C:/Users/Admin/Desktop/CapCut Drafts/\" then \"1025 (1)\") and the continuation sits outside the value column, so that one row breaks the label/value grid every other row holds."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The \"Auto headline\" announcement takes the whole top of the content area in 13px running text with its own Dismiss and \"Disable it\" links, which pushes the clip cards and their scores below the fold on the screen whose job is to show clips."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Each clip card ends in a row of three unlabelled 16px icons (calendar, download, scissors) at the same weight as the green score above them, so no clip has a named next action and the strongest element on each card is a number you cannot click."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The transcript sets every inline timestamp (0.58s, 0.36s, 1.31s) as a grey pill inside the running sentence, so the words you are meant to read are interrupted six or more times per paragraph by metadata."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Clean style tab is active and the Coral swatch carries the selected ring, but the caption rendered on the preview reads \"SAYING\" in yellow, so the panel's own selection state contradicts the canvas beside it."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The right rail's largest type reads \"Best clip 37.2/40\" while clip 01 is the selected row, and the same slot reads \"Clip 3 35.7/40\" when clip 03 is selected in the editor, so the top of the rail changes meaning between two states without changing shape."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "All six clip rows repeat the identical \"Keep Maybe Skip\" triplet with the checkmark sitting on Keep in every row, so 18 controls fill the list and the accepted state of a clip is not distinguishable from an untouched one."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The toolbar carries six view tabs plus \"5 more...\", then Filter and Display, then four icon buttons at the far right, all at one weight, and no create or commit action appears, so the screen offers eleven choices and no answer to \"what now\"."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Label chips begin immediately after each truncated title, so they start at a different x on every row (ENG-139, ENG-811, ENG-786, ENG-722), and no column other than the title and date can be read down."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The issue title is printed twice at the same weight, once centred in the window bar with a checkmark (\"IOS-30 Fix memory leak in map view controller\") and again as the page heading, so the top of the screen states the same thing twice."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Record (outlined, red dot) and New project (solid black) sit adjacent at the same height in the page header, so two different-weight primaries compete before the user has decided whether they are recording or filing."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Duration, Created and Last viewed are set in a mid grey on the warm grey panel with no other differentiator, and the Last viewed values are further cut off under the open row menu, so three of four columns read as disabled."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "\"Add speaker\" appears as a plain grey label floating above the transcript body with no icon, border or plus, so it reads as a caption for the document rather than the one control that would attribute the paragraphs below it."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit unlabelled at 13px directly under the tabs and above the Tracks heading, so internal ids are the first content the page shows."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every one of the five track rows gets its own Download button at 40px, and \"Export all\" sits beside \"Generate with AI\" as an outline of the same weight, so the per-item and the whole-set actions look like peers."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the transcript column below the video, Speaker 1's paragraph is clipped mid-sentence at the panel's right edge (\"She has that two high profile guests\") with no wrap or scroll affordance, so the pane that holds the edit's words cannot be read to the end."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so P1, P2, P4, P5 and P6 are scored for empty and error states from the loading and full states they do show. P4 is a tracker rather than a clip tool and reads as a different class of design system, which is why it takes six of the eight categories."
+}

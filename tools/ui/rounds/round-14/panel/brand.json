@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P1 cliplist: the selected clip 01 row is a light grey fill plus a thin left rule, so selection and a hovered row read the same and the only strong mark is the 2px black bracket."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P1 editor: the right column stacks Download MP4, the SRT/VTT/Meta/Poster chips, the Style segmented control and the Font select at one height and border weight, so ten controls read as a single undifferentiated block."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P1 error: stages 5, 6 and 7 use the same 40px row and hairline as the failed stage, so the steps that will never run look as reachable as the ones already done."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: Add more credits is the only solid, high-contrast filled button in the header, and no clip on the screen is marked as selected, so the loudest target is a purchase."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: the same wide letterspacing is applied to the 60-word Auto headline helper paragraph as to short labels and numbers, so body copy reads as tracked-out label text."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P2 editor: the right rail shows six unlabeled 24px outline glyphs (B-roll, Hook, Transitions, Text, Graphics, Audio) and the current one is not distinguishable by fill, weight or marker."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: rows carry up to six chips of equal weight on one line (Currency Support, Frontend user d..., Develop..., date, avatar), so the issue title competes with metadata instead of leading the row."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: no create action exists in the content area; the only entry points are 16px unlabeled plus icons at the far right of the tab strip and the In Review group header."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P3 editor: the Properties rail sets Done, Urgent and the assignee as three borderless rows with 13px text and no value column, so property label and value collapse into one string."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: the Last viewed column is clipped at the card edge and its values run under the open row menu, so the table's fourth column cannot be read."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P4 cliplist: Created and Last viewed values are a grey only a shade above the card fill, well below the name column's contrast, so the sortable data is the least legible text on screen."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P4 editor: disabled AI Tools entries (Eye Contact, Center active speaker, Green screen, Automatic multicam) keep the same 16px icon and 40px row as enabled ones, so state is carried only by a small value shift."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: three raw IDs (d591db2c-0a82-..., 69e48d8e849ab..., composer-5gohk1e06) sit at body weight directly above the Tracks heading with no label, so internal identifiers read as the page's second heading."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: all four track rows end in an identical Download outline button plus ellipsis, repeating four equal-weight actions that pull against the single purple Create in the header."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P5 editor: the right rail sets 10px grey labels under 24px glyphs while every other label in the panel is 13px, and the Sound Effects tab's white border reads as a focus ring rather than a selected tab."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the cyan Create project banner takes the top third and two rows of tool cards follow, so the projects grid, which is the actual content, is the third thing the eye reaches."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: eight identical blue AI pills are pinned to tool tiles at the same size and color as the banner accent, so the badge appears on almost everything and marks nothing."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: teal carries the Export fill, the active Media tab and the clip bar while Modify, the actual commit action in Details, is a pale grey button, so the accent no longer means action."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so P2-P6 are scored on cliplist and editor alone and their empty_error figure reflects that nothing was shown; no product offers an empty state. P2's editor image also carries a red arrow overlay drawn on top of the Audio rail, which I treated as an image annotation rather than product UI."
+}

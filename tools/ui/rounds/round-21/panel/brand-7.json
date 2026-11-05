@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: the full-width cyan gradient hero and the tall 'Auto removal' promo card at the right edge outrank the Projects grid, which starts only below two more blocks, so the clips you came to review are the fourth thing the eye reaches."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P1 cliplist: all seven 'More tools' tiles carry an identical blue 'AI' badge at the same corner, so the badge marks nothing, and their 11 px labels wrap to two lines under 40 px outlined icons of unequal optical weight."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P1 editor: the strip under the player crowds a 10 px in/out timecode pair, a ratio pill, a standalone play triangle and three icon buttons between two double verticals, with no gutter separating transport from view controls."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: the screen's job is accepting or dropping clips, yet no keep, approve or discard control appears on any clip card or in the toolbar, which holds only Select, Filter, search and sort icons."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the 'Auto headline' explainer block sits above the clip row at near section-header weight, its two-line paragraph runs 1060 px wide, and its dismiss '×' is parked at the far right of the container instead of on the block it closes."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: the right rail sets its tool names ('B-roll', 'Hook', 'Transitions', 'Text', 'Audio') at roughly 9 px with wide letter spacing, visibly smaller than any other label in the app, and the canvas toolbar clips 'Tracker: Off' to 'Tracker: O' against the x=1326 column edge."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: the header carries four actions at close weight - 'Library 5', 'Open folder', 'New project' and the black 'Review 6 clips' - so the review control is first among near-equals rather than singular."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the right rail stacks the '37.2/40' score, the Impact/Clean/Pop/Cinema tabs, the six swatch rows, Font, four Extras toggles, Caption and the 24 px transcript at one weight separated only by hairlines, so nothing inside the panel is the entry point."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P3 cliplist: the '/40' score suffix and the 'No changes' footer status are set in a light grey at 10-11 px on the cream background, below normal-text contrast, while the same score's front number is full black."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: label chips truncate mid-phrase to 'Currency Support…', 'Frontend user d…' and 'Frontend I…', and rows carry up to four of them, so the chip run rather than the issue title sets row width and two labels become indistinguishable."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: the right-hand date column mixes 'Dec 2023' with 'Jun 5', 'Jan 3' and 'Dec 20' in one aligned column, two different granularities read as one scale."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P4 editor: on an issue already marked Done the only buttons are icon-only star and ellipsis in the breadcrumb plus 'Add to project' in the rail, so the screen answers 'what now?' with nothing."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: the 'Last viewed' column is cut by the card's right edge ('Thur…', 'Apri…', 'Marc(') and the open row menu covers the action column of the row it belongs to, so both the value and the control are unreachable."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P5 cliplist: sidebar, card and toolbar sit within a few steps of the same grey, the only saturated marks are a lilac selected row and a blue avatar, and the accent carries no state or action."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: unavailable AI Tools ('Eye Contact', 'Center active speaker Beta', 'Green screen') are drawn at the same row height and padding as live ones with only a faint tint change, so their disabled state is close to invisible."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: three unlabeled identifier strings ('d591db2c-…', '69e48d8e…', 'composer-5gohk1e6') sit at 14 px body weight directly under the tab row with no heading, reading as stray output above 'Tracks'."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P6 cliplist: '+ Create' (filled violet) and 'Ask Co-Creator' (violet sparkle, outlined) are both primary-sized in the same header group, and 'Export all' is a third strong control inside the Tracks row."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: 'Speaker 2' is violet and 'Speaker 1' is lime in the transcript, while the same lime fills the waveform and the same violet marks AI sparkles, so the speaker code is indistinguishable from decoration."
+    }
+  ],
+  "notes": "P3 is the only product the panel gave an error screen, and it is the class of the panel: named failing stage, exit code, a black 'Retry stage' with what it preserves, and a quieter 'Start over' that says the video stays on disk. P4's cliplist is an issue list rather than a set of generated clips and was judged as the list screen shown; P5's cliplist is partly dimmed and covered by an open context menu, which I read as the app's own state rather than chrome. No product other than P3 shows an empty or loading treatment, so that category is scored from the states each product actually shows."
+}

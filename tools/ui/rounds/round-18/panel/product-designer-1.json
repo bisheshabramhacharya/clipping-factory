@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 5.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 9.5,
+      "empty_error_states": 9.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 6,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 5.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 5.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "empty_error_states",
+      "issue": "cliplist: the Keep/Maybe/Skip decision chips only exist on the selected row (01), so the review action this screen exists for is invisible until a row is already clicked."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "error: every step's status sits alone in the far right column roughly 250 px from its row label, so 'Done', '48 kHz mono / 13 MB' and 'Blocked' read as a detached column instead of belonging to steps 1 to 7."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "editor: the dirty-state feedback moves and restyles between states, plain gray 'No changes' text bottom-left in cliplist versus 'Unsaved changes' with a black Apply changes button bottom-right in editor."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "cliplist: nothing on the screen relates to reviewing generated items; the only affordances above the list are Filter and Display, so the screen's job has to be inferred from the nav."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "cliplist: the ENG-139 row's chip cluster runs into the 'Dec 2023' date and truncates chips mid-word ('Migra', '1.'), with no cap on chips per row."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "editor: 'Add to project' renders in the same gray filled chip as populated fields like 'Cycle 6' and 'Bug', so an empty field and a set value look alike in the Properties rail."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "cliplist: the Last Viewed column does not fit its container, so values clip to 'Thurs' and 'Apri' and the header itself sits under the open row menu."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "editor: in the AI Tools panel enabled rows (Edit for clarity, Quick design) and disabled rows (Eye Contact, Green screen, Blur speaker background) are told apart only by text lightness, with no state marker."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "cliplist: the header offers red Record and black New project at equal weight while the actual per-item action is an invisible row click; the selected row only shows a checkbox, not a next step."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "cliplist: the Auto headline banner spans the full width above the grid at body weight, pushing the clip row down to mid-screen, and its 'Disable it' control floats about 1,000 px right of the sentence it belongs to."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "cliplist: the grid toolbar holds three near-identical unlabeled glyphs (funnel at ~1,174, search at ~1,258, sliders at ~1,293) plus refresh and upload, so filtering, searching and sorting cannot be told apart."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "editor: timeline segments repeat the label 'Fill' at about 9 px on every clip while 'AI image B-roll' labels sit above them at the same size, so track structure and segment names collapse into one layer."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "cliplist: three raw identifiers (d591db2c-0a82-..., 69e48d8e..., composer-5gohk1e06) sit as unlabeled body text directly above the 'Tracks' heading, at content weight, with no field name."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "cliplist: the top bar has three equally loud actions (purple Create, Ask Co-Creator, Export all), and Export all carries an unexplained white focus outline that makes it look selected."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "editor: every Sound Effects row truncates its subtitle at the same width ('00:15 transportation + mo...'), so the one line that distinguishes rows is unusable."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "cliplist: the full-width gradient Create project tile competes with the three tool tiles below it and the promo card at right, all at similar weight, so there is no single entry point."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "cliplist: a cyan 'AI' badge appears on 9 of the 10 tiles in 'More tools' and on two of the three primary tiles, so the badge stops marking anything."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "editor: with nothing selected on the timeline, the Details panel still shows a filled property set and a 'Modify' button that looks disabled but is not styled as disabled."
+    }
+  ],
+  "notes": "Only P4 shows an error state, so empty/error scores elsewhere rest on the states that were shown and are capped. P5's two screens read as an issue tracker rather than a clip surface and P4's cliplist and editor are nearly the same review layout, so each product was scored on the distinct screens actually visible."
+}

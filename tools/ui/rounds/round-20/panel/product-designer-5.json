@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three unlabelled monospace strings (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit above the 'Tracks' heading with no container or label, so the first thing the eye lands on is debug output."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Track rows do not share a column grid: durations start at 00:45:48 then drift to 00:45:43, 00:45:42, 00:44:27, while the resolution value is present on three rows and absent on 'All participants' and 'Transcript', leaving a ragged middle column."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Speaker labels use green for 'Speaker 1' and purple for 'Speaker 2', and the same purple is reused for the three sparkle markers on the timeline, so colour marks both identity and edit points with no fixed meaning."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The top of the Home screen is a full-width cyan gradient 'Create project' banner plus a third-of-the-width 'Auto removal' ad carousel with pagination dots, so promotional real estate outweighs the Projects grid that holds the user's actual work."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The sidebar opens with an unlabelled grey skeleton block above the 'Video editing' label, which reads as an unloaded component sitting permanently in the nav."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project tiles set the name at roughly 12px and the meta line at roughly 11px ('215.4K | 00:03'), below comfortable scanning size and smaller than the 'More tools' captions beneath them."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The loudest control is the filled 'Review 6 clips R' in the top right, while the per-clip decision (Keep / Maybe / Skip) is three low-contrast outlined buttons mid-row and nothing indicates which choice advances to the next clip."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The open clip is marked in the left list only by a 2px dark left border on row 03, while its neighbours show identical 35.7 scores, so 'Clip 3' in the right rail is the only reliable cue for which item is being edited."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "An unlabelled 'Custom' rounded pill sits alone between the six style swatches and the 'Font' row, in the same vertical slot where the next labelled property should start."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto headline' explainer occupies the top quarter of the clip grid with two paragraphs of small grey body copy and a 'Disable it' link, pushing the five clips below the fold of the work area."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Each clip's actions are three unlabelled glyphs (copy, download, scissors) under the score, so the only legible element is the large lime 97/94/92 and the item title is set smaller and dimmer than its score."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The right rail stacks six square icon tiles with 10px labels whose marks share no weight or metaphor: a plain letter 'B' for B-roll, a hook curve for Hook, a squiggle for Audio, set beside a thin 'T' for Text."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Rows carry an ID, status glyph, title, up to three chips, a progress dial, a date and two avatars at ~12px, and titles truncate mid-word ('Integrate internationalization (i18n) supp…', 'Add responsive and accessible UI behavi…') while the chip columns stay narrow."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Dates do not hold a column: 'Jun 5' and 'Jan 3' sit about 30px left of 'Jan 16', 'Jan 14' and 'Dec 20' because the chip block before them changes width per row."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In the detail view the only completion control, the 'Done' checkbox, sits at the top of the Properties rail in the same weight and spacing as 'Urgent', 'olivia', 'Bug' and 'Cycle 6', so the one action reads as another metadata row."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The open row menu overlaps the 'Last Viewed' column, covering the 'March 6' / '9:24 AM' values of the very row ('Ram Create Clips') it belongs to and clipping the header label."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "A grey 'Add speaker' label sits above the first transcript paragraph with no control attached to it, reading as a stray heading rather than an action."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Five AI tools are disabled in the right rail ('Eye Contact', 'Center active speaker Beta', 'Green screen', 'Automatic multicam', 'Blur speaker background Beta') at roughly 30% grey with no reason given, so enabled and disabled differ only by a shade."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so every other product's empty/error score is inferred from the states shown and would move if it had one. No product shows an empty cliplist. P5 and P6 show issue/project surfaces rather than clip review; judged strictly as interface, content ignored."
+}

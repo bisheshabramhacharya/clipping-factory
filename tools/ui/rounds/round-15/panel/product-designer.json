@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 6.5,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 9
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6,
+      "color_contrast": 5.5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The properties toolbar above the preview (editor) is cut off by the right-hand icon rail: \"Color correction: OFF\" is followed by \"Tracker: O\" clipped mid-word at x=1080."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the transcript (editor), inline timing chips (0.58s, 0.36s, 0.38s) are set inside the sentence flow, so the paragraph reads as disconnected fragments instead of prose."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The \"Auto headline\" banner copy under the header (cliplist) is set in a monospace face at ~13px, unlike every other body run in the product, so an instruction block reads as code."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In the editor, the transcript strip below the waveform shows 9px cut-off fragments (\"welcome everyone to toda\", \"It's Hi Yeah\") with no ellipsis or truncation affordance, so the clip-level text is unreadable."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the editor, two stacked right rails (the AI Tools column plus the icon rail) take roughly a third of the window on a writing surface, while the document measure stops 40px short of them, leaving the text column visibly narrower than the space around it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In the cliplist header, \"Record\" (white outline with red dot) and \"New project\" (dark fill) sit adjacent at equal size, so two different create actions read as one control group with no stated difference."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The cliplist opens with three unlabeled raw identifiers stacked directly under the tabs (d591db2c-0a82-..., 69e48d8e849..., composer-5gohk1eo6) above the \"Tracks\" heading, so the first content on the page is machine data."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In the editor's Audio panel, the active \"Sound Effects\" tab shows a field placeholder reading \"Search music\", and the section header below it repeats \"Sound Effects\", so the same label appears twice with the wrong noun in the field."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The last row of the cliplist (\"Transcript\") is cut by the viewport edge, leaving a bare \"?\" and a half-visible icon where its action group should end, so the list has no visible terminus."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In the ENG-139 row of the cliplist, label pills are truncated to meaningless fragments (\"1.\", \"Squa\", \"Migra\") and run straight into the \"Dec 2023\" date, so that row's metadata cannot be parsed without hovering."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The cliplist offers no visible primary action: creating an item is a bare unlabeled \"+\" at the far top right and in the group header, while Filter and Display carry more visual weight."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The editor shows no next step at all: no comment field, no save, no status transition control, only a star and a \"+\" in the title bar, so \"what now\" has no answer on screen."
+    },
+    {
+      "product": "P5",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "On the error screen the left edge moves four times in 60px: heading at x=160, step numbers at x=184, failure body at x=198, failure heading at x=217, so the one screen that should be a single column of aligned steps is not."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the editor's Caption section, the textarea is ~155px tall for a one-line caption, so it dominates the right panel and pushes \"Apply changes\" to the bottom edge, far from the field it commits."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The left column header in the cliplist reads \"Clips 6   Score   / 40   Length\", with the maximum score sitting as its own column header directly above the score values, so the header row mislabels its own columns."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Nine separate \"AI\" badges (seven in the More tools row, three on the hero tiles) repeat the same word in the same blue, so the badge marks everything and distinguishes nothing."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In the cliplist the three gradient creation tiles occupy the top 300px at full saturation while the \"Projects\" grid the page is named after starts at y=505, so decoration lands before the content."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the editor's Details panel, the draft location is printed as a raw wrapped filesystem path (\"C:/Users/Admin/Desktop/CapCut Drafts/ 1025 (1)\") styled identically to Name and Ratio, so a path reads as a value."
+    }
+  ],
+  "notes": "Only P5 has an error screen, so the other five were scored on cliplist and editor alone; empty and error states for P1, P2, P3, P4 and P6 are unshown, not judged absent. P4 and P5 are the two strongest screen sets: P4 wins on type, grid and component discipline, P5 wins on complete states and an unmistakable next step."
+}

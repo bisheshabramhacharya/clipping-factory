@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 4.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 5.5,
+      "component_consistency": 5,
+      "iconography_detail": 5.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 6.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The seven style swatch dots and the 'Custom' chip share one row with no ring, check or size change on the active swatch; which style is on is only stated by the caption 'Coral (#FF4F4F)' below them, so the control does not carry its own selected state."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "Under 'Transcription failed' the raw diagnostic 'whisper-cli exited with code 134 (SIGABRT)' is set at the same 11 px grey as the plain instruction 'Check that the model file is intact, then retry.' directly above it, so the line telling the user what to do and the machine output read as one paragraph."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In the header, 'AI connection' plus its 'Coming soon' pill renders as a bordered control of the same height and radius as an interactive button with no muted treatment, while 'Library 5' beside it is plain unframed text, so two adjacent header items give opposite affordances."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The banner and the five-card clip row stop at about x=1180 on a 1440-wide screen, leaving a roughly 250 px empty column at the right edge, so the grid has no right gutter and the fifth card looks orphaned rather than last in a row."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The toolbar above the preview runs 'Layout: Fill', bold, crop, ratio, 'Color correction: OFF' and 'Tracker: ON' as one unbroken strip and 'Tracker: ON' is cut by the panel edge at about x=1400, so a state readout is truncated rather than wrapped or dropped."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The left rail mixes a filled grid glyph, an outline list glyph, an outline folder and a filled 'S' avatar in the same 24 px slot at different optical weights, and only the avatar has a tinted circular container, so the rail reads as two icon families."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Rows ENG-811, ENG-810, ENG-786, ENG-784, ENG-722 and ENG-788 show a literal '---' in the leading column where a sub-issue count is absent, so an empty value is drawn as punctuation instead of blank space."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The view tabs Engineering / All issues / Active / Backlog / Recent Urgent Bugs all render as the same bordered chip at the same weight, and the active one differs only by a slightly lighter fill, so the current view is not distinguishable at a glance from its neighbours."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The properties column opens with three icon-only controls (link, copy, sub-issues) at 20 px with no visible labels, while every row beneath it (Properties, Labels, Cycle, Project) is text-led, so the panel switches control language inside one column."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In Details, labels sit in a fixed column and values all start at the same x, but the 'Saved:' path wraps to two lines while every other row is one line, so Name through Import material have unequal row heights and the rhythm breaks at the third row."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project captions pair the title and the '215.4K | 00:03' metadata at nearly the same weight with a bare pipe separator, and the metadata drops to about 10 px, so the one value a user scans for (duration) sits below the panel's body floor."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "'AI' badges are drawn three ways on one screen: a tiny corner tag on the 'Auto removal' hero, a pill on the three blue tiles, and a differently padded pill on each More tools tile, so the same badge has three sizes and two radii."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Column headers (Name, Duration, Created, Last viewed) and every date value render around #9a9a9a on a #e6e6e6 page at 12 px, roughly 2.2:1, well below the 4.5:1 needed at that size."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled AI tools (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) sit near 3:1 grey on white at 12 px, so they read as washed-out enabled rows and are not separated from the enabled 'Quick design' above them by contrast alone."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The open row menu covers the 'Last viewed' column and clips its values to 'Thurs' and 'Apri' at x=1300 with no row dimming or reflow, so the menu and the data it hides sit at the same visual layer."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The selected 'Sound Effects' tab is drawn with a 2 px white rounded outline at the weight a focus ring would use, while the sibling 'Music' tab has no border at all, so the selected state is mistaken for keyboard focus."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Panel content has no right inset: the Search music field, the third 'Ready-made collections' card ('Educati') and the favourite rows run under the far-right icon rail and are clipped at about x=1352."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabeled body text under the tab bar, above the 'Tracks' heading and at the same size and colour as real content, so internal IDs read as the page's first content block."
+    }
+  ],
+  "notes": "Only P1 showed an error screen, so the other five are scored on cliplist and editor alone and their empty/error scores come from loading, disabled and progress states rather than a failure screen. P3's screens are an issue tracker whose cliplist and editor are an issue list and issue detail; no product in the panel showed an empty-list state."
+}

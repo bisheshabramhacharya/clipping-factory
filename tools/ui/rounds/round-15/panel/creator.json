@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 5.5,
+      "iconography_detail": 5.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 5.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 8.5
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5,
+      "color_contrast": 5.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P1 editor: the vertical video preview sits about 170 px wide inside a stage with large empty margins on both sides while the transcript next to it runs at 18 px across half the screen, so the clip you are editing is the smallest thing on the page."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: each thumbnail's duration chip renders two numbers with no separator (\"00:00 00:43\") at the same weight, so start time and length are indistinguishable."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: the Auto headline banner offers the same dismissal twice, an \"x\" pinned to the far right of the row and a \"Disable it\" control inside the paragraph, with no single action reading as the one to take."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor: the transport strip at the bottom is clipped by the AI Tools panel, cutting the rightmost control mid-glyph around x=980 and letting the transcript tick row run under the panel edge."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: the disabled AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam) sit at roughly 25% grey with no reason given, so they read as broken rather than unavailable."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: \"Record\" and \"New project\" sit side by side at near-identical weight in the top right, and the 630 px borderless grey search block beside the title reads as a dead placeholder instead of a field."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: three unlabeled raw identifiers (d591db2c-0a82..., 69e48d8e849ab..., composer-5gohk1eo6) sit at body size directly above the \"Tracks\" heading, so machine data is the first thing your eye lands on."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P3 cliplist: the Transcript row's right-hand controls overflow the card, leaving a \"?\" and a partially cut button clipped at the card's edge around x=1419."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P3 editor: the \"Sound Effects\" tab carries a heavy white focus ring that outshouts the video and reads as the screen's main button, while \"Music\" beside it looks inert."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the left sidebar lists \"Projects\" and \"Views\" twice, once under Workspace and again under Your teams, so two nav items point at the same place with no distinction."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: row label chips truncate mid-word at the right edge of the title column (\"Migra...\", \"Frontend User Experience...\", \"Develop...\") and push the date and avatar into a ragged right margin."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P4 editor: the properties panel shows Done, Urgent, olivia and Cycle 6 as icon-plus-text rows with no control affordance, so nothing on the screen looks like the way to change the item."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: the \"Score / 40\" and \"Length\" column headers are left-aligned at the column start while their values are right-aligned 60 to 70 px further right, so the header does not sit over the number it labels."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P5 editor: the caption color row puts six swatches, a \"Custom\" label and a separate empty ring on one line, and the selected red swatch grows a ring so it no longer lines up with its neighbours."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: \"Download MP4\" is a bordered button, \"Apply changes\" is a filled black button and SRT/VTT/Meta/Poster are borderless text on the same panel, so four classes of control sit in one cluster."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: clipped text sits above the top edge of the window around y=0 (\"...by Sign in to...\") and a card fragment is cut off behind the left icon rail near y=290, and the project row runs off the right edge with no scroll cue."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: in Details, the \"Saved:\" path wraps onto a second line that lands directly above the \"Ratio:\" label, so the label and value pairs stop grouping and the panel reads as one grey block."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P6 cliplist: cyan carries four unrelated jobs at once (the Export action, the AI badges, the promo card and the selected media item), so no color reliably signals what is clickable."
+    }
+  ],
+  "notes": "Only P5 has an error screen, so the other five were scored on the empty, disabled and loading treatment visible in their cliplist and editor screens; P5's error state was the strongest thing in the panel. No product showed a true empty state (zero clips, zero projects), and P5's error screen does not say what a retry costs in time."
+}
