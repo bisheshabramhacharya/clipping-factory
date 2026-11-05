@@ -103,6 +103,7 @@ function auditScript() {
   const titleSizes = {};
   const caps = {};
   const textLefts = [];
+  const rhythm = {};
   const marks = [];
   const radius = {};
   const fontSizes = {};
@@ -218,6 +219,7 @@ function auditScript() {
       if (size >= 24 && weight >= 600 && letters.length > 3) bump(titleSizes, `${cs.fontSize}|${el.className || el.tagName}`);
       if (cs.textTransform === "uppercase" && size > 0 && letters.length > 1) bump(caps, `${cs.fontSize}|${cs.letterSpacing}`);
       if (size >= 12 && own.length >= 8 && !el.closest("header")) textLefts.push(Math.round(rect.left));
+      if (size >= 10) bump(rhythm, `${cs.fontSize}|${cs.lineHeight}`);
     }
 
     if (el.classList.contains("library-card")) {
@@ -232,6 +234,7 @@ function auditScript() {
     filled,
     title_sizes: Object.keys(titleSizes),
     caps: Object.keys(caps),
+    rhythm: Object.keys(rhythm),
     text_left: textLefts.length ? textLefts.reduce((min, value) => Math.min(min, value), Infinity) : null,
     library_rows: marks,
     overflow: {
@@ -309,6 +312,22 @@ async function main() {
     .map((result) => ({ state: result.state, viewport: result.viewport, sizes: [...new Set((result.title_sizes || []).map(sizeOf))] }))
     .filter((result) => result.sizes.length > 1);
   gates.push(...titleSpread.map((result) => ({ gate: "one-display-size-per-view", ...result })));
+
+  // One line-height per size. A size that needs two rhythms needs a second
+  // size or a documented exception, not a value chosen per element.
+  const rhythm = {};
+  for (const result of run.results) {
+    for (const entry of result.rhythm || []) {
+      const [size, lineHeight] = entry.split("|");
+      rhythm[size] = rhythm[size] || {};
+      rhythm[size][lineHeight] = (rhythm[size][lineHeight] || 0) + 1;
+    }
+  }
+  for (const [size, heights] of Object.entries(rhythm)) {
+    if (Object.keys(heights).length > 1) {
+      gates.push({ gate: "one-line-height-per-size", found: `${size}: ${Object.entries(heights).map(([h, n]) => `${h}×${n}`).join(", ")}` });
+    }
+  }
 
   const capsEntries = run.results.flatMap((result) => result.caps || []);
   const capsSizes = [...new Set(capsEntries.map(sizeOf))];

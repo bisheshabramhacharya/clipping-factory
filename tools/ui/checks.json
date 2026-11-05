@@ -130,8 +130,28 @@
     "items": []
   },
   "gates": {
-    "count": 2,
+    "count": 7,
     "failing": [
+      {
+        "gate": "one-line-height-per-size",
+        "found": "15px: 23.25px×24, 24px×3"
+      },
+      {
+        "gate": "one-line-height-per-size",
+        "found": "12px: 18.6px×30, 19.2px×6, 16.2px×9"
+      },
+      {
+        "gate": "one-line-height-per-size",
+        "found": "11px: 17.05px×18, 16px×3"
+      },
+      {
+        "gate": "one-line-height-per-size",
+        "found": "13px: 20.15px×15, 19.5px×6, 21.45px×3, 18.2px×2, 17.55px×3, 18.85px×6, 21px×3, 20.8px×3"
+      },
+      {
+        "gate": "one-line-height-per-size",
+        "found": "10px: 15.5px×21, 14px×9"
+      },
       {
         "gate": "one-caps-size",
         "found": [
