@@ -1453,7 +1453,7 @@
     actions.className = "actions";
     if (c.status === "ready") {
       const a = document.createElement("a");
-      a.className = "primary action-button";
+      a.className = "action-button";
       a.href = apiPath("projects", projectId, "clips", c.id, "download");
       a.download = c.filename;
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
@@ -1463,6 +1463,7 @@
       const stem = (c.filename || "clip").replace(/\.mp4$/i, "");
       const pack = document.createElement("div");
       pack.className = "export-links";
+      pack.setAttribute("role", "group");
       pack.setAttribute("aria-label", "Export pack files");
       for (const [label, kind, ext] of [["SRT", "srt", "srt"], ["VTT", "vtt", "vtt"], ["Meta", "meta", "meta.json"], ["Poster", "poster", "jpg"]]) {
         const link = document.createElement("a");
@@ -1598,14 +1599,20 @@
 
     const captionText = document.createElement("textarea");
     captionText.className = "caption-text";
-    captionText.rows = 3;
+    captionText.rows = 1;
     captionText.value = state.draft.text;
     captionText.placeholder = "Edit caption text";
     captionText.setAttribute("aria-label", "Caption text");
+    const sizeCaption = () => {
+      if (!captionText.closest("details")?.open) return;
+      captionText.style.height = "auto";
+      captionText.style.height = `${Math.min(captionText.scrollHeight + 2, 148)}px`;
+    };
     captionText.addEventListener("input", () => {
       state.draft.text = captionText.value;
       state.draft.textPresent = true;
       markDirty();
+      sizeCaption();
     });
 
     const seg = document.createElement("div");
@@ -1655,7 +1662,6 @@
     custom.className = "custom-color";
     custom.setAttribute("aria-label", "Custom caption accent color");
     custom.title = "Custom caption accent color";
-    custom.setAttribute("aria-pressed", "false");
     custom.addEventListener("input", (e) => {
       state.draft.color = e.target.value.toUpperCase();
       markDirty();
@@ -1663,6 +1669,9 @@
     customPicker.appendChild(customLabel);
     customPicker.appendChild(custom);
     swatches.appendChild(customPicker);
+    const swatchName = document.createElement("span");
+    swatchName.className = "swatch-name";
+    swatchName.setAttribute("aria-live", "polite");
 
     const font = document.createElement("select");
     font.className = "font-select";
@@ -1758,10 +1767,9 @@
         b.setAttribute("aria-pressed", String(selected));
       }
       const customSelected = !ACCENT_SWATCHES.some((entry) => entry.color === state.draft.color);
-      custom.classList.toggle("active", customSelected);
       customPicker.classList.toggle("on", customSelected);
-      custom.setAttribute("aria-pressed", String(customSelected));
       custom.value = customSelected ? state.draft.color : "#E9E9E9";
+      swatchName.textContent = accentLabel(state.draft.color);
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
@@ -1846,6 +1854,7 @@
     textSummary.append(textLabel, textMore);
     textWrap.appendChild(textSummary);
     textWrap.appendChild(captionText);
+    textWrap.addEventListener("toggle", sizeCaption);
     const footer = document.createElement("div");
     footer.className = "restyle-footer";
     footer.appendChild(status);
@@ -1853,9 +1862,9 @@
 
     const scroll = document.createElement("div");
     scroll.className = "restyle-scroll";
-    scroll.appendChild(textWrap);
-    scroll.appendChild(section("Style", seg, swatches, fontPicker));
+    scroll.appendChild(section("Style", seg, swatches, swatchName, fontPicker));
     scroll.appendChild(section("Extras", toggles));
+    scroll.appendChild(textWrap);
     box.appendChild(scroll);
     box.appendChild(footer);
     sync();

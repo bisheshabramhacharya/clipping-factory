@@ -87,6 +87,10 @@
 
   --gutter: 24px;
   --label-col: 92px;
+
+  --rail-score-col: 66px;
+  --rail-meta-col: 42px;
+  --rail-facts-gap: 12px;
 }
 
 * { box-sizing: border-box; }
@@ -250,7 +254,7 @@ body:has(#processing-state:not(.hidden):not(.compact)) header {
 }
 h1 {
   display: flex; align-items: center;
-  font-size: var(--t-15); line-height: 23.25px; font-weight: 600; letter-spacing: -.01em;
+  font-size: var(--t-20); line-height: 24px; font-weight: 600; letter-spacing: -.02em;
   white-space: nowrap;
 }
 .brand-sub {
@@ -467,12 +471,17 @@ h1 {
 .accent-row { display: flex; align-items: center; gap: 20px; height: 32px; }
 .upload-swatches { display: flex; align-items: center; gap: 8px; }
 .upload-swatch, .swatch {
+  display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px; padding: 0; border-radius: var(--r-pill);
   border: 1px solid rgba(0, 0, 0, .2);
   background: var(--swatch);
-  transition: outline-color var(--t-fast);
 }
-.upload-swatch.active, .swatch.active { outline: 2px solid var(--ink); outline-offset: 2px; }
+.upload-swatch.active, .swatch.active { border-color: var(--ink); }
+.upload-swatch.active::after, .swatch.active::after {
+  content: ""; width: 10px; height: 10px; background: var(--ink);
+  -webkit-mask: var(--icon-check) center / contain no-repeat;
+  mask: var(--icon-check) center / contain no-repeat;
+}
 .upload-swatch:hover:not(:disabled) { background: var(--swatch); border-color: var(--ink); }
 .accent-row .small-seg { margin-left: auto; }
 
@@ -525,7 +534,7 @@ h1 {
   padding: 12px 0; color: var(--ink-2);
   border-bottom: 1px solid var(--line);
 }
-.step strong { position: relative; padding-left: 26px; font-size: var(--t-13); line-height: 20.15px; font-weight: 400; }
+.step strong { position: relative; padding-left: 24px; font-size: var(--t-13); line-height: 20.15px; font-weight: 400; }
 .step.done > strong::before, .step.failed > strong::before {
   content: ""; position: absolute; left: 0; top: 2px;
   width: 14px; height: 14px; background: currentColor;
@@ -543,7 +552,7 @@ h1 {
 }
 .step.active .status { color: var(--ink); }
 .step.failed .status { color: var(--bad); }
-.step .step-meta { grid-column: 1 / -1; font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); padding-left: 26px; margin-top: 2px; }
+.step .step-meta { grid-column: 1 / -1; font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); padding-left: 24px; margin-top: 2px; }
 .step.active { padding-bottom: 0; border-bottom-color: transparent; }
 .step .mini-bar {
   grid-column: 1 / -1; height: 2px; margin: 12px 0 0 0;
@@ -559,10 +568,10 @@ h1 {
 .step.has-error > .status { color: var(--bad); }
 .step.has-error .error {
   grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  margin: 8px 0 0 26px; padding: 0; border: 0;
+  margin: 8px 0 0 24px; padding: 0; border: 0;
 }
 .step.has-error .error > .state-mark { display: none; }
-.step.has-error .error strong { font-size: var(--t-13); line-height: 20.15px; font-weight: 600; letter-spacing: 0; }
+.step.has-error .error strong { padding-left: 0; font-size: var(--t-13); line-height: 20.15px; font-weight: 600; letter-spacing: 0; }
 .step.has-error .error p { margin-top: 2px; }
 .step.has-error .error-actions { padding: 0 0 0 16px; }
 
@@ -589,8 +598,6 @@ h1 {
 #processing-state.errored .error {
   border-left: 0; border-top: 0; padding: 0; margin-top: 24px;
 }
-#error-exit { border-color: var(--line-2); background: var(--surface); color: var(--ink-2); }
-#error-exit:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
 .error p { margin-top: 4px; font-size: var(--t-13); color: var(--ink-2); line-height: 20.15px; max-width: 56ch; }
 .error .error-detail { margin-top: 6px; font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); max-width: 56ch; }
 .error .error-detail:empty { display: none; }
@@ -671,13 +678,16 @@ h1 {
   display: inline-flex; align-items: baseline; gap: 6px;
   font-size: var(--t-12); line-height: 18.6px; font-weight: 500; color: var(--ink-2);
 }
-.rail-legend { display: inline-flex; align-items: baseline; gap: 12px; }
+.rail-legend {
+  display: grid; grid-template-columns: var(--rail-score-col) var(--rail-meta-col);
+  column-gap: var(--rail-facts-gap); align-items: baseline;
+}
 .rail-legend span {
-  width: 66px; text-align: right; white-space: nowrap;
+  text-align: right; white-space: nowrap;
   font-size: var(--t-12); line-height: 18.6px; font-weight: 500;
   color: var(--ink-2);
 }
-.rail-legend span:last-child { width: 42px; }
+.rail-legend span:first-child { justify-self: end; width: max-content; }
 .rail-head-count { font-size: var(--t-12); line-height: 18.6px; font-weight: 500; color: var(--ink-2); }
 
 .clip-rail-list { overflow: visible; display: flex; flex-direction: column; }
@@ -704,9 +714,19 @@ h1 {
 .rail-rank {
   font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); font-weight: 500;
 }
-.rail-facts { display: flex; align-items: baseline; gap: 12px; }
-.rail-score { min-width: 36px; text-align: right; font-size: var(--t-13); line-height: 20.15px; font-weight: 600; color: var(--ink); }
-.rail-meta { min-width: 42px; text-align: right; font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); white-space: nowrap; }
+.rail-facts {
+  display: grid; grid-template-columns: var(--rail-score-col) var(--rail-meta-col);
+  column-gap: var(--rail-facts-gap); align-items: baseline;
+}
+.rail-score {
+  grid-column: 1; justify-self: stretch;
+  text-align: right; white-space: nowrap;
+  font-size: var(--t-13); line-height: 20.15px; font-weight: 600; color: var(--ink);
+}
+.rail-meta {
+  grid-column: 2; justify-self: stretch;
+  text-align: right; font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); white-space: nowrap;
+}
 .rail-fade { position: sticky; bottom: 0; z-index: 3; height: 0; pointer-events: none; }
 .rail-fade::before {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 32px;
@@ -812,7 +832,7 @@ body .preview .rig-poster, body .review-phone .rig-poster {
 .clip-scale { font-size: var(--t-11); line-height: 17.05px; font-weight: 500; color: var(--ink-2); }
 .clip-info h3 {
   margin-top: 12px;
-  font-size: var(--t-26); line-height: 28.6px; font-weight: 600; letter-spacing: -.028em;
+  font-size: var(--t-15); line-height: 23.25px; font-weight: 600; letter-spacing: -.015em;
   text-wrap: balance;
 }
 
@@ -864,33 +884,37 @@ body .preview .rig-poster, body .review-phone .rig-poster {
 .review-badge[data-decision="keep"] { background: var(--ok-soft); color: var(--ok); }
 .review-badge[data-decision="maybe"] { background: var(--warn-soft); color: var(--warn); }
 
-.actions { display: flex; align-items: center; gap: 12px; flex: none; flex-wrap: wrap; margin-top: 12px; }
+.actions { display: flex; align-items: center; gap: 16px; flex: none; flex-wrap: wrap; margin-top: 12px; }
 .actions .action-button {
-  height: 32px; padding: 0 12px;
-  background: var(--surface); border-color: var(--line-2); color: var(--ink); font-weight: 500;
+  height: 32px; padding: 0 12px; gap: 8px;
+  background: var(--surface); border-color: var(--ink); color: var(--ink); font-weight: 600;
   font-size: var(--t-12); line-height: 18.6px;
+}
+.actions .action-button::before {
+  content: ""; width: 14px; height: 14px; background: currentColor;
+  -webkit-mask: var(--icon-download) center / contain no-repeat;
+  mask: var(--icon-download) center / contain no-repeat;
 }
 .actions .action-button:hover { background: var(--fill); color: var(--ink); }
 .export-links {
-  display: flex; align-items: stretch; gap: 0; margin-left: 2px; height: 32px;
-  border: 1px solid var(--line-2); border-radius: var(--r-6);
-  background: var(--surface); overflow: hidden;
+  display: flex; align-items: baseline; gap: 0; margin-left: 0;
+  height: auto; border: 0; border-radius: 0; background: transparent;
 }
 .export-link {
-  display: flex; align-items: center; padding: 0 10px;
+  display: inline-flex; align-items: center; padding: 0 10px; height: auto;
   font-size: var(--t-11); line-height: 17.05px; font-weight: 500; color: var(--ink-2);
   border-left: 1px solid var(--line);
 }
-.export-link:first-child { border-left: 0; }
-.export-link:hover { background: var(--fill); color: var(--ink); text-decoration: none; }
+.export-link:first-child { border-left: 0; padding-left: 0; }
+.export-link:hover { background: transparent; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
 .restyle {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-  border-top: 1px solid var(--line); margin-top: 16px;
+  border-top: 1px solid var(--line); margin-top: 12px;
 }
 .restyle-scroll {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 4px 0 8px; display: flex; flex-direction: column; gap: 12px;
+  flex: 0 1 auto; min-height: 0; overflow-y: auto;
+  padding: 0; display: flex; flex-direction: column; gap: 12px;
 }
 /* The restyle controls are the same spec table as the upload screen: a label
    gutter on the left, the control in the value column. */
@@ -922,17 +946,27 @@ body .preview .rig-poster, body .review-phone .rig-poster {
 .seg-btn.active, .seg-btn.active:hover { background: var(--fill-2); border-bottom-color: var(--ink); color: var(--ink); font-weight: 600; }
 
 .swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.swatch-name { font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); }
 .custom-color-picker {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); margin-left: 4px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 32px; padding: 0 10px; margin-left: 4px;
+  border: 1px solid var(--line-2); border-radius: var(--r-6);
+  font-size: var(--t-12); line-height: 18.6px; font-weight: 500; color: var(--ink);
+  cursor: pointer;
+}
+.custom-color-picker:hover { border-color: var(--ink-3); }
+.custom-color-picker.on { border-color: var(--ink); }
+.custom-color-picker.on::after {
+  content: ""; width: 10px; height: 10px; background: var(--ink);
+  -webkit-mask: var(--icon-check) center / contain no-repeat;
+  mask: var(--icon-check) center / contain no-repeat;
 }
 .custom-color {
-  appearance: none; width: 18px; height: 18px; padding: 0; border-radius: var(--r-pill);
+  appearance: none; width: 16px; height: 16px; padding: 0; border-radius: var(--r-pill);
   border: 1px solid rgba(0, 0, 0, .2); cursor: pointer; background: none;
 }
 .custom-color::-webkit-color-swatch-wrapper { padding: 0; }
 .custom-color::-webkit-color-swatch { border: 0; border-radius: var(--r-pill); }
-.custom-color.active { outline: 2px solid var(--ink); outline-offset: 2px; }
 .custom-color-picker:not(.on) .custom-color { border: 1px solid var(--ink-3); }
 
 .restyle-section > .font-picker {
@@ -950,17 +984,6 @@ body .preview .rig-poster, body .review-phone .rig-poster {
 .toggle-grid small { display: none; }
 
 .caption-text-wrap { margin-top: 0; }
-.caption-text-wrap[open] {
-  flex: 1 1 auto; min-height: 0;
-  display: flex; flex-direction: column;
-}
-/* Chrome renders <details> content through ::details-content, so the flex
-   chain has to pass through it for the editor to take the panel's slack. */
-.caption-text-wrap[open]::details-content {
-  flex: 1 1 auto; min-height: 0;
-  display: flex; flex-direction: column;
-}
-.caption-text-wrap[open] .caption-text { flex: 1 1 auto; min-height: 56px; }
 .caption-text-wrap summary {
   display: flex; align-items: center; gap: 8px; min-height: 32px;
   cursor: pointer; font-size: var(--t-12); line-height: 18.6px; font-weight: 500; color: var(--ink-2);
@@ -980,11 +1003,14 @@ body .preview .rig-poster, body .review-phone .rig-poster {
 }
 .caption-text-wrap[open] summary::before { transform: rotate(90deg); }
 .caption-text-wrap summary:hover { color: var(--ink); }
-.caption-text { margin-top: 8px; min-height: 56px; font-size: var(--t-12); line-height: 18.6px; }
+.caption-text {
+  margin-top: 8px; height: 32px; min-height: 32px; max-height: 148px;
+  padding: 6px 10px; font-size: var(--t-12); line-height: 18.6px; overflow-y: auto; resize: none;
+}
 
 .restyle-footer {
   flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 32px; padding: 16px 0 0; border-top: 0;
+  min-height: 32px; padding: 12px 0 0; border-top: 1px solid var(--line);
 }
 .restyle-status {
   font-size: var(--t-11); line-height: 17.05px; color: var(--ink-2); min-width: 0;
