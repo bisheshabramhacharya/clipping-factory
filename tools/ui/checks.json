@@ -128,5 +128,80 @@
   "clipped_text": {
     "count": 0,
     "items": []
-  }
+  },
+  "gates": {
+    "count": 2,
+    "failing": [
+      {
+        "gate": "one-caps-size",
+        "found": [
+          "11px",
+          "10px"
+        ]
+      },
+      {
+        "gate": "one-caps-tracking",
+        "found": [
+          "1.54px",
+          "1px",
+          "1.2px",
+          "0.8px",
+          "0.88px",
+          "1.1px"
+        ]
+      }
+    ]
+  },
+  "edges": [
+    {
+      "where": "page@1280",
+      "found": [
+        "80:processing-mid-run/processing-error/setup-missing-runtime",
+        "109:empty-upload/staged-file"
+      ]
+    },
+    {
+      "where": "page@1440",
+      "found": [
+        "160:processing-mid-run/processing-error/setup-missing-runtime",
+        "189:empty-upload/staged-file"
+      ]
+    },
+    {
+      "where": "page@1920",
+      "found": [
+        "400:processing-mid-run/processing-error/setup-missing-runtime",
+        "429:empty-upload/staged-file"
+      ]
+    },
+    {
+      "where": "studio@1280",
+      "found": [
+        "88:results-6-clips/results-rejected-expanded/clip-detail-restyle",
+        "91:review-theater",
+        "280:review-done",
+        "866:library-open"
+      ]
+    },
+    {
+      "where": "studio@1440",
+      "found": [
+        "24:results-rejected-expanded",
+        "88:results-6-clips/clip-detail-restyle",
+        "91:review-theater",
+        "360:review-done",
+        "1026:library-open"
+      ]
+    },
+    {
+      "where": "studio@1920",
+      "found": [
+        "24:results-rejected-expanded",
+        "88:results-6-clips/clip-detail-restyle",
+        "91:review-theater",
+        "600:review-done",
+        "1506:library-open"
+      ]
+    }
+  ]
 }

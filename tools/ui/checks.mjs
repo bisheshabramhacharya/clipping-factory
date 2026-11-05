@@ -99,6 +99,11 @@ function auditScript() {
   let textPairsChecked = 0;
   const clipped = [];
   const overflowing = [];
+  const filled = [];
+  const titleSizes = {};
+  const caps = {};
+  const textLefts = [];
+  const marks = [];
   const radius = {};
   const fontSizes = {};
   const shadows = {};
@@ -178,10 +183,57 @@ function auditScript() {
     }
   }
 
+  // System invariants. Each one is a rule a blind panel has cited at least
+  // once, expressed so a machine can refuse the regression instead of a judge
+  // happening to notice it.
+  for (const el of document.body.querySelectorAll("*")) {
+    if (!visible(el)) continue;
+    const cs = getComputedStyle(el);
+    const own = (el.textContent || "").trim();
+    const rect = el.getBoundingClientRect();
+
+    // An element behind an overlay is still laid out, so a rect alone would
+    // count the view under the theater. Ask the hit test instead: a control or
+    // a title only counts if it is the thing a person would actually see.
+    const size = parseFloat(cs.fontSize) || 0;
+    const weight = Number(cs.fontWeight) || 400;
+    const letters = own.replace(/[^A-Za-z]/g, "");
+    const isControl = el.tagName === "BUTTON" || el.getAttribute("role") === "button";
+    const matters = (isControl && cs.backgroundColor === "rgb(10, 10, 10)")
+      || (size >= 24 && weight >= 600 && letters.length > 3)
+      || (cs.textTransform === "uppercase" && letters.length > 1)
+      || (size >= 12 && own.length >= 8);
+    if (!matters) continue;
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 0), window.innerWidth - 1);
+    const y = Math.min(Math.max(rect.top + rect.height / 2, 0), window.innerHeight - 1);
+    const hit = document.elementFromPoint(x, y);
+    const exposed = Boolean(hit && (hit === el || el.contains(hit) || el.contains(hit.parentElement)));
+    if (!exposed) continue;
+
+    if (isControl && cs.backgroundColor === "rgb(10, 10, 10)") {
+      filled.push({ label: (own || el.id || "?").slice(0, 24), selector: selectorOf(el) });
+    }
+
+    if (own && el.children.length === 0) {
+      if (size >= 24 && weight >= 600 && letters.length > 3) bump(titleSizes, `${cs.fontSize}|${el.className || el.tagName}`);
+      if (cs.textTransform === "uppercase" && size > 0 && letters.length > 1) bump(caps, `${cs.fontSize}|${cs.letterSpacing}`);
+      if (size >= 12 && own.length >= 8 && !el.closest("header")) textLefts.push(Math.round(rect.left));
+    }
+
+    if (el.classList.contains("library-card")) {
+      marks.push({ row: (own || "").slice(0, 30), marked: Boolean(el.querySelector(".library-mark")) });
+    }
+  }
+
   return {
     contrast: contrastPairs,
     text_pairs_checked: textPairsChecked,
     clipped,
+    filled,
+    title_sizes: Object.keys(titleSizes),
+    caps: Object.keys(caps),
+    text_left: textLefts.length ? textLefts.reduce((min, value) => Math.min(min, value), Infinity) : null,
+    library_rows: marks,
     overflow: {
       document_scroll_width: doc.scrollWidth,
       body_scroll_width: document.body.scrollWidth,
@@ -244,6 +296,59 @@ async function main() {
     .filter((result) => result.overflow.has_horizontal_overflow)
     .map((result) => ({ state: result.state, viewport: result.viewport, ...result.overflow }));
 
+  // Gates: each rule below is a system invariant a blind panel has cited.
+  // A gate failure is a regression, not a taste question.
+  const gates = [];
+  const sizeOf = (entry) => entry.split("|")[0];
+  const filledOver = run.results
+    .filter((result) => (result.filled || []).length > 1)
+    .map((result) => ({ gate: "one-filled-control-per-view", state: result.state, viewport: result.viewport, found: result.filled.map((item) => item.label) }));
+  gates.push(...filledOver);
+
+  const titleSpread = run.results
+    .map((result) => ({ state: result.state, viewport: result.viewport, sizes: [...new Set((result.title_sizes || []).map(sizeOf))] }))
+    .filter((result) => result.sizes.length > 1);
+  gates.push(...titleSpread.map((result) => ({ gate: "one-display-size-per-view", ...result })));
+
+  const capsEntries = run.results.flatMap((result) => result.caps || []);
+  const capsSizes = [...new Set(capsEntries.map(sizeOf))];
+  if (capsSizes.length > 1) gates.push({ gate: "one-caps-size", found: capsSizes });
+  const capsTracking = [...new Set(capsEntries.map((entry) => entry.split("|")[1]))];
+  if (capsTracking.length > 1) gates.push({ gate: "one-caps-tracking", found: capsTracking });
+
+  // Each family of screens is one page with one content column: the page
+  // family (upload, run, setup) shares an edge, and so does the studio family.
+  const FAMILY = {
+    "empty-upload": "page",
+    "staged-file": "page",
+    "processing-mid-run": "page",
+    "processing-error": "page",
+    "setup-missing-runtime": "page",
+    "results-6-clips": "studio",
+    "results-rejected-expanded": "studio",
+    "clip-detail-restyle": "studio",
+    "review-theater": "studio",
+    "review-done": "studio",
+    "library-open": "studio",
+  };
+  const edges = {};
+  for (const result of run.results) {
+    if (result.text_left == null) continue;
+    const family = FAMILY[result.state] || "other";
+    const key = `${family}@${result.viewport}`;
+    edges[key] = edges[key] || {};
+    edges[key][result.text_left] = (edges[key][result.text_left] || []).concat(result.state);
+  }
+  // Edges are reported, not gated: a card's inset text and a drawer's own
+  // column are legitimate differences, so the machine lists them and a person
+  // decides which ones are drift.
+  const edgeReport = Object.entries(edges)
+    .map(([key, lefts]) => ({ where: key, found: Object.keys(lefts).map(Number).sort((a, b) => a - b).map((value) => `${value}:${[...new Set(lefts[String(value)])].join("/")}`) }))
+    .filter((entry) => entry.found.length > 1);
+
+  const unmarked = run.results.flatMap((result) => (result.library_rows || []).filter((row) => !row.marked).map((row) => ({ gate: "every-library-row-marked", state: result.state, viewport: result.viewport, row: row.row })));
+  gates.push(...unmarked);
+
   const summary = {
     radius: table(run.values.radius),
     fontSizes: table(run.values.fontSizes),
@@ -275,6 +380,8 @@ async function main() {
     values: summary,
     overflow: { failing_states: overflow, count: overflow.length },
     clipped_text: { count: clippedText.length, items: clippedText },
+    gates: { count: gates.length, failing: gates },
+    edges: edgeReport,
   };
 
   await writeFile(OUT, `${JSON.stringify(report, null, 2)}\n`);
@@ -293,9 +400,15 @@ async function main() {
   for (const item of clippedText.slice(0, 8)) {
     console.log(`  ${item.state}@${item.viewport} ${item.selector} +${item.delta}px "${item.text.slice(0, 50)}"`);
   }
+  console.log(`system gates: ${report.gates.count} failing`);
+  for (const gate of report.gates.failing.slice(0, 12)) {
+    const where = gate.state ? `${gate.state}@${gate.viewport}` : "";
+    console.log(`  ${gate.gate} ${where} ${JSON.stringify(gate.found || gate.sizes || gate.row || "")}`);
+  }
+  if (report.gates.count > 12) console.log(`  ... ${report.gates.count - 12} more in checks.json`);
   console.log(`report: ${OUT}`);
 
-  if (strict && (report.wcag.count > 0 || report.overflow.count > 0)) process.exitCode = 1;
+  if (strict && (report.wcag.count > 0 || report.overflow.count > 0 || report.gates.count > 0)) process.exitCode = 1;
 }
 
 await main();
