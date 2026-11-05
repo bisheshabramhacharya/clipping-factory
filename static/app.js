@@ -33,7 +33,6 @@
     library: '<path d="M5 4.5h3v15H5zM10.9 4.5h3v15h-3zM17.2 5.3l2.8.9-3.9 12.1-2.8-.9z"/>',
     play: '<path d="M8.7 5.7l9.8 6.3-9.8 6.3z"/>',
     pause: '<path d="M9 5.5v13M15 5.5v13"/>',
-    transcript: '<path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h9"/>',
     caption: '<path d="M3.5 6h17v9.5h-17zM7 11.6h3.4M12.6 11.6h4.4"/>',
     style: '<path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"/>',
     font: '<path d="M6 19L11.6 5 17.2 19M8.4 13.8h6.4"/>',
@@ -42,6 +41,12 @@
     check: '<path d="M5 12.6l4.5 4.6L19 6.9"/>',
     cross: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
     chevron: '<path d="M9.5 6l6 6-6 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    ai: '<path d="M9 3.5v4.5M15 3.5v4.5M6.8 8h10.4v2.8a5.2 5.2 0 0 1-10.4 0zM12 16v4.5"/>',
+    review: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M10.5 9.5l4.5 2.5-4.5 2.5z"/>',
+    copy: '<rect x="9" y="9" width="10.5" height="10.5" rx="1.5"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H5.5A1.5 1.5 0 0 0 4 5v8.5A1.5 1.5 0 0 0 5.5 15H6"/>',
+    trash: '<path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l.9 12h9.2l.9-12M10 10.5v5M14 10.5v5"/>',
+    working: '<circle cx="12" cy="12" r="3.2"/>',
   };
 
   function icon(name, size = 16) {
@@ -161,6 +166,8 @@
     actionMessageKind = null;
     banner.classList.add("hidden");
   }
+
+  let errorCopyText = "";
 
   function accentLabel(color) {
     const normalized = String(color || "").toUpperCase();
@@ -775,7 +782,7 @@
         : styling
           ? "Caption update is applying — wait for it to finish."
           : `Delete ${name} from this computer`;
-      del.appendChild(icon("cross"));
+      del.appendChild(icon("trash"));
       del.addEventListener("click", () => askDelete(entry));
 
       card.appendChild(mark);
@@ -972,39 +979,60 @@
 
   function renderStages(p) {
     const wrap = $("stages");
-    // The failure renders in its own row, so lift the error block out before
-    // the list is rebuilt; without a failure it lives above the list.
     const errorBox = $("error-box");
     if (errorBox && wrap.contains(errorBox)) errorBox.remove();
     wrap.innerHTML = "";
     const failedAt = STAGE_ORDER.findIndex((name) => stageState(p, name) === "failed");
-    for (const name of STAGE_ORDER) {
+    const compact = $("processing-state").classList.contains("compact");
+    for (const [i, name] of STAGE_ORDER.entries()) {
       const rec = p.stages.find((s) => s.name === name) || {};
       const st = stageState(p, name);
+      if (failedAt >= 0 && i > failedAt) {
+        if (i === failedAt + 1) {
+          const rest = STAGE_ORDER.slice(failedAt + 1);
+          const div = document.createElement("div");
+          div.className = "step waiting-group";
+          div.setAttribute("role", "listitem");
+          div.innerHTML = `<div class="step-head"><span class="step-icon" data-state="pending"></span><strong></strong><span class="status"></span></div><span class="step-meta muted"></span>`;
+          div.querySelector(".step-icon").appendChild(icon("clock"));
+          div.querySelector("strong").textContent = `Stages ${failedAt + 2} to ${STAGE_ORDER.length}`;
+          div.querySelector(".status").textContent = `Waiting on ${STAGE_LABELS[STAGE_ORDER[failedAt]]}`;
+          div.querySelector(".step-meta").textContent = rest
+            .map((n) => STAGE_LABELS[n].replace(/^\d+\.\s*/, ""))
+            .join(" · ");
+          div.setAttribute("aria-label", `Stages ${failedAt + 2} to ${STAGE_ORDER.length} waiting on ${STAGE_LABELS[STAGE_ORDER[failedAt]]}`);
+          wrap.appendChild(div);
+        }
+        continue;
+      }
+      if (failedAt >= 0 && i === failedAt) {
+        if (!compact) {
+          const div = document.createElement("div");
+          div.className = "step failed has-error";
+          div.dataset.stage = name;
+          div.setAttribute("role", "listitem");
+          if (errorBox) div.appendChild(errorBox);
+          wrap.appendChild(div);
+        }
+        continue;
+      }
       const div = document.createElement("div");
       div.className = `step ${st === "pending" ? "" : st}`;
       div.dataset.stage = name;
       div.setAttribute("role", "listitem");
-      const failedName = failedAt >= 0 ? STAGE_ORDER[failedAt] : null;
-      const waiting = failedName ? `Waiting on ${STAGE_LABELS[failedName]}` : "Waiting";
       const status =
-        st === "failed" ? "Failed" :
         st === "done" ? (name === "inspecting" ? "Done" : (rec.detail || "Done")) :
-        st === "active" ? (rec.detail || "Working…") : waiting;
+        st === "active" ? (rec.detail || "Working…") : "";
       div.innerHTML = `<div class="step-head"><span class="step-icon"></span><strong></strong><span class="status"></span></div>` +
         (st === "active"
           ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
           : "");
       const stepIcon = div.querySelector(".step-icon");
       stepIcon.dataset.state = st;
-      stepIcon.appendChild(icon(st === "done" ? "check" : st === "failed" ? "cross" : st === "active" ? "play" : "clock"));
+      stepIcon.appendChild(icon(st === "done" ? "check" : st === "failed" ? "cross" : st === "active" ? "working" : "clock"));
       div.querySelector("strong").textContent = STAGE_LABELS[name];
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
-      if (st === "failed") {
-        div.classList.add("has-error");
-        if (errorBox) div.appendChild(errorBox);
-      }
       wrap.appendChild(div);
     }
     if (errorBox && !errorBox.closest(".step")) $("error-slot").appendChild(errorBox);
@@ -1145,23 +1173,55 @@
       ? "Retrying…"
       : p.status === "cancelled" ? "Retry processing" : "Retry stage";
     $("processing-state").classList.toggle("errored", !box.classList.contains("hidden"));
+    const kicker = $("error-kicker");
+    const detailRow = $("error-detail-row");
     if (p.status === "failed") {
       const failedStage = p.stages.find((s) => s.error);
       const failure = splitFailure(p.error, failedStage);
+      kicker.textContent = failedStage ? STAGE_LABELS[failedStage.name] : "Processing";
       $("error-stage").textContent = failedStage
         ? FAILURE_CAUSES[failedStage.name] || "Processing failed"
         : "Processing failed";
       $("error-text").textContent = failure.next;
       $("error-detail").textContent = failure.detail;
+      detailRow.classList.toggle("hidden", !failure.detail);
+      errorCopyText = [kicker.textContent, String(p.error || failure.detail || "").trim()]
+        .filter(Boolean)
+        .join("\n");
       box.classList.remove("hidden");
     } else if (p.status === "cancelled") {
+      kicker.textContent = "";
       $("error-stage").textContent = "Cancelled";
       $("error-text").textContent = "Processing was stopped. Completed clips are kept. Retry resumes from the last completed stage.";
       $("error-detail").textContent = "";
+      detailRow.classList.add("hidden");
+      errorCopyText = "";
       box.classList.remove("hidden");
     } else {
+      errorCopyText = "";
       box.classList.add("hidden");
     }
+  }
+
+  async function copyError() {
+    const text = errorCopyText;
+    if (!text) return;
+    const button = $("copy-error-btn");
+    const label = button.querySelector(".copy-label");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const fallback = document.createElement("textarea");
+      fallback.value = text;
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      document.body.appendChild(fallback);
+      fallback.select();
+      document.execCommand("copy");
+      fallback.remove();
+    }
+    label.textContent = "Copied";
+    setTimeout(() => { label.textContent = "Copy details"; }, 1600);
   }
 
   // Highest validator score first; scoreless rows (caption-only, old
@@ -1170,6 +1230,19 @@
     return clips.slice().sort((a, b) =>
       (typeof b.score === "number" ? b.score : -Infinity) -
       (typeof a.score === "number" ? a.score : -Infinity));
+  }
+
+  function scoreLockup(score) {
+    const lockup = document.createElement("span");
+    lockup.className = "score";
+    const value = document.createElement("span");
+    value.className = "score-value";
+    value.textContent = score.toFixed(1);
+    const scale = document.createElement("span");
+    scale.className = "score-scale";
+    scale.textContent = `/${SCORE_MAX}`;
+    lockup.append(value, scale);
+    return lockup;
   }
 
   function renderResults(p) {
@@ -1215,7 +1288,7 @@
     const active = isProcessing(p.status);
     const restyleBusy = Object.values(restyleState).some((state) => state.busy);
     newProject.disabled = cancellationPending || restyleBusy;
-    newProject.textContent = restyleBusy
+    $("new-project-label").textContent = restyleBusy
       ? "Applying captions…"
       : active
       ? cancellationPending ? "Cancelling…" : "Cancel & start over"
@@ -1285,9 +1358,12 @@
         d.className = "rejected-item";
         d.innerHTML = `<div class="rejected-head"></div><div class="rejected-meta"></div><div class="reasons"></div>`;
         d.querySelector(".rejected-head").textContent = `“${r.headline || "(untitled)"}”`;
-        d.querySelector(".rejected-meta").textContent =
-          `${fmtMs(r.start_ms)} – ${fmtMs(r.end_ms)}` +
-          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}/${SCORE_MAX}` : "");
+        const meta = d.querySelector(".rejected-meta");
+        meta.textContent = `${fmtMs(r.start_ms)} – ${fmtMs(r.end_ms)}`;
+        if (typeof r.score === "number") {
+          meta.append(" · score ");
+          meta.appendChild(scoreLockup(r.score));
+        }
         const reasons = d.querySelector(".reasons");
         for (const reason of r.reasons || []) {
           const line = document.createElement("div");
@@ -1346,20 +1422,8 @@
       const rank = document.createElement("span");
       rank.className = "rail-rank";
       rank.textContent = captionOnly ? "Full video" : String(c.rank).padStart(2, "0");
-      const facts = document.createElement("span");
-      facts.className = "rail-facts";
-      if (typeof c.score === "number") {
-        const score = document.createElement("span");
-        score.className = "rail-score";
-        score.textContent = c.score.toFixed(1);
-        facts.appendChild(score);
-        const scale = document.createElement("span");
-        scale.className = "rail-scale";
-        scale.textContent = `/${SCORE_MAX}`;
-        facts.appendChild(scale);
-      }
       line.appendChild(rank);
-      line.appendChild(facts);
+      if (typeof c.score === "number") line.appendChild(scoreLockup(c.score));
       if (c.duration_ms) {
         const meta = document.createElement("span");
         meta.className = "rail-meta";
@@ -1467,6 +1531,8 @@
 
     const preview = document.createElement("div");
     preview.className = "preview";
+    const player = document.createElement("div");
+    player.className = "player";
     if (c.status === "ready") {
       const v = document.createElement("video");
       v.controls = true;
@@ -1502,7 +1568,8 @@
           }
         }, { once: true });
       }
-      preview.appendChild(v);
+      player.appendChild(v);
+      preview.appendChild(player);
     } else if (c.status === "rendering") {
       preview.innerHTML = `<div class="rendering-note"><span class="spinner"></span><span>Rendering…</span></div>`;
     } else if (c.status === "failed") {
@@ -1513,18 +1580,16 @@
 
     const head = document.createElement("div");
     head.className = "clip-head";
-    head.innerHTML = `<span class="rank"></span><span class="clip-lockup"><span class="clip-score"></span><span class="clip-scale"></span></span>`;
+    head.innerHTML = `<span class="rank"></span><span class="clip-lockup"><span class="score"><span class="score-value"></span><span class="score-scale"></span></span></span>`;
     const captionOnly = view.caption_only === true;
     const badges = [];
     if (c.low_confidence) badges.push(`<span class="badge warn">unclear audio</span>`);
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     head.querySelector(".rank").textContent = clipRankText(c);
-    const scoreEl = head.querySelector(".clip-score");
-    const scaleEl = head.querySelector(".clip-scale");
     if (typeof c.score === "number") {
-      scoreEl.textContent = c.score.toFixed(1);
-      scaleEl.textContent = `/${SCORE_MAX}`;
+      head.querySelector(".score-value").textContent = c.score.toFixed(1);
+      head.querySelector(".score-scale").textContent = `/${SCORE_MAX}`;
     } else {
       head.querySelector(".clip-lockup").remove();
     }
@@ -1556,7 +1621,7 @@
     const whySummary = body.querySelector(".why-wrap summary");
     const whyChevron = icon("chevron");
     whyChevron.classList.add("chev");
-    whySummary.append(icon("transcript"), document.createTextNode("Why this clip"), whyChevron);
+    whySummary.append(document.createTextNode("Why this clip"), whyChevron);
     body.querySelector(".why").textContent = clipWhyText(c);
     if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
@@ -1600,10 +1665,12 @@
     const scroll = document.createElement("div");
     scroll.className = "inspector-scroll";
     let footer = null;
+    let syncPreview = null;
     if (c.status === "ready") {
       const restyle = restyleControls(c);
       scroll.appendChild(restyle.panel);
       footer = restyle.footer;
+      syncPreview = restyle.syncPreview;
     }
     scroll.appendChild(body);
     scroll.appendChild(actions);
@@ -1612,6 +1679,7 @@
 
     row.appendChild(preview);
     row.appendChild(inspector);
+    if (syncPreview) syncPreview();
     return row;
   }
 
@@ -1878,6 +1946,54 @@
     status.setAttribute("aria-live", "polite");
     status.tabIndex = -1;
 
+    const draftPreview = document.createElement("div");
+    draftPreview.className = "caption-draft";
+    draftPreview.hidden = true;
+    const draftLabel = document.createElement("span");
+    draftLabel.className = "caption-draft-label";
+    draftLabel.textContent = "Preview";
+    const draftText = document.createElement("span");
+    draftText.className = "caption-draft-text";
+    draftPreview.append(draftLabel, draftText);
+
+    function syncDraftPreview() {
+      const frame = box.closest(".clip")?.querySelector(".preview .player");
+      if (!frame) return;
+      if (draftPreview.parentElement !== frame) frame.appendChild(draftPreview);
+      const words = [];
+      let length = 0;
+      for (const word of String(state.draft.text || "").split(/\s+/).filter(Boolean)) {
+        if (words.length >= 9 || (length && length + word.length > 46)) break;
+        words.push(word);
+        length += word.length + 1;
+      }
+      const visualDirty =
+        state.draft.style !== applied.style ||
+        state.draft.color !== applied.color ||
+        state.draft.font !== applied.font ||
+        state.draft.textPresent !== applied.textPresent ||
+        (state.draft.textPresent && state.draft.text !== applied.text);
+      const show = Boolean(visualDirty && words.length);
+      draftPreview.hidden = !show;
+      frame.classList.toggle("is-previewing", show);
+      if (!show) return;
+      draftPreview.dataset.style = state.draft.style;
+      draftPreview.style.setProperty("--accent", state.draft.color);
+      if (state.draft.font && state.draft.font !== "Inter") {
+        draftPreview.style.fontFamily = `"${state.draft.font}"`;
+      } else {
+        draftPreview.style.removeProperty("font-family");
+      }
+      draftText.textContent = "";
+      words.forEach((word, i) => {
+        if (i) draftText.append(" ");
+        const span = document.createElement("span");
+        if (i === words.length - 1) span.className = "caption-draft-accent";
+        span.textContent = word;
+        draftText.appendChild(span);
+      });
+    }
+
     function sync() {
       state.dirty = captionBundleChanged(state.draft, applied);
       if (!state.dirty && state.kind === "dirty") {
@@ -1898,7 +2014,7 @@
       customPicker.classList.toggle("active", customSelected);
       custom.value = customSelected ? state.draft.color : "#E9E9E9";
       customDot.style.background = customSelected ? state.draft.color : "#E9E9E9";
-      customDot.style.setProperty("--check", readableOn(state.draft.color));
+      customDot.style.setProperty("--check", readableOn(customSelected ? state.draft.color : "#E9E9E9"));
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
@@ -1913,6 +2029,7 @@
       if (hadFocus && apply.hidden) status.focus();
       status.className = `small restyle-status ${state.kind || ""}`;
       status.textContent = state.message || (state.dirty ? "Unsaved changes" : "No changes");
+      syncDraftPreview();
       syncPrimaryState();
     }
 
@@ -1999,7 +2116,7 @@
     box.appendChild(section("Extras", toggles));
     box.appendChild(textWrap);
     sync();
-    return { panel: box, footer };
+    return { panel: box, footer, syncPreview: syncDraftPreview };
   }
 
   // ------------------------------------------------------------------ elapsed
@@ -2321,6 +2438,7 @@
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
     $("error-exit").addEventListener("click", () => resetToEmpty());
+    $("copy-error-btn").addEventListener("click", copyError);
     $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);

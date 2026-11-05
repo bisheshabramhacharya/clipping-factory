@@ -149,13 +149,14 @@
     if (item.rank) meta.append(`${item.rank} `);
     if (item.score) {
       const lockup = document.createElement("span");
-      lockup.className = "review-score";
-      const score = document.createElement("b");
+      lockup.className = "score";
+      const score = document.createElement("span");
+      score.className = "score-value";
       score.textContent = item.score;
       lockup.append(score);
       if (item.scoreScale) {
         const scale = document.createElement("span");
-        scale.className = "review-scale";
+        scale.className = "score-scale";
         scale.textContent = item.scoreScale;
         lockup.append(scale);
       }

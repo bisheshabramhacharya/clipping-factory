@@ -15,10 +15,10 @@
       </div>
       <div class="header-actions">
         <button id="library-btn" type="button" aria-controls="library-drawer" aria-expanded="false">
-          <span data-icon="library"></span> Library <span id="library-count" class="count hidden"></span>
+          <span data-icon="library"></span>Library <span id="library-count" class="count hidden"></span>
         </button>
         <button id="ai-btn" class="ghost" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
-          <span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
+          <span data-icon="ai"></span><span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
         </button>
       </div>
     </header>
@@ -174,9 +174,16 @@
         </div>
         <div id="error-slot"><div id="error-box" class="error hidden" role="alert" aria-live="assertive">
           <div class="error-body">
-            <p class="error-cause"><span class="error-mark" data-icon="cross" data-icon-size="20"></span><strong id="error-stage"></strong></p>
-            <p id="error-text" class="error-next"></p>
-            <p id="error-detail" class="error-detail"></p>
+            <span class="error-mark" data-icon="cross" data-icon-size="20"></span>
+            <div class="error-copy">
+              <p id="error-kicker" class="error-kicker"></p>
+              <strong id="error-stage" class="error-cause"></strong>
+              <p id="error-text" class="error-next"></p>
+              <div id="error-detail-row" class="error-detail-row">
+                <p id="error-detail" class="error-detail"></p>
+                <button id="copy-error-btn" class="copy-error" type="button"><span data-icon="copy"></span><span class="copy-label">Copy details</span></button>
+              </div>
+            </div>
           </div>
           <div class="error-actions">
             <div class="error-action">
@@ -213,9 +220,9 @@
             <p class="muted small" id="results-sub"></p>
           </div>
           <div class="results-actions">
-            <button id="open-folder-btn" type="button"><span data-icon="folder"></span> Open folder</button>
-            <button id="new-project-btn" type="button">New project</button>
-            <button id="review-clips-btn" type="button" hidden><span id="review-clips-label">Review clips</span> <kbd>R</kbd></button>
+            <button id="open-folder-btn" type="button"><span data-icon="folder"></span>Open folder</button>
+            <button id="new-project-btn" type="button"><span data-icon="plus"></span><span id="new-project-label">New project</span></button>
+            <button id="review-clips-btn" type="button" hidden><span data-icon="review"></span><span id="review-clips-label">Review clips</span> <kbd>R</kbd></button>
           </div>
         </div>
         <div class="studio">
@@ -331,15 +338,15 @@
       <div class="review-copy">
         <p id="review-meta" class="review-meta"></p>
         <h2 id="review-title"></h2>
-        <span id="review-caption-label" class="review-label" hidden><span data-icon="transcript"></span>Transcript</span>
+        <span id="review-caption-label" class="review-label" hidden>Transcript</span>
         <p id="review-caption" hidden></p>
         <button id="review-caption-more" class="review-more" type="button" hidden>Show full transcript</button>
         <span class="review-label">Why this clip</span>
         <p id="review-reason"></p>
         <div class="review-decisions">
-          <button type="button" data-review-decision="keep"><kbd>1</kbd><span data-icon="keep"></span>Keep</button>
-          <button type="button" data-review-decision="maybe"><kbd>2</kbd><span data-icon="maybe"></span>Maybe</button>
-          <button type="button" data-review-decision="skip"><kbd>3</kbd><span data-icon="skip"></span>Skip</button>
+          <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
+          <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
+          <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
         </div>
         <p class="review-kbd"><kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> play</p>
       </div>

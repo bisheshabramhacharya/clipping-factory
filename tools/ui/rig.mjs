@@ -96,6 +96,16 @@ async function openRejected(page) {
   });
 }
 
+// A person partway through a review has decided some clips. The capture shows
+// one decided row so the decision's own treatment is visible without anyone
+// having to guess that it exists.
+async function markOneDecided(page) {
+  await page.locator(".rail-row").first().waitFor({ timeout: 10_000 });
+  const keep = page.locator(".rail-row").nth(1).locator('.rail-triage-btn:has-text("Keep")').first();
+  await keep.click();
+  await page.waitForTimeout(150);
+}
+
 async function openTheater(page) {
   await page.locator("#review-clips-btn").click();
   await page.waitForSelector("#review-theater:not([hidden])");
@@ -133,6 +143,7 @@ const ACTIONS = {
   "staged-file": setStagedFile,
   "review-theater": openTheater,
   "review-done": finishReview,
+  "results-6-clips": markOneDecided,
   "results-rejected-expanded": openRejected,
   "library-open": openLibrary,
   "clip-detail-restyle": openRestyle,
