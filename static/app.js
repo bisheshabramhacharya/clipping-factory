@@ -13,6 +13,16 @@
     rendering: "7. Render",
   };
   const STAGE_ORDER = Object.keys(STAGE_LABELS);
+  const SCORE_MAX = 40;
+  const FAILURE_CAUSES = {
+    inspecting: "Could not read the video",
+    extracting_audio: "Could not extract the audio",
+    transcribing: "Transcription failed",
+    selecting_candidates: "Finding clips failed",
+    validating_candidates: "Checking clips failed",
+    analyzing_layout: "Framing analysis failed",
+    rendering: "Rendering clips failed",
+  };
 
   const PROJECT_ID_RE = /^[0-9a-f]{10}$/;
   const restoredProjectId = localStorage.getItem("cf-project");
@@ -682,9 +692,12 @@
         fact.textContent = bit;
         meta.appendChild(fact);
       }
-      open.appendChild(nameEl);
-      if (stateEl) open.appendChild(stateEl);
-      open.appendChild(meta);
+      const main = document.createElement("span");
+      main.className = "library-main";
+      main.appendChild(nameEl);
+      if (stateEl) main.appendChild(stateEl);
+      main.appendChild(meta);
+      open.appendChild(main);
       open.addEventListener("click", () => openProject(entry.id));
 
       const del = document.createElement("button");
@@ -703,17 +716,6 @@
 
       card.appendChild(mark);
       card.appendChild(open);
-      {
-        const go = document.createElement("button");
-        go.type = "button";
-        go.className = "library-go";
-        const retry = entry.status === "failed";
-        go.textContent = retry ? "Retry" : "Open";
-        go.setAttribute("aria-label", `${retry ? "Retry" : "Open"} ${name}`);
-        if (isOpen) go.setAttribute("aria-current", "page");
-        go.addEventListener("click", () => openProject(entry.id));
-        card.appendChild(go);
-      }
       card.appendChild(del);
       list.appendChild(card);
     }
@@ -1051,9 +1053,21 @@
     }
   }
 
+  function splitFailure(message, stage) {
+    const text = String(message || "").trim();
+    const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const instruction = parts.find((part) =>
+      /^(check|try|retry|reinstall|install|make sure|ensure|free|close|open|restart|run|choose|pick|download)\b/i.test(part));
+    let detail = parts.filter((part) => part !== instruction).join(" ");
+    detail = detail.replace(/^[^:]{2,60}\bfailed:\s*/i, "");
+    return {
+      next: instruction || "Retry the stage. If it fails again, start over with another file.",
+      detail: (stage && stage.error) ? String(stage.error).trim() : detail,
+    };
+  }
+
   function renderError(p) {
     const box = $("error-box");
-    const clips = view.clips || [];
     const retryButton = $("retry-btn");
     retryButton.disabled = retryPending;
     retryButton.textContent = retryPending
@@ -1062,14 +1076,17 @@
     $("processing-state").classList.toggle("errored", !box.classList.contains("hidden"));
     if (p.status === "failed") {
       const failedStage = p.stages.find((s) => s.error);
+      const failure = splitFailure(p.error, failedStage);
       $("error-stage").textContent = failedStage
-        ? `${STAGE_LABELS[failedStage.name] || failedStage.name} failed`
+        ? FAILURE_CAUSES[failedStage.name] || "Processing failed"
         : "Processing failed";
-      $("error-text").textContent = p.error || "Processing failed. Try again or choose another MP4.";
+      $("error-text").textContent = failure.next;
+      $("error-detail").textContent = failure.detail;
       box.classList.remove("hidden");
     } else if (p.status === "cancelled") {
       $("error-stage").textContent = "Cancelled";
       $("error-text").textContent = "Processing was stopped. Completed clips are kept. Retry resumes from the last completed stage.";
+      $("error-detail").textContent = "";
       box.classList.remove("hidden");
     } else {
       box.classList.add("hidden");
@@ -1100,6 +1117,12 @@
     if (!showResults) return;
 
     const total = clips.length;
+    const reviewLabel = $("review-clips-label");
+    if (reviewLabel) {
+      reviewLabel.textContent = ready.length
+        ? `Review ${ready.length} clip${ready.length === 1 ? "" : "s"}`
+        : "Review clips";
+    }
     if (view.caption_only === true) {
       $("results-title").textContent = p.status === "complete"
         ? "Captioned video ready"
@@ -1193,7 +1216,7 @@
         d.querySelector(".rejected-head").textContent = `“${r.headline || "(untitled)"}”`;
         d.querySelector(".rejected-meta").textContent =
           `${fmtMs(r.start_ms)} – ${fmtMs(r.end_ms)}` +
-          (typeof r.score === "number" ? ` · ${r.score.toFixed(1)}` : "");
+          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)} / ${SCORE_MAX}` : "");
         const reasons = d.querySelector(".reasons");
         for (const reason of r.reasons || []) {
           const line = document.createElement("div");
@@ -1218,16 +1241,6 @@
     if (id === selectedClipId || !view) return;
     selectedClipId = id;
     renderResults(view.project);
-  }
-
-  // Rail titles are scannable entries, so a long headline is cut at a word
-  // boundary rather than by the line clamp, which can end a title mid-word.
-  function railHeadline(text) {
-    const value = String(text || "").trim();
-    if (value.length <= 104) return value;
-    const cut = value.slice(0, 104);
-    const at = cut.lastIndexOf(" ");
-    return (at > 52 ? cut.slice(0, at) : cut).replace(/[\s,;:.\-]+$/, "") + "…";
   }
 
   // Left rail: one compact card per clip — poster, rank, headline, score.
@@ -1282,8 +1295,8 @@
       line.appendChild(facts);
       const title = document.createElement("span");
       title.className = "rail-title";
-      title.textContent = captionOnly ? "Captioned video" : railHeadline(c.headline);
-      title.title = captionOnly ? "Captioned video" : c.headline;
+      title.textContent = captionOnly ? "Captioned video" : String(c.headline || "");
+      title.title = captionOnly ? "Captioned video" : String(c.headline || "");
       text.appendChild(line);
       text.appendChild(title);
       b.appendChild(thumb);
@@ -1323,8 +1336,21 @@
     return c.rank === 1 ? "Best clip" : `Clip ${c.rank}`;
   }
 
+  function clipDisplayTitle(c) {
+    const raw = String(c.headline || "").trim();
+    if (!/(…|\.\.\.)$/.test(raw)) return raw;
+    const stem = raw.replace(/[\s…]+$/, "").replace(/\.\.\.$/, "").trim();
+    const text = String(c.caption_text || "");
+    const at = text.indexOf(stem);
+    if (at < 0) return raw;
+    const rest = text.slice(at + stem.length);
+    const end = rest.search(/[.!?](?=\s|$)/);
+    if (end < 0) return raw;
+    return `${stem}${rest.slice(0, end + 1)}`;
+  }
+
   function clipTitleText(c) {
-    return view.caption_only === true ? "Captioned video" : c.headline;
+    return view.caption_only === true ? "Captioned video" : String(c.headline || "");
   }
 
   function clipWhyText(c) {
@@ -1390,16 +1416,22 @@
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
     body.innerHTML = `
-      <div class="clip-head"><div class="rank"></div><span class="clip-score"></span></div>
+      <div class="clip-head"><span class="rank"></span><span class="clip-score"></span><span class="clip-scale"></span></div>
       <h3></h3>
       <div class="ledger"></div>
       <div class="badges">${badges.join("")}</div>
       <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
-    body.querySelector(".rank").textContent = clipRankText(c);
+    body.querySelector(".rank").textContent = `${clipRankText(c)} `;
     const scoreEl = body.querySelector(".clip-score");
-    if (typeof c.score === "number") scoreEl.textContent = c.score.toFixed(1);
-    else scoreEl.remove();
-    body.querySelector("h3").textContent = clipTitleText(c);
+    const scaleEl = body.querySelector(".clip-scale");
+    if (typeof c.score === "number") {
+      scoreEl.textContent = `${c.score.toFixed(1)} `;
+      scaleEl.textContent = `/ ${SCORE_MAX}`;
+    } else {
+      scoreEl.remove();
+      scaleEl.remove();
+    }
+    body.querySelector("h3").textContent = captionOnly ? "Captioned video" : clipDisplayTitle(c);
     const ledger = body.querySelector(".ledger");
     const rows = captionOnly
       ? [["Length", fmtMs(c.duration_ms)]]
@@ -1800,7 +1832,18 @@
     const textWrap = document.createElement("details");
     textWrap.className = "caption-text-wrap";
     const textSummary = document.createElement("summary");
-    textSummary.textContent = "Edit text";
+    const textLabel = document.createElement("span");
+    textLabel.textContent = "Caption";
+    const textMore = document.createElement("span");
+    textMore.className = "caption-more";
+    const moreClosed = document.createElement("span");
+    moreClosed.className = "when-closed";
+    moreClosed.textContent = "Show full text";
+    const moreOpen = document.createElement("span");
+    moreOpen.className = "when-open";
+    moreOpen.textContent = "Hide";
+    textMore.append(moreClosed, moreOpen);
+    textSummary.append(textLabel, textMore);
     textWrap.appendChild(textSummary);
     textWrap.appendChild(captionText);
     const footer = document.createElement("div");
@@ -1810,9 +1853,9 @@
 
     const scroll = document.createElement("div");
     scroll.className = "restyle-scroll";
-    scroll.appendChild(section("Captions", seg, swatches, fontPicker));
-    scroll.appendChild(section("Extras", toggles));
     scroll.appendChild(textWrap);
+    scroll.appendChild(section("Style", seg, swatches, fontPicker));
+    scroll.appendChild(section("Extras", toggles));
     box.appendChild(scroll);
     box.appendChild(footer);
     sync();
@@ -2079,9 +2122,11 @@
         player,
         key: apiPath("projects", projectId, "clips", c.id),
         title: clipTitleText(c),
+        fullTitle: view.caption_only === true ? "Captioned video" : clipDisplayTitle(c),
         rank: clipRankText(c),
         reason: clipWhyText(c) || "",
         score: typeof c.score === "number" ? c.score.toFixed(1) : "",
+        scoreScale: `/ ${SCORE_MAX}`,
         caption: c.caption_text || "",
         downloadHref: apiPath("projects", projectId, "clips", c.id, "download"),
         downloadName: c.filename || "",

@@ -122,7 +122,6 @@
       video.src = item.player.src;
     }
     title.textContent = item.title;
-    theater.classList.toggle("best", item.rank === "Best clip");
     const captionText = item.caption || "";
     caption.textContent = captionText;
     caption.hidden = !captionText;
@@ -136,11 +135,20 @@
       });
     }
     meta.textContent = "";
-    if (item.rank) meta.append(item.rank);
+    if (item.rank) meta.append(`${item.rank} `);
     if (item.score) {
+      const lockup = document.createElement("span");
+      lockup.className = "review-score";
       const score = document.createElement("b");
-      score.textContent = item.score;
-      meta.append(score);
+      score.textContent = `${item.score} `;
+      lockup.append(score);
+      if (item.scoreScale) {
+        const scale = document.createElement("span");
+        scale.className = "review-scale";
+        scale.textContent = item.scoreScale;
+        lockup.append(scale);
+      }
+      meta.append(lockup);
     }
     theater.classList.toggle("decided", Boolean(decisions[item.key]));
     reason.textContent = item.reason;
@@ -236,8 +244,8 @@
       const row = document.createElement("button");
       row.type = "button";
       row.className = "review-done-row";
-      row.textContent = item.title;
-      row.setAttribute("aria-label", `Open clip: ${item.title}`);
+      row.textContent = item.fullTitle || item.title;
+      row.setAttribute("aria-label", `Open clip: ${item.fullTitle || item.title}`);
       row.addEventListener("click", () => {
         hideDone();
         index = items.indexOf(item);

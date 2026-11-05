@@ -177,6 +177,7 @@
           <div class="error-body">
             <strong id="error-stage" class="error-cause"></strong>
             <p id="error-text" class="error-next"></p>
+            <p id="error-detail" class="error-detail"></p>
           </div>
           <div class="error-actions">
             <button id="retry-btn" class="primary" type="button">Retry stage</button>
@@ -209,12 +210,12 @@
           <div class="results-actions">
             <button id="open-folder-btn" type="button">Open folder</button>
             <button id="new-project-btn" type="button">New project</button>
-            <button id="review-clips-btn" type="button" hidden>Review clips <kbd>R</kbd></button>
+            <button id="review-clips-btn" type="button" hidden><span id="review-clips-label">Review clips</span> <kbd>R</kbd></button>
           </div>
         </div>
         <div class="studio">
           <nav class="clip-rail" aria-label="Clips">
-            <div class="rail-head"><span class="rail-head-label">Clips <span id="rail-count" class="rail-head-count"></span></span><span class="rail-legend" aria-hidden="true"><span>Score</span><span>Length</span></span></div>
+            <div class="rail-head"><span class="rail-head-label">Clips <span id="rail-count" class="rail-head-count"></span></span><span class="rail-legend" aria-hidden="true"><span>Score / 40</span><span>Length</span></span></div>
             <div id="clip-rail-list" class="clip-rail-list"></div>
             <details id="rejected-details" class="rejected hidden">
               <summary>Rejected</summary>
