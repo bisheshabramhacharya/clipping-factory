@@ -117,6 +117,16 @@
   }
 
   // ------------------------------------------------------------------ setup
+  let setupProblems = 0;
+
+  // Missing setup makes the setup itself the page: the drop box steps aside
+  // until the machine can actually run a project.
+  function syncSetupState() {
+    const blocked = setupProblems > 0 && !projectId;
+    $("setup-state").classList.toggle("hidden", !blocked);
+    $("upload-state").classList.toggle("hidden", blocked || !!projectId);
+  }
+
   async function loadSetup() {
     try {
       const s = await requestJson("/api/setup", {}, "Couldn't reconnect to the local server.");
@@ -127,7 +137,7 @@
       if (!s.whisper_ok) problems.push("whisper-cli was not found. Install whisper.cpp, or set CF_WHISPER_BIN to its binary.");
       if (!s.model_ok) problems.push(`Transcription model missing (~148 MB). Download ggml-base.bin into ${s.data_dir}/models/`);
       if (s.disk_free_gb !== null && s.disk_free_gb < 2) problems.push(`Low disk space: ${s.disk_free_gb.toFixed(1)} GB free.`);
-      const banner = $("setup-banner");
+      setupProblems = problems.length;
       captionDefaultFont = s.caption_font || captionDefaultFont;
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
@@ -140,7 +150,10 @@
       if (problems.length) {
         const box = $("setup-banner-text");
         box.textContent = "";
-        $("setup-count").textContent = `${problems.length} problem${problems.length === 1 ? "" : "s"}`;
+        const words = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
+        $("setup-count").textContent = `· ${problems.length} problem${problems.length === 1 ? "" : "s"}`;
+        $("setup-title").textContent =
+          `${words[problems.length] || problems.length} thing${problems.length === 1 ? " is" : "s are"} missing`;
         for (const text of problems) {
           const row = document.createElement("div");
           row.className = "state setup-problem";
@@ -166,14 +179,12 @@
           row.appendChild(body);
           box.appendChild(row);
         }
-        banner.classList.remove("hidden");
-      } else {
-        banner.classList.add("hidden");
       }
       const choose = $("choose-btn");
       if (choose) choose.disabled = problems.length > 0;
       const blocked = $("upload-blocked");
       if (blocked) blocked.classList.toggle("hidden", problems.length === 0);
+      syncSetupState();
       clearActionMessage("reconnect");
       if (view) render();
     } catch {
@@ -307,6 +318,29 @@
   function syncStagedFile() {
     $("drop-empty").classList.toggle("hidden", !!stagedFile);
     $("drop-staged").classList.toggle("hidden", !stagedFile);
+    $("run-footer").hidden = !stagedFile;
+    updateRunSummary();
+  }
+
+  // The footer restates the run in one line so the action at its right end
+  // names what it will do instead of pointing at options above it.
+  function updateRunSummary() {
+    const style = document.querySelector('input[name="caption-style"]:checked');
+    const styleName = style ? style.parentElement.querySelector("span").textContent : "Impact";
+    const frame = document.querySelector('input[name="framing-mode"]:checked');
+    const frameName = frame && frame.value === "background" ? "Fit" : "Fill";
+    const platform = $("upload-platform");
+    const lengthName = platform && platform.selectedOptions[0]
+      ? platform.selectedOptions[0].textContent.trim() : "Any";
+    $("run-summary").innerHTML = "";
+    const parts = [[styleName, "captions"], [frameName, "framing"], [lengthName.replace(" · ", " "), ""]];
+    parts.forEach(([value, label], i) => {
+      if (i) $("run-summary").append(" · ");
+      const b = document.createElement("b");
+      b.textContent = value;
+      $("run-summary").append(b);
+      if (label) $("run-summary").append(` ${label}`);
+    });
   }
 
   function wireUploadOptions() {
@@ -358,6 +392,7 @@
         if (!input.checked) return;
         captionStyle = input.value;
         localStorage.setItem("cf-caption-style", captionStyle);
+        updateRunSummary();
       });
     }
     // Platform target is a UI pref like caption style: restore the last pick.
@@ -368,7 +403,11 @@
     }
     platformSelect.addEventListener("change", () => {
       localStorage.setItem("cf-platform", platformSelect.value);
+      updateRunSummary();
     });
+    for (const input of document.querySelectorAll('input[name="framing-mode"]')) {
+      input.addEventListener("change", updateRunSummary);
+    }
   }
 
   function uploadFile(file) {
@@ -592,14 +631,16 @@
       nameEl.textContent = name;
       const bad = entry.status === "failed" || entry.status === "cancelled";
       const working = !bad && isProcessing(entry.status);
+      // One gutter for the whole drawer: every row reserves the same mark
+      // column and every title starts at the same x.
+      const mark = document.createElement("span");
+      mark.className = "state-mark library-mark";
+      mark.dataset.kind = working ? "working" : entry.status === "failed" ? "cross" : entry.status === "cancelled" ? "dash" : "check";
+      mark.setAttribute("aria-hidden", "true");
       let stateEl = null;
       if (bad || working) {
         const state = document.createElement("span");
         state.className = "lib-state";
-        const mark = document.createElement("span");
-        mark.className = "state-mark";
-        mark.dataset.kind = working ? "working" : entry.status === "failed" ? "cross" : "dash";
-        mark.setAttribute("aria-hidden", "true");
         const body = document.createElement("span");
         body.className = "state-body";
         const cause = document.createElement("span");
@@ -621,7 +662,6 @@
           : "Open it to run it again.";
         body.appendChild(cause);
         body.appendChild(next);
-        state.appendChild(mark);
         state.appendChild(body);
         stateEl = state;
       }
@@ -648,7 +688,6 @@
       const del = document.createElement("button");
       del.type = "button";
       del.className = "library-delete";
-      del.textContent = "Delete";
       del.setAttribute("aria-label", `Delete ${name} from this computer`);
       const blocked = isProcessing(entry.status);
       const styling = isOpen && restyleBusy;
@@ -660,6 +699,7 @@
           : `Delete ${name} from this computer`;
       del.addEventListener("click", () => askDelete(entry));
 
+      card.appendChild(mark);
       card.appendChild(open);
       {
         const go = document.createElement("button");
@@ -820,7 +860,8 @@
       if (entry && entry.status !== p.status) entry.status = p.status;
     }
     renderLibrary();
-    $("upload-state").classList.toggle("hidden", !!p);
+    $("upload-state").classList.toggle("hidden", !!p || (setupProblems > 0 && !projectId));
+    $("setup-state").classList.toggle("hidden", !!p || setupProblems === 0 || !!projectId);
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     // Once clips exist the studio owns the screen; progress shrinks to a strip.
     $("processing-state").classList.toggle("compact", !!p && (view.clips || []).length > 0);
@@ -867,13 +908,16 @@
     for (const name of STAGE_ORDER) {
       const rec = p.stages.find((s) => s.name === name) || {};
       const st = stageState(p, name);
+      // The failed stage is the subject of the error block above; repeating
+      // it as a row says the same thing twice.
+      if (st === "failed") continue;
       const div = document.createElement("div");
       div.className = `step ${st === "pending" ? "" : st}`;
       div.dataset.stage = name;
       div.setAttribute("role", "listitem");
       const status =
         st === "failed" ? "Failed" :
-        st === "done" ? (rec.detail || "Done") :
+        st === "done" ? (name === "inspecting" ? "Done" : (rec.detail || "Done")) :
         st === "active" ? (rec.detail || "Working…") : "";
       div.innerHTML = `<strong>${STAGE_LABELS[name]}</strong><span class="status"></span>` +
         (st === "active"
@@ -1007,6 +1051,7 @@
     retryButton.textContent = retryPending
       ? "Retrying…"
       : p.status === "cancelled" ? "Retry processing" : "Retry stage";
+    $("processing-state").classList.toggle("errored", !box.classList.contains("hidden"));
     if (p.status === "failed") {
       const failedStage = p.stages.find((s) => s.error);
       $("error-stage").textContent = failedStage
@@ -1167,6 +1212,16 @@
     renderResults(view.project);
   }
 
+  // Rail titles are scannable entries, so a long headline is cut at a word
+  // boundary rather than by the line clamp, which can end a title mid-word.
+  function railHeadline(text) {
+    const value = String(text || "").trim();
+    if (value.length <= 104) return value;
+    const cut = value.slice(0, 104);
+    const at = cut.lastIndexOf(" ");
+    return (at > 52 ? cut.slice(0, at) : cut).replace(/[\s,;:.\-]+$/, "") + "…";
+  }
+
   // Left rail: one compact card per clip — poster, rank, headline, score.
   function renderRail(ranked) {
     const list = $("clip-rail-list");
@@ -1219,7 +1274,8 @@
       line.appendChild(facts);
       const title = document.createElement("span");
       title.className = "rail-title";
-      title.textContent = captionOnly ? "Captioned video" : c.headline;
+      title.textContent = captionOnly ? "Captioned video" : railHeadline(c.headline);
+      title.title = captionOnly ? "Captioned video" : c.headline;
       text.appendChild(line);
       text.appendChild(title);
       b.appendChild(thumb);
@@ -1467,6 +1523,8 @@
     if (!results) return;
     const dirty = Object.values(restyleState).some((s) => s.dirty && !s.busy);
     results.classList.toggle("has-dirty", dirty);
+    const review = $("review-clips-btn");
+    if (review) review.classList.toggle("primary", !dirty);
   }
 
   // The rail fade says "there is more below" only where the rejected section
@@ -1674,7 +1732,7 @@
       apply.classList.toggle("primary", !apply.disabled);
       apply.textContent = state.busy ? "Applying…" : "Apply changes";
       status.className = `small restyle-status ${state.kind || ""}`;
-      status.textContent = state.message || (state.dirty ? "" : "No changes");
+      status.textContent = state.message || (state.dirty ? "Unsaved changes" : "No changes");
       syncPrimaryState();
     }
 
@@ -2043,17 +2101,16 @@
       b.disabled = false;
       b.textContent = "Check again";
     });
-    $("rejected-details").addEventListener("toggle", (event) => {
-      if (event.target.open) {
-        const rail = document.querySelector(".clip-rail");
-        rail.scrollTop = rail.scrollHeight;
-      }
+    $("rejected-details").addEventListener("toggle", () => {
+      // Opening the section must never move the rail: the clip being worked
+      // in stays put, and the rejected block scrolls inside its own box.
       syncRailFade();
     });
     document.querySelector(".clip-rail").addEventListener("scroll", syncRailFade, { passive: true });
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);
     $("retry-btn").addEventListener("click", retry);
+    $("error-exit").addEventListener("click", () => resetToEmpty());
     $("empty-choose-btn").addEventListener("click", resetToEmpty);
     $("open-folder-btn").addEventListener("click", openFolder);
     $("new-project-btn").addEventListener("click", handleNewProject);

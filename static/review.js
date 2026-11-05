@@ -12,6 +12,7 @@
   const meta = document.getElementById("review-meta");
   const reason = document.getElementById("review-reason");
   const caption = document.getElementById("review-caption");
+  const captionLabel = document.getElementById("review-caption-label");
   const download = document.getElementById("review-download");
   const progress = document.getElementById("review-progress");
   const counts = document.getElementById("review-counts");
@@ -30,7 +31,6 @@
   const doneStats = document.getElementById("review-done-stats");
   const doneKept = document.getElementById("review-done-kept");
   const doneDownload = document.getElementById("review-done-download");
-  const doneAgain = document.getElementById("review-done-again");
   const doneClose = document.getElementById("review-done-close");
   let items = [], clipTotal = 0, index = 0, decisions = load(), lastFocused = null;
   let announced = false, toastTimer = null;
@@ -124,7 +124,15 @@
     const captionText = item.caption || "";
     caption.textContent = captionText;
     caption.hidden = !captionText;
-    meta.textContent = [item.rank, item.score].filter(Boolean).join(" · ");
+    captionLabel.hidden = !captionText;
+    meta.textContent = "";
+    if (item.rank) meta.append(item.rank);
+    if (item.score) {
+      const score = document.createElement("b");
+      score.textContent = item.score;
+      meta.append(score);
+    }
+    theater.classList.toggle("decided", Boolean(decisions[item.key]));
     reason.textContent = item.reason;
     if (item.downloadHref) {
       download.href = item.downloadHref;
@@ -142,6 +150,7 @@
       b.classList.toggle("active", selected);
       b.setAttribute("aria-pressed", String(selected));
     }
+    theater.classList.toggle("decided", Boolean(decisions[item.key]));
     if (autoplay) video.play().catch(() => {});
   }
   function showToast(text) {
@@ -214,9 +223,16 @@
     }
     doneKept.innerHTML = "";
     for (const item of kept) {
-      const row = document.createElement("div");
+      const row = document.createElement("button");
+      row.type = "button";
       row.className = "review-done-row";
       row.textContent = item.title;
+      row.setAttribute("aria-label", `Open clip: ${item.title}`);
+      row.addEventListener("click", () => {
+        hideDone();
+        index = items.indexOf(item);
+        show(true);
+      });
       doneKept.appendChild(row);
     }
     doneDownload.hidden = kept.length === 0;
@@ -250,7 +266,6 @@
   toastOpen.addEventListener("click", openReview);
   for (const b of buttons) b.addEventListener("click", () => decide(b.dataset.reviewDecision));
   doneDownload.addEventListener("click", downloadKept);
-  doneAgain.addEventListener("click", () => { hideDone(); index = 0; show(true); });
   doneClose.addEventListener("click", closeReview);
   document.addEventListener("cf-rail-rendered", paint);
 

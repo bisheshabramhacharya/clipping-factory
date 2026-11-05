@@ -24,16 +24,6 @@
     </header>
 
     <div class="banners">
-      <div id="setup-banner" class="banner hidden" role="alert" aria-live="assertive">
-        <div class="banner-line">
-          <span class="state-mark" data-kind="cross" aria-hidden="true"></span>
-          <details id="setup-details" class="banner-details">
-            <summary><strong>Setup needs attention</strong><span id="setup-count" class="banner-count"></span></summary>
-            <div id="setup-banner-text"></div>
-          </details>
-          <button id="setup-check" class="ghost" type="button">Check again</button>
-        </div>
-      </div>
       <div id="warning-banner" class="banner warn hidden" role="status" aria-live="polite"></div>
       <div id="action-banner" class="banner action hidden" role="alert" aria-live="assertive"></div>
     </div>
@@ -61,10 +51,9 @@
               <span class="staged-kicker">Ready to clip</span>
               <strong id="staged-name"></strong>
               <span id="staged-size" class="muted small"></span>
-              <p class="muted small">Pick your caption style and options below, then start.</p>
+              <p class="muted small">Set the options for this run, then make the clips.</p>
               <div class="staged-actions">
                 <button id="change-file-btn" type="button">Change video</button>
-                <button id="start-btn" class="primary" type="button">Make clips</button>
               </div>
             </div>
             <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
@@ -108,26 +97,6 @@
                 </label>
               </div>
             </div>
-            <div class="opt">
-              <span class="opt-label">Accent</span>
-              <div class="accent-row">
-                <label class="sr-only"><input type="radio" name="accent-mode" value="manual" checked>Choose a color</label>
-                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Accent color"></div>
-                <input id="upload-accent-color" type="hidden" value="#FFDD00">
-                <div class="choice-seg small-seg" role="radiogroup" aria-label="Automatic accent color">
-                  <label title="A fresh readable color"><input type="radio" name="accent-mode" value="random"><span>Random</span></label>
-                  <label title="Matched to the video"><input type="radio" name="accent-mode" value="optimized"><span>Auto</span></label>
-                </div>
-                <small id="upload-accent-hex" class="sr-only" aria-live="polite"></small>
-              </div>
-            </div>
-            <label class="opt">
-              <span class="opt-label">Language</span>
-              <select id="upload-language" aria-label="Language">
-                <option value="auto" selected>Auto-detect</option>
-              </select>
-              <small id="upload-language-note" class="sr-only"></small>
-            </label>
             <label class="opt">
               <span class="opt-label">Length</span>
               <select id="upload-platform" aria-label="Clip length">
@@ -137,11 +106,35 @@
                 <option value="shorts">Shorts · 45–60s</option>
               </select>
             </label>
+            <div class="opt opt-wide">
+              <span class="opt-label">Accent</span>
+              <div class="accent-row">
+                <div id="upload-swatches" class="upload-swatches" role="group" aria-label="Accent color"></div>
+                <input id="upload-accent-color" type="hidden" value="#FFDD00">
+                <div class="choice-seg small-seg" role="radiogroup" aria-label="Accent color mode">
+                  <label title="Pick a color from the swatches"><input type="radio" name="accent-mode" value="manual" checked><span>Custom</span></label>
+                  <label title="A fresh readable color"><input type="radio" name="accent-mode" value="random"><span>Random</span></label>
+                  <label title="Matched to the video"><input type="radio" name="accent-mode" value="optimized"><span>Auto</span></label>
+                </div>
+                <small id="upload-accent-hex" class="sr-only" aria-live="polite"></small>
+              </div>
+            </div>
+            <label class="opt opt-wide">
+              <span class="opt-label">Language</span>
+              <select id="upload-language" aria-label="Language">
+                <option value="auto" selected>Auto-detect</option>
+              </select>
+              <small id="upload-language-note" class="sr-only"></small>
+            </label>
             <label class="opt opt-wide" for="focus-prompt">
               <span class="opt-label">Focus</span>
               <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
                 placeholder="Optional, e.g. pricing or where they disagree">
             </label>
+          </div>
+          <div id="run-footer" hidden>
+            <p id="run-summary"></p>
+            <button id="start-btn" class="primary" type="button">Make clips</button>
           </div>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
@@ -152,6 +145,19 @@
           <div class="bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div id="upload-bar" class="bar-fill"></div>
           </div>
+        </div>
+      </section>
+
+      <!-- Setup state: the machine is missing something, so setup is the page -->
+      <div id="setup-banner" aria-hidden="true" hidden></div>
+      <section id="setup-state" class="hidden" aria-labelledby="setup-title">
+        <span class="setup-kicker">Setup <span id="setup-count" class="setup-note"></span></span>
+        <h2 id="setup-title"></h2>
+        <p class="setup-lede">Clipping Factory needs these before it can make clips.</p>
+        <div id="setup-banner-text" class="setup-problems"></div>
+        <div class="setup-actions">
+          <span class="setup-note">Fix what you can, then check again.</span>
+          <button id="setup-check" class="primary" type="button">Check again</button>
         </div>
       </section>
 
@@ -174,6 +180,7 @@
           </div>
           <div class="error-actions">
             <button id="retry-btn" class="primary" type="button">Retry stage</button>
+            <button id="error-exit" type="button">Start over</button>
           </div>
         </div>
         <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
@@ -317,7 +324,9 @@
       <div class="review-copy">
         <p id="review-meta" class="review-meta"></p>
         <h2 id="review-title"></h2>
+        <span id="review-caption-label" class="review-label" hidden>Transcript</span>
         <p id="review-caption" hidden></p>
+        <span class="review-label">Why this clip</span>
         <p id="review-reason"></p>
         <div class="review-decisions">
           <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
@@ -335,7 +344,6 @@
         <p class="review-done-list-label">Kept clips</p>
         <div id="review-done-kept" class="review-done-kept"></div>
         <div class="review-done-actions">
-          <button id="review-done-again" type="button">Review again</button>
           <button id="review-done-close" type="button">Back to studio</button>
           <button id="review-done-download" class="primary" type="button">Download kept clips</button>
         </div>
