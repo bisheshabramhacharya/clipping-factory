@@ -126,6 +126,17 @@
     return swatch ? `${swatch.name} (${swatch.color})` : `Custom color (${normalized})`;
   }
 
+  function readableOn(color) {
+    const value = String(color || "").replace("#", "");
+    const channel = (offset) => {
+      const c = parseInt(value.slice(offset, offset + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance =
+      0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+    return luminance > 0.18 ? "#0A0A0A" : "#FFFFFF";
+  }
+
   // ------------------------------------------------------------------ setup
   let setupProblems = 0;
 
@@ -360,9 +371,16 @@
       swatch.type = "button";
       swatch.className = "upload-swatch";
       swatch.dataset.color = color;
-      swatch.style.setProperty("--swatch", color);
       swatch.setAttribute("aria-label", `Use ${name} accent color, ${color}`);
       swatch.title = `${name} (${color})`;
+      const dot = document.createElement("span");
+      dot.className = "swatch-dot";
+      dot.style.background = color;
+      dot.style.setProperty("--check", readableOn(color));
+      const label = document.createElement("span");
+      label.className = "swatch-label";
+      label.textContent = name;
+      swatch.append(dot, label);
       swatchGroup.appendChild(swatch);
       return swatch;
     });
@@ -921,15 +939,17 @@
       div.className = `step ${st === "pending" ? "" : st}`;
       div.dataset.stage = name;
       div.setAttribute("role", "listitem");
-      const queued = failedAt >= 0 && STAGE_ORDER.indexOf(name) > failedAt ? "Blocked" : "Waiting";
+      const failedName = failedAt >= 0 ? STAGE_ORDER[failedAt] : null;
+      const waiting = failedName ? `Waiting on ${STAGE_LABELS[failedName]}` : "Waiting";
       const status =
         st === "failed" ? "Failed" :
         st === "done" ? (name === "inspecting" ? "Done" : (rec.detail || "Done")) :
-        st === "active" ? (rec.detail || "Working…") : queued;
-      div.innerHTML = `<strong>${STAGE_LABELS[name]}</strong><span class="status"></span>` +
+        st === "active" ? (rec.detail || "Working…") : waiting;
+      div.innerHTML = `<div class="step-head"><strong></strong><span class="status"></span></div>` +
         (st === "active"
           ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
           : "");
+      div.querySelector("strong").textContent = STAGE_LABELS[name];
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
       if (st === "failed") {
@@ -1218,7 +1238,7 @@
         d.querySelector(".rejected-head").textContent = `“${r.headline || "(untitled)"}”`;
         d.querySelector(".rejected-meta").textContent =
           `${fmtMs(r.start_ms)} – ${fmtMs(r.end_ms)}` +
-          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)} / ${SCORE_MAX}` : "");
+          (typeof r.score === "number" ? ` · score ${r.score.toFixed(1)}/${SCORE_MAX}` : "");
         const reasons = d.querySelector(".reasons");
         for (const reason of r.reasons || []) {
           const line = document.createElement("div");
@@ -1289,15 +1309,10 @@
         scale.textContent = `/${SCORE_MAX}`;
         facts.appendChild(scale);
       }
-      const bits = [];
-      if (c.duration_ms) bits.push(fmtMs(c.duration_ms));
-      if (c.status === "rendering") bits.push("rendering");
-      else if (c.status === "failed") bits.push("failed");
-      else if (c.status !== "ready") bits.push("queued");
-      if (bits.length) {
+      if (c.duration_ms) {
         const meta = document.createElement("span");
         meta.className = "rail-meta";
-        meta.textContent = bits.join(" · ");
+        meta.textContent = fmtMs(c.duration_ms);
         facts.appendChild(meta);
       }
       line.appendChild(rank);
@@ -1333,6 +1348,11 @@
           triage.appendChild(t);
         }
         row.appendChild(triage);
+      } else {
+        const note = document.createElement("span");
+        note.className = "rail-note";
+        note.textContent = c.status === "rendering" ? "Rendering" : c.status === "failed" ? "Render failed" : "Queued";
+        row.appendChild(note);
       }
       list.appendChild(row);
     });
@@ -1440,29 +1460,31 @@
       preview.textContent = "queued";
     }
 
-    const body = document.createElement("div");
-    body.className = "clip-info";
+    const head = document.createElement("div");
+    head.className = "clip-head";
+    head.innerHTML = `<span class="rank"></span><span class="clip-lockup"><span class="clip-score"></span><span class="clip-scale"></span></span>`;
     const captionOnly = view.caption_only === true;
     const badges = [];
     if (c.low_confidence) badges.push(`<span class="badge warn">unclear audio</span>`);
     if (c.status === "rendering") badges.push(`<span class="badge">rendering…</span>`);
     if (c.status === "failed") badges.push(`<span class="badge bad">failed</span>`);
+    head.querySelector(".rank").textContent = clipRankText(c);
+    const scoreEl = head.querySelector(".clip-score");
+    const scaleEl = head.querySelector(".clip-scale");
+    if (typeof c.score === "number") {
+      scoreEl.textContent = c.score.toFixed(1);
+      scaleEl.textContent = `/${SCORE_MAX}`;
+    } else {
+      head.querySelector(".clip-lockup").remove();
+    }
+
+    const body = document.createElement("div");
+    body.className = "clip-info";
     body.innerHTML = `
-      <div class="clip-head"><span class="rank"></span><span class="clip-score"></span><span class="clip-scale"></span></div>
       <h3></h3>
       <div class="ledger"></div>
       <div class="badges">${badges.join("")}</div>
       <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
-    body.querySelector(".rank").textContent = `${clipRankText(c)} `;
-    const scoreEl = body.querySelector(".clip-score");
-    const scaleEl = body.querySelector(".clip-scale");
-    if (typeof c.score === "number") {
-      scoreEl.textContent = `${c.score.toFixed(1)} `;
-      scaleEl.textContent = `/ ${SCORE_MAX}`;
-    } else {
-      scoreEl.remove();
-      scaleEl.remove();
-    }
     body.querySelector("h3").textContent = captionOnly ? "Captioned video" : clipDisplayTitle(c);
     const ledger = body.querySelector(".ledger");
     const rows = captionOnly
@@ -1517,9 +1539,19 @@
 
     const inspector = document.createElement("div");
     inspector.className = "inspector";
-    inspector.appendChild(body);
-    inspector.appendChild(actions);
-    if (c.status === "ready") inspector.appendChild(restyleControls(c));
+    inspector.appendChild(head);
+    const scroll = document.createElement("div");
+    scroll.className = "inspector-scroll";
+    let footer = null;
+    if (c.status === "ready") {
+      const restyle = restyleControls(c);
+      scroll.appendChild(restyle.panel);
+      footer = restyle.footer;
+    }
+    scroll.appendChild(body);
+    scroll.appendChild(actions);
+    inspector.appendChild(scroll);
+    if (footer) inspector.appendChild(footer);
 
     row.appendChild(preview);
     row.appendChild(inspector);
@@ -1674,10 +1706,17 @@
       const b = document.createElement("button");
       b.type = "button";
       b.className = "swatch";
-      b.style.background = color;
       b.setAttribute("aria-label", `Use ${name} accent color, ${color}`);
       b.setAttribute("aria-pressed", "false");
       b.title = `${name} (${color})`;
+      const dot = document.createElement("span");
+      dot.className = "swatch-dot";
+      dot.style.background = color;
+      dot.style.setProperty("--check", readableOn(color));
+      const label = document.createElement("span");
+      label.className = "swatch-label";
+      label.textContent = name;
+      b.append(dot, label);
       b.addEventListener("click", () => {
         state.draft.color = color;
         markDirty();
@@ -1700,11 +1739,10 @@
     });
     customPicker.appendChild(customLabel);
     customPicker.appendChild(custom);
-    swatches.appendChild(customPicker);
-    const swatchName = document.createElement("span");
-    swatchName.className = "swatch-name";
-    swatchName.setAttribute("aria-live", "polite");
-    swatches.appendChild(swatchName);
+    const accentPick = document.createElement("div");
+    accentPick.className = "accent-pick";
+    accentPick.appendChild(swatches);
+    accentPick.appendChild(customPicker);
 
     const font = document.createElement("select");
     font.className = "font-select";
@@ -1803,8 +1841,7 @@
       const customSelected = !ACCENT_SWATCHES.some((entry) => entry.color === state.draft.color);
       customPicker.classList.toggle("on", customSelected);
       custom.value = customSelected ? state.draft.color : "#E9E9E9";
-      swatchName.textContent = accentLabel(state.draft.color);
-      swatchName.style.setProperty("--swatch", state.draft.color);
+      customPicker.style.setProperty("--check", readableOn(state.draft.color));
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
@@ -1898,15 +1935,11 @@
     footer.appendChild(status);
     footer.appendChild(apply);
 
-    const scroll = document.createElement("div");
-    scroll.className = "restyle-scroll";
-    scroll.appendChild(section("Style", seg, swatches, fontPicker));
-    scroll.appendChild(section("Extras", toggles));
-    scroll.appendChild(textWrap);
-    box.appendChild(scroll);
-    box.appendChild(footer);
+    box.appendChild(section("Style", seg, accentPick, fontPicker));
+    box.appendChild(section("Extras", toggles));
+    box.appendChild(textWrap);
     sync();
-    return box;
+    return { panel: box, footer };
   }
 
   // ------------------------------------------------------------------ elapsed
@@ -2173,7 +2206,7 @@
         rank: clipRankText(c),
         reason: clipWhyText(c) || "",
         score: typeof c.score === "number" ? c.score.toFixed(1) : "",
-        scoreScale: `/ ${SCORE_MAX}`,
+        scoreScale: `/${SCORE_MAX}`,
         caption: c.caption_text || "",
         downloadHref: apiPath("projects", projectId, "clips", c.id, "download"),
         downloadName: c.filename || "",

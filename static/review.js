@@ -148,7 +148,7 @@
       const lockup = document.createElement("span");
       lockup.className = "review-score";
       const score = document.createElement("b");
-      score.textContent = `${item.score} `;
+      score.textContent = item.score;
       lockup.append(score);
       if (item.scoreScale) {
         const scale = document.createElement("span");
