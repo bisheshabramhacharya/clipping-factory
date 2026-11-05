@@ -16,6 +16,7 @@
   const captionMore = document.getElementById("review-caption-more");
   const copy = document.querySelector(".review-copy");
   const download = document.getElementById("review-download");
+  const playBtn = document.getElementById("review-play");
   const progress = document.getElementById("review-progress");
   const counts = document.getElementById("review-counts");
   const buttons = [...theater.querySelectorAll("[data-review-decision]")];
@@ -93,6 +94,8 @@
     }
     for (const group of document.querySelectorAll(".rail-triage")) {
       const decision = decisions[group.dataset.reviewKey] || null;
+      if (decision) group.dataset.decision = decision;
+      else delete group.dataset.decision;
       for (const button of group.querySelectorAll("[data-rail-decision]")) {
         const selected = button.dataset.railDecision === decision;
         button.classList.toggle("on", selected);
@@ -168,6 +171,7 @@
       download.classList.add("hidden");
     }
     progress.textContent = `Clip ${index + 1} of ${items.length}`;
+    paintTransport();
     prevBtn.disabled = index === 0;
     nextBtn.disabled = index === items.length - 1;
     updateCounts();
@@ -178,6 +182,12 @@
     }
     theater.classList.toggle("decided", Boolean(decisions[item.key]));
     if (autoplay) video.play().catch(() => {});
+  }
+  function paintTransport() {
+    const playing = !video.paused && !video.ended;
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+    playBtn.title = playing ? "Pause" : "Play";
+    playBtn.replaceChildren(window.cfStudio.icon(playing ? "pause" : "play"));
   }
   function showToast(text) {
     toastText.textContent = text;
@@ -255,7 +265,7 @@
       const row = document.createElement("button");
       row.type = "button";
       row.className = "review-done-row";
-      row.textContent = item.fullTitle || item.title;
+      row.append(window.cfStudio.icon("check"), document.createTextNode(item.fullTitle || item.title));
       row.setAttribute("aria-label", `Open clip: ${item.fullTitle || item.title}`);
       row.addEventListener("click", () => {
         hideDone();
@@ -293,6 +303,9 @@
     captionMore.textContent = expanded ? "Show less" : "Show full transcript";
   });
   openBtn.addEventListener("click", openReview);
+  playBtn.addEventListener("click", () => { video.paused ? video.play().catch(() => {}) : video.pause(); });
+  video.addEventListener("play", paintTransport);
+  video.addEventListener("pause", paintTransport);
   closeBtn.addEventListener("click", closeReview);
   prevBtn.addEventListener("click", () => move(-1));
   nextBtn.addEventListener("click", () => move(1));

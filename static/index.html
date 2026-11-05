@@ -15,7 +15,7 @@
       </div>
       <div class="header-actions">
         <button id="library-btn" type="button" aria-controls="library-drawer" aria-expanded="false">
-          Library <span id="library-count" class="count hidden"></span>
+          <span data-icon="library"></span> Library <span id="library-count" class="count hidden"></span>
         </button>
         <button id="ai-btn" class="ghost" type="button" disabled title="AI connection is coming soon. Clips are ranked locally for now.">
           <span id="ai-label">AI connection</span><span class="soon-pill">Coming soon</span>
@@ -36,7 +36,7 @@
           <div class="drop-target">
             <div id="drop-empty" class="drop-panel">
               <div class="drop-head">
-                <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg class="drop-icon ic ic-20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
                 <span class="drop-kicker">New project</span>
               </div>
               <strong>Drop a podcast</strong>
@@ -48,7 +48,7 @@
               <p id="upload-blocked" class="drop-blocked hidden">Fix the setup problems above to make clips.</p>
             </div>
             <div id="drop-staged" class="drop-panel hidden" aria-live="polite">
-              <span class="staged-kicker">Ready to clip</span>
+              <span class="staged-kicker"><span data-icon="check"></span>Ready to clip</span>
               <strong id="staged-name"></strong>
               <span id="staged-size" class="muted small"></span>
               <p class="muted small">Set the options for this run, then make the clips.</p>
@@ -173,15 +173,20 @@
           <button id="cancel-btn" type="button">Cancel</button>
         </div>
         <div id="error-slot"><div id="error-box" class="error hidden" role="alert" aria-live="assertive">
-          <span class="state-mark" data-kind="cross" aria-hidden="true"></span>
           <div class="error-body">
-            <strong id="error-stage" class="error-cause"></strong>
+            <p class="error-cause"><span class="error-mark" data-icon="cross" data-icon-size="20"></span><strong id="error-stage"></strong></p>
             <p id="error-text" class="error-next"></p>
             <p id="error-detail" class="error-detail"></p>
           </div>
           <div class="error-actions">
-            <button id="retry-btn" class="primary" type="button">Retry stage</button>
-            <button id="error-exit" class="danger" type="button">Start over</button>
+            <div class="error-action">
+              <button id="retry-btn" class="primary" type="button">Retry stage</button>
+              <span class="error-action-note">Runs this stage again. Finished stages are kept.</span>
+            </div>
+            <div class="error-action">
+              <button id="error-exit" type="button">Start over</button>
+              <span class="error-action-note">Back to the picker. The video stays on disk.</span>
+            </div>
           </div>
         </div></div>
         <div id="stages" class="progress" role="list" aria-label="Processing stages"></div>
@@ -208,7 +213,7 @@
             <p class="muted small" id="results-sub"></p>
           </div>
           <div class="results-actions">
-            <button id="open-folder-btn" type="button">Open folder</button>
+            <button id="open-folder-btn" type="button"><span data-icon="folder"></span> Open folder</button>
             <button id="new-project-btn" type="button">New project</button>
             <button id="review-clips-btn" type="button" hidden><span id="review-clips-label">Review clips</span> <kbd>R</kbd></button>
           </div>
@@ -218,7 +223,7 @@
             <div class="rail-head"><span class="rail-head-label">Clips <span id="rail-count" class="rail-head-count"></span></span></div>
             <div id="clip-rail-list" class="clip-rail-list"></div>
             <details id="rejected-details" class="rejected hidden">
-              <summary>Rejected</summary>
+              <summary><span data-icon="chevron" data-icon-class="chev"></span> Rejected</summary>
               <div id="rejected-list"></div>
             </details>
             <div class="rail-fade" aria-hidden="true"></div>
@@ -312,7 +317,8 @@
         <span id="review-counts" class="review-counts"></span>
       </div>
       <div class="review-actions">
-        <a id="review-download" class="review-download" href="#">Download MP4</a>
+        <button id="review-play" class="review-transport" type="button" aria-label="Play"><span data-icon="play"></span></button>
+        <a id="review-download" class="review-download" href="#"><span data-icon="download"></span> Download MP4</a>
         <button id="review-close" class="review-close" type="button">Close <kbd>Esc</kbd></button>
       </div>
     </div>
@@ -325,15 +331,15 @@
       <div class="review-copy">
         <p id="review-meta" class="review-meta"></p>
         <h2 id="review-title"></h2>
-        <span id="review-caption-label" class="review-label" hidden>Transcript</span>
+        <span id="review-caption-label" class="review-label" hidden><span data-icon="transcript"></span>Transcript</span>
         <p id="review-caption" hidden></p>
         <button id="review-caption-more" class="review-more" type="button" hidden>Show full transcript</button>
         <span class="review-label">Why this clip</span>
         <p id="review-reason"></p>
         <div class="review-decisions">
-          <button type="button" data-review-decision="keep"><kbd>1</kbd>Keep</button>
-          <button type="button" data-review-decision="maybe"><kbd>2</kbd>Maybe</button>
-          <button type="button" data-review-decision="skip"><kbd>3</kbd>Skip</button>
+          <button type="button" data-review-decision="keep"><kbd>1</kbd><span data-icon="keep"></span>Keep</button>
+          <button type="button" data-review-decision="maybe"><kbd>2</kbd><span data-icon="maybe"></span>Maybe</button>
+          <button type="button" data-review-decision="skip"><kbd>3</kbd><span data-icon="skip"></span>Skip</button>
         </div>
         <p class="review-kbd"><kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> play</p>
       </div>

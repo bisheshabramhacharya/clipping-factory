@@ -24,6 +24,48 @@
     rendering: "Rendering clips failed",
   };
 
+  const ICONS = {
+    keep: '<path d="M5 12.6l4.5 4.6L19 6.9"/>',
+    maybe: '<path d="M6.4 13c1.7-3 3.5-3 5.2 0s3.5 3 5.2 0"/>',
+    skip: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    download: '<path d="M12 4v10.6M7.6 10.2L12 14.6l4.4-4.4M5 19h14"/>',
+    folder: '<path d="M3.5 7.5a2 2 0 0 1 2-2h3.7l2 2.4h7.3a2 2 0 0 1 2 2v7.6a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+    library: '<path d="M5 4.5h3v15H5zM10.9 4.5h3v15h-3zM17.2 5.3l2.8.9-3.9 12.1-2.8-.9z"/>',
+    play: '<path d="M8.7 5.7l9.8 6.3-9.8 6.3z"/>',
+    pause: '<path d="M9 5.5v13M15 5.5v13"/>',
+    transcript: '<path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h9"/>',
+    caption: '<path d="M3.5 6h17v9.5h-17zM7 11.6h3.4M12.6 11.6h4.4"/>',
+    style: '<path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"/>',
+    font: '<path d="M6 19L11.6 5 17.2 19M8.4 13.8h6.4"/>',
+    extras: '<path d="M12 4.4l1.9 5.2 5.2 1.9-5.2 1.9-1.9 5.2-1.9-5.2L4.9 11.5l5.2-1.9z"/>',
+    clock: '<path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 7.6v4.8l3 1.8"/>',
+    check: '<path d="M5 12.6l4.5 4.6L19 6.9"/>',
+    cross: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    chevron: '<path d="M9.5 6l6 6-6 6"/>',
+  };
+
+  function icon(name, size = 16) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.6");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("class", size === 20 ? "ic ic-20" : "ic");
+    svg.innerHTML = ICONS[name] || "";
+    return svg;
+  }
+
+  function paintIcons(root = document) {
+    for (const holder of root.querySelectorAll("[data-icon]")) {
+      const svg = icon(holder.dataset.icon, Number(holder.dataset.iconSize) || 16);
+      if (holder.dataset.iconClass) svg.classList.add(holder.dataset.iconClass);
+      holder.replaceWith(svg);
+    }
+  }
+
   const PROJECT_ID_RE = /^[0-9a-f]{10}$/;
   const restoredProjectId = localStorage.getItem("cf-project");
   let projectId = restoredProjectId && PROJECT_ID_RE.test(restoredProjectId) ? restoredProjectId : null;
@@ -716,6 +758,9 @@
       if (stateEl) main.appendChild(stateEl);
       main.appendChild(meta);
       open.appendChild(main);
+      const chevron = icon("chevron");
+      chevron.classList.add("chev");
+      open.appendChild(chevron);
       open.addEventListener("click", () => openProject(entry.id));
 
       const del = document.createElement("button");
@@ -730,6 +775,7 @@
         : styling
           ? "Caption update is applying — wait for it to finish."
           : `Delete ${name} from this computer`;
+      del.appendChild(icon("cross"));
       del.addEventListener("click", () => askDelete(entry));
 
       card.appendChild(mark);
@@ -945,10 +991,13 @@
         st === "failed" ? "Failed" :
         st === "done" ? (name === "inspecting" ? "Done" : (rec.detail || "Done")) :
         st === "active" ? (rec.detail || "Working…") : waiting;
-      div.innerHTML = `<div class="step-head"><strong></strong><span class="status"></span></div>` +
+      div.innerHTML = `<div class="step-head"><span class="step-icon"></span><strong></strong><span class="status"></span></div>` +
         (st === "active"
           ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
           : "");
+      const stepIcon = div.querySelector(".step-icon");
+      stepIcon.dataset.state = st;
+      stepIcon.appendChild(icon(st === "done" ? "check" : st === "failed" ? "cross" : st === "active" ? "play" : "clock"));
       div.querySelector("strong").textContent = STAGE_LABELS[name];
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
@@ -1309,14 +1358,14 @@
         scale.textContent = `/${SCORE_MAX}`;
         facts.appendChild(scale);
       }
+      line.appendChild(rank);
+      line.appendChild(facts);
       if (c.duration_ms) {
         const meta = document.createElement("span");
         meta.className = "rail-meta";
         meta.textContent = fmtMs(c.duration_ms);
-        facts.appendChild(meta);
+        line.appendChild(meta);
       }
-      line.appendChild(rank);
-      line.appendChild(facts);
       const title = document.createElement("span");
       title.className = "rail-title";
       title.textContent = captionOnly ? "Captioned video" : String(c.headline || "");
@@ -1342,7 +1391,8 @@
           t.type = "button";
           t.className = "rail-triage-btn";
           t.dataset.railDecision = value;
-          t.textContent = label;
+          t.appendChild(icon(value));
+          t.appendChild(document.createTextNode(label));
           t.title = hint;
           t.setAttribute("aria-pressed", "false");
           triage.appendChild(t);
@@ -1351,7 +1401,8 @@
       } else {
         const note = document.createElement("span");
         note.className = "rail-note";
-        note.textContent = c.status === "rendering" ? "Rendering" : c.status === "failed" ? "Render failed" : "Queued";
+        note.appendChild(icon(c.status === "failed" ? "cross" : "clock"));
+        note.appendChild(document.createTextNode(c.status === "rendering" ? "Rendering" : c.status === "failed" ? "Render failed" : "Queued"));
         row.appendChild(note);
       }
       list.appendChild(row);
@@ -1484,8 +1535,10 @@
       <h3></h3>
       <div class="ledger"></div>
       <div class="badges">${badges.join("")}</div>
-      <details class="why-wrap"><summary>Why this clip</summary><p class="why"></p></details>`;
-    body.querySelector("h3").textContent = captionOnly ? "Captioned video" : clipDisplayTitle(c);
+      <details class="why-wrap"><summary></summary><p class="why"></p></details>`;
+    const clipTitle = body.querySelector("h3");
+    clipTitle.textContent = captionOnly ? "Captioned video" : clipDisplayTitle(c);
+    clipTitle.title = clipTitle.textContent;
     const ledger = body.querySelector(".ledger");
     const rows = captionOnly
       ? [["Length", fmtMs(c.duration_ms)]]
@@ -1500,6 +1553,10 @@
       row.append(key, val);
       ledger.appendChild(row);
     }
+    const whySummary = body.querySelector(".why-wrap summary");
+    const whyChevron = icon("chevron");
+    whyChevron.classList.add("chev");
+    whySummary.append(icon("transcript"), document.createTextNode("Why this clip"), whyChevron);
     body.querySelector(".why").textContent = clipWhyText(c);
     if (c.status === "failed") body.querySelector(".why-wrap").open = true;
 
@@ -1511,7 +1568,7 @@
       a.href = apiPath("projects", projectId, "clips", c.id, "download");
       a.download = c.filename;
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
-      a.textContent = "Download MP4";
+      a.append(icon("download"), document.createTextNode("Download MP4"));
       actions.appendChild(a);
       // Export pack: the .srt/.vtt/.meta.json sidecars next to every MP4.
       const stem = (c.filename || "clip").replace(/\.mp4$/i, "");
@@ -1550,8 +1607,8 @@
     }
     scroll.appendChild(body);
     scroll.appendChild(actions);
+    if (footer) scroll.appendChild(footer);
     inspector.appendChild(scroll);
-    if (footer) inspector.appendChild(footer);
 
     row.appendChild(preview);
     row.appendChild(inspector);
@@ -1725,24 +1782,23 @@
       return [color, b];
     });
     const customPicker = document.createElement("label");
-    customPicker.className = "custom-color-picker";
-    const customLabel = document.createElement("span");
-    customLabel.textContent = "Custom";
+    customPicker.className = "swatch swatch-custom";
+    customPicker.title = "Pick any accent color";
+    const customDot = document.createElement("span");
+    customDot.className = "swatch-dot";
     const custom = document.createElement("input");
     custom.type = "color";
     custom.className = "custom-color";
     custom.setAttribute("aria-label", "Custom caption accent color");
-    custom.title = "Custom caption accent color";
+    const customLabel = document.createElement("span");
+    customLabel.className = "swatch-label";
+    customLabel.textContent = "Custom";
     custom.addEventListener("input", (e) => {
       state.draft.color = e.target.value.toUpperCase();
       markDirty();
     });
-    customPicker.appendChild(customLabel);
-    customPicker.appendChild(custom);
-    const accentPick = document.createElement("div");
-    accentPick.className = "accent-pick";
-    accentPick.appendChild(swatches);
-    accentPick.appendChild(customPicker);
+    customPicker.append(customDot, custom, customLabel);
+    swatches.appendChild(customPicker);
 
     const font = document.createElement("select");
     font.className = "font-select";
@@ -1765,7 +1821,7 @@
     const fontPicker = document.createElement("label");
     fontPicker.className = "font-picker";
     const fontLabel = document.createElement("span");
-    fontLabel.textContent = "Font";
+    fontLabel.append(icon("font"), document.createTextNode("Font"));
     fontPicker.appendChild(fontLabel);
     fontPicker.appendChild(font);
 
@@ -1839,9 +1895,10 @@
         b.setAttribute("aria-pressed", String(selected));
       }
       const customSelected = !ACCENT_SWATCHES.some((entry) => entry.color === state.draft.color);
-      customPicker.classList.toggle("on", customSelected);
+      customPicker.classList.toggle("active", customSelected);
       custom.value = customSelected ? state.draft.color : "#E9E9E9";
-      customPicker.style.setProperty("--check", readableOn(state.draft.color));
+      customDot.style.background = customSelected ? state.draft.color : "#E9E9E9";
+      customDot.style.setProperty("--check", readableOn(state.draft.color));
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
@@ -1899,12 +1956,13 @@
     });
 
     // Grouped: look (style, color, font) · edits (render toggles) · text.
+    const SECTION_ICONS = { Style: "style", Extras: "extras" };
     const section = (title, ...children) => {
       const el = document.createElement("div");
       el.className = "restyle-section";
       const h = document.createElement("span");
       h.className = "restyle-label";
-      h.textContent = title;
+      h.append(icon(SECTION_ICONS[title] || "style"), document.createTextNode(title));
       el.appendChild(h);
       for (const child of children) el.appendChild(child);
       return el;
@@ -1917,6 +1975,8 @@
     const textSummary = document.createElement("summary");
     const textLabel = document.createElement("span");
     textLabel.textContent = "Caption";
+    const textChevron = icon("chevron");
+    textChevron.classList.add("chev");
     const textMore = document.createElement("span");
     textMore.className = "caption-more";
     const moreClosed = document.createElement("span");
@@ -1926,7 +1986,7 @@
     moreOpen.className = "when-open";
     moreOpen.textContent = "Hide";
     textMore.append(moreClosed, moreOpen);
-    textSummary.append(textLabel, textMore);
+    textSummary.append(icon("caption"), textLabel, textMore, textChevron);
     textWrap.appendChild(textSummary);
     textWrap.appendChild(captionText);
     textWrap.addEventListener("toggle", sizeCaption);
@@ -1935,7 +1995,7 @@
     footer.appendChild(status);
     footer.appendChild(apply);
 
-    box.appendChild(section("Style", seg, accentPick, fontPicker));
+    box.appendChild(section("Style", seg, swatches, fontPicker));
     box.appendChild(section("Extras", toggles));
     box.appendChild(textWrap);
     sync();
@@ -2215,10 +2275,11 @@
     return { items, total: clips.length };
   }
 
-  window.cfStudio = { trapTab: trapTabWithin, reviewItems };
+  window.cfStudio = { trapTab: trapTabWithin, reviewItems, icon };
 
   // ------------------------------------------------------------------ boot
   function boot() {
+    paintIcons();
     wireUpload();
     wireGlobalDrop();
     wireUploadOptions();
