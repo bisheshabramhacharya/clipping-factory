@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 10,
+  "category": "iconography_detail",
+  "winner": "A",
+  "citation": "A/01.png: the same 14px dashed-square 'no project' glyph is drawn identically in the sidebar row (x 18-32, y 115-129) and again in the content breadcrumb (x 276-290, y 19-33), and the composer's sparkle, sliders, folder and paperclip controls are drawn in that same stroke family with their centers on the one y 439 text baseline. B/01.png has no comparable set: its only marks are two 8px text chevrons and the browser-native caret inside the FONT select.",
+  "why": "A is the only panel with an icon system: one glyph family doing semantic work for model, reasoning, access and attach, with icons and their labels on a common baseline. B is the stronger panel for badges and dots, an 18px R keycap inside the 28px Review clips button and 16px swatches on a 33px pitch with a ringed selection, but it has almost no iconography and leaves its one select caret native, so it holds only the detail half of the category.",
+  "confidence": "slight"
+}

@@ -24,3 +24,8 @@
 
 # Python bytecode
 __pycache__/
+
+# Rig output: shot sets and judge panels are generated per round, never product
+/shots-*/
+/tools/ui/shots-*/
+/tools/ui/judges/inbox/

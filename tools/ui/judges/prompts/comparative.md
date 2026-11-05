@@ -53,4 +53,5 @@ Return one JSON object in a ```json fence and nothing else:
 
 `winner` is `A`, `B` or `tie`. `confidence` is `clear` or `slight`. Both
 `citation` and `why` are required and may not be empty. Write that exact object
-to `{{ANSWER}}` with a heredoc. Change no other file.
+to `{{ANSWER}}` with your file writing tool, in one write. Do not use a shell
+heredoc: it truncates long answers. Change no other file.

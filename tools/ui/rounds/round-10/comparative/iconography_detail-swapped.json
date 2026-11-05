@@ -1,0 +1,9 @@
+{
+  "role": "comparative",
+  "round": 10,
+  "category": "iconography_detail",
+  "winner": "B",
+  "citation": "B/01.png: the three panel toggles at the top right are each exactly 14x14 px on a 32 px pitch (x1182, x1214, x1246, all y19-32), and the four composer icons (sparkle x323-336, shield x455-469, lock x685-697, paperclip x878-891) all start on the same y432 row and centre within 0.5 px of the labels' 10 px cap band (y434-443, centre y438.5); A/01.png's whole glyph vocabulary is two 4 px-wide hairline chevrons plus a letter keycap.",
+  "why": "B runs one 14 px stroke-icon family through the top bar, the project card and the composer, and locks it to the text cap band rather than floating it; A's control detail is exact (six 18 px caption swatches on a 26 px pitch, four identical 28x16 px toggles), but it has no icon system to show, so only B demonstrates the icon family this category asks for.",
+  "confidence": "slight"
+}
