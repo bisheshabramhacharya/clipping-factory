@@ -753,7 +753,7 @@ h1 {
 .rail-triage-btn {
   position: relative; height: 24px; padding: 0 7px; gap: 6px; justify-content: flex-start;
   border: 1px solid transparent; border-radius: var(--r-4);
-  background: transparent; color: var(--ink-3);
+  background: transparent; color: var(--ink-2);
   font-size: var(--t-15); line-height: 22px; font-weight: 400;
 }
 .rail-triage-btn:disabled { background: transparent; border-color: transparent; color: var(--ink-3); }
@@ -765,7 +765,7 @@ h1 {
 }
 .rail-triage-btn.on .ic { display: block; color: var(--ink); }
 .rail-triage-btn.on:hover:not(:disabled) { background: var(--fill-2); border-color: var(--ink); }
-.rail-triage[data-decision] .rail-triage-btn:not(.on) { color: var(--ink-3); font-weight: 400; }
+.rail-triage[data-decision] .rail-triage-btn:not(.on) { color: var(--ink-2); font-weight: 400; }
 .rail-note {
   position: absolute; left: 58px; bottom: 3px; height: 22px;
   display: inline-flex; align-items: center; gap: 8px;
