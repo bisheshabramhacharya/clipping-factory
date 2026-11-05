@@ -16,7 +16,7 @@
   },
   "distinct_values": {
     "radius": 6,
-    "font_sizes": 9,
+    "font_sizes": 8,
     "shadows": 1,
     "colors": 7,
     "font_families": 1
@@ -51,7 +51,7 @@
     "fontSizes": [
       {
         "value": "12px",
-        "count": 1923
+        "count": 1935
       },
       {
         "value": "13px",
@@ -72,10 +72,6 @@
       {
         "value": "26px",
         "count": 30
-      },
-      {
-        "value": "0px",
-        "count": 12
       },
       {
         "value": "15px",

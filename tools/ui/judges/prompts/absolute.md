@@ -70,12 +70,4 @@ Return one JSON object in a ```json fence and nothing else:
 }
 ```
 
-Then write that exact object to `{{ANSWER}}` with a heredoc, for example:
-
-```bash
-cat > '{{ANSWER}}' <<'JSON'
-{ ...the same JSON... }
-JSON
-```
-
-Change no other file.
+Then write that exact object to `{{ANSWER}}` with your file writing tool. Write the whole file in one write, so a long evidence string is never cut off. Do not use a shell heredoc: it truncates long answers. Change no other file.

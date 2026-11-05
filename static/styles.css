@@ -1128,7 +1128,7 @@ body.modal-open { overflow: hidden; }
 .review-phone { height: calc(100dvh - 108px); aspect-ratio: 9 / 16; max-width: 52vw; }
 .review-arrow {
   position: absolute; top: 50%; margin-top: -16px; z-index: 2;
-  width: 32px; height: 32px; padding: 0; font-size: 0; line-height: 1;
+  width: 32px; height: 32px; padding: 0; line-height: 1;
   border-radius: var(--r-pill); background: var(--surface); border-color: var(--ink-3);
   color: var(--ink);
 }

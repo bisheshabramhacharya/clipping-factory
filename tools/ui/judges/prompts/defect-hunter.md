@@ -56,5 +56,6 @@ Return one JSON object in a ```json fence and nothing else:
 }
 ```
 
-Then write that exact object to `{{ANSWER}}` with a heredoc. Change no other
-file.
+Then write that exact object to `{{ANSWER}}` with your file writing tool, in one
+write, so a long list is never cut off. Do not use a shell heredoc: it truncates
+long answers. Change no other file.
