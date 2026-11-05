@@ -1003,37 +1003,39 @@ body .preview .rig-poster, body .review-phone .rig-poster {
 }
 .restyle-label .ic { color: var(--ink-3); }
 
-.seg {
-  display: grid; grid-auto-flow: column; grid-auto-columns: max-content;
-  justify-self: stretch;
-  gap: 0; padding: 0; border-radius: 0;
-  border-bottom: 1px solid var(--line);
-  background: transparent;
+.style-grid {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch; min-width: 0;
 }
+.seg, .swatches { display: contents; }
 .seg-btn {
-  height: 32px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent;
-  background: transparent; color: var(--ink-2); font-size: var(--t-15); line-height: 22px; border-radius: 0;
-  margin-bottom: -1px; transition: none;
+  width: 100%; min-width: 0; height: 32px; padding: 0;
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  background: transparent; color: var(--ink-2); font-size: var(--t-15); line-height: 22px;
+  white-space: nowrap; transition: none;
 }
 .seg-btn:hover:not(:disabled):not(.active) { background: transparent; color: var(--ink); }
-.seg-btn.active, .seg-btn.active:hover { background: var(--fill-2); border-bottom-color: var(--ink); color: var(--ink); font-weight: 600; }
-
-.swatches {
-  align-self: stretch; min-width: 0;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 2px 4px; align-items: start;
+.seg-btn.active, .seg-btn.active:hover {
+  background-color: var(--fill-2);
+  background-image: linear-gradient(var(--ink), var(--ink));
+  background-size: 100% 2px; background-position: bottom; background-repeat: no-repeat;
+  background-origin: border-box;
+  border-bottom-color: var(--ink);
+  color: var(--ink); font-weight: 600;
 }
+
 .swatch {
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  gap: 2px; height: 40px; padding: 2px 0;
+  gap: 2px; height: 45px; padding: 8px 0 0;
   border: 0; border-radius: var(--r-4);
   background: transparent; white-space: nowrap; min-width: 0;
 }
+.swatch-custom { grid-column: span 2; }
 .swatch:disabled { background: transparent; border-color: transparent; }
 .swatch.active { background: var(--fill-2); }
 .swatch-custom .custom-color {
-  position: absolute; left: 50%; top: 4px; width: 18px; height: 18px; margin: 0; padding: 0;
+  position: absolute; left: 50%; top: 8px; width: 18px; height: 18px; margin: 0; padding: 0;
   transform: translateX(-50%);
   opacity: 0; cursor: pointer; border: 0;
 }
@@ -1408,7 +1410,7 @@ body.modal-open { overflow: hidden; }
   .studio { grid-template-columns: 240px minmax(0, 1fr); }
   .clip { grid-template-columns: minmax(0, 1fr) 360px; }
   .restyle-section { grid-template-columns: 72px minmax(0, 1fr); column-gap: 10px; }
-  .seg-btn { padding: 0 2px; }
+  .seg-btn { padding: 0; }
   .choice-seg span { padding: 0 12px; }
   .clip-stage { padding: 0 0 0 20px; }
   .inspector { padding-left: 20px; }

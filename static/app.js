@@ -1804,6 +1804,9 @@
       sizeCaption();
     });
 
+    const styleGrid = document.createElement("div");
+    styleGrid.className = "style-grid";
+
     const seg = document.createElement("div");
     seg.className = "seg";
     seg.setAttribute("role", "group");
@@ -1867,6 +1870,7 @@
     });
     customPicker.append(customDot, custom, customLabel);
     swatches.appendChild(customPicker);
+    styleGrid.append(seg, swatches);
 
     const font = document.createElement("select");
     font.className = "font-select";
@@ -2112,7 +2116,7 @@
     footer.appendChild(status);
     footer.appendChild(apply);
 
-    box.appendChild(section("Style", seg, swatches, fontPicker));
+    box.appendChild(section("Style", styleGrid, fontPicker));
     box.appendChild(section("Extras", toggles));
     box.appendChild(textWrap);
     sync();
