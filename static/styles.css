@@ -437,7 +437,7 @@ h1 {
   min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--line);
 }
 .opt > select, .opt > input, .opt > .choice-seg, .opt > .accent-row { width: 100%; }
-.opt > .choice-seg { justify-self: stretch; }
+.opt > .choice-seg { justify-self: start; width: auto; }
 .opt:last-child { border-bottom: 0; }
 .opt-wide { grid-column: auto; }
 .opt-label {
@@ -561,6 +561,17 @@ h1 {
   transform: scaleX(0); transform-origin: left; transition: transform var(--t-med) var(--ease);
 }
 .step:last-child { border-bottom: 0; }
+/* The failure stays in its place in the list and opens there. */
+.step.has-error { padding-bottom: 16px; }
+.step.has-error > .status { color: var(--bad); }
+.step.has-error .error {
+  grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  margin: 8px 0 0 26px; padding: 0; border: 0;
+}
+.step.has-error .error > .state-mark { display: none; }
+.step.has-error #error-stage { display: none; }
+.step.has-error .error p { margin-top: 0; }
+.step.has-error .error-actions { padding: 0 0 0 16px; }
 
 .overall { margin-top: 24px; }
 .overall-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
@@ -1258,7 +1269,7 @@ body.modal-open { overflow: hidden; }
 }
 .review-done[hidden] { display: none; }
 .review-done-card {
-  width: min(560px, 100%); padding: 0; border-radius: 0;
+  width: min(720px, 100%); padding: 0; border-radius: 0;
   background: transparent; border: 0; box-shadow: none;
   display: flex; flex-direction: column; text-align: left;
 }
@@ -1279,8 +1290,6 @@ body.modal-open { overflow: hidden; }
   font-size: var(--t-10); color: var(--ink-2); letter-spacing: .08em;
   text-transform: uppercase; font-weight: 500;
 }
-.review-done-stat[data-decision="keep"]:not(.zero) strong { color: var(--ok); }
-.review-done-stat[data-decision="maybe"]:not(.zero) strong { color: var(--warn); }
 .review-done-kept { display: flex; flex-direction: column; max-height: 340px; overflow-y: auto; margin-top: 8px; }
 .review-done-list-label {
   margin-top: 24px; font-size: var(--t-10); font-weight: 600; letter-spacing: .1em;

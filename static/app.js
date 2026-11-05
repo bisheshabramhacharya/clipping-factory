@@ -904,13 +904,14 @@
 
   function renderStages(p) {
     const wrap = $("stages");
+    // The failure renders in its own row, so lift the error block out before
+    // the list is rebuilt; without a failure it lives above the list.
+    const errorBox = $("error-box");
+    if (errorBox && wrap.contains(errorBox)) errorBox.remove();
     wrap.innerHTML = "";
     for (const name of STAGE_ORDER) {
       const rec = p.stages.find((s) => s.name === name) || {};
       const st = stageState(p, name);
-      // The failed stage is the subject of the error block above; repeating
-      // it as a row says the same thing twice.
-      if (st === "failed") continue;
       const div = document.createElement("div");
       div.className = `step ${st === "pending" ? "" : st}`;
       div.dataset.stage = name;
@@ -925,8 +926,13 @@
           : "");
       div.querySelector(".status").textContent = status;
       div.setAttribute("aria-label", `${STAGE_LABELS[name]}${status ? `: ${status}` : ": pending"}`);
+      if (st === "failed") {
+        div.classList.add("has-error");
+        if (errorBox) div.appendChild(errorBox);
+      }
       wrap.appendChild(div);
     }
+    if (errorBox && !errorBox.closest(".step")) $("error-slot").appendChild(errorBox);
     renderLive();
   }
 
