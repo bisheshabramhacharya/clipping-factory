@@ -91,6 +91,14 @@
       if (decision) rail.dataset.decision = decision;
       else delete rail.dataset.decision;
     }
+    for (const group of document.querySelectorAll(".rail-triage")) {
+      const decision = decisions[group.dataset.reviewKey] || null;
+      for (const button of group.querySelectorAll("[data-rail-decision]")) {
+        const selected = button.dataset.railDecision === decision;
+        button.classList.toggle("on", selected);
+        button.setAttribute("aria-pressed", String(selected));
+      }
+    }
   }
   function tally() {
     const t = { keep: 0, maybe: 0, skip: 0 };
@@ -208,12 +216,15 @@
     paint();
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
   }
+  function setDecision(key, value) {
+    decisions[key] = value;
+    save();
+    paint();
+  }
   function decide(value) {
     const item = items[index];
     if (!item) return;
-    decisions[item.key] = value;
-    save();
-    paint();
+    setDecision(item.key, value);
     // Next undecided clip after this one, wrapping; none left → summary.
     const order = items.map((_, i) => (index + 1 + i) % items.length);
     const next = order.find((i) => !decisions[items[i].key]);
@@ -290,6 +301,11 @@
   doneDownload.addEventListener("click", downloadKept);
   doneClose.addEventListener("click", closeReview);
   document.addEventListener("cf-rail-rendered", paint);
+  document.getElementById("clip-rail-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-rail-decision]");
+    const group = button && button.closest(".rail-triage");
+    if (group) setDecision(group.dataset.reviewKey, button.dataset.railDecision);
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return; // don't eat browser shortcuts (Ctrl+R refresh, etc.)

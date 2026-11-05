@@ -913,6 +913,7 @@
     const errorBox = $("error-box");
     if (errorBox && wrap.contains(errorBox)) errorBox.remove();
     wrap.innerHTML = "";
+    const failedAt = STAGE_ORDER.findIndex((name) => stageState(p, name) === "failed");
     for (const name of STAGE_ORDER) {
       const rec = p.stages.find((s) => s.name === name) || {};
       const st = stageState(p, name);
@@ -920,10 +921,11 @@
       div.className = `step ${st === "pending" ? "" : st}`;
       div.dataset.stage = name;
       div.setAttribute("role", "listitem");
+      const queued = failedAt >= 0 && STAGE_ORDER.indexOf(name) > failedAt ? "Blocked" : "Waiting";
       const status =
         st === "failed" ? "Failed" :
         st === "done" ? (name === "inspecting" ? "Done" : (rec.detail || "Done")) :
-        st === "active" ? (rec.detail || "Working…") : "";
+        st === "active" ? (rec.detail || "Working…") : queued;
       div.innerHTML = `<strong>${STAGE_LABELS[name]}</strong><span class="status"></span>` +
         (st === "active"
           ? `<span class="step-meta muted"></span><div class="mini-bar"><div class="mini-fill"></div></div>`
@@ -1243,12 +1245,13 @@
     renderResults(view.project);
   }
 
-  // Left rail: one compact card per clip — poster, rank, headline, score.
   function renderRail(ranked) {
     const list = $("clip-rail-list");
     list.innerHTML = "";
     const captionOnly = view.caption_only === true;
     ranked.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "rail-row";
       const b = document.createElement("button");
       b.type = "button";
       b.className = `rail-item${c.id === selectedClipId ? " active" : ""} ${c.status}`;
@@ -1281,16 +1284,22 @@
         score.className = "rail-score";
         score.textContent = c.score.toFixed(1);
         facts.appendChild(score);
+        const scale = document.createElement("span");
+        scale.className = "rail-scale";
+        scale.textContent = `/${SCORE_MAX}`;
+        facts.appendChild(scale);
       }
-      const meta = document.createElement("span");
-      meta.className = "rail-meta";
       const bits = [];
       if (c.duration_ms) bits.push(fmtMs(c.duration_ms));
       if (c.status === "rendering") bits.push("rendering");
       else if (c.status === "failed") bits.push("failed");
       else if (c.status !== "ready") bits.push("queued");
-      meta.textContent = bits.join(" · ");
-      if (bits.length) facts.appendChild(meta);
+      if (bits.length) {
+        const meta = document.createElement("span");
+        meta.className = "rail-meta";
+        meta.textContent = bits.join(" · ");
+        facts.appendChild(meta);
+      }
       line.appendChild(rank);
       line.appendChild(facts);
       const title = document.createElement("span");
@@ -1302,7 +1311,30 @@
       b.appendChild(thumb);
       b.appendChild(text);
       b.addEventListener("click", () => selectClip(c.id));
-      list.appendChild(b);
+      row.appendChild(b);
+      if (c.status === "ready") {
+        const triage = document.createElement("div");
+        triage.className = "rail-triage";
+        triage.dataset.reviewKey = b.dataset.reviewKey;
+        triage.setAttribute("role", "group");
+        triage.setAttribute("aria-label", `Review ${captionOnly ? "the video" : `clip ${c.rank}`}`);
+        for (const [value, label, hint] of [
+          ["keep", "Keep", "Keep this clip"],
+          ["maybe", "Maybe", "Mark this clip as maybe"],
+          ["skip", "Skip", "Skip this clip"],
+        ]) {
+          const t = document.createElement("button");
+          t.type = "button";
+          t.className = "rail-triage-btn";
+          t.dataset.railDecision = value;
+          t.textContent = label;
+          t.title = hint;
+          t.setAttribute("aria-pressed", "false");
+          triage.appendChild(t);
+        }
+        row.appendChild(triage);
+      }
+      list.appendChild(row);
     });
     const count = $("rail-count");
     if (count) count.textContent = ranked.length ? String(ranked.length) : "";
@@ -1453,7 +1485,7 @@
     actions.className = "actions";
     if (c.status === "ready") {
       const a = document.createElement("a");
-      a.className = "action-button";
+      a.className = "download-link";
       a.href = apiPath("projects", projectId, "clips", c.id, "download");
       a.download = c.filename;
       a.setAttribute("aria-label", `Download clip ${c.rank}: ${c.headline}`);
@@ -1672,6 +1704,7 @@
     const swatchName = document.createElement("span");
     swatchName.className = "swatch-name";
     swatchName.setAttribute("aria-live", "polite");
+    swatches.appendChild(swatchName);
 
     const font = document.createElement("select");
     font.className = "font-select";
@@ -1749,6 +1782,7 @@
     status.className = "muted small restyle-status";
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
+    status.tabIndex = -1;
 
     function sync() {
       state.dirty = captionBundleChanged(state.draft, applied);
@@ -1770,15 +1804,19 @@
       customPicker.classList.toggle("on", customSelected);
       custom.value = customSelected ? state.draft.color : "#E9E9E9";
       swatchName.textContent = accentLabel(state.draft.color);
+      swatchName.style.setProperty("--swatch", state.draft.color);
       font.value = state.draft.font;
       autoCutBox.checked = Boolean(state.draft.autoCut);
       zoomCutsBox.checked = Boolean(state.draft.zoomCuts);
       progBarBox.checked = Boolean(state.draft.progressBar);
       hookTitleBox.checked = Boolean(state.draft.hookTitle);
       if (captionText.value !== state.draft.text) captionText.value = state.draft.text;
+      const hadFocus = document.activeElement === apply;
+      apply.hidden = !state.dirty && !state.busy;
       apply.disabled = Boolean(state.busy) || !state.dirty;
-      apply.classList.toggle("primary", !apply.disabled);
+      apply.classList.toggle("primary", state.dirty || Boolean(state.busy));
       apply.textContent = state.busy ? "Applying…" : "Apply changes";
+      if (hadFocus && apply.hidden) status.focus();
       status.className = `small restyle-status ${state.kind || ""}`;
       status.textContent = state.message || (state.dirty ? "Unsaved changes" : "No changes");
       syncPrimaryState();
@@ -1862,7 +1900,7 @@
 
     const scroll = document.createElement("div");
     scroll.className = "restyle-scroll";
-    scroll.appendChild(section("Style", seg, swatches, swatchName, fontPicker));
+    scroll.appendChild(section("Style", seg, swatches, fontPicker));
     scroll.appendChild(section("Extras", toggles));
     scroll.appendChild(textWrap);
     box.appendChild(scroll);
