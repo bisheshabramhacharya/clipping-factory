@@ -425,8 +425,8 @@ const LIBRARY = [
     duration_ms: 3_640_000,
     file_count: 12,
     size_bytes: 902_000_000,
-    clips_total: 2,
-    clips_ready: 2,
+    clips_total: 0,
+    clips_ready: 0,
     clips_failed: 0,
   },
   {
