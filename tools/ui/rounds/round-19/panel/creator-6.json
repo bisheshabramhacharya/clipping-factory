@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 5.5,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Each of the six clip rows in the left list repeats Keep/Maybe/Skip as three identical outline buttons with no selected state, so 18 equal-weight buttons compete with the one real decision and a passed clip looks the same as an unpassed one."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Style row shows Sun yellow, Lime, Coral, Sky blue, Violet and Orange as a 9 px dot plus a plain label with no chosen marker, so the selected accent colour cannot be read from the panel."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "Under 'Transcription failed' the diagnostic 'whisper-cli exited with code 134 (SIGABRT)' is 11 px light grey with no copy button and no log link, so the one line a person would send to support is the hardest thing on the page to grab."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The five-card row ends at about y=715 and the remaining roughly 230 px of the canvas is empty, with no clip count, no scroll cue and no hint that 15 more of the 20 clips exist below or right."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The only persistent top-right button is 'Add more credits' next to the coin balance, so the loudest fixed action on a clip review screen is a purchase and no card carries an approve, reject or next control."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The transcript highlights words in green, blue, purple, pink and olive and prints inline timing chips like '0.58s' at the same weight as the text, with nothing on screen saying what any of the colours or chips mean."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto removal' gradient promo card at the right edge is the same height and more saturated than the 'Create project' banner, so the home screen opens with two competing primaries and the promo wins the eye."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "All seven tiles in 'More tools' carry the same blue 'AI' badge, so the badge marks nothing and the row reads as a wall of identical labels rather than a ranked set of tools."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the Details panel the 'Saved' value prints the full C:\\Users\\Admin\\Desktop\\CapCut Drafts\\1025 (1) path and wraps onto a second line, breaking the label/value column that every other row in the panel holds."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit unlabelled between the tab bar and the 'Tracks' heading, so the first content under Recordings is unreadable data with no title."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "All four track rows lead with an equal-weight 'Download' pill, making file download the loudest repeated action on a screen where nothing lets you review, pick or approve a clip."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right panel is tabbed 'Sound Effects' while the field directly beneath it reads 'Search music', so the panel names two different contents within 40 px of each other."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Record' (white with a red dot) and 'New project' (black fill) sit side by side at identical height and width in the header, so there are two primaries and the darker one is not the one a creator would reach for first."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The open row menu lists 'Clear local cache' above 'Rename project' and draws 'Delete project' in the same black as every other item, so the destructive entry is visually identical to the safe ones."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The timeline and transcript strip run under the AI Tools panel: the 'Split' control is cut off at x=978 and the transcript row ends mid-word ('...be editing a'), so the editing surface is cropped by the sidebar."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue screen has no primary action at all: the only controls are three unlabelled icon buttons beside 'Properties' and a lone '+', so nothing on the page says what to do with the item."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Rows place up to five label chips between the issue id and the end of the title row, so three of the visible titles truncate ('Add responsive and accessible UI behavi...') and the name loses to its metadata."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Two tab bars stack directly on top of each other ('Engineering > Active issues', then Engineering / All issues / Active / Backlog / Recent Urgent Bugs) in the same pill shape and weight, so it is not clear which strip filters the list."
+    }
+  ],
+  "notes": "Only P1 supplied an error screen, so the empty and error scores for P2 through P6 come from the states they did show rather than from any evidence of failure or empty handling. P1's error screen, which names the failed stage, shows the four downstream steps waiting on it and puts Retry stage first, was the only designed failure state in the panel."
+}

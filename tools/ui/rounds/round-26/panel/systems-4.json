@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The properties rail gives Done, Urgent and olivia no label column while Labels, Cycle and Project all have one, so one rail uses two different row shapes."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The leftmost row column is a bar-chart priority icon on ENG-139, ENG-416 and ENG-742 but a literal '---' on ENG-811, ENG-810, ENG-786, ENG-784, ENG-722 and ENG-788."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The 'Last Viewed' header wraps to two lines while Name, Duration and Created stay on one, dropping its sort caret a full line below the other headers' baseline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The open row menu sits over the Last Viewed column and hides those values in every row behind it, and its right edge lands flush on the list panel border with no margin."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Opening a row's kebab menu dims the list, the sidebar and the search bar at once, so the page has no full-contrast region left and the selected row loses its own highlight."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The playback position reads '00:00:00 / 0:32:05.0', an hh:mm:ss value beside a mm:ss value with a trailing tenth, so one field carries two formats."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The transcript marks words in four highlight colours (green, tan on 'Captions already done', purple on 'templates', blue on 'video') with no legend, so colour alone carries the difference."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only white filled button on the screen and outranks the task's own 'Select' outline button beside it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The last preview-toolbar item is cut to 'Tracker: O' at the right edge near x=1284 with no ellipsis, while 'Color correction: OFF' to its left shows its value in full."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three bare identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit above 'Tracks' as unlabelled 13px body lines with no key."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Audio panel's two tabs are different controls: 'Music' is plain text while 'Sound Effects' is boxed in a 2px white rectangle, and the 'Search music' input sits under the Sound Effects tab."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The Transcript row drops the '...' every other row has and adds a Copy button plus a floating '?' bubble over its right edge, so that row no longer matches the other four."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The six colour swatches lay out 4 then 3, with row two restarting under the second column (Violet under Sun yellow, Orange under Lime, Custom at x=1341), so the swatch centres do not line up between rows."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Off toggles (Hook title, Progress bar, Auto-cut) use a pale grey track with a white knob, the same low-emphasis treatment as the disabled 'AI connection Coming soon' chip, so off and disabled look alike."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Review 6 clips' is a black filled button in cliplist and an outlined one in editor with the identical label, so the same action changes weight between the two screens."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The sidebar's top block is an unlabelled grey checkerboard placeholder above 'Video editing', where an asset preview or logo would sit."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "An 'AI' badge sits on all seven 'More tools' tiles, all three tool cards and the ad card, so the badge distinguishes nothing."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project tiles are titled with raw numbers (0926, 0925, 0923, 0919(1)) and each meta line joins a count to a duration with a visible pipe, '215.4K | 00:03', a separator no other metadata row in the product uses."
+    }
+  ],
+  "notes": "P1, P2, P3, P4 and P6 show no empty or error screen, so that category is scored from the states they do show; the panel's only error screen is filed as P5 and carries the same Clipping Factory chrome as P5's cliplist and editor, so that product takes the 10 there. P2's cliplist is under its own open-menu scrim, so its contrast was judged from the editor and the undimmed chrome."
+}

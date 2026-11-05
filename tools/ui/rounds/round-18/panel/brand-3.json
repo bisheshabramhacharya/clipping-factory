@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 8,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 6,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 5.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Two filled black primaries sit on one screen: \"Review 6 clips\" in the top-right header and \"Apply changes\" at the bottom-right of the style panel."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "In the failed step 3 block, \"Retry stage\" and \"Start over\" are pushed to the far right of the block, detached from the sentence \"Check that the model file is intact, then retry.\" that justifies them."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The style row shows six unlabeled color dots at 18px, and the selected state is only a 2px ring; the color's name appears once, for the selection, in a mono caption below."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The chip row mixes emoji (lightning, lock, person, tag) with the product's own line icons in the same column, so two icon languages appear side by side."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Rows carry four to six chips at the same size and saturation as the issue title, so ENG-416's title no longer outranks its labels."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail screen offers no visible next action: only the \"+\" in the title bar and ghost icons in the rail, while the body ends at Activity."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "\"Record\" is a white outline button while \"New project\" is filled black beside it, so the action the screen exists for reads as the secondary one."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Date and duration columns plus the two grid/list toggle icons sit around 55% grey on the #f7f7f7 field, and the row checkbox outlines at the far left are near invisible."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The \"Transcribing... 34%\" pill is wedged mid-paragraph inside the transcript body and set in the same grey as the copy, so a status reads as text."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-..., 69e48d8e849ab9426f17022d, composer-5gohk1e06) render as unlabeled body text between the tab bar and the Tracks heading."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Transcript row uses a different inner structure from the five track rows, and its trailing \"?\" control is clipped by the right edge and crowds the overflow menu."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The transcript line inside the timeline clip drops to roughly 7px grey text that cannot be read at normal zoom."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Transcript keywords are colored green, yellow and blue with no legend, so the color reads as decoration rather than as meaning."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The header holds two filled primaries at equal weight: \"Save changes\" in grey and \"Export\" in white."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The full-width \"Auto headline\" explainer banner sits directly above the clip grid, pushing the clips below the fold and competing with them for the first read."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The cyan \"AI\" badge appears on nine tiles while the same cyan fills #Export, the nav icons and the hero, so the accent marks nothing in particular."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The three hero tiles under \"Create project\" share one blue gradient and one weight, so the actual primary action is separated only by being wider."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The \"Long video to shorts\" label wraps to two lines while every sibling tool label stays on one, stepping that icon and its caption out of line with the row."
+    }
+  ],
+  "notes": "P4 is the only product in the panel with an error screen, so its empty/error score is the only one judged against a real failure UI; the other five are scored from their cliplist and editor screens alone, where only P1 (per-row Ready states) and P2 (Transcribing 34%) show any status affordance. P4's cliplist and editor are the same three-pane screen with a different clip selected, so no distinct list or grid surface exists to judge. A red arrow drawn over the P3 editor image was treated as an annotation, not part of the interface."
+}

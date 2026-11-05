@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'More tools' band of seven identical icon tiles sits between the Create project banner and the Projects grid, so the middle of the page is tool promos while the user's seven projects start at the bottom fifth with only a name and '215.4K | 00:03'."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The Details panel renders Name, Saved, Ratio, Resolution, Color space, Frame rate and Import material as one flat label/value column at equal weight, so the fields you can change (Ratio, Frame rate) look identical to read-only ones and 'Modify' is a lone grey button pinned at the bottom."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The toolbar directly above the timeline is roughly ten unlabeled icon buttons at one weight (mic, three waveform marks, speed, zoom, full screen) with no dividers, so mute and volume can only be found by hovering."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In the Clips list each row's decision is three 11px grey text links (Keep / Maybe / Skip) set tight under the quote, with the chosen one marked only by a small tick and underline, so the one decision the screen exists for is its quietest control while Download MP4 gets a bordered button."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In the Style panel the six Impact swatches are identical 18px dots and the active one (Sun yellow) is marked only by a thin ring and label weight, so selected and unselected dots read the same at a glance."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The third control in the top-right cluster is a filled, labelled 'Review 6 clips R' button in cliplist but a bare unlabeled icon of a different shape in editor, so the cluster's primary member changes identity between the two screens."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The five clip scores use two different greens in a pattern that does not follow the numbers (97 and 92 yellow-green, 94, 90 and 87 lime) with no legend, so the same metric wears different colors and implies a ranking split that is not there."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only filled white button on the clips screen and sits directly above the clip grid beside the 7,779 balance, so the loudest control on the page is billing rather than anything about the clips."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The Auto headline notice offers both an outlined 'Disable it' button at the end of its paragraph and a bare X at the far right edge, two controls for one dismissal about 470px apart."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as unstyled body text between the tab row and the 'Tracks' heading with no label, so machine output reads as page content."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "'Export all' in the Tracks header and every row's 'Download' are the same outlined white button with a download glyph at two sizes, so exporting one track and exporting the whole set are one visual control."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The top bar's collaborator cluster is five overlapping unlabeled circles (three magenta C, one green Y) plus a grey + and a chat bubble with no legend, and those are the brightest colors in an otherwise neutral bar."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The leading priority glyph is a three-bar chart icon for ENG-139, ENG-416 and ENG-742 but the literal text '---' for ENG-811, ENG-810, ENG-786, ENG-784, ENG-722 and ENG-788, so six of nine rows show a placeholder and the column's left edge goes ragged."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The header band stacks six filter chips (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, '5 more...') plus Filter and Display above 'In Review 12', so the screen opens on eight controls and the first issue begins a third of the way down."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail has no visible save, comment field or submit control; the only affordances are the Properties chips (Done, Urgent, Bug, Cycle 6), so the obvious next move for a reader, replying, has nowhere to happen."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The open row menu is drawn over the Last Viewed column of the row it belongs to, covering '9:24 AM' on the selected row and clipping 'Thursday' and the column sort caret behind its left edge, so the column being compared disappears while a row is acted on."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Durations carry an unlabeled '+1' ('01:26 +1', '01:36 +1') in the same size and color as the duration, so the field reads as a parse artifact instead of a labelled count."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The AI Tools panel is twelve rows of equal weight in two groups with five greyed out mid-list (Eye Contact, Center active speaker Beta, Green screen, Automatic multicam, Blur speaker background), so there is no recommended first move and live and dead actions interleave."
+    }
+  ],
+  "notes": "Only P2 has an error screen (P2 error: staged retry is the best failure screen in the panel), so the other five were scored on cliplist and editor alone. P5 shows no video content in either state and P6's cliplist is a project table rather than a clip review, so both were judged purely as interfaces."
+}

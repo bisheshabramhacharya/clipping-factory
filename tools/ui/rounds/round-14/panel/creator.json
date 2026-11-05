@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 8.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 6,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the Caption block of the right panel the red swatch at 1167px carries the selected ring while the player renders the caption in yellow, so the control and its result disagree."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Under Length, Download MP4, SR, VTT, Meta and Poster are five identical outlined buttons the same height, so the one export a creator reaches for first has no more weight than the four sidecars."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "Steps 4 through 7 below the failed step 3 keep the full row height, label color and divider as the completed steps, with no note that they are blocked, so the list still reads as a run in progress."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The only filled button on the screen is Add more credits at the top right; the work actions of select, filter, search, sort and upload at the right of the toolbar are all unlabeled outline controls."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each clip title is set smaller and lighter than the score above it and truncates at about 30 characters (Unlock YouTube Success: Study Your Audience &...), so the card's weakest line is the one that identifies the clip."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In the timeline, the repeated Fill word inside nearly every segment plus the AI image B-roll labels above the track put small uppercase labels on the same layer as the footage thumbnails."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Rows carry three to five differently colored chips at once (green status, amber and red tags, purple and blue labels) at the same size as the title, so color no longer marks one kind of state."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Three rows (ENG-811, ENG-810, ENG-786) show a literal --- where the rows above show the bar-chart priority glyph, so the leading icon column has two competing marks for the same slot."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Right-side metadata (Dec 2023, Jan 16, the 5 more... lane tab) sits at roughly 12px in a mid grey on the near-black ground, well below the contrast of the row titles beside it."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The page ground, the Personal card and the hovered row all sit within a few percent of the same light grey, so the project table has almost no figure and ground and the row edges do no work."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The transport bar runs under the AI Tools panel and its last control is clipped mid-glyph at the panel edge, so the row reads as cut off rather than complete."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Unavailable AI Tools entries (Eye Contact, Center active speaker, Green screen, Blur speaker background) drop to a near-invisible grey icon and label, so unavailable and still-loading look the same."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) are printed as body copy above the Tracks heading at the same size as section text."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Create, Ask Co-Creator, Generate with AI and Export all sit in one band at similar weight, and the white focus ring on Export all pulls the eye to a focus state instead of the primary action."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The clip label Speaker 2, Speaker 1 and My Movie.mp4 - Video is drawn across the top edge of its waveform row and the row border cuts through the text."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The tool labels under the More tools tiles and the project names and metrics (0926, 215.4K | 00:03) are set at about 11px, the smallest type on the screen, while occupying its most repeated slots."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Seven identical cyan AI badges repeat over the entire More tools row, so the badge marks nothing specific and reads as decoration."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In Details, the Saved value (C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)) wraps to two lines inside the value column while every other value is a single line, breaking the column's alignment."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so the error state for P2 through P6 is scored from the states they do show and no failure design was credited or penalized. The red arrow drawn over the Audio tool in P2's editor is an annotation on the screenshot, not part of the interface, so it is not counted."
+}

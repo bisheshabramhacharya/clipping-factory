@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 4.5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 9,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 9,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P1 cliplist: the project metadata under each cover ('215.4K | 00:03') and all seven 'More tools' labels measure about 3.6-3.8:1 against the #0D0D0D page, so the only secondary text on the page is the hardest thing on it to read."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "empty_error_states",
+      "issue": "P1 cliplist: the top of the left sidebar, above the 'Video editing' label, is a filled grey and purple mosaic block with no image and no text, a missing asset placeholder with nothing on it to explain or reload it."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P1 cliplist: covers in the Projects row are sized to each project's own aspect ratio instead of a fixed frame, so card widths and heights differ across the single row and the name and metadata lines beneath them do not share a baseline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: the heaviest control in the header is the solid 'Add more credits' button at the far right, while 'Select' and 'Filter', the only controls that act on the 20 clips, are an outline and a ghost, so the page's visual primary is a billing action."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the 'Auto headline' explainer fills a full-width slab directly under the header with a two-line paragraph, a close X at the right of the title and 'Disable it' at the opposite edge, so the first thing the eye hits is a notice about the previous run rather than the clips."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist: every clip card repeats the same three unlabeled 16px icons under its score (a calendar, a download arrow, scissors) with no grouping and no visible label, so the actionable part of each card cannot be read without guessing."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the right panel is headed 'Best clip 37.2/40' while clip 01 is the selected row, and the same header reads 'Clip 3 35.7/40' in the editor state, so the panel title names a ranking in one state and a selection in the other."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "component_consistency",
+      "issue": "P3 error: the failure page drops the second header row that cliplist and editor both carry (the 'Clips' breadcrumb plus Open folder, New project and Review 6 clips), so the one screen a stuck user lands on has a different frame and different available actions from the rest of the product."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: the same score is written two ways on one screen, '37.2' right-aligned in the clip row and '37.2/40' in the panel header five centimetres away, with no rule for which form is canonical."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P4 editor: the unavailable AI tools in the right panel (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) sit at roughly 1.8:1 against the white panel, so disabled reads as broken rather than deliberately off."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: the Created column mixes relative and absolute dates in the same column and weight, 'Tuesday' on the MCP 04 row beside 'March 13' two rows down, so identical data gets two different formats with no visible rule."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: the 'Last Viewed' header wraps onto two lines while every other column header is one line, and its sort caret sits detached to the right of the wrapped text instead of on the column's own edge."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: 'Projects' and 'Views' each appear twice in the same sidebar, once in the top-level nav and again under the Engineering team block, and 'Engineering' is both a team group in the sidebar and the active tab in the view strip."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: label chips in the ENG-139 and ENG-810 rows truncate to fragments ('Squa', 'Migra...') at roughly 60px with no reveal, so a chip can carry a word too short to identify."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: the view tab strip runs straight into app-level controls, ending '5 more...' then an add-view, a notification bell with a count, a hairline, an insights chart and a sidebar toggle, so tabs and toolbar share one row and one style."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: three raw asset identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabeled body text between the tab strip and the 'Tracks' heading, at the same weight as real content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: the Transcript row's trailing controls are cut by the container's right edge, leaving a help '?' and a menu reduced to a single visible dot at the boundary, while the identical control on the track rows above sits fully inside."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the active 'Sound Effects' tab is drawn with both a white rounded ring and an underline, while the active 'Scene' tab in the center toolbar is a plain dark fill, so selected state has two treatments on one screen."
+    }
+  ],
+  "notes": "Only P3 has an error screen and none of the six shows a true empty state, so P1, P2, P4, P5 and P6 were scored for empty/error from their two live states plus whatever in-progress or disabled states appear. P4's cliplist is captured dimmed with a row menu open over the Last Viewed column, so that column and the row actions are partly unreadable."
+}

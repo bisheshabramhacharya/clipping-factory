@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 4.5,
+      "empty_error_states": 4.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 8,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 6.5,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Under the Recordings/Made for You tabs, three bare identifier strings (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabelled body text directly above the Tracks heading, reading as dumped debug output in the main content column."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The header holds three competing primaries in one row at near-equal weight: purple-filled Create, white-outlined Export all, and indigo-text Generate with AI, while each track row repeats its own dark Download chip with no indication which one the screen wants."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The Transcript row's right-hand action cluster is clipped at the frame edge, leaving a stray '?' and a cut glyph where two controls should be, and the Ready state is only a grey check with no status colour, so loaded and empty rows look alike."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "With the Ram Create Clips row menu open, the whole workspace drops under a full-screen dim: sidebar labels, column headers and row names all fall to the same flat grey while the menu alone stays pure white, flattening the page into one tone and killing the list's definition."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "A red filled record dot sits in the middle of the playback toolbar between the speed control and play, so the loudest colour on the editing screen belongs to a secondary capture action rather than to the edit itself or to Export."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The transcript column runs about 830 px at 17 px, roughly 85 to 90 characters per line, and its paragraphs continue straight under the fixed AI Tools panel, so the reading measure is set wider than a text-editing surface should carry."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The Auto headline banner sets a two-line instruction about 1,080 px wide at 14 px and parks its Disable it action at the far right, roughly 600 px past the sentence it belongs to, so instruction and control read as unrelated elements."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Each clip card carries four icon-only actions (insert, download, cut, more) at identical weight beneath the green score, and no card shows a selected or chosen state, so the grid offers no obvious next move for picking a clip."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The toolbar row ends with the stray system string 'Video aspect ratio conflict resolution' beside the grid/list toggles, set at the same grey 12 px as real controls, and the project title truncates to 'How To Start A Faceless You...' with no visible full-name affordance."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The right panel opens on a four-line transcript paragraph at 15 px before the In/Out/Length data and the Style, Font and Extras controls, so the settings a user came to change sit below the copy that merely explains the score."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The score that ranks every clip, '37.2 /40', is set at about 11 px next to an equally weighted 11 px duration, while the clip number '01' takes 15 px semibold, so the deciding number is the quietest thing in each row."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Keep / Maybe / Skip segment only exists on the selected row, so rows change height as selection moves and the same clip offers decision controls in one state and none in the next, breaking the list's rhythm and hiding the other rows' actions."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The two states are two skins: cliplist is a near-black app with 11 px grey labels and grey chips, while editor is a white sheet on a dark desk with blue links and dashed-underlined mentions, so the same row, label and chip render with different colours, weights and radii between screens."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Issue rows cut their chips mid-word ('Currency Support...', 'Frontend user d...', 'Develop...') and stack three right-edge clusters of label, date and avatar at the same 11 px grey, so the row's right side is a wall of equally weighted text with no grouping."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail offers no primary action: the only candidates, 'Add to project' and 'Unsubscribe', sit at plain body weight, and the three icon tabs above the properties column are unlabelled, so nothing on the screen says what to do with this issue next."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The cyan gradient create hero fills the top band while a second cyan promo card fills the right column in the same saturated hue, and a blue 'AI' pill appears on all ten tool tiles, so the brand colour carries promotion, affordance and taxonomy at once and stops meaning anything."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project tiles set their only title line at about 11 px and a second 11 px metadata line ('215.4K | 00:03') in low grey on black, below comfortable reading size and contrast, while 'More tools' labels shrink to two lines to fit a 12 px slot."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In the Details panel, keys (Name, Saved, Ratio, Resolution, Color space, Frame rate) and their values share one 12 px grey weight in one undifferentiated column, and the 'Modify' button beneath is a full-width grey bar at the same emphasis, so the panel has no focal point."
+    }
+  ],
+  "notes": "Only P4 shipped an error state, so the other five are scored on two states and that category reflects absence rather than failure. Two captures look like mid-transition frames (P5 cliplist's ghosted duplicate sidebar, P6 cliplist's faded top strip); I scored the underlying design and did not count those as defects. Highest overall craft is P4 for system and error handling, P2 for editorial restraint."
+}

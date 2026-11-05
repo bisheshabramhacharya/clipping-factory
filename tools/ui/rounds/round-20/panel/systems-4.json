@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: three raw IDs (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are set as 16px body text with no label or row treatment between the tab bar and the Tracks heading, so developer data lands before the content."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P1 cliplist: the Transcript row's right-side control cluster renders a stray '?' glyph plus a pencil overlapping where the kebab sits on every track row above, and it is clipped by the card edge at x~1380."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P1 editor: the Text item in the right rail is a serif letter T glyph while the eight labels above and below it use line icons at one stroke weight, so the rail reads as nine marks from two sets."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: the Export button is white text on #00BFCC, measured at 2.25:1, below the 4.5:1 normal-text threshold, and it is the screen's only primary action."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: 'Create project' sits as a dark chip inside a cyan gradient banner that is smaller and dimmer than the auto-removal promo card beside it, so the decoration outranks the primary action."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist: meta separators are a pipe ('215.4K | 00:03' under every project tile) while the editor's list rows use a bullet ('00:15 transportation • mo...'), so the same value pair is punctuated two ways."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P3 editor: two identical filled black buttons appear at once, 'Review 6 clips' at the top right and 'Apply changes' in the unsaved bar at the bottom right, so the primary action on the screen is not singular."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "iconography_detail",
+      "issue": "P3 error: steps 1-3 carry a check or an x, but the waiting steps 4-7 have an empty icon column, so 'Waiting on 3. Transcribe' is carried by gray text alone."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "P3 error: the failure block draws a 1px rule that stops at x~570, while every other divider on the screen runs to x~1280, so it reads as a clipped container border rather than a section rule."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: the clip review grid has no primary control; the most prominent button is the info banner's 'Disable it' at the far right, an unrelated settings action, and nothing on the cards invites review, approve or export."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: the Auto headline banner body is set in a monospace face at about 12px while all other body copy in the product is sans, and it instructs 'click Disable' about a button 1000px away on the same row."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P4 editor: transcript words are colored green, gray and blue with no legend, and the same green also colors the '0.58s' timing chips, so word class is encoded by color alone."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: row 1's label pills overflow into the date and avatar columns and are clipped mid-word ('1.', 'Squa', 'Migra'), so that row's labels cannot be read at all."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: the leading mark column shows a priority glyph on rows 1-2 and a literal '--' on rows 3-9, so row anatomy changes partway down one list."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the issue detail exposes no primary action; the title has no visible edit control and no status or close button is present, leaving the three unlabeled header icons as the only actions."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: disabled AI tool labels (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) measure about 1.7:1 on #FEFCFE, close to invisible, and no reason for the disabled state is shown."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P6 cliplist: the Recordings folder row sits in the project table with an empty Duration and Created column, so a folder and a project share one row component with values simply missing."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: the 'Last Viewed' header wraps to two lines and lifts its sort caret above the baseline while Duration and Created stay on one line, so the four column headers no longer share a baseline."
+    }
+  ],
+  "notes": "P3 is the only product with an error screen and the only one whose selected, unsaved and disabled states are visibly designed, so its 10s in hierarchy, spacing, color, components, primary action and empty/error come from being the panel's only complete system; P5 wins typography and iconography on a deliberately small type scale and one 16px stroke set. P5's cliplist and editor are an issue tracker's list and detail rather than clips, and P2's cliplist is a home grid, so those two are scored on interface quality only; the other five products showed no error state, and their empty/error scores rest on the loading and status states they did show."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 9.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 5.5,
+      "iconography_detail": 6,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 5.5,
+      "empty_error_states": 4.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the right panel, 'Download MP4' is a 36px bordered button while 'SRT', 'VTT', 'Meta' and 'Poster' sit on the same baseline as 12px borderless text, so four sibling export choices read as one button plus three stray tabs."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each clip row sets the score (37.2, bold 13px), the '/40' scale in the column header 700px above, and the duration (00:41, muted 12px) as three separate right-hand columns, so ranking a clip takes reading rather than scanning."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "The failing step's explanation ('Check that the model file is intact, then retry.' plus the whisper-cli exit code) is 11px grey under the step title, the quietest text on an otherwise very legible screen, which undersells the one paragraph that matters."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto headline' notice takes two full-width lines of 13px body copy above the clip grid, so it reads as the page's lead content and pushes the five scored clips into the lower half."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The five-card row stops around x=1360 and everything below y=770 is empty, leaving a dead right column and a third of the screen unused while the cards stay 145px wide."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The transcript highlights inline words ('style', 'templates', 'ClickUp video') in the same saturated green as the clip scores in cliplist, so the accent means both 'keyword' and 'quality'."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Six tab pills (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, 5 more...) share one border, one height and one weight, so the current view is distinguished only by fill and the strip reads as equal-weight choices."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Rows carry up to five label chips (yellow, red, blue, orange) plus a release glyph, a date and an avatar at one 12px size, so no single hue reads as status and the green status circles get lost among them."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the right rail, property values ('Done', 'Urgent', 'olivia', 'Bug', 'Cycle 6') are set at the same 13px as their muted uppercase-ish labels, so each pair collapses into one line and the panel loses its step-down."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The cyan gradient 'Create project' banner runs 865px wide and 150px tall at the top of the screen while the user's own projects are 90px thumbnails at the bottom, so the promo outranks the work."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'More tools' tiles use 11px labels that wrap to one line or two without a rule ('AI video' versus 'Long video to shorts'), so the tile row has a ragged baseline and eight identical cyan 'AI' badges stacked above it."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel, label and value share one 12px size with no gutter rule, so 'Saved' runs its full file path to the panel edge and the rows have no repeatable column."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' column is clipped by the open row menu and the card edge, truncating values to single fragments ('Thur', 'Apri'), so the column the table is sorted by cannot be read in its own default state."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Date and duration values sit at roughly #a0a0a0 on the #ececec card, near 2.5:1, so every secondary column fades out and only the project names carry."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "empty_error_states",
+      "issue": "Five of the AI tools ('Eye Contact', 'Center active speaker', 'Green screen', 'Automatic multicam', 'Blur speaker background') are drawn at about 40% opacity with no reason given, so available and unavailable look like a rendering fault."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three unlabeled 36-character ID strings sit between the tabs and the 'Tracks' heading in the same body face with no label, container or monospace treatment, so debug output is typeset as page content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Three actions claim the top of the screen at equal weight: the purple 'Create', the outlined 'Ask Co-Creator' at the same height, and 'Export all' inside the Tracks header."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Inside the Audio panel, 'Music' is marked current by an underline while 'Sound Effects' is marked current by a white rounded outline, so one tab control shows two active states at once."
+    }
+  ],
+  "notes": "Only P1 has an error screen, so P2 through P6 are scored on cliplist and editor alone; their empty_error numbers reflect only what those two states show. P4's cliplist and P6's cliplist are launcher and list views rather than clip grids, which is why their type and hierarchy read thinner than the rest."
+}

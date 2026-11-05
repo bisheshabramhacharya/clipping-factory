@@ -1,0 +1,186 @@
+{
+  "judge": "brand",
+  "strongest_by_category": {
+    "typography": "P4",
+    "hierarchy": "P2",
+    "spacing_rhythm": "P4",
+    "color_contrast": "P4",
+    "component_consistency": "P4",
+    "iconography_detail": "P4",
+    "primary_action": "P2",
+    "empty_error_states": "P2"
+  },
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: no primary action is visible on the screen; the only create affordance is the unlabeled + at the far right of the 'Engineering > Active issues' header."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the label chips on each row ('Currency Support...', 'Frontend user d...', 'MIC Release') carry more colour and weight than the issue titles they annotate, so titles read as the secondary element."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P4 editor: the breadcrumb row ('Driver app > iOS > IOS-30') and the title sit inside the same white card as the body with no rule or tone change, so the card header does not separate from the content."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: under the selected 'Clean' preset the Coral swatch is drawn near-black, so the swatch stops showing the colour it names."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P2 cliplist: clip row 02's transcript line 'first exists in the lab to when...' runs under the 'Keep' checkmark, so text and control overlap in the row."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor: the Style swatch grid runs four across for two rows then drops 'Custom' alone on a third row left-aligned, breaking the column rhythm."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P3 cliplist: row titles, durations and dates are all the same mid-grey as the column headers ('Duration', 'Created'), so the table has no primary text colour."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the 'Last viewed' column is clipped by the card's right edge at 1440, cutting values to 'Thur' and 'April'."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P3 editor: the transport row's right end is cut by the AI Tools panel, leaving a partially drawn button after the 100% zoom control."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: 'Sound Effects' carries a white focus ring at rest while 'Music' is the active underlined tab, so two tabs read as selected."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: three unlabeled UUID strings ('d591db2c-0a82-...') sit above the 'Tracks' heading as their own block, with nothing saying what they are."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P5 editor: the 'Ready-made collections' tiles overflow the Audio panel, cutting the third tile to 'Educati>' at the panel edge."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P1 editor: the preview toolbar collides with the right rail, cutting 'Layout: Fill', 'Color correction: OFF' and 'Tracker: O...' mid-word."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P1 cliplist: the fifth clip card is cut by the viewport's right edge, so a five-card row runs off screen with no gutter or fade."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: 'Video aspect ratio conflict resolution' sits where the page title belongs but is set at the same weight as 'Original clips (20)', so a status message reads as the screen heading."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: every tile in 'More tools' and all three hero cards carry the same cyan 'AI' badge, so the badge marks the rule instead of the exception."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: the Media/Text/Stickers/Effects/Transitions/Filters tab row mixes filled, outline and skewed glyphs at different optical sizes, so no two icons read as siblings."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the left side stacks two navigation systems and labels the same action twice, with 'Import' as a blue button at the top of the media bin and again as a grey sidebar item below."
+    }
+  ],
+  "notes": "P2 is the panel's only product with an error screen, and its staged-retry screen is the best-composed screen in the set; P3 also shows a loading state ('Transcribing... 34%'), but P1, P4, P5 and P6 show no empty or error state, so that category is scored on the incidental state evidence in their cliplist and editor screens. P4 wins six craft categories on typography, palette discipline and control consistency, but offers almost no path to action; P2 wins where the work has to be done."
+}

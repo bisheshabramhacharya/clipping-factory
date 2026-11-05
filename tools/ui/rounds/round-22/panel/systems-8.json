@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 7
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 5.5,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "On the open clip 03, Keep/Maybe/Skip all render in the same gray, unbolded, with no check or fill, while the same control in cliplist P4 marks clip 01 with a tick, so the open clip's review decision cannot be read from its row."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In the right rail the caption quote is set at roughly 24px bold, larger and heavier than the rail's own 'Best clip 37.2/40' header, so the quoted sentence outranks the panel that contains it."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "component_consistency",
+      "issue": "Stage rows 1-3 carry numbers with a leading tick or x, but stages 4-7 collapse into one unnumbered 'Stages 4 to 7' row with a clock icon, so the numbered sequence stops exactly where the remaining work is hardest to follow."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In the first issue row the label chips collide: 'Squa', 'A' and 'Migra' are cut mid-word because each chip's right edge is overlapped by the next chip."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The tab strip gives the workspace 'Engineering', the saved view 'Active' and the menu '5 more…' one identical chip treatment, so '5 more…' reads as a filter and the workspace reads as a tab."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The right rail's tab bar sets one text label (Properties) beside three unlabeled icons of similar size and weight, so the three have to be guessed and the label reads as a section heading."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three unlabeled raw IDs (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit directly under the page title with no label or container, ahead of the Tracks heading."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The audio waveform is filled in saturated lime and magenta, the only strong colors on the screen, so it pulls more attention than the selected clip or the Export action."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The selected 'Sound Effects' tab is drawn with a white 2px ring plus underline while every other tab in the panel is plain text, so selection there looks like a keyboard focus ring."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The transport row overflows under the docked AI Tools panel: only the 'S' of the Split button is visible at the content edge near x=975, and the zoom cluster ends in a cut-off fragment."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) render at about #C9C9C9 on white, roughly 1.9:1, so they read as missing rather than unavailable."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Last Viewed column is not allowed its width: its header wraps to two lines while Duration and Created stay on one, and the values are cut to 'Thur' and 'April' behind the row actions button."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline body copy ('A headline has been added to the first 5 seconds…') is set in a monospace face while every other label and paragraph in the product is sans."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The canvas toolbar overflows under the right rail: 'Tracker: Of' is clipped at x=1290, and an unlabeled B control is partly covered by a floating popover."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Transcript highlights are colored in two hues (lime and yellow) with no legend, underline or weight change, so whatever separates them is carried by color alone."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The 'More tools' captions (Long video to shorts, Video translator, Text to speech, and the rest) render near #6E7577 on #0D0D0D, about 3.8:1 at 13px, under the 4.5:1 body minimum."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The seventh project tile is sliced by the right edge at x=1197 with no partial-card or scroll cue, so the grid reads as broken rather than scrollable."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Under the Player, current and total time sit side by side as '00:00:00:00  00:00:35:24' in the same size and color with no labels, so the two values cannot be told apart."
+    }
+  ],
+  "notes": "Only P4 has an error screenshot, so it takes the 10 in empty and error states and everyone else is scored from the loading, progress and empty evidence in the screens they do have (for example P1's inline 'Transcribing… 34%' and P3's per-track 'Ready'). P4 is the strongest product in six of eight categories; P5 wins typography and color, and no product in this panel shows a designed empty state."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 7.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "cliplist: the screen's actual content, the Projects grid, starts at y=550 and is the smallest thing on the page, while a full-width gradient 'Create project' banner, three AI tool tiles, a promo carousel card and a seven-item AI-badged tool row all sit above it."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "cliplist: a project's duration appears only as '215.4K | 00:03' at about 11px in roughly 45% grey under each thumbnail, the lowest-contrast text on the screen and the only place a clip's length is stated."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "editor: the Details panel gives 'Name: 1025 (1)' and 'Ratio: Original' the same 12-13px label and value weight as a full filesystem path ('C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)') and 'SDR - Rec.709', so settings and diagnostics read the same."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "cliplist: Keep / Maybe / Skip render as plain 14px grey text under each clip title with no border, radio or fill until one takes focus (row 02 'Keep' is the only outlined instance), so the row's actual control looks like a third line of the transcript."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "editor: a 20px unlabeled block ('Basically, I'm saying in 2027, how much compute do I get?') sits directly under the labeled Caption field and above 'Why this clip', set larger than the control it belongs to, with nothing naming it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "cliplist: the open clip is marked only by a roughly 3% grey fill and a 3px left rule on row 01, which at a glance is indistinguishable from the white rows beneath it."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "cliplist: the dismissible 'Auto headline' callout occupies y=280-370 between the 'Original clips (20)' head and the clip grid, and its only control, 'Disable it', is 12px ghost text at the far right whose label does not match the copy's instruction to click 'Disable'."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "editor: the transcript is one running paragraph where time chips ('0.58s', '0.36s', '1.31s') and three highlight treatments (green, yellow, plain) interrupt the words mid-sentence, so neither the sentence nor the color coding can be read."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "cliplist: the left rail is eight icon-only buttons with no labels and no visible selected state, so none of them can be predicted without hovering."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "cliplist: three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1e06') sit at body weight directly under the tabs with no label, where they read as project content."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "cliplist: 'Download' appears at full weight in all six track rows plus 'Export all' in the header, so six identical buttons out-shout the track names they act on."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "editor: the timeline waveform runs lime-green and magenta at full saturation while the transcript body sits at a muted grey, so the waveform carries more visual weight than the words being edited."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "cliplist: each row packs up to six trailing objects (two or three chips with their own glyphs, a comment count, a date, an avatar and sometimes a second avatar), which truncates titles such as 'Identify Missing Data ...' at roughly 20 characters."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "cliplist: nothing in the top-right action zone creates an item (Filter and Display take that space), and the only new-item affordance is an unlabeled 12px '+' at the far right of the 'In Review 12' group header."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "cliplist: five rows show a literal '---' in the leading priority column with no column header or legend, so a missing priority renders as a typographic artifact instead of a state."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "editor: the disabled rows in the AI Tools card ('Eye Contact', 'Automatic multicam', 'Blur speaker background') sit at roughly 2:1 grey on white, so they read as broken rather than unavailable."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "cliplist: the 'Last Viewed' header wraps onto two lines in a column about 95px wide and its values are cut by the inline kebab at the table's right edge ('Thur...'), so the last column and the row action collide."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "editor: the right rail mixes three container treatments in one column: 'AI Tools' as a filled tile with a label, six plain icon-plus-label items, and 'Underlord' as a second filled tile flush against the window's bottom edge."
+    }
+  ],
+  "notes": "Only P2 has an error screen ('Making clips', failed Transcribe stage with 'Retry stage' and 'Start over'), so the other five are scored for empty_error_states from their visible loading and disabled states: P6 shows a 'Transcribing... 34%' row, P1 a collapsed 'Rejected' section, the rest show none. The P3 editor image carries a hand-drawn red arrow over the Audio rail item; I treated it as an annotation and did not score it."
+}

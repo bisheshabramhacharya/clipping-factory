@@ -1,0 +1,186 @@
+{
+  "judge": "brand",
+  "strongest": {
+    "typography": "P5",
+    "hierarchy": "P4",
+    "spacing_rhythm": "P5",
+    "color_contrast": "P5",
+    "component_consistency": "P5",
+    "iconography_detail": "P5",
+    "primary_action": "P4",
+    "empty_error_states": "P4"
+  },
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 7
+    },
+    "P2": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P1 editor: the transport row ends with a cursor-tool button and then a second control that is cut off by the transcript pane's right edge at x=950, leaving a sliver of its border visible."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P1 cliplist: the language badge (globe plus +1) sits immediately after each project name instead of in its own column, so it floats at a different x on every row and the title column has a ragged right edge."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P1 editor: of the six greyed-out AI Tools rows, only 'Center active speaker' and 'Blur speaker background' carry a Beta pill, so the faint disabled treatment means both unavailable and beta."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: seven identical cyan AI badges repeat across the More tools strip and a further four sit on the cards above, so the badge marks nothing specific and competes with the Create project block."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: in the Details panel every field label (Name, Saved, Ratio, Resolution) and every value is set at the same ~11px, so the panel reads as one flat block with no scannable pair of columns."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: the size and duration under each project thumbnail (215.4K | 00:03) is muted grey on near-black at roughly 3:1, far below the contrast of the names above it."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: three bare UUID strings sit above the Tracks heading with no label, container or heading of their own, so the screen opens on what looks like debug output."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P3 editor: unrendered filler markers appear inline in the transcript as literal tilde-and-dot glyphs mid-sentence ('a challenge, ~. depending') on Speaker 1's paragraph."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: every track row ends in an identical filled Download button plus an overflow dot, so five equal-weight actions line up under a Create button in the same accent."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: row 02 draws Keep/Maybe/Skip as bordered buttons with a check mark while rows 01 and 03 to 06 render the same three choices as plain grey text, so one control has two looks."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P4 editor: the active style tab draws a 3px black underline about 17px above a separate full-width hairline divider, so the tab does not connect to the panel beneath it and two rules read as one."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the collapsed Rejected row uses the same row rhythm, rule and text weight as clip 06 above it and carries no count, while Clips 6 in the header does, so the two lists read as one."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the issue screen offers no primary action at all, no comment composer, no state or status commit button, only property chips in the right rail and a plus in the header."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: rows such as ENG-139 carry five to six chips (priority, labels, project, due date) at the same 11px weight, so no row has a first thing to read after its title."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: property values (Done, Urgent, olivia, Bug, Cycle 6) render as loose 13px lines that only sometimes sit in a chip, so the rail mixes two control treatments for the same kind of field."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: the Auto headline banner's explanatory paragraph is set in a monospace face across a ~1130px measure, making the only instructional sentence on the screen the hardest text to read."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: words in the transcript switch between green and purple with no legend or key on screen, so color alone carries whatever that difference means."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: 'Color correction: OFF' sits in the same toolbar row as the ratio, layout and tracker controls but renders as plain 11px text with no icon, no chevron and no button shape."
+    }
+  ],
+  "notes": "Only P4 was given an error screen, so empty/error scores for the other five come from their cliplist and editor states alone. P5 is a project and issue tracker rather than a clip tool; it was scored on what its two screens show. P6 cliplist also carries a hand-drawn red arrow over its right rail, treated as an overlay artifact and not scored."
+}

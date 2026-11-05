@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "In the step-3 failure block, a list divider rule cuts the panel directly under \"Check that the model file is intact, then retry.\", so the message and its Retry stage / Start over buttons read as two unrelated pieces."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The six Style swatches under the panel header (Sun yellow, Lime, Coral, Sky blue, Violet, Orange) are six identical dots with no selected ring or tick, so the chosen accent is carried by the tab underline only and the dots show no state."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Each left-list row stacks a 15px bold score, 14px medium quote, 11px grey timestamp and a duration at the far edge inside about 60px, four sizes and three weights in one row."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-4a82-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabelled body text between the tabs and the Tracks heading, above any label saying what they are."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The right icon rail captions (Co-Creator, AI tools, Brand, Tracks, Your media, Motion, Text, Captions, Stock, Audio) are roughly 10px mid-grey on near-black, the least legible text on the screen and the only labels for those icons."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The timeline waveform is filled saturated green with magenta blocks, the brightest colour anywhere in the app, while nothing else on the screen uses either hue, so the loudest element carries no meaning."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The Create project banner, the three tool cards (AI video maker, Script to video, Record screen) and the right-hand promo card all use the same cyan gradient at similar weight, so four different-priority things read as equally primary."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "An identical cyan AI badge sits on ten of the eleven tool and tile icons in the same corner position, so the badge marks everything and therefore nothing."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the Details panel, labels (Name, Saved, Ratio, Resolution, Color space, Frame rate) and their values share one weight and grey, and the Saved path wraps to two unindented lines, so the column cannot be skimmed as label/value pairs."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Save changes (white outline) and Export (solid white) sit side by side in the top bar at the same height and width, giving an unsaved edit two co-equal primary actions."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The timeline strip above the thumbnails repeats Fill, f. Fill and F.. Fill labels at roughly 8px, truncated to the point where the track labels cannot be read."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Under each of the five clip cards, four unlabelled icon buttons (script, download, scissors, and a fourth below) sit at identical weight, so the action row under a clip cannot be decoded without hovering."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Label pills in the issue rows truncate mid-word (Squa, Migra, Frontend user d..., Currency Support...) because the pill width is fixed rather than fitted, so the chips read as broken text."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Every row carries a bright green circled status glyph while the ENG identifiers stay grey, making green the single saturated element in an otherwise monochrome list with no colour for any other status."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "On the issue detail the only create action is the small unlabelled plus at the top right of the window, while Properties, link, history and more sit in the panel header at the same weight, so new work has no primary affordance."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Last Viewed column is clipped by the table's right edge, so its values read Thur..., Apri... and March 16, and the column header sits above a cell that cannot show its own value."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Unavailable AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are set around #b9b9b9 on white with no other disabled marking, so they sit below a readable contrast and differ from enabled rows only by lightness."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The whole project list is one flat grey range: sidebar glyphs, toolbar icons, column headers and the selected row all land within a few percent of the same neutral, and the only saturated mark on the screen is the red dot in the Record button."
+    }
+  ],
+  "notes": "Only P3 has an error screen in this panel, so the other five are scored on empty and edge states actually visible in their screens (P4's inline Auto headline notice, P6's Add speaker placeholder and Transcribing 34% row, P1's bare 'No changes' footer). Per category the strongest were P5 for typography, spacing and component consistency, P3 for hierarchy, colour, iconography, primary action and error states."
+}

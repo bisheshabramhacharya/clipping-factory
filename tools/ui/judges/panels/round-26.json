@@ -1,0 +1,69 @@
+{
+  "round": 26,
+  "states": [
+    {
+      "key": "cliplist",
+      "label": "A set of generated items to review: the clips, projects or recordings, as a list or a grid."
+    },
+    {
+      "key": "editor",
+      "label": "One item open for editing, with its properties or settings beside it."
+    },
+    {
+      "key": "error",
+      "label": "A run that failed, or a step that could not complete."
+    }
+  ],
+  "products": [
+    {
+      "code": "studio",
+      "label": "Clipping Factory studio",
+      "note": "The product being reviewed.",
+      "files": {
+        "cliplist": "tools/ui/shots-windows/results-6-clips@1440.windows.png",
+        "editor": "tools/ui/shots-windows/clip-detail-restyle@1440.windows.png",
+        "error": "tools/ui/shots-windows/processing-error@1440.windows.png"
+      }
+    },
+    {
+      "code": "linear",
+      "label": "Linear",
+      "files": {
+        "cliplist": "tools/ui/reference/linear-cliplist@1440.png",
+        "editor": "tools/ui/reference/linear-editor@1440.png"
+      }
+    },
+    {
+      "code": "descript",
+      "label": "Descript",
+      "files": {
+        "cliplist": "tools/ui/reference/descript-cliplist@1440.png",
+        "editor": "tools/ui/reference/descript-editor@1440.png"
+      }
+    },
+    {
+      "code": "opusclip",
+      "label": "Opus Clip",
+      "files": {
+        "cliplist": "tools/ui/reference/opusclip-cliplist@1440.png",
+        "editor": "tools/ui/reference/opusclip-editor@1440.png"
+      }
+    },
+    {
+      "code": "capcut",
+      "label": "CapCut",
+      "files": {
+        "cliplist": "tools/ui/reference/capcut-cliplist@1440.png",
+        "editor": "tools/ui/reference/capcut-editor@1440.png"
+      }
+    },
+    {
+      "code": "riverside",
+      "label": "Riverside",
+      "files": {
+        "cliplist": "tools/ui/reference/riverside-cliplist@1440.png",
+        "editor": "tools/ui/reference/riverside-editor@1440.png"
+      }
+    }
+  ]
+}

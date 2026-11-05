@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 8.5,
+      "empty_error_states": 7.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P1 cliplist: the promo card fixed to the top right sets its white headline over a bright cyan field (sampled around rgb(50,210,247)) at roughly 2:1, so 'Remove backgrounds in one click without a green screen' is the least readable text on an otherwise dark screen."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: the Details panel keys (Name, Saved, Ratio, Resolution, Color space) and the media tab labels (Media, Audio, Text, Stickers) render several steps below their 13px values and under the 12px body minimum, so the panel's structure is carried by the smallest type on screen."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: an identical cyan 'AI' badge sits on all seven 'More tools' tiles plus all three feature cards and the promo, so the badge marks nothing and the tiles read as one undifferentiated row."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P2 editor: 'Review 6 clips' in the header is an outlined white button, while the same control in P2 cliplist is filled solid black (verified at the same coordinates), so the product's main action changes weight between two screens."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: each clip row offers Keep / Maybe / Skip as three bare text words, and only row 02 shows a bordered control around 'Keep', so the screen's core reviewing action looks like plain text on five rows and a checkbox on one."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist and editor: the inspector's title slot says 'Best clip 37.2/40' on one screen and 'Clip 3 35.7/40' on the other, so the same pane reads as a ranking detail in one place and a selected item in the other."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: the only filled button on the screen is 'Add more credits' in the header, and the review step is a 'Select' chip in the toolbar row, so nothing on the page says what to do with the 20 clips."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P3 editor: timeline track labels clip mid-word against their clip edges ('Slow pus' for Slow push, 'f. Fill' and 'F.. Fill' fragments, 'AI image B-roll' labels overlapping the thumbnails), so the timeline reads as cut-off text."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the 'Auto headline' explanation runs as one ~1200px measure under the heading while its only action, 'Disable it', sits about 1000px away at the far right of the same band."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit in the main column above 'Tracks' at body size with no label, reading as debug output on the page."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: five rows each end in a full-bordered 'Download' button plus a '...', repeated identically, so the loudest repeated element on the page is a per-row download rather than the row itself."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P4 editor: the transcript shows stray caret glyphs at line starts ('^^ - tech aspects with a guest is always a challenge, ^^ -') where filler words were cut, which reads as corrupted text rather than a clean edit."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P5 cliplist: six rows (ENG-811, ENG-810, ENG-786, ENG-784, ENG-722, ENG-788) carry a bare '---' in the priority slot where ENG-139 and ENG-742 carry a solid bar icon, so one column shows two different marks in the same place."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: label chips on the first two rows clip at the panel's right edge ('Internal Release', 'Currency Support Enab...') and press against the date column, so the chip row has no reserved gutter."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: the create action is an unlabeled '+' at the far right of the tab strip, at the same muted weight as the filter and display icons, while six tabs own the top of the screen."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P6 editor: the right 'AI Tools' panel runs past the window with no visible scroll affordance, cutting 'Blur speaker background' mid-row and slicing the 'Underlord' entry at the bottom edge."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: five disabled AI tools (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are grayed to roughly 3:1 with no reason given, and two of them carry a 'Beta' tag that does not explain the disabled state."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P6 cliplist: 'Delete project' in the open row menu is the same near-black text and same-weight trash icon as 'Rename project' and 'Duplicate project' (both sampled at about rgb(25,10,15)), with no destructive treatment or separator."
+    }
+  ],
+  "notes": "Only P2 has an error screen; the other five were scored on cliplist and editor alone. The hand-drawn red arrow over the Audio tool in P3's editor was treated as a capture annotation, not product UI."
+}

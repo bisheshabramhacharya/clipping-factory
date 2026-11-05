@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 9
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6,
+      "component_consistency": 5.5,
+      "iconography_detail": 5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 5.5,
+      "component_consistency": 7,
+      "iconography_detail": 4.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Keep / Maybe / Skip chips under every clip in the left list are set at roughly 10 px, well under the 13 px of the excerpt above them, so the actual decision control is the smallest text on the screen."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The sidebar header reads \"Clips 6\" while the inspector reads \"Clip 3\" for the same selected item, and the selected row's black left bar has no counterpart marker on the inspector side."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "color_contrast",
+      "issue": "On the failed Transcribe step, the diagnostic line \"whisper-cli exited with code 134 (SIGABRT)\" is the lightest grey on the page at about 11 px, so the one line a user would copy into a bug report is the hardest to read."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Inline transcript highlights use at least four fill colors (yellow, green, purple, grey) with no legend, so color carries meaning the reader has to reverse-engineer."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The full-width dashed \"Auto headline\" notice sits above the clip row and is read first, ahead of the 97 / 94 / 92 scores that are the reason the screen exists."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The left rail stacks seven unlabeled 20 px glyphs (folder, grid, calendar, chart, link, download, settings); the link and download marks read as actions rather than destinations, and the rail has no hover or section labels to disambiguate them."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Four saturated blocks compete on one screen: the cyan Create-project hero, three blue tool cards, the blue auto-removal promo, and the purple player card at bottom left, so no single region reads as the point of the page."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project meta under each thumbnail (\"215.4K | 00:03\") is about 10 px grey, and the More-tools labels wrap to one or two lines so those tiles' captions no longer share a baseline."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Three button languages coexist: squared panels with hairline dividers in Details, 8 px rounded cards in the Media grid, and a cyan-filled pill for Export, plus two different active-tab treatments (cyan underline in the top rail, flat cyan fill in Details)."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw machine ids (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are printed as unlabeled body text above \"Tracks\" with no field name, no truncation and no monospace treatment to mark them as identifiers."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "\"Generate with AI\", \"Export all\" and a per-row \"Download\" all sit at the same visual weight, and \"Export all\" wears a white focus ring that makes it look authoritative without the layout agreeing."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The timeline waveform is saturated lime and magenta while the product accent is purple, so the brightest color on screen belongs to neither the brand nor a state."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The \"Last viewed\" column header is the only one that wraps to two lines, and its values are cut mid-word at the table's right edge (\"Thur\", \"April\", \"Marc\") with no ellipsis."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The selected row is marked twice, by a ticked checkbox in the left column and a full-width lavender fill, so it reads like two different selection models running at once."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Unavailable AI tools (Eye Contact, Center active speaker, Green screen, Automatic multicam) drop to roughly 3:1 grey on grey and read as broken controls rather than gated ones."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each 40 px issue row packs up to four 11 px label pills plus a date and two avatars, and the pills truncate mid-word (\"Frontend User Experience...\", \"Currency Support...\"), so the row's right half is a field of half-words."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "There is no full-weight create control on the issue list; creating an issue is a bare unlabeled \"+\" in the top-right corner and another \"+\" in the group header, both the same weight as the surrounding chrome."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The bottom of the issue detail nests four containers (Activity card, Discussion summary card, bullet block rule, generated-date footer), so the reading order flattens exactly where the history should be skimmable."
+    }
+  ],
+  "notes": "Only P1 supplied an error screen; the empty/error score for P2 through P6 is judged from the states visible in their two screens (disabled controls, in-progress transcription, placeholder tiles) and may be generous or harsh. P1's serif wordmark against an all-sans UI is a deliberate editorial move I read as personality, not drift."
+}

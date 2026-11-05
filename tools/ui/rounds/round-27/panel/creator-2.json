@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto removal' promo card (blue gradient, six carousel dots) is the second-largest block on the screen and sits at the same level as Create project, so an advertisement outranks the user's own Project row."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The left panel stacks seven tool tabs (Media, Audio, Text, Stickers, Effects, Transitions, Filters) plus a second text-only nav level (Local, Import, Library) inside a panel about 150px wide, all at one 12px size, so neither level reads as the parent."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel the Saved value wraps onto two lines ('C:/Users/Admin/Desktop/CapCut Drafts/' then '1025 (1)') while every other property is one line, so the label-to-label rhythm breaks at row two."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline explanation is set in monospace at about 12px in a single ~1200px line above the clips, so the densest block of reading on the screen is the one thing a creator cannot scan."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Save changes and Export sit side by side in the top bar as two identical light-filled buttons, so the screen has two primaries and no way to tell whether exporting commits the edit."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The left rail is nine unlabeled icons at about 18px with no active label and no visible tooltip, so the whole navigation depends on recognizing a glyph."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Every row's Keep / Maybe / Skip decision is three text targets about 35px wide set well below the clip title size, and the only marker of a decision is a small check in a light-gray fill, so six rows are slow to scan for what is already decided."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The right column carries Style tabs, six swatches, a font picker, four Extras toggles, the caption field plus transcript line, In/Out/Length, Why this clip and five download formats in about 330px with no section collapsed, so the panel is a single undifferentiated wall."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Download MP4 is a bordered button with an icon while SRT, VTT, Meta and Poster sit beside it as bare text with no border, so one family of export actions is drawn as two different controls."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The word-level transcript strip under the playback bar is about 10px, starts mid-word at the left edge ('...welcome everyone to toda') and runs off the right edge with no visible scroll affordance."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The projects card floats inside a full-window gray field with a ~50px band above it holding only a wide centered search field, so the first thing the screen shows is empty chrome rather than the project list."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The 'Last Viewed' column header wraps onto two lines next to its sort chevron while Duration and Created stay on one, so the table header baseline is ragged."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "No primary action is visible anywhere on the issue screen: Done, Urgent, the assignee, the Bug label and Cycle 6 in the right panel read as static chips, and there is no comment field or save button in the full 900px view."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Label chips truncate to identical prefixes, so ENG-811 and ENG-810 both read 'Currency Support...' and ENG-786 and ENG-784 both read 'Frontend User Experience...', leaving the chips unable to tell the rows apart."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "'Projects' appears twice in the left sidebar with two different icons (above Home under Workspace, and again near the bottom above Views), so two destinations share one label."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabeled body text between the tab row and the Tracks heading, reading as debug output rather than content."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In Ready-made collections the third card is clipped by the panel edge mid-word ('Educati') with a '>' chevron drawn over the cut, so the row of three cards ends in a broken tile."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The transcript renders stray marks inside the copy, starting a line with a broken glyph plus a bullet and ending others with the same pair ('...is always a challenge, [glyph] -'), which reads as unparsed control characters."
+    }
+  ],
+  "notes": "Only P3 has an error screen in this panel, so empty/error is scored from what each set actually shows (P4's 'Transcribing... 34%' chip and disabled AI Tools rows, P6's per-track Ready status); everyone else gets credit only for states visible on screen. P1, P2, P4, P5 and P6 had no empty or failure surface to judge, which caps them well below P3's stage-by-stage retry screen."
+}

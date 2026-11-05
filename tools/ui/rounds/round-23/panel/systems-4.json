@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 4
+    },
+    "P2": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 9,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 10,
+      "primary_action": 9,
+      "empty_error_states": 4.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 7,
+      "empty_error_states": 4.5
+    },
+    "P5": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 4
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 10,
+      "empty_error_states": 4
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In the clip grid, each portrait thumbnail is 143 px wide on a 271 px pitch, so the horizontal gutters are 128 px while the gap from image to score is only 35 px, and the score/icon/title row is about 185 px wide, which puts the scissors icon at x 557-565, roughly 18 px past that card's image edge at x 547 and into the gutter."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Every card's top-right duration pill reads '00:00 00:43' as two unlabelled timecodes in 10 px type over a dark pill, and it is the only per-clip metadata besides the score, so start time and length cannot be told apart."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In the transcript panel, a dozen words ('Captions already done', 'Great headline', 'style', 'templates', 'ClickUp') are set in green while the surrounding text is white, with no legend, key or icon, so the one class of term that matters is carried by colour alone."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The review decision on every row of the clip list is a bare 11 px grey 'Keep / Maybe / Skip' trio spread about 44 px apart with no container, border or hover shape, while the Inter select, the four Extras toggles and Download MP4 on the same screen all have full styled containers, so the screen's central control is the only unstyled one."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The row under 'Best clip 37.2/40' mixes a grey, icon-led 'Style' label with four underline tabs (Impact, Clean, Pop, Cinema); Style has no active state and cannot be selected, so two different control types share one row and one look."
+    },
+    {
+      "product": "P2",
+      "state": "error",
+      "category": "primary_action",
+      "issue": "On the 'Making clips' failure screen, 'Retry stage' (black, filled) and 'Start over' (outline) have the same height, sit side by side about 30 px apart with no divider, and each carries a same-weight 12 px caption, so discarding the finished stages reads as equal in weight to retrying one."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In the 'Look good' card, the disabled tools (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) render their labels at about #cccccc on #ffffff, measured 1.4-1.6:1, and their 'Beta' tags use the same grey, so the disabled state falls below any minimum and looks like the beta marker."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In the open project menu, 'Delete project' is the same 13 px dark text, same 16 px line icon and same row height as 'Rename project' and 'Copy project link', with no colour, divider or confirmation, so the only destructive action sits directly under 'Project access' looking identical to it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "'Add speaker' above the first paragraph is 11 px at about #8d8d8d on near-white, measured 3.1:1, and it is the only affordance for naming a speaker, so the sole control for that job is the least legible text in the document."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Six issue rows (ENG-811, ENG-810, ENG-786, ENG-784, ENG-722, ENG-788) print a literal '---' in the priority slot where ENG-139, ENG-416 and ENG-742 show a bar-chart glyph, so the empty value of that column is placeholder text instead of a designed empty mark."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Label chips mix full-colour emoji (coin on 'Currency Support...', globe on 'Frontend user d...', folder on 'Frontend User Experience...') with monochrome 16 px line icons in the same chip row, and the emoji sit at visibly different optical sizes from the stroke icons beside them."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The date column sets ENG-139 as 'Dec 2023' while the rows below use 'Jun 5', 'Jan 3', 'Jan 16', 'Jan 14' and 'Dec 20', so one column carries two date formats."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are printed as body text under the tab bar with no label, sitting between 'Recordings' and 'Tracks' as if they were content."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The timeline waveform is drawn in saturated fluorescent green with magenta blocks, which is the loudest colour on the screen and out-shouts the purple Export button, and it encodes no state that the track label does not already say."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Each track row prints two names for the same thing, the display name ('Cassidy') and a truncated machine string ('cassidy_f8aacc...') one line below at a similar weight, so the row's identity is stated twice."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The recent-projects block at the top of the sidebar is an untitled pixelated brown and grey mosaic with no caption, so it reads as an unloaded or broken thumbnail rather than as content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The top row holds three different heights side by side (the Create project band about 150 px, the three tool tiles about 115 px, the promo card about 270 px), and the 'More tools' row below spaces its last two tiles wider than its first five, so neither row lands on a shared grid."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Ten 7 px cyan 'AI' badges repeat across the three tiles and seven tools, and the same cyan gradient fills the Create project band and the promo card, so one accent is doing action, decoration and metadata at the same time."
+    }
+  ],
+  "notes": "Only P2 has an error screen in this panel, so the empty/error scores for the other five measure absence rather than bad design; P3 is the one product showing a live progress state ('Transcribing... 34%') and P2's failure screen names the failing step, the exit code and the cost of each way forward. P4 is also the only product whose two states use different themes (a dark full-window issue list, a light floating detail card), which I read as a theme swap rather than a second design system."
+}

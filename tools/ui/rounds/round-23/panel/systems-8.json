@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 9,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The header row puts Select, Filter, search, sort, share and overflow at identical rectangle weight with no filled control, and the only action sentence on the page is the banner's 'Disable it' in the far right of the paragraph, so a list of 20 clips has no visible first move."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the preview header bar, 'Layout: Fill', 'Color correction: OFF' and 'Tracker: On' are bare inline text while the B and crop buttons immediately to their right are boxed controls, so settings and tools read as two different component classes at the same level."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The same on/off value is cased two ways in one toolbar: 'Color correction: OFF' in caps and 'Tracker: On' in sentence case, both at the same 12px grey."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Clip row 02 draws the focused 'Keep' control with its checkmark box on top of the row's second excerpt line ('first exists in the lab to when...'), so text and control overlap in the same 24px band."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The selected colour swatch is marked by an oversized light-grey rounded box whose right edge cuts through the 'Coral' label, while the selected 'Clean' style tab one row above is marked by a black underline, so one selected state has two treatments eight pixels apart."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The same right-hand panel is titled 'Best clip 37.2/40' on the cliplist and 'Clip 3 35.7/40' on the editor, so the panel's title changes role and wording between the two screens instead of naming one stable thing."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The open row menu covers the 'Last viewed' column, cutting three visible values mid-word ('Thurs', 'April', 'March 16'), and it floats over the header rather than displacing it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled AI-tool rows (Eye Contact, Center active speaker, Green screen, Automatic multicam) render at roughly #c8c8c8 on white, close to the 'Beta' tag grey, with no reason given for the disabled state."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' header wraps to two lines while every other header is one line, and its sort chevron sits outside the column at a different baseline from the wrapped word, so the header row has two heights."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue detail has no comment composer and no filled action; the only affordance is a small unlabelled '+' in the top-right corner, so a screen whose job is to advance an issue does not say what to do next."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Identical label chips render at different widths on different rows: 'Frontend User Experience...' stops around x=1122 on ENG-786/ENG-784 while 'Frontend User Experience fo...' runs to x=1138 on ENG-788, so the same label does not look the same."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "A gutter column before every issue ID shows either three priority bars or a '--' dash with no header or legend, so a column of unlabelled marks takes the first read on every row."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') sit as bare unstyled body text directly under the Recordings tabs with no label, where they land before the 'Tracks' heading."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The selected 'Sound Effects' tab is drawn as a white double-ring outline while the adjacent Scene/Layout/Design segmented control marks selection with a filled dark surface and the Audio rail item with a filled tile, so one screen shows three selected-state styles."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The timeline waveform uses saturated lime with magenta peaks, the brightest colour pair on the screen and one that appears nowhere else, so the scrubber outshouts the preview and the colour carries no state."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel the 'Saved' value ('C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)') wraps to two lines while every other value is a single line, breaking the label/value column grid that the rest of the panel holds."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The timeline ruler's first label '00:00' is covered by the playhead's head marker at the track start, so the zero point of the ruler is unreadable."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Seven 'More tools' tiles each carry an identical teal 'AI' badge in the same corner, and those badges are the only saturated element in the row, so they read louder than the tool names underneath them."
+    }
+  ],
+  "notes": "Only P2 has an error screen (P2 error: stage 3 failed, named cause, Retry stage as the single filled action, downstream stages marked waiting), so the other five are scored for error handling from their cliplist and editor screens alone. P4's strong scores come from a genuinely systematic type, spacing and colour layer on two calm screens, while its primary-action and state-coverage scores are lower because neither screen offers a failure or empty path."
+}

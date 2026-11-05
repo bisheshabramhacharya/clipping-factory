@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 8.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 7,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 5.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 6,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 6,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P1 cliplist: the Keep / Maybe / Skip trio in all six clip rows draws no selected or pressed state, so a clip already triaged is indistinguishable from an untouched one, while the row's own selected state is only the pale fill behind row 01."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P1 cliplist: tertiary text sits below AA where it is smallest, measured 4.33:1 for the per-row duration \"00:41\" at roughly 11 px and 3.95:1 for the \"Coming soon\" chip in the header; the same gray appears at 4.17:1 on the P1 error screen's raw error line."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P1 error: the failed step's body (\"Transcription failed\", guidance, raw exit line, two buttons) has no error container or tint and floats between two full-width rules, so it reads as a taller list row rather than a break in the run, and \"Start over\" keeps the same quiet outline as a harmless secondary."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: the \"Auto headline\" notice body is set in a monospace face across two full wrapped lines while every other sentence in the product is a sans, which makes the one instructional paragraph the hardest thing on the screen to scan."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist: the far-left rail stacks six icons with no labels and no visible tooltip affordance, and the second group (clock, chart, link, download, terminal) is decoded only by hovering."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: every timeline segment label truncates to the same fragment (\"Fill\", \"F...\", \"F\"), so nine adjacent segments carry no distinguishing text at their fixed width."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P3 cliplist: project captions such as \"215.4K | 00:03\" under each thumbnail measure 3.74:1 against the near-black page at roughly 10 px, below the 4.5:1 needed at that size."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P3 cliplist: the tool tile row mixes outlined glyphs with a solid trash and a solid record dot at the same visual weight, and \"More tools\" icons sit on uneven optical centers because the tile boxes differ in padding."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: \"Long video to shorts\" wraps to two lines while the six labels beside it stay on one, so that row's captions no longer share a baseline even though the tile grid above them is even."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: three raw identifiers (\"d591db2c-0a82-482e-a8c8-5f93768b9a24\", \"69e48d8e849ab9426f17022d\", \"composer-5gohk1eo6\") are set as unlabeled body lines above the \"Tracks\" heading, and the page title truncates mid-phrase to \"April 16: Choice's thoughts of th...\" at full width."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: \"Create\" (filled violet), \"Ask Co-Creator\" (bordered) and \"Export all\" (which carries an extra outline ring) all compete in the top band, so no single next step wins the eye."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P4 editor: the active \"Sound Effects\" tab is drawn as a white outlined pill plus a white underline, which reads as a focus ring layered on a tab indicator rather than the selected state used elsewhere in the same panel."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P5 editor: disabled AI Tools rows (\"Eye Contact\", \"Center active speaker\", \"Automatic multicam\", \"Blur speaker background\") render at 1.52:1 against white while the enabled labels beside them measure 6.01:1, so the unavailable options are unreadable rather than merely muted."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: the header row ends in a bare \"⋮\" cell and a sort caret that sit over the actions column instead of over \"Last viewed\", and the open row menu covers the \"Last viewed\" values of the rows beneath it with no shift or scrim."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P5 editor: the transport timecode \"0:00:00.0 / 0:32:05.0\" and the transcript-strip labels are set at roughly 10 to 11 px, and the strip fragments (\"And honestly, the\", \"Uh, you can be editing a\") clip without an ellipsis."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: the priority column shows a bare \"-\" for six of ten rows and the first row's mark is clipped to a partial \"1.\" at the column edge, so that column reads as unfinished data next to the fully resolved date and assignee columns."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the sidebar repeats \"Projects\" and \"Views\" in both the Workspace and Your teams groups with the same label and icon and no differentiator, so two destinations read as one."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the \"Bug\" label chip and the bare \"+\" beside it are different shapes, and \"+ Add sub-issues\", \"Links 1\" and the bare bug and paperclip icons under the body use four affordances for the same add-or-open relationship."
+    }
+  ],
+  "notes": "Only P1 supplied an error screen, so every other product's empty_error_states score is judged from its list and editor states and cannot reward failure handling it never showed. Two caveats on evidence: P4's cliplist is a track list rather than a clip grid, and one red annotation arrow appears in P2 editor that is not part of the interface."
+}

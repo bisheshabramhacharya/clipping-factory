@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 5.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8.5,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8,
+      "color_contrast": 10,
+      "component_consistency": 8.5,
+      "iconography_detail": 10,
+      "primary_action": 9,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The transcript body is highlighted word by word in five colors (green, yellow, orange, blue, gray) with timestamp chips inline, so the copy being edited cannot be scanned and the colors carry no meaning."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "An unlabeled icon rail (home, grid, folder, calendar, chart, link, crown, database) floats on the page background left of the content card, with no labels or tooltips to say what any of it opens."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline banner body is set in a monospace face while the rest of the app is sans, and its 'Disable it' action sits at the far right edge, detached from the sentence it acts on."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Keep / Maybe / Skip on every clip row are plain gray text with no button shape, and the chosen state shows only as a checkmark on one row, so the review decision does not look clickable."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The clip column is about 320px wide, so every title truncates after two lines ('There's a question of how much of that goes to the...') and clips cannot be told apart without opening them."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Style swatches, the second row (Violet, Orange, Custom) starts under the 'Clean' column, so Violet and Orange read as belonging to Clean rather than to the style row."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The transport row under the waveform runs under the AI Tools panel and its rightmost pill control is cut to a sliver at the panel edge."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Header actions split into two rows at different heights: Record and New project sit beside the 'Personal' title, while the grid/list toggle hangs about 50px lower on its own."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "'Add speaker' is an underlined link set at body size directly above the transcript, so it reads as the first line of the script rather than a control."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Label chips at the end of each row are cut mid-word at the panel's right edge ('1.', 'Squa', 'Migra', 'MIC Re'), so those labels cannot be read."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The Properties card's top edge starts about 50px below the content card's top edge, leaving a stepped header and dead space under the property list."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The 'Discussion summary' block is a bordered, rounded card nested inside the already-bordered document card, so the activity area looks like a panel from another product."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82..., 69e48d8e849ab..., composer-5gohk1eo6) print as unlabeled body text between the tabs and 'Tracks', at the same weight as real content."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "Stray squiggle-and-bullet glyph pairs appear inline mid-sentence four times in the transcript ('So <glyph> tech aspects...'), breaking the read with marks that carry no meaning."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The header reads '00:00' beside 'Edit 08 - My Movie.mp4' while the player reads 00:00 / 18:05, so the file duration shows as zero."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "All seven More tools tiles carry the same small blue 'AI' badge, so the badge marks nothing and just repeats."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Tool captions are low-contrast gray on near-black, and 'Long video to shorts' wraps to two lines while the six beside it stay on one, breaking the row baseline."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel, 'Saved' wraps its path onto two lines and pushes that row's height out of step with the rest of the property list."
+    }
+  ],
+  "notes": "Only P2 has an error screen, and it is the panel's only designed failure state; P1, P3, P4, P5 and P6 were scored on cliplist and editor alone. P3's cliplist was captured with a context menu open, which dims the whole page."
+}

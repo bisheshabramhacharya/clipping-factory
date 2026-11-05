@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 5.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 9.5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 8,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 5.5,
+      "empty_error_states": 4.5
+    },
+    "P6": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 5.5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Cliplist: the Keep/Maybe/Skip chips are ~11px inside the selected row while 'Review 6 clips R' in the header is the loudest control, so the real triage work is the smallest thing on screen and two review paths compete."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "spacing_rhythm",
+      "issue": "Error: 'Retry stage' and 'Start over' sit at the far right of the failed row, roughly 660px from the 'Transcription failed' message, so the fix reads as detached from the step it repairs."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "Editor: the eight color circles in the right panel Style row carry no labels except the selected one ('Coral #FF4F4F'), so it is unclear whether they set caption color or a brand palette."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Cliplist: the header is six equal-weight filter pills (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, '5 more...') plus Filter and Display, with no single control saying what to do with this list."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Editor: the issue detail has no comment field and no close action in view; the only prominent control is an unlabeled '+' in the top-right corner, and 'Done' is a muted property row."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Cliplist: label chips truncate mid-word at different widths ('Frontend User Experience...', 'Currency Support...') and pair a colored glyph with low-contrast gray text on tinted borders, so each row reads as chip noise rather than scanable metadata."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Editor: the timeline filmstrip and its 'Fill' track labels repeat dozens of times at ~10px tall on black, so the editing surface itself cannot be read while the transcript and right rail pull the eye."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Editor: inline '0.58s' / '0.36s' timestamps are interleaved into the transcript paragraph, breaking sentences mid-line so the clip's spoken text cannot be read straight through."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Cliplist: each clip's row of icons under the score (calendar, download, scissors) has no labels and the scissors does not read as 'split clip', while 'Add more credits' is the only filled dark button in the header."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Cliplist: three unlabeled hash strings ('d591db2c-0a82-...', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') stack above the 'Tracks' heading at body size, reading as leftover debug output on a project page."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "Editor: ten icon-and-label items in the right rail (Co-Creator, AI tools, Brand, Tracks, Your media, Motion, Text, Captions, Stock, Audio) share one weight and compete with Export in the header."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "Editor: the active 'Sound Effects' tab in the Audio panel is drawn as a white rounded outline that reads like a focused text input, while inactive 'Music' is plain text, so the tab state is ambiguous."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Cliplist: the open row menu ('Clear local cache', 'Rename project') covers the Last viewed column, so row dates behind it appear as clipped fragments ('Thurs...', 'April...') under a header the menu shadows."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Editor: the unavailable rows in 'Look good' (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) are near-white gray on white, unreadable and indistinguishable from enabled tools."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Cliplist: 'Record' (outlined, red dot) and 'New project' (dark filled) are side by side at equal size, giving a project list two competing primaries instead of one."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Cliplist: the tall cyan gradient 'Create project' slab is the loudest element on the home screen while the actual projects sit below in 11px labels, so decoration lands before content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Cliplist: project cards read '0926 / 215.4K | 00:03' with no label on either number, so the metric (views?) and the duration are separated only by a pipe."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Editor: the Details panel runs 11px gray labels and values on near-black, and the 'Saved:' value wraps a full 'C:/Users/Admin/Desktop/CapCut Drafts/...' path onto a second line."
+    }
+  ],
+  "notes": "Only P4 has an error screen, so every other product's empty/error score is judged from what its two screens show and is capped low; P3's editor image also carries a hand-drawn red annotation arrow at the Audio icon, which I treated as capture markup rather than product. P5's screens are a polished issue-tracker UI rather than a clip shop, and I scored the interface as shown without inferring a clip workflow."
+}

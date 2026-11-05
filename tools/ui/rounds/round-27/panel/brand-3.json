@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 6,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 9.5,
+      "empty_error_states": 9.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: the cyan gradient block holding 'Create project' and the three AI tiles fills the top 40% of the window while the user's own Projects grid starts two thirds down, so the promo module outranks the work."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: the 'More tools' captions sit at one size under one icon row, but 'Long video to shorts' and 'Video translator' wrap to two lines while the rest stay on one, so the row has no common baseline."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P1 editor: the Details panel's 'Saved:' value prints the full path 'C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' and wraps to two lines, breaking the label/value column that the six rows above it hold."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: 'Add more credits' is the only filled button in the header, at the far top right, while the screen's actual work has no primary control and each clip card's three actions (open, download, scissors) are unlabeled icons of equal weight."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: the transcript runs at roughly 16px across a ~620px column with no indent or marker per caption chip, so the inline timing chips (0.58s, 0.36s) sit inside the sentences and the block cannot be scanned."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the 'Auto headline' notice puts 'Disable it' at the far right edge, 200px past the end of its own sentence, next to an unlabeled 'x' that does the opposite job, at the same weight."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: Keep/Maybe/Skip repeats three times on all six rows, 18 near-identical 11px text buttons, and the only thing marking a choice is a 1px box around 'Keep', so the triads out-shout the clip titles they belong to."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P3 error: the failure block ends at 60% of the window height and leaves about 400px of empty white below it, so a well-written failure reads as an unfinished page."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P3 cliplist: the 'Custom' swatch in the Style row is a hollow white ring with no fill, sitting in the same grid as six real colors, so the palette row looks like it has a missing image."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P4 cliplist: the table's column headers, the Duration/Created/Last viewed values and the row labels all sit within a few steps of the same gray on a gray page, with the lavender selected row the only color on the screen."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P4 editor: the unavailable AI Tools rows ('Eye Contact', 'Center active speaker Beta', 'Green screen', 'Automatic multicam', 'Blur speaker background Beta') are drawn at roughly 30% gray, so they read as unloaded rows rather than as disabled controls."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: 'AI Tools' is set twice within 200px, once as the side panel heading and again as the selected tab label in the far rail, so the panel's title and its tab say the same three words."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: each row carries up to five 11px chips (status ring, project pill, label, release chip, date, avatar) at one weight, so on rows like ENG-139 the metadata is louder than the issue title."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: the view tab strip mixes four full-width view tabs with a truncated '5 more...' at the same weight and then a separate bordered 'Display' button on the same line, so the switcher and the display control read as one set."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: in the properties rail, the actionable 'Add to project' is set at the same gray and weight as the read-only 'Cycle 6' above it, so the one control that does something looks like another value."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: the header collapses into overlapping colored pills at the top right, with single letters 'G', 'S' and 'T' half-hidden behind 'Feedback', so the header reads as a rendering bug."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: the transcript puts bare glyphs inline mid-sentence ('♪ • tech aspects with a guest is always a challenge, ♪ •'), so the speaker text scans as corrupted rather than as marked sound effects."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the Recordings tab opens on three raw IDs (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) as unstyled body text with no label, container or icon above the 'Tracks' heading."
+    }
+  ],
+  "notes": "Strongest per category: typography P5, hierarchy P3, spacing and rhythm P5, color and contrast P3, component consistency P5, iconography P5, primary action P3, empty and error states P3. Only P3 has an error screen in the panel, so the other five were scored on what their list and editor screens show and carry no error-state credit; no product showed an empty state at all, so that half of the category is judged only from loading and status treatments."
+}

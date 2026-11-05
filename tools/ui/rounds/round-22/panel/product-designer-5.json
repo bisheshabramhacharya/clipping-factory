@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 6.5,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The open row menu on 'Ram Create Clips' overlays the Last viewed column, cutting 'Thur…', 'April' and 'March 16' mid-word in the rows behind it."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Duration values carry an unlabelled '+1' suffix ('01:26 +1', '01:36 +1') in the same column as plain values, so the column stops reading as one comparable number."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The destination rail on the right (Project, Properties, Elements, Captions, Stock, Underlord) is jammed against the window edge, and 'Underlord' plus the AI Tools description are clipped by it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three entry points stack before the Projects grid: the full-width cyan Create project hero, three equal tool cards, and a full-height Auto removal promo tile, so the grid starts below three competing first moves."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The Details panel leaves roughly 110px of dead space between 'Import material: Keep in original place' and the full-width grey 'Modify' button pinned to the panel floor."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The cyan 'AI' pill is attached to seven of the nine More tools tiles, so the badge marks almost everything and stops distinguishing anything."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three raw identifiers (two UUIDs and 'composer-5gohk1eo6') print at body size directly under the tabs and above the 'Tracks' heading, so developer strings are the first content on the page."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Create' and 'Ask Co-Creator' sit at equal size and weight in the header while 'Generate with AI' and 'Export all' sit at equal weight inside the panel, giving four competing actions."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The 'Sound Effects' control draws a white rounded border that overlaps the 'Music' label beside it and sits below the panel's tab underline, so the tab row has no single shape."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "'Why this clip >' is a 13px text link in the same stack as Download MP4, SRT, VTT, Meta and Poster, so the reason for 35.7/40 is quieter than the export formats."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The style swatches wrap 4 + 3 with 'Custom' alone on a third row beneath the Impact/Clean/Pop/Cinema tabs, so the block reads as two broken grids rather than one."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "'3. Transcribe' is the only stage row without a status word beside its name (1-2 read 'Done', 4-7 read 'Waiting on 3. Transcribe'), so the failed step is carried by the X icon and the red rule alone."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The view strip carries eight chips plus '5 more…', 'Filter' and 'Display' above the list, and the active 'Active' chip differs only by fill, so the chrome outweighs the rows."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Label pills truncate at roughly 90px ('Currency Support…', 'Frontend user d…', 'Develop…'), so no two rows' labels can be compared without opening them."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The panel tabs are 'Properties' as a word plus three unlabelled icons with no selected state, so three of the four destinations cannot be identified and the current one is not marked."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The eight-item left rail is icon-only with no labels and no selected state, so its destinations can only be guessed from the glyphs."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline notice is set in a wide-tracked monospace face with 'Disable it' pushed to the far right of the last line, so the notice reads as log output and its action is detached from its sentence."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The preview toolbar puts six items on one line (9:16, Layout: Fill, B, crop icon, Color correction: OFF, Tracker: On) and 'Tracker: On' is clipped by the panel's right edge."
+    }
+  ],
+  "notes": "Only P4 supplied an error screen, so empty/error is scored at full strength for P4 and from the surviving screens for the rest; no empty or loading state appears anywhere in the panel. Episode titles, clip copy and placeholder thumbnails are fixture content and were not scored."
+}

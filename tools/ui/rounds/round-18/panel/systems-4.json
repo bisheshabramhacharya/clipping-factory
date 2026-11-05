@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 6,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 9
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5,
+      "color_contrast": 5.5,
+      "component_consistency": 5,
+      "iconography_detail": 5.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: three bare identifier strings ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1e06') sit unlabeled as body text between the tab bar and the 'Tracks' heading, reading as leaked internal IDs."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: 'Export all' at the Tracks header carries a 2px white focus ring, making it the loudest control on the screen and outranking the purple 'Create' primary in the top right."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P1 editor: the inline speaker-change markers before 'tech aspects' and 'depending on' in the transcript render as tiny ambiguous glyphs that read as broken icons inside the sentence flow."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: the 'Last Viewed' column truncates mid-word ('Thurs', 'April', 'March 1') on every row, and the open row menu covers the column edge so the values cannot be recovered."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: opening the row menu washes the entire viewport in a gray scrim, dropping the sidebar labels, table headers and date column to a pale gray well below normal reading contrast."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor: the transport bar's right end runs under the AI Tools panel, so the zoom cluster reads '100% +' then a lone clipped 'S' at x~975 against the panel edge."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the lime scores 97/94/92/90/87 are the loudest element on every card but carry no label or denominator, so the number's scale is unreadable at a glance."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the left icon rail's vertical pitch runs 34, 56, 42, 48, 45, 45, 125, 39, 42 px down the 324-800 range, so no two neighbours share a gap."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P3 editor: the right rail labels 'Hook', 'Transitions', 'Text', 'Graphics', 'Audio' and the 'B-roll' tag above them are set at roughly 7-8px, below any readable floor, while the left rail uses no labels at all."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist and editor: Keep/Maybe/Skip chips render only on the selected clip (01 in cliplist, 03 in editor), so the review state of the other five rows is invisible in the list."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P4 editor: 'Apply changes' (black, bottom right of the properties pane) and the persistent black 'Review 6 clips' in the header are both filled primaries at once while unsaved changes are pending."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: the same score is written '37.2/40' in the clip rows and '37.2 / 40' with spaces in the 'Best clip' header, and the header splits it into a bold numerator and a small denominator while the rows do not."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: label chips are right-aligned to the date column, so their left edges are ragged across rows (x~735 on ENG-139, x~565 on ENG-788) and each row truncates its title at a different width."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: the sidebar lists 'Projects' and 'Views' twice, once under Workspace and again below Cycles with different icons, so each destination has two identities."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P5 editor: the Activity discussion summary carries dashed underlines under 'nil delegate, NSCache cost limit image cleanup' and '@brian verified on iPhone 6S' that read as spelling-error squiggles inside finished copy."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: the project thumbnails in one row use at least three widths (~84px, ~96px, ~100px for 0919(1)), so the gaps between cards are uneven and no two cards share a column edge."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P6 cliplist: an 'AI' chip sits on five of the seven 'More tools' tiles and on both hero cards, so the badge stops distinguishing anything; the two-line 'Long video to shorts' label also drops its row off the single-line baseline."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: the toolbar above the timeline is seven unlabeled icon buttons at x 1043-1305 where the two 'active' ones differ from the rest only by teal fill, with no label, tooltip or non-color state marker."
+    }
+  ],
+  "notes": "Only P4 has an error screen in this panel, so the other five are scored on empty/error from the states they show and could not be compared on a failure screen; no product shows a true empty state. P5 is the tightest system in the panel; P4 is the only one that treats a failure as a designed screen with named step, cause and a single retry."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 7.5
+    },
+    "P6": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 8
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as unstyled body text above the Tracks heading and read louder than the section they belong to."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P1 editor: the selected Sound Effects tab draws a second white outlined box inside its underline, so the active tab reads as a focused input rather than a tab."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: Export all carries a heavy white focus ring at equal weight to the purple Create button, and every row repeats a full Download button, so no single next step wins."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P2 cliplist: project captions under the thumbnails (215.4K | 00:03, 789.1K | 00:01) and the Details values in P2 editor (C:/Users/Admin/Desktop/CapCut Drafts/) are set around 11-12 px in low-contrast grey on near-black."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: the same cyan gradient serves the brand hero banner and the small nav and panel labels (Media, Details, Local), so the accent marks both decoration and text."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor: the three rounded panels stop at y~495 above a timeline whose empty track area runs to the window bottom, leaving roughly a third of the screen as dead space under the clip row."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P3 editor: Keep, Maybe and Skip are three identical grey outlined chips on every one of the six clips, so the verdict that drives the whole review has no visual rank."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "hierarchy",
+      "issue": "P3 error: the bordered callout around 'Check that the model file is intact, then retry.' ends at x~572 mid-column, leaving an open-edge box that looks like a clipped input."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: Download MP4, SRT, VTT, Meta and Poster run as six same-weight text links in one row under the clip, typographically identical to the field labels above them."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the neon scores (97, 94, 92, 90, 87) are the loudest marks on the screen, louder than the thumbnails and titles they score, and hue carries the ranking on its own."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P4 editor: transcript keywords are tinted in at least five hues (green, blue, purple, yellow, plus emoji glyphs), so highlight color no longer separates one kind of term from another."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: the Auto headline banner's help copy runs full-width at ~13 px with its 'Disable it' action floated far right at x~1279, so instruction and remedy do not read as one block."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: rows pack issue id, status ring, title, up to four colored chips, play count, date and avatar with no shared column edges, so titles start at four different x positions."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the detail view offers no primary control at all; Done, Urgent, labels and project sit as equal-weight property rows with no save, comment or status advance in view."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist is near-black while P5 editor is white with a 32 px heading, so the two screens share tokens but read as two different products' surfaces with no theme cue."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the open row menu at x~1279 covers the Last viewed dates for the selected row and the two rows above it, obscuring the column the header sorts by."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P6 cliplist: the view toggle (grid/list) floats on its own line between the actions and the table header, adding a third right-aligned control group above the list."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: unavailable AI tools (Center active speaker, Green screen, Automatic multicam, Blur speaker background) differ from usable ones only by a lighter grey, so availability is hard to read at a glance."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so empty/error for the other five is judged from visible muted, disabled and empty-region treatment rather than a dedicated state. P5 shows one dark and one light screen without a theme switch in view; that gap is scored as shown."
+}

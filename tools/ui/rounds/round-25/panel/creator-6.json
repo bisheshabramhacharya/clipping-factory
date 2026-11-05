@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 8.5,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 7
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 8.5,
+      "component_consistency": 10,
+      "iconography_detail": 8.5,
+      "primary_action": 9,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are printed as unlabeled body text directly under the project title, so the top of the screen reads as debug output."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: five controls carry the same weight, an outlined 'Export all', 'Generate with AI' and four identical 'Download' buttons in the track rows, so no single next step wins."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: 'Unsaved changes' and the black 'Apply changes' sit at the bottom right below the 'Download MP4 / SRT / VTT / Meta / Poster' row, so the panel offers two competing ends for the same task."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P6 cliplist: the black 'Review 6 clips' button in the top-right header and the per-row Keep/Maybe/Skip links do the same triage job at the same time, and the header button is 700px from the rows it acts on."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P6 cliplist: the decision state is carried only by weight, 'Keep' is bold on row 01 and gray on rows 02 to 06, with no checkmark or filled control, so a scan of six clips cannot tell kept from unjudged."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: literal paragraph marks render inline in the transcript ('That's not my wheelhouse. ¶' and 'per challenge, ¶'), so the text looks like raw markup."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P2 editor: the whole editing surface is transcript and waveform with no video frame anywhere, so there is no player to look at while cutting and the page has no visual anchor."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P2 editor: the player toolbar's last control is clipped to a pill showing only 'E' at the right edge (x about 972), cut off by the AI Tools panel."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor: an upload card ('Demo Projects', 'Transcribing... 34%') is rendered inside the transcript column between paragraphs, breaking the text flow with a status widget."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P3 editor: the open item is a text issue page with a Properties sidebar and nothing to play or trim, so no video surface exists to work on."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the full-width 'Auto headline' notice with a 40-word paragraph and a 'Disable it' link sits above the clips and pushes every thumbnail down, so the notice outranks the work."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P3 cliplist: the left rail holds seven unlabeled line icons with the workspace avatar ('S', filled square) in the same 32px slot, so navigation and account are indistinguishable."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: tag pills truncate mid-word at 10px ('Squa', 'Migra', 'Frontend user d...'), and six rows print a literal '---' placeholder in the status column."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P4 editor: the top row packs '9:16', 'Layout: Fill', B/i/S icons, 'Color correction: OFF' and 'Tracker: O' with no separators, and 'Tracker: O' is cut off against the right rail."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P4 editor: transcript words are underlined in green, pink and yellow with no legend, so emphasis reads as error highlighting."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P1 cliplist: the globe and kebab columns have no header while Name, Duration, Created and 'Last viewed' do, and the open row menu covers the 'Last viewed' values it sits over."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: 'Last viewed' wraps to two lines in the header while the other three headers stay one line, and every secondary cell is the same 12px gray as the disabled-looking icon column."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: the Details panel prints 'Saved: C:/Users/Admin/Desktop/CapCut Drafts/ 1025 (1)' as a wrapped raw path with the 'Modify' button detached at the panel's bottom right."
+    }
+  ],
+  "notes": "Only P5 has an error screen, and it is the strongest thing in the panel: named failing step, 'whisper-cli exited with code 134 (SIGABRT)' behind Copy details, 'Retry stage' primary with 'Start over' explained, and stages 4 to 7 shown waiting. Codes do not look stable across states (P5 cliplist is a dark recordings/tracks screen while P5 editor and error are 'Clipping Factory | Local studio', and P6 cliplist is that same Clipping Factory screen while P6 editor is a different dark editor), so several codes score as a set of two products rather than one."
+}

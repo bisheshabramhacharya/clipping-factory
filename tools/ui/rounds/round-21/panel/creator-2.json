@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 9.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: the gradient 'Create project' banner, three tool tiles, a full-height 'Auto removal' promo and a seven-tile 'More tools' row all land above 'Projects', so the projects a returning creator wants are the last thing in the reading order."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P1 editor: the toolbar directly above the timeline is fourteen unlabeled icons, three of them bright cyan (mic plus two clip glyphs) with no text or visible label, so those actions cannot be identified from the screen."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P1 cliplist: the seven 'More tools' captions wrap unevenly - 'Long video to shorts' takes two lines while every neighbour takes one - so the row of icons has a ragged caption baseline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: 'Add more credits' is the only filled, coloured button on the screen while the clip grid has no primary action at all, so the loudest call to action is a purchase."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P2 editor: the edit toolbar collides at the player's right edge - the dropdown group overlaps the 'B' label and 'Color correction: OFF' is cut to 'Color co' under the tool rail."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: the transcript is one continuous block of words with 0:58 / 0:36 timestamps and highlighted phrases interleaved at body weight, so there is no scan target for jumping to a section."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P3 error: the only cause given is 'whisper-cli exited with code 134 (SIGABRT)' in 11px grey, and the instruction 'Check that the model file is intact' asks a creator to diagnose a model file, with no copy-logs action anywhere on the card."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: 'Review 6 clips' is the header's primary button, but the same screen already shows Keep / Maybe / Skip on all six rows, so it is unclear whether the button approves everything or opens a separate review mode."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: each list row prints the rank ('01'), the score ('37.2/40') and the duration ('00:41') at the same size and weight on one line, so the score does not outrank the two other numbers."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: label pills overlap inside the ENG-139 row - the yellow '1.5' pill is covered by the 'Squa' pill - so that row's metadata is unreadable."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: there is no labelled way to create anything; the only entry point is an unlabeled '+' at the far right of the toolbar row beside the 'Display' button."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P4 cliplist: label and status colours carry no stable meaning - green circles mark 'In Review', a red diamond marks 'Internal Release' - so colour reads as decoration rather than state."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P5 editor: the player toolbar runs underneath the AI Tools panel, clipping a button whose label starts with 'S' to a sliver at the panel's left edge."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: the 'Last Viewed' column mixes relative and absolute dates ('Tuesday', 'Mar 6', 'March 13', 'April 9') in one column, and its sort caret sits in the middle of the two-line header rather than beside the label."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P5 editor: 'Add speaker' above the transcript is 12px grey text with no icon, underline or button shape, so it does not read as the control it is."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are printed as body text between the tabs and the 'Tracks' heading."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P6 cliplist: 'Create' (filled purple) and 'Ask Co-Creator' sit level with the project title and neither label says what gets created - a clip, a track or a project."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: three purple sparkle markers hang above the timeline ruler with no label or legend, and the same sparkle glyph is used for 'Ask Co-Creator' and 'Generate with AI'."
+    }
+  ],
+  "notes": "P3 is the only product with an error screen, so the other five empty/error scores rest on nothing shown and were scored from their cliplist and editor states alone. Fixture names, placeholder frames and transcript wording were not treated as defects or as credit."
+}

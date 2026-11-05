@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 7.5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7.5
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 9,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P1 cliplist rows, the colored label chips (yellow dot, blue dot, red 'MIC Release') carry more weight than the 14px issue titles beside them, so the eye lands on metadata before the row's content."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the P1 editor Activity card, runs like 'nil delegate', 'prepareForReuse' and 'hour, marked closed' render underlined like links although they are plain text, blurring what is clickable."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In the P1 editor, the Done/Urgent/assignee/Labels properties read as the loudest interactive block while no comment or save control is visible in the frame, so the screen does not say what to do next."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In P2 cliplist, the column headers 'Name', 'Duration', 'Created' and 'Last Viewed' are light gray on the light gray page, below normal reading contrast, while the row values are near black."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P2 cliplist, the open row menu covers the 'Last Viewed' column values for every row it overlaps, hiding dates instead of shifting or anchoring clear of the table."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "In the P2 editor footer, the transport bar, the one-line transcript strip and the waveform sit stacked with no separation, and the 'Transcribing... 34%' progress bar floats inside a transcript card rather than with the other run status."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the P3 editor top bar, '9:16', 'Layout: Fill', 'Color correction: OFF' and 'Tracker: On' are set in 11px monospace at the same weight as body, so tooling state reads as a debug strip."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P3 cliplist, each clip ends with four unlabeled icons (copy, download, scissors) at equal weight, so it is unclear whether the job is to review, export or trim the clip."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the P3 editor timeline, the 'Fill' labels are squeezed into segments roughly 40px wide, so the video track reads as striping instead of as discrete clips."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P4 cliplist, three raw IDs ('d591db2c-0a82...', '69e48d8e849ab...', 'composer-5gohk1e06') print as plain paragraph text directly above 'Tracks', putting debug data in the primary reading path."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In the P4 editor, the neon green and magenta speaker avatars in the top bar and the lime-green waveform fight the otherwise neutral dark chrome, so color no longer signals state."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the P4 editor transcript header, the title truncates mid-word as 'Navigating Guest Equipment for Quality Int ...' with the 00:00 duration pushed to the far right edge of the column."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P5 cliplist, the selected clip's caption appears twice in the right rail, once in the bordered input and again as a 24px headline below it, so two blocks compete for the same text."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P5 cliplist, choosing a decision relabels the pill to 'Keep' with a checkmark, which widens it and shifts 'Maybe' and 'Skip' in that row, so the three pills no longer line up with the rows above."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the P5 editor Style panel, the second swatch row (Violet, Orange, Custom) drops labels into the vertical space the first row's labels occupy, so the dots and captions interleave instead of forming two clean rows."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "On the P6 cliplist home screen the 'Create project' hero and the promo card fill the top 230px, pushing the Projects grid to y=512 with 80px thumbnails, so recent work is the smallest thing on the page."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the P6 editor Details panel, the 'Saved:' path 'C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' runs to the right edge and wraps awkwardly rather than truncating."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In the P6 editor timeline toolbar, the magic-cut, split, speed, freeze and crop icons mix stroke weights and optical sizes with no labels, so the row reads as an uneven set."
+    }
+  ],
+  "notes": "Only P5 has an error screen, so the other five are scored on their cliplist and editor screens and their empty/error scores are read from in-product status detail (P4's per-track 'Ready' checks, P2's 'Transcribing... 34%'). P1 and P2's cliplist screens are list-heavy rather than video-led, which is why they read slower for a creator than P5's three-column clip review."
+}

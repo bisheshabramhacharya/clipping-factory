@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P1 editor: the Details footer's only action, Modify, is a small grey filled pill that reads disabled, while Export in the top bar is the only saturated control, so the panel's primary looks inactive."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P1 cliplist: all seven More tools tiles carry an identical cyan AI badge above the icon, so the badge repeats without marking any difference, and it is the brightest element in the row."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: the Long video to shorts label wraps to two lines while the other six tool labels stay on one, so the label baselines step down at that tile."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P2 editor: Apply changes (black, filled) and Download MP4 (white, outlined) are the same height and sit about 8 px apart in the properties rail, so two primaries compete at the bottom of the panel."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P2 cliplist: row 02 renders Keep as a boxed checkbox while rows 01 and 03-06 render Keep as plain text, making that row taller and breaking the list's row rhythm."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P2 cliplist: the disabled AI connection Coming soon chip is the same bordered chip as the enabled Library 5 chip in the same header row, so enabled and disabled look alike."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: the amber 7,779 credit count and Add more credits button in the header are the loudest elements on the screen, louder than anything that acts on the clips."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor: green carries three unrelated meanings in one transcript, the captions already done chip, keyword emphasis on style and templates, and the for Opus Clip line, so the highlight decodes nothing at a glance."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the collection title Video aspect ratio conflict resolution is the same 14 px grey regular weight as its metadata, quieter than the Auto headline banner heading below it."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: three unlabeled raw IDs (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as body text between the breadcrumb and the Tracks heading."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P4 editor: the right rail stacks ten icon tabs with roughly 9 px labels (Co-Creator through Audio) in one unbroken column, and the active Audio is marked only by a thin white outline."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: Export all is a double-outlined white pill that carries more weight than the purple Create primary beside it, with Generate with AI adding a third saturated control in the same band."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P5 cliplist: rows ENG-811 through ENG-788 print a literal --- in the priority column where ENG-139, ENG-416 and ENG-742 show bar glyphs, so those six IDs start three characters further right."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P5 editor: @olivia and @brian in the Discussion summary carry dashed underlines found nowhere else in the product, so they read as unresolved links or spell-check rather than mentions."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: the issue list offers only Filter and Display, with no action that moves an issue forward, so the screen never answers what to do next."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: Last viewed values truncate to Thur, April and March 16 with no ellipsis, and the open context menu covers that column, so the right edge reads as clipped text."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: disabled AI rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) differ from enabled rows only by grey value at the same size and weight."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P6 editor: the transcript, which is the main surface, is one flat 15 px block with no speaker labels or timestamps, while Add speaker is a small grey control above it."
+    }
+  ],
+  "notes": "Only P2 has an error screen; the other five are scored on the states they show and none of the six shows a true empty state. P4 and P6 each show two different surfaces of their product (a project/drive list and an editor), and P4's editor screenshot carries a hand-drawn red arrow artifact that I did not score."
+}

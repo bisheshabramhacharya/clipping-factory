@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 8.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 5.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every one of the six rows ends in three equal-width Keep / Maybe / Skip buttons at 11px, so the review decision has no primary option and eighteen controls carry identical weight."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In the left column the score (37.2) and the transcript quote below it are both semibold at roughly 13-15px, so rank and content cannot be separated at a scan."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "hierarchy",
+      "issue": "'Failed' in step 3 is set at the same 14px weight as the six 'Waiting on 3. Transcribe' rows under it, so the broken step does not read as the page's subject."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Add more credits' is the only filled button in the top bar next to the 7,777 balance, so it outranks Select, Filter and every creation action on the screen."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The full-width 'Auto headline' notice sits immediately above the grid, so the twenty-clip list starts around 150px down and the one-time notice reads as the page's main content."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Inside each card the score, the three-action icon row and the title sit on three different left edges (score ~x=94, icons ~x=210, title ~x=90), so the columns of the grid do not line up."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The gradient 'Create project' banner takes the top ~150px as the largest saturated object on the page, while Projects, the recurring work, is third and visually quiet."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project metadata ('215.4K | 00:03') is 11px grey under a 13px name and the pipe renders as a lone glyph, so the second line of every card reads as noise."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel 'Modify' sits at the far right edge about 560px from the last property row ('Import material'), below a full-width divider, so it floats free of the settings it changes."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three unlabelled identifiers (d591db2c-0a82-..., 69e48d8e849ab..., composer-5gohk1eo6) sit at body size directly under the tab row with no label, pushing 'Tracks' below a block that carries no meaning for a reader."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Row heights step 86 / 80 / 80 / 88 because 'All participants' and 'Transcript' use an 84px icon tile where the participant rows use 64px avatars, so the track list has no repeatable rhythm."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Green marks both the 'Speaker 1' header and the single words 'great' and 'challenge' in the transcript body, while purple marks Speaker 2, so one hue means two different things in the same column."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' column header wraps to two lines at 12px while Name, Duration and Created stay single-line, dropping that header's baseline about 8px below the rest of the row."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The AI Tools panel overlays the canvas instead of shrinking it, so the 'Transcribing... 34%' bar and the timeline's Split and zoom controls are cut off under the panel's left edge."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled tools (Eye Contact, Center active speaker, Green screen, Automatic multicam) differ from enabled rows only by a lighter label while their icons stay identical, so off and on read the same."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "An unlabelled block between the bullet list and '+ Add sub-issues' (x~218-868, y~320-482) holds only a magnifier and a paperclip, leaving an empty region with no name in the main column."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The left gutter carries a '---' dash, a four-bar priority glyph and a coloured priority chip in the same column on adjacent rows (ENG-139 vs ENG-811), so no single mark tells you what that column is."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Tag pills truncate to 'Mira...', 'Currency Support...' and 'Frontend User d...' in the same row, so chip widths share no measure and the row's right-hand columns shift against neighbouring rows."
+    }
+  ],
+  "notes": "Only P1 shows an error state, so the other five products' empty/error scores come from their two screens alone; no product shows a loading, empty or zero-result state. Scores are on structure and craft as shown, not on the subject matter of the content."
+}

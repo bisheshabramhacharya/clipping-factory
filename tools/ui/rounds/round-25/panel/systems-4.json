@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 8.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 9,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 9.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 4
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8.5,
+      "primary_action": 7,
+      "empty_error_states": 4
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The AI badge is white text on #13BFEB at 2.05:1, and that same badge appears on all three tool cards and all seven More tools tiles."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The More tools captions are #777871 on #0D1010, 4.29:1 at roughly 11px, so the row's seven labels sit under the AA threshold for their size while the icons above them read fine."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The left rail stops at AI design around y=405 and the next 350px of column is empty until the promo card pinned at the bottom, and AI design is the only item with no section label above it."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled AI tool rows are #C6C4C6 on white, 1.71:1, so Eye Contact, Green screen and Automatic multicam cannot be read, and the Beta tags use the same faded treatment as unavailable rows."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In the AI Tools list, Remove filler words uses a hash mark and Shorten word gaps uses a bracket-and-dots mark as their icons while the other eight rows use drawn 1.5px line icons."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right side runs two parallel navigations at once, a horizontal AI Tools tab with a search field plus a vertical icon rail repeating AI Tools, Project, Properties, Elements, Captions and Stock."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Add more credits is a light filled pill in the header and is the highest-contrast control on the screen, louder than Select, Filter and the search field beside it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The B-roll label above the right rail's first item is #383838 on #090A0B, 1.7:1, so it is effectively invisible next to the white labels below it."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The repeated Fill labels on the timeline band are about 10px, smaller than the 11px rail labels, and sit under a preview where every other label is 13px or larger."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Tags sit immediately after each title instead of in a fixed column, so pills begin just past the truncated title in ENG-139 and at the far right in ENG-742, and no tag edge lines up row to row."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The leftmost priority column carries a three-bar chart glyph on ENG-139, ENG-416 and ENG-742 but a three-dash mark on the other five rows, two unrelated marks in one column."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The view tabs use three treatments at one level: All issues is plain text, Active is a filled chip, and Backlog and Recent Urgent Bugs are outlined chips."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "Hairlines sit under Font at y=361, the caption field at y=558, In/Out/Length at y=643 and the download row at y=780, but nothing separates Style from Extras, so sections at the same depth are bounded inconsistently."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Custom colour swatch is a bare white circle with a thin grey ring, the same ring treatment the selected swatch gets in black, so two different meanings share one mark and Custom reads as unset."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Two labels read Clips within 70px, the breadcrumb at 13px and the list header Clips 6 at 15px, naming the view and the list with the same word."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Transcript row's actions overflow the card padding: Copy, Download and a ? button run to the edge and the overflow menu is clipped to a single dot at the card's right edge, while every other row ends cleanly with Download and a kebab."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Two equally sized primaries sit side by side in the header, the purple Create and the dark Ask Co-Creator, while the row actions below are all identical ghost Downloads with no weight distinction."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The active Sound Effects tab is set about 2px larger than the inactive Music tab and carries both a 2px white ring and a 3px underline, so the tab group changes size on switch and the selected state has two competing marks."
+    }
+  ],
+  "notes": "Only P5 has an error screen and no product shows an empty state, so the other five are scored on the states they do show. P2's cliplist was captured with a row menu open that dims the app to about 74% brightness (card #BDBCBC beside a #FFFFFF popover), which limits contrast reading there."
+}

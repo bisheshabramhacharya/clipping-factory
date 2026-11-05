@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 8.5,
+      "component_consistency": 10,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 7.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 9,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P1 cliplist: all seven 'More tools' tiles carry the identical cyan 'AI' badge at the same icon weight, so the row can't be scanned by meaning, and 'Long video to shorts' wraps to two lines and drops its icon off the baseline shared with 'AI video'."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P1 cliplist: the project card meta '215.4K | 00:03' under each filename is 11px in a gray that sits almost on the #0a0a0a background."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P1 editor: 'Details > Saved:' prints the full drive path 'C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' and wraps onto a second line that crowds the 'Ratio:' row below it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: every one of the six rows repeats Keep / Maybe / Skip at 11px in identical weight, so 18 equal decision targets compete with the score number that is meant to do the sorting."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P2 editor: the gray 'Unsaved changes' label sits flush against the black 'Apply changes' button with no gap or divider, so it reads as part of the button."
+    },
+    {
+      "product": "P2",
+      "state": "error",
+      "category": "color_contrast",
+      "issue": "P2 error: the 'Stages 4 to 7 / Waiting on 3. Transcribe' row and its stage list (Find candidates · Validate · Analyze framing · Render) are the lightest text on the screen even though they are the only thing saying what the failure costs downstream."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: the 'Auto headline' banner puts an X at its top-right and 'Disable it' on the same line, two dismissals with different consequences offered at the same weight."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: the banner body is 13px monospace running the full 1080px in two long lines ('If you don't need it, you can click 'Disable'…'), the hardest block to read on the screen."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P3 editor: the cliplist screen's tool rail is 11 unlabeled icons while the editor's right rail repeats the same tools as labeled circles, and the editor's 'Tracker: On' label is clipped to 'Tracker: Ot' at the right edge."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: three bare IDs (d591db2c-0a82-482e-…, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit unlabeled at body size between the tabs and the 'Tracks' heading, so the first block a user meets is machine output."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: the Speaker 1 paragraph carries small square replacement glyphs mid-sentence, before 'tech aspects' and before 'depending on', inside 15px body text."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: 'Create' (purple filled), 'Ask Co-Creator' (dark), 'Export all' and a 'Download' on every track row are all live at once, and only 'Export all' carries a focus ring, so the eye lands on a secondary action."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the issue modal shows Done, Urgent, assignee, labels and the activity feed but no comment field and no close control, so there is no visible way to act on the issue from this screen."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P5 cliplist: six rows print '---' in the priority column (ENG-811, 810, 786, 784, 722, 788) as the no-priority mark, which reads as broken text beside rows that carry real icons."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: label chips only exist on some rows and run to six on ENG-139 ('1.', 'Squa', 'Miga', 'MIC Release', 'Internal Release'), so the chip column has no fixed origin and its middle chips truncate mid-word."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: disabled AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam) drop to a pale gray barely above the panel background, with their 'Beta' chips lighter still, so available and unavailable are only a faint shade apart."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the playback toolbar's right end is cut by the AI Tools panel, leaving the control after the cursor dropdown half-drawn at the transcript column's edge."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: the row kebab menu opens directly over the Last Viewed column, covering the dates of the row it acts on ('Thurs…', 'April')."
+    }
+  ],
+  "notes": "Only P2 has an error screen, so category 8 is scored from what each product shows; P1, P3, P4, P5 and P6 have no error or empty state in this panel. P5 takes the 10 in type, hierarchy, spacing, color and iconography, P2 takes it in component consistency, primary action and error states."
+}

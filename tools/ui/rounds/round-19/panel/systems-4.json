@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 9.5
+    },
+    "P2": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 5,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 4.5,
+      "empty_error_states": 5.5
+    },
+    "P3": {
+      "typography": 5.5,
+      "hierarchy": 5,
+      "spacing_rhythm": 6,
+      "color_contrast": 5.5,
+      "component_consistency": 5.5,
+      "iconography_detail": 5,
+      "primary_action": 5.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 5.5,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 9,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P1 editor: 'Review 6 clips' in the header and 'Apply changes' in the properties footer are both solid black filled buttons of the same family, so the screen's commit action is the second-loudest black control and sits below the panel's reading path."
+    },
+    {
+      "product": "P1",
+      "state": "error",
+      "category": "component_consistency",
+      "issue": "P1 error: 'Start over' discards the whole run but wears the same thin neutral outline as any secondary button and sits directly beside the primary 'Retry stage', with no destructive marking or confirmation."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: every clip row ends in three identical outline pills (Keep, Maybe, Skip) of the same height, border and weight, so the choice that rejects a clip reads exactly like the one that keeps it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: the only filled white button on the screen is 'Add more credits' in the top-right; Select, Filter, search, sort and upload are all neutral, so the loudest control is a billing action rather than the review work."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: the transcript paints individual words in four or more hues (green, teal, blue, yellow) inside one paragraph with no legend or key, so color encodes categories the screen never names."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P2 editor: the video track's clip labels ('Fill', 'AI image B-roll') and ruler marks are set far below the transcript size and are illegible at the fit-to-window zoom the screen opens in."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: 'Create project' is a full-width cyan banner, but the promo carousel beside it is the same cyan at the same height and the three tool cards below repeat the treatment, so four blocks compete for the first action."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P3 cliplist: an 'AI' cyan badge is pinned to all seven 'More tools' tiles and to two of the three tool cards, so the badge no longer separates AI tools from ordinary ones."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: the 'More tools' captions break the row's rhythm, with 'Long video to shorts' wrapping to two lines while its six neighbours stay one line, so tile captions occupy two different heights."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as unlabeled body text between the tab bar and the 'Tracks' heading."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P4 editor: the waveform runs saturated lime against magenta, and that magenta is the same hue as the presence dots and the AI sparkle marks, so the boldest color on screen means brand, presence and audio at once."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: each track row pairs a wide bordered 'Download' with a narrow unlabeled '...' button at identical height and border weight, so the row's main action and its overflow read as two peer buttons."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P5 editor: the five disabled AI rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) render at roughly #c6c4c6 on white, about 1.7:1, so their labels are unreadable rather than merely muted."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: every project row carries a leading checkbox, but no bulk-action bar, count or selection chip appears anywhere in view, so selecting a row has no visible consequence."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: record is an unlabeled red dot wedged between the timecode and the play button in the transport bar at the same size as its neighbours, so the highest-consequence control is the least identified."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: the first issue row lands at about y=300 in a 900px window, below a five-tab strip, a filter bar and an 'In Review 12' group header, so a screen of a list shows almost none of the list."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P6 editor: the unset 'Add to project' row uses the same height, icon size and grey as the filled 'Cycle 6' property row, so empty and filled properties read identically."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: the properties tab strip puts the word 'Properties' beside three unlabeled glyphs (link, copy, branch) with no active indicator beyond text weight, so the current tab is only inferable from typography."
+    }
+  ],
+  "notes": "Only P1 supplied an error screen, so empty/error scores for P2 through P6 are judged from the state evidence those screens do show (disabled rows, progress chips, ready markers). P5's cliplist is dimmed by an open context menu, so its resting contrast was judged from the editor screen instead."
+}

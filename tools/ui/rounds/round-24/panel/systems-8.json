@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 8
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 7.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 7.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 9,
+      "empty_error_states": 7.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P1 cliplist: rows 01 and 03-06 show 'Keep Maybe Skip' as three identical grey words with no visible recorded decision, while the only marked state (a check inside a focus box on 'Keep') sits on row 02, which is not the selected row (row 01 carries the selection bar)."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P1 editor: the active style is a colored ring around a colored dot with its name in ~10px grey below (Coral in editor, Sun yellow in cliplist); the ring is the only selected cue and the 10px label is the only thing that names the value."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: the inspector gives the same role five treatments: 'Style' plain 12px, 'Font' after an 'A' glyph, 'Extras' after a sparkle, 'Caption' after a bubble, and 'In / Out / Length' as 13px bold column heads."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P2 cliplist: the 'AI' badge appears three ways on one screen, a corner tag on the three tool cards, a small cyan chip overlapping each tool tile's top-right corner, and inline text on the promo card."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist: the sidebar's top slot above the 'Home' nav is an empty grey checkerboard placeholder block (approx 180x95) where a workspace thumbnail or logo belongs."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: the timeline's bottom-left eye, lock and speaker toggles are 12px mid-grey icons on near-black with no labels and no visible on/off difference."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the neon score (97, 94, 92) is the loudest element on every clip card while the clip titles below are 14px grey and truncated to two lines, so ranking outshouts what the clip is."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P3 cliplist: each card carries three unlabeled 14px grey action icons (caption, download, cut) on the same baseline as the score, with no hover, disabled or active state shown."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P3 cliplist: the 'Auto headline' notice sets its instruction at 12px grey across two lines with 'Disable it' as an equal-weight underlined link, and its only dismiss is an 18px x about 900px to the right."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: three unlabeled identifier strings (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are set as 14px body copy above 'Tracks' with no label or container, reading as stray debug output."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: the timeline repeats 'Fill' / 'f...Fill' segment labels dozens of times at roughly 7px, using one style for both clip type and state and reading as noise at 100%."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: four controls carry near-equal weight, header 'Create' (filled violet) and 'Ask Co-Creator', plus 'Generate with AI' and 'Export all' above the tracks, and a 'Download' on every row."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P5 cliplist: the gutter column left of the issue ID shows a small bar-chart mark on rows 1-3 and a stack of literal '---' dashes on rows 4-9, one slot carrying two unrelated marks with no legend."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: nothing on the issue screen is styled as the next step; the right rail offers six equal-weight property pills (Done, Urgent, olivia, Bug, Cycle 6, Add to project) and 'Add sub-issues' sits at 13px in the body."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: six view tabs sit at equal weight (Engineering, All issues, Active, Backlog, Recent Urgent Bugs, 5 more...) above a second Filter/Display bar, and the truncated '5 more...' tab hides which views exist."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: disabled AI Tools rows (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) render icon and label at roughly 2:1 grey on white, so an unavailable tool reads as a rendering failure."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: 'Pixels to Prototypes' appears twice, as a 12px breadcrumb selector with a chevron in the top bar and as the 22px document title, with no visual cue that they are the same field."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P6 cliplist: the 'Last Viewed' column heading wraps to two lines with its sort chevron on the second line while Name, Duration and Created stay single-line, so the header band breaks the 48px row rhythm."
+    }
+  ],
+  "notes": "P2's error screen is the strongest in the panel (named failing stage, cause, consequence-labelled recovery), but it is branded 'Clipping Factory | Local studio' and shares no type, surface or control with P2's CapCut cliplist and editor, which is scored under component consistency. P1 and P4 show no error state at all and P5 appears in two themes (dark list, light issue detail), so those categories were scored from the states shown."
+}

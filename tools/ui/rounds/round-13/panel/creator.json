@@ -1,0 +1,116 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 6,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 5.5,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 6,
+      "primary_action": 5.5,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8,
+      "empty_error_states": 5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 8.5
+    },
+    "P5": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 6.5,
+      "empty_error_states": 5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 6,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The header's only filled button is 'Add more credits' at the top right (x=1280); nothing on the screen is the primary move for the 20 clips under review."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three unlabeled raw IDs ('d591db2c-0a82-...', '69e48d8e849ab9426f17022d', 'composer-5gohk1e06') sit directly under the tabs at y=196-270, above the 'Tracks' heading, so the eye lands on machine strings before the recordings."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The preview toolbar at y=140 packs 'Layout: Fill', 'Color correction: OFF' and 'Tracker: Off' as bare 11 px strings between icon buttons with no separators, so the settings do not scan as groups."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled rows in the AI Tools panel ('Eye Contact', 'Center active speaker', 'Green screen', 'Automatic multicam', 'Blur speaker background') render light grey on white and are barely readable."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Six rows (ENG-811, ENG-810, ENG-786, ENG-784, ENG-722, ENG-788) show a literal '---' in the leading icon column where other rows show a bar-chart or check icon."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The third 'Ready-made collections' tile is clipped to 'Educati' at the panel's right edge (x=1303) instead of fitting or wrapping."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The transport row's right end (the fit/zoom dropdown after '100% +') runs under the AI Tools panel and is cut at x=1370-1440."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "The failure message under step 3 leads with 'whisper-cli exited with code 134' before any creator-level explanation of what failed."
+    }
+  ],
+  "notes": "Only P4 has an error screen, so the other five empty/error scores come from the states shown, and P2's cliplist is an issue tracker rather than a clip list, scored as the list it is. I treated the red arrow over the Audio tool in P1's editor as an annotation on the screenshot, not part of the interface."
+}

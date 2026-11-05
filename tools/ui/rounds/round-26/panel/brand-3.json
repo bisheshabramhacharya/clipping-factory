@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6,
+      "primary_action": 6,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 8.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In the In Review rows, up to seven colored label chips plus the status dot, priority mark and avatar carry the same weight as the issue title, so the eye lands on chips before titles (clear in the ENG-139 row)."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The ENG number, date and assignee in each row are set at roughly 11px grey, the same size as the chips beside them, so one row carries four text treatments and the left column reads as noise."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The four icons at the top of the properties rail (Properties, link, duplicate, branch) share one weight and none has a visible selected state, so only one of the four reads as a tab."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The Last Viewed header is right-aligned and wraps onto two lines while its values (March 6, Tuesday, April) start left under it, so the column's right edge does not line up with its own header."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Project names, durations and dates all use the same 13px size and differ only by grey, so the name column has no weight advantage over its metadata."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The thumbnail column mixes video frames, book and photo frames, a film-strip glyph (Imported Google Drive File) and no fallback at all (Untitled Project), with no shared frame treatment."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) are set as unlabeled body copy directly under the tab bar, reading as debug output above the Tracks heading."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "Create (violet) and Ask Co-Creator (white) are both filled, same-height buttons in the header's top right, so two primaries compete and neither reads as the action."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The Transcript row ends with a bare question mark and a stray dot after Copy and Download, outside the row's button group, which reads as clipped content."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Add more credits is the only solid filled button on the screen, so the credit-purchase action outranks reviewing and editing clips."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The Auto headline notice runs two full-width lines of body copy directly above the clip grid with its close X and Disable it at opposite ends, so it outranks the clip titles and pushes the grid down."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The left rail stacks ten unlabeled glyphs at a single weight with no active state marked, so nothing indicates which section is current."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The caption preview in the right rail is set at roughly 24px semibold, larger than the Best clip heading above it, so a property value reads as the screen's headline."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Keep, Maybe and Skip repeat at identical weight on all six rows (18 identical buttons), so selection rests on one checkbox and a thin left rule instead of on the row state."
+    },
+    {
+      "product": "P5",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "The failed step is signalled by a full-width dark red rule under '2. Extract audio' that reads as a section divider, while Transcription failed at 18px is smaller than the 30px Making clips title above it."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Every Details field label and value is about 11px, including a save path that wraps to two lines (C:/Users/Admin/Desktop/CapCut Drafts/ 1025 (1)), so the panel reads as debug output rather than properties."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The largest element on the screen is a cyan gradient card whose only content is Create project, sitting above the project grid, so a promotion-shaped block outranks the user's own work."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "Three button treatments share one screen: Trash and Project sync as bordered 30px pills with 11px text, Create project as plain text on the gradient, and in the editor Import (teal fill) beside Modify (grey) and Export (teal)."
+    }
+  ],
+  "notes": "P5 is the only product with an error screen, so the other five are scored on absence of evidence for that category. The P4 editor carries a hand-drawn red arrow over the Audio rail item that is an annotator's mark rather than interface, so it was ignored."
+}

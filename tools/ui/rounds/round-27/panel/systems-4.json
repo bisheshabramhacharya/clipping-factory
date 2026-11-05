@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6,
+      "primary_action": 8,
+      "empty_error_states": 4.5
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 5.5,
+      "empty_error_states": 5
+    },
+    "P3": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 7,
+      "component_consistency": 9,
+      "iconography_detail": 9,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 5.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 5,
+      "component_consistency": 4.5,
+      "iconography_detail": 4.5,
+      "primary_action": 5,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P3 cliplist every row leads with two bold dark numbers of near-equal size, the rank ('01', '02') and the score ('37.2', '35.7'), with no ordering signal between them, so the first thing each row says is a pair of competing figures."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P3 cliplist five of the six clip titles are clamped to two lines and end in an ellipsis ('There's a question of how much of that goes to the...'), so no row can be read as a complete thought."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P3 cliplist the selected Style tab ('Impact') is a grey fill that runs on down through the Sun yellow swatch cell to the second swatch row, so the tab and the colour swatch beneath it read as one merged selected block."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P5 cliplist there is no primary action at all: the only create affordance is an unlabeled '+' in the top-right corner and a second '+' beside the 'In Review' header, both at icon weight below the filter chip."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P5 cliplist the label chips start at a different x in every row ('1.' at 730, 'Settings Refresh' at 1080, 'Currency Support' at 872), so the middle of the list has no column edge and the rows cannot be scanned vertically."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P5 cliplist the '5 more...' tab is drawn as a raised chip with a drop shadow and a border while its four neighbours are flat, and an orphan column icon sits between it and the bell with no group around it."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P1 cliplist the Projects grid, the only place existing work lives, is pushed below a full-width gradient banner, three 150px tool cards, seven icon tiles and a 220px promo carousel, so the work sits at the fold while entry points fill the screen."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In P1 editor the Text tab's icon is set as the letters 'TI' at roughly 20px against neighbours drawn as 1.5px outline glyphs, so that one tab reads several times heavier than the rest of the tab row."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P1 cliplist 'Long video to shorts' wraps to two lines under its tile while the other six More tools labels stay on one, so that label drops below the shared baseline of the row."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P4 cliplist the 'Last viewed' column header wraps to two lines while Name, Duration and Created stay on one, so its baseline sits about 10px above the other three headers and its sort chevron floats to the side."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In P4 cliplist 'Delete project' in the open row menu uses the same neutral grey, weight and icon as 'Rename project' and 'Copy project link', so the destructive item carries no marking."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In P4 editor the playback bar's last control is clipped to a bare 'S' at the right edge where the AI Tools panel begins, so the toolbar overflows its column instead of fitting it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P2 cliplist 'Add more credits' is a filled button in the top-right and is the loudest control on the screen, above Select, Filter and every per-clip action."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P2 cliplist each timecode badge is pinned to the right edge of its card column rather than to the thumbnail, so on the first card it overhangs about 50px of empty background past the 9:16 frame it labels."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In P2 editor timestamp pills ('0.58s', '0.38s', '1.31s') and one black-outlined segment sit inline in the transcript at the same weight as the words, so the paragraphs break into fragments and cannot be scanned."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P6 cliplist three raw record IDs ('d591db2c-0a82-...', '69e48d8e849ab...', 'composer-5gohk1eo6') sit at body size in a monospace face with no label or section heading, directly under the tab bar."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In P6 editor the selected 'Sound Effects' tab carries a thick white rounded ring plus an underline while 'Music' beside it has neither, so the selected state and a focus ring are the same treatment; the same white ring also wraps 'Export all' in the cliplist."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In P6 editor the third collection card is cut off at the panel's right edge with its label truncated mid-word ('Educati...'), and the panel scrollbar is drawn over the card's edge."
+    }
+  ],
+  "notes": "Category leaders: P5 on typography, hierarchy, color, components and icons; P4 on spacing and rhythm; P3 on primary action, and on empty and error states, where it is the only product with a screen of that kind. Only P3 has an error screen (P3 error) and no product shows an empty state, so the other five were scored on empty/error from their cliplist and editor alone. The red arrow over P2 editor is an annotation on the image, not product chrome, and was ignored."
+}

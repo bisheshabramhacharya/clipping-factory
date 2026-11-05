@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 10,
+      "component_consistency": 9,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 6.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6,
+      "empty_error_states": 7
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 9,
+      "spacing_rhythm": 10,
+      "color_contrast": 9.5,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 6,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7,
+      "iconography_detail": 7,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The right-hand promo card sets white body copy over a bright teal-to-photo gradient ('Remove backgrounds in one click without a green screen'), so the title and the 'AI' badge lose contrast exactly where the card is brightest."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In the Details panel the 'Saved:' value wraps to two lines while Ratio/Resolution/Color space below stay on one line, breaking the label-to-value grid that otherwise holds down the panel."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The seven 'More tools' targets (Long video to shorts through AI image) all carry the same weight, icon size and 'AI' badge, so nothing in that row is recommended and the eye has no way in."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Auto headline' banner paragraph is set in a monospace face while every other label on the screen is sans, and it is the longest text block on screen, so the one typeface that is not the product's is the one a user reads most."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right edge carries two stacked vertical rails: unlabeled icons at the top under the 'B-roll' and 'R' avatars, then a second rail of icon-plus-caption items (Hook, Transitions, Text, Graphics, Audio), giving the same edge two different navigation treatments."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Clip scores are set at roughly 20px bold lime (97, 94, 92) while the clip titles beneath them are 13px and lighter, so the derived score outweighs the clip a user is actually choosing."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In the left clip list each row's Keep/Maybe/Skip chip line sits flush against the next row's thumbnail with no inter-row gutter, and the selected row (03) is separated only by a grey fill, so the six rows read as one continuous block."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Style swatch grid sets six color names (Sun yellow, Lime, Coral, Sky blue, Violet, Orange) at about 10px beside 10px dots, so the labels are near-unreadable and color becomes the only carrier of the choice."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "hierarchy",
+      "issue": "The failing stage '3. Transcribe' is typeset identically to the two passed stages above it, so the failure is marked only by a red cross glyph and an 11px 'Failed' tag at the end of the row while the detailed explanation sits in a separate block below."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The middle of each issue row is a run of pill chips in three different shapes and text sizes ('Currency Support...', 'Frontend user d...', 'Develop...', 'MIC Release'), every one of them ellipsis-truncated, so the row's subtitle column reads as noise rather than metadata."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "Red spellcheck squiggles render under 'delegate', 'NSCache', 'prepareForReuse' and 'weak self' inside the generated Discussion summary block, so a read-only summary is drawn as an editable document with typos."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Rows ENG-811 through ENG-788 lead with a literal '---' where the first three rows show a priority glyph, spending the row's leftmost reading position on a placeholder."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "Page, panel, sidebar and table all sit within a few percent of the same light grey, and the only saturated color is the thin lavender selection on 'Ram Create Clips' plus the red Record dot, so there is no anchor for the eye on first look."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right side shows two separate rails about 60px apart: an icon-only column (AI Tools, Project, Properties, Elements, Captions, Stock, Underlord) and a second rail of icon-plus-caption rows inside the AI Tools panel, presenting the same navigation twice."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Disabled rows in the 'Look good' card (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) drop to roughly 30 percent opacity on near-white, which is below a readable contrast level even for a disabled state."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Between the tab bar and the 'Tracks' heading, three bare identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit as unlabeled body text with no container, reading as leaked debug output."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Four actions compete at near-equal weight in one top-right cluster, filled purple 'Create' next to outlined 'Ask Co-Creator', with outlined 'Export all' and 'Generate with AI' repeated in the body, and 'Download' on every card."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The active 'Sound Effects' tab is marked by a white rounded outline box while the active 'Recordings' tab in the cliplist uses a white underline, so the same selected state has two different shapes across the product."
+    }
+  ],
+  "notes": "P3 is the only product with an error screen, so its 10 in that category is a genuine win while the other five were scored from cliplist and editor only and could not show a failure or empty state. P1, P2, P5 and P6 also never show a true empty list."
+}

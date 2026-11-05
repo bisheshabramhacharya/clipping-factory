@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The file being reviewed exists only as the 12 px gray breadcrumb 'Avoiding Bankruptcy Before AGI - Dario Amodei - Dwarkesh Clips (720p).mp4' beside the word Clips, with no page title, so the piece of work is the faintest text on the screen."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The six rows never show triage state: Keep / Maybe / Skip render identically on every row, so after deciding clip 01 the list gives no trace of what is already done."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "'Stages 4 to 7  Waiting on 3. Transcribe' under the failure block is set in 11 px muted gray, so what is blocked and what still remains is the quietest element on the screen that matters most."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In the transcript editor the only action next to the reading column is a small text 'Write' link, while Export sits alone in the far top-right corner, so the screen never answers what to do with the edit in front of you."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Rows in the Personal project table show only name, duration, created and last-viewed dates, with no thumbnail or clip count, so nothing on the row tells you what is inside before you open it."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "With the row menu open on 'Ram Create Clips', the entire list and sidebar drop under a gray scrim and the menu covers the Last viewed values of the rows above and below, so the list cannot be read while acting on it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "A tall gradient ad card, 'Auto removal: Remove backgrounds in one click', with its own carousel dots takes the top-right block beside the project grid, so a promotion sits at the same weight as the projects."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "The blue 'AI' badge is stamped on all seven 'More tools' tiles and on three of the four feature cards, so the badge marks almost everything and distinguishes nothing."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The Details column sets labels (Name, Saved, Ratio, Resolution, Color space, Frame rate, Import material) around 11 px in gray against 12 px values, so the properties read as fine print beside the player."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Three unlabeled raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) are printed as plain 13 px body text above 'Tracks', making machine strings the most prominent prose on the page."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Every track row carries its own filled 'Download' button (All participants, Cassidy, Gene, Meredith, Transcript), so five identical weight buttons compete on one screen and none is the next step."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The Audio / Sound Effects browser fills the entire right column with music and sound-effect rows while the video preview sits in a small center panel, so the sound library outranks the thing being edited."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Rows carry up to six label chips after the title and truncate them mid-word ('Identify Missing Data ...', 'Frontend User Experience...', 'Currency Support...'), so titles and labels fight on the same line."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Five view chips plus a '5 more...' overflow, then a Filter row and a Display button stack above the list, pushing the first issue row down roughly a third of the screen."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The Properties rail lists 'Done', 'Urgent', 'olivia', 'Bug', 'Cycle 6' and 'Add to project' as six identical 13 px rows with no field labels, so status, assignee and project read as one list of unrelated values."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "A full-width 'Auto headline' explainer block with its own 'Disable it' link sits between the toolbar and the clip grid, so the first thing above the clips is a notice about work already finished."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Each card's score (97, 94, 92, 90, 87) is the largest type in the card and has no label or scale anywhere, so an unexplained number outranks the clip title beneath it."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The strip above the canvas packs eight controls into one 12 px row where labels clip ('Color correction: OFF', 'Tracker: On', 'Layout: Fill'), so settings read as a status ticker rather than controls."
+    }
+  ],
+  "notes": "Only P4 has an error screen in this panel, so its empty/error score is measured against its own Transcription failed screen and the other five are scored from the states they show, with no error state visible for them. The red arrow drawn over P6 editor is capture markup, not a product element, and I ignored it."
+}

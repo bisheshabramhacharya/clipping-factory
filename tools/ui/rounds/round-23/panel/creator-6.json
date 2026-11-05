@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 10,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 7.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 9,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The Auto headline explainer above the grid is set as a full-width paragraph in a small monospaced face at roughly 11px, with the 'Disable it' link pushed to the far right, so the sentence is hard to scan."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "The transcript block is justified, so lines like 'There it is Harassment already done Great headline If I' open wide uneven word gaps and the inline timecode chips break sentences in half."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Each clip card's footer shows the green score plus three unlabeled 16px glyphs (calendar, download, scissors) with no text, so the available actions cannot be told apart at a glance."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "Keep / Maybe / Skip under each clip row are plain 11px text links at equal weight with no selected or pressed state visible, so the review decision the screen exists for is quieter than the clip title above it."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "The Caption text field ('A hiring bar that hides the real problem.') and the large unlabeled paragraph directly below it show two different strings in the same column, so it is unclear which one is the clip's caption."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The clip score (37.2/40) and the duration (00:41) sit at opposite ends of each 270px row in the same 11px gray, so rank and runtime read as the same kind of value."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The 'Last Viewed' header wraps onto two lines and the row's white '...' menu opens directly over those values, cutting the column off at the right edge of the table."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "The Duration, Created and Last Viewed values are a light gray on the near-white table, lighter than the sidebar labels beside them, so the table body reads as washed out next to the chrome."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Record' (white, red dot) and 'New project' (black fill) sit side by side at the same size and radius in the header, so the primary of the two is carried by fill alone."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The Properties rail's four controls at the top right are unlabeled 16px glyphs and the active 'Properties' tab differs only by a light background, so the rail gives no readable clue what each does."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Rows carry up to five label chips at one weight ('Currency Support...', 'Frontend user d...', 'MIC Release', 'Internal Release') plus a date and avatar, so no column outranks the tags and the list has no focal line."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Names in the Discussion summary ('@olivia', '@brian') are underlined with a dashed rule that looks like a spellcheck or broken-link artifact rather than a deliberate mention style."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "Speaker 1's paragraph renders placeholder glyphs mid-sentence ('So ? + tech aspects with a guest is always a challenge, ? +'), so the transcript line breaks where the inline marks fail to load."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "Three raw identifiers (d591db2c-0a82-...-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) sit at the top of the Recordings tab as plain unlabeled lines above the Tracks heading."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The Transcript row at the bottom is clipped by the viewport and its rightmost '?' control is cut off at the panel edge, while every row above it fits."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The cyan 'Create project' panel fills the whole top band at several times the height of any tool row, so the home screen opens on a banner and the Projects strip sits below the fold edge."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "All seven 'More tools' tiles carry an identical blue 'AI' badge, so the badge marks nothing beyond decoration and the tiles read as one undifferentiated block."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "The Details panel leaves 'Modify' alone at the bottom right, with the largest vertical gap on the screen between the last property row ('Import material: Keep in original place') and the button."
+    }
+  ],
+  "notes": "Only P2 shows an error screen, so the empty/error column for the other five is scored from the states they do show, not from an error screen I never saw; P6's cliplist and P5's cliplist are included there because each leaves a large blank region with no explanation. P1's editor screenshot carries a hand-drawn red arrow burned in at the right rail pointing at Audio; I treated it as an annotation on the image and did not score it."
+}

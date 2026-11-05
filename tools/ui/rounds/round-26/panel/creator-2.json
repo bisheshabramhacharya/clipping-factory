@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 9.5,
+      "hierarchy": 9,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 4.5,
+      "hierarchy": 4,
+      "spacing_rhythm": 4,
+      "color_contrast": 6.5,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 5.5,
+      "empty_error_states": 4.5
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 8.5,
+      "primary_action": 9.5,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 6,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 5.5,
+      "color_contrast": 6,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 8,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P1 editor shows the issue as a finished document with no edit or save control at all; the only actions are a '+' in the title bar and '+ Add sub-issues', so the editing screen has no next step."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist repeats 'Projects' and 'Views' in two sidebar sections (Workspace and Engineering), so the left nav has two identical maps."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist truncates row titles two different ways in the same list: 'Identify Missing Data …' with a space before the ellipsis and 'Add responsive and accessible UI behavi…' cut mid-word."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor lists disabled tools (Eye Contact, Center active speaker, Green screen, Automatic multicam, Blur speaker background) at the same low gray in the same list as enabled ones, so half the 'Look good' card reads as broken rather than unavailable."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P2 editor's transport bar runs past the right edge: after the cursor/select control the next icon is clipped mid-shape at x~985, and 'Underlord' hangs detached at the bottom of the right rail below Stock."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist opens the row menu over the 'Last viewed' column, so the dates it acts on ('Thur', 'April', 'March 16') are half covered by the menu it belongs to."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist puts the 'Auto headline' callout between the 'Original clips (20)' header and the grid, in body-sized copy with a 'Disable it' link, pushing the clips down one full band."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist's green scores (97, 94, 92, 90, 87) at ~20px bold are the loudest type on the screen, louder than the clip titles and thumbnails they rank."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor highlights words in the transcript in four colors (green, orange, blue, purple) with no key, so the color marks nothing the reader can act on."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist prints three raw asset ids as body text under the tabs ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1e6') with no label saying what they are."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist leaves a ~90px dead band between the tab row ending at 'Exports' and 'Tracks', and every track row carries ~330px of empty middle before its buttons."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist repeats a full-width 'Download' button plus a '...' button at the right edge of all four rows, so the page is a column of identical buttons and no row's next step stands out."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist puts Keep / Maybe / Skip as plain unboxed text under all six clip rows while 'Review 6 clips' sits in the header, so the same triage decision has two competing homes."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P5 editor's Caption block holds two texts with no separating label: a single-line field reading 'A hiring bar that hides the real problem.' and, below the rule, a 28px line reading 'Basically, I'm saying in 2027, how much compute do I get?'"
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P5 cliplist's only save indicator is 'No changes' in ~12px light gray at the bottom right (1381,795), faint enough to read as disabled rather than as a status."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist gives the cyan 'Create project' banner the top 150px across the full width and fills the AI tool tiles with the same cyan, so the Projects grid the user came for starts at y~510 at the same weight as the promo."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor prints the full draft path 'C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)' as a Details value, wrapping onto a second line where every other row is one line."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P6 editor crams eight media tabs (Media, Audio, Text, Stickers, Effects, Transitions, Filters, chevron) into ~500px at ~11px, so each label is the same weight as the icon above it and the strip has no grouping."
+    }
+  ],
+  "notes": "P5 is the only product with an error screen in this panel, so category 8 is judged from the cliplist and editor states for the other five and they cannot score well there. P1's screens are an issue tracker with no video or timeline, so the media-forward checks were read as layout only."
+}

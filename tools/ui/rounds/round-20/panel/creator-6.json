@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 7,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 9,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P3 editor: 'Apply changes' is pinned in the bottom-right corner roughly 200px below the last right-panel control, separated from the 'Unsaved changes' label it answers, with a large empty column between them."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: the Keep/Maybe/Skip pills in each row are about 10px with tight padding, making the triage control the smallest text on the row it exists to serve."
+    },
+    {
+      "product": "P3",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "P3 error: 'Retry stage' and 'Start over' sit side by side with no line saying what each one redoes, so a creator cannot tell whether Start over throws away the completed Inspect and Extract audio steps."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P6 cliplist: the hovered row's kebab button renders on top of the 'Last Viewed' value for that row (over '9:24 AM'), so the row action covers its own data while the menu is open."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P6 editor: the unavailable AI Tools rows (Eye Contact, Center active speaker, Green screen, Blur speaker background) are near #c8c8c8 on white, so they read as removed content rather than features that exist and are off."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P6 editor: the transport bar's last control is clipped by the AI Tools panel edge at about x=975, leaving a cut-off icon and partial label visible."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: three bare identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') sit as unlabeled body text between the tab row and the Tracks heading, reading as leaked debug output."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: Create, Ask Co-Creator, Generate with AI and Export all are four filled or outlined buttons in the top-right cluster at nearly the same weight, so none of them is the obvious first move."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P1 editor: in the Audio panel the active tab is 'Sound Effects' while the field under it still reads 'Search music', and the Ready-made collections strip clips its third tile ('Educati' cut) under an arrow overlay."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: the 'Auto headline' notice is a full-width two-line paragraph above the clip row, pushing the clips down half the screen, and its 'Disable it' action sits about 700px away at the far right of the text."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: timeline labels ('Fill', 'AI image B-roll', 'Slow push') render at roughly 8px, smaller than any other text in the product, and 'Fill' repeats on ten-plus consecutive segments."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P4 cliplist: the far-left navigation is a bare column of unlabeled outline icons sitting on the page background outside the main panel, clipped at the window edge with no container or active state."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: label chips in the middle column start at a different x per row (about x=723, 866, 1114), so the label column reads as ragged and status cannot be scanned down the list."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P5 cliplist: the primary identifier is what gets cut ('Integrate internationalization (i18n) supp...', 'Add responsive and accessible UI behavi...') while the label chips beside it keep full text."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the right sidebar mixes one labeled tab ('Properties') with two glyph-only tabs, and Done, Urgent, olivia and Labels all render at identical weight, so nothing on the panel says what to do next."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: an unlabeled, cropped pixel mosaic block sits above 'Video editing' at the top of the left sidebar, reading as a broken thumbnail rather than part of the nav."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: project names and durations under the grid are around 11px in mid-gray on near-black, and '0919(1)' and '0918 (3)' barely separate from the background next to the thumbnails."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P2 editor: the timeline toolbar carries six multicolor striped audio icon buttons beside otherwise monochrome outline controls, and the Export teal differs from the clip's timeline teal."
+    }
+  ],
+  "notes": "Only P3 has an error screen, so every other product's empty/error score comes from its cliplist and editor alone; P5's screens are a text issue tracker rather than a clip tool, judged on interface only. Strongest per category: typography P6, hierarchy and primary action P3, spacing, color, components and icons P5, error states P3."
+}

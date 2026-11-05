@@ -1,0 +1,176 @@
+{
+  "judge": "systems",
+  "products": {
+    "P1": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 8,
+      "empty_error_states": 7.5
+    },
+    "P3": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 7,
+      "color_contrast": 8,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P5": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P1 cliplist: titles sit inline with their chips, so row 1's title is clipped around x=380 while row 2's runs to x=870 - the same column drifts about 490px, so truncation is squeezed row by row instead of set."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P1 editor: Status ('Done'), Priority ('Urgent') and Assignee ('olivia') in the Properties rail are three identical icon-plus-value rows with no field labels above them, so three different field types read as one list."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P1 editor: the circled-plus comment button on the left and the paperclip on the right float at opposite ends of the same empty band above 'Add sub-issues', with no border, label or shared baseline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P2 cliplist: a full-page dim scrim behind the open row menu drops every header, date and the search placeholder to roughly a third of normal contrast, so the list is barely readable while the menu is up."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P2 cliplist: the 'Last Viewed' column has no reserved width and truncates against the kebab column ('Thur...', 'April...', 'Marc 13' on the highlighted row)."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P2 editor: the disabled AI tools (Eye Contact, Green screen, Automatic multicam, Blur speaker background) are pale grey 13px, the same lightness as the 'Beta' badges beside them, so they read as inactive decoration rather than a deliberate disabled state."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P3 editor: the two identical 'Slow push' markers in the timeline track render at different pill widths, so the second one labels itself 'Slow pus'."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P3 cliplist: each card's score-and-icons row starts about 44px left of the thumbnail above it and runs past its right edge, so the five cards share no common column."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P3 editor: the top toolbar's trailing controls ('Color correction: OFF', 'Tracker: ON') are cut off where the right rail begins, with their dropdown chevron stranded back at mid-toolbar."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P4 cliplist: three raw ids (d591db2c-0a82..., 69e48d8e849ab..., composer-5gohk1e6) sit unlabeled between the tab row and 'Tracks' at normal body size, with no label or affordance."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P4 editor: 'Music / Sound Effects' marks the active tab with a grey underline while 'Scene / Layout / Design' directly above marks it with a filled pill, so two segmented controls on one screen use two different selected states."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P4 cliplist: the 'Ready' label and its pale green check carry the same weight and lightness as the '1280x720' spec on the same row, so state and metadata cannot be told apart."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist: the Keep control appears three ways in one list - underlined text in row 1, a bordered checkbox with a tick in row 2, bare unboxed text in rows 3-6 - so an unchecked Keep gives no sign it is a control."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P5 cliplist and editor: the selected clip is a white bordered card in the list screen and a grey-filled row with a dark left rule in the editor, so the same selection reads two ways across screens."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "P5 editor: the four export-format chips at the bottom of the inspector mix glyph and no glyph - SRT and VTT carry none, Meta carries '<>', Poster carries an icon - so the row looks half-finished."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: 'Long video to shorts' wraps to two lines while the other six 'More tools' labels stay on one, so that icon row has two label baselines and uneven space under the tiles."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P6 editor: the Details panel's 'Saved' value wraps onto a second line ('C:/Users/Admin/Desktop/CapCut Drafts/' then '1025 (1)') while every other label-value row is single-line, breaking the value column."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "P6 cliplist: the meta under each project title ('215.4K | 00:03') is the lightest text on the screen, roughly 11px grey on near-black, while carrying the item's size and duration."
+    }
+  ],
+  "notes": "Leaders: P1 for typography, spacing, color, component consistency and iconography; P5 for hierarchy, primary action and error states, whose failed-run screen names the failing stage, the exit code, and one obvious Retry. Only P5 has an error screen and no product shows an empty state, so the error category scores only the state coverage each screen set shows; P2's cliplist is judged under an open-menu dim scrim."
+}

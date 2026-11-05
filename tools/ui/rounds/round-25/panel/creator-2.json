@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 10,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 8,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 9,
+      "iconography_detail": 8.5,
+      "primary_action": 9.5,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The cyan 'Create project' gradient banner is the largest object on the screen while the user's own projects sit in one 96px-tall thumbnail row below it, so existing work is the quietest thing on the page."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In the Details panel every value (Name, Saved, Ratio, Resolution, Color space, Frame rate) is ~11px gray-on-dark and the Saved path wraps to two lines, making the properties panel the hardest read on a large screen."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The header stacks three unrelated button treatments at equal prominence: a teal-filled Media tab, a dark 'Shortcut' pill, and a teal filled 'Export' button, and none of them match the pill buttons used on the cliplist screen."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "The open row overflow menu covers the Last viewed cells of the 'Ram Create Clips' row and sits on top of the '9:24 AM' value instead of clearing the column."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The 'Last Viewed' column header wraps onto two lines while 'Duration' and 'Created' stay on one, so the header row's baselines do not line up with the values beneath them."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The outlined 'Record' button beside the primary 'New project' button is the only control on the screen with a saturated color (red dot), so the eye lands on Record first."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The loudest control on the clips screen is the filled 'Add more credits' button in the top right, while the per-clip review actions are small icon-only buttons under each thumbnail."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Auto headline' notice takes a full-width band above the clips with 12px body copy, and its only action 'Disable it' is pushed to the far right edge, detached from the sentence it answers."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "Words in the transcript are highlighted in green, yellow and pink with no legend or visible toggle, so the emphasis colors read as decoration rather than meaning."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The issue screen has no identifiable next action: Done, Urgent, assignee and labels sit in the sidebar at equal weight and there is no comment box, save, or close control anywhere below the description."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "The toolbar exposes Filter and Display but no create control; the only '+' is at the right end of the 'In Review 12' group header, so creating an issue is not findable from the list."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "Rows pack an ID, status, title, up to three colored chips, a date and avatars on one 12px line, so titles cut short at desktop width ('Identify Missing Data ...', 'Integrate internationalization (i18n) supp...')."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The right panel sets every setting label (Best clip, Style, Extras, Caption, In/Out/Length) at ~11px against a 26px caption headline, so the controls read as fine print next to the video."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "The center preview shows a frame with 'Preview' and a caption but no visible transport, timecode or scrub bar, so it is unclear whether the clip is playing or paused at 00:41."
+    },
+    {
+      "product": "P5",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "The raw failure string 'whisper-cli exited with code 134 (SIGABRT)' sits at the same 12px gray weight between the instruction 'Check that the model file is intact, then retry.' and the 'Retry stage' button, so machine detail and human guidance share one tier."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "Three bare recording IDs (d591db2c-0a82-482e-a8c8-5f93768b9a24 and two more) print as unlabeled lines between the tabs and the 'Tracks' heading, reading as stray debug text above the real content."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "'Create' (filled purple) and 'Ask Co-Creator' (bordered, sparkle icon) sit side by side at the same height and weight in the top right, so the page presents two equal primaries."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the Audio panel's tab group, 'Music' is a plain underlined label while 'Sound Effects' is drawn as a bordered box with an underline, giving the same control two different active treatments."
+    }
+  ],
+  "notes": "P5 is the only product with an error screen, so empty/error is scored from the two screens the other five supply and they sit mid-scale for lack of evidence. P4's screens are an issue tracker rather than clips, so I scored its cliplist and editor only on the visible interface, but its missing primary action is a real gap on both."
+}

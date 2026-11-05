@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 9,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 8.5,
+      "component_consistency": 9,
+      "iconography_detail": 9.5,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 9,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 7.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P6": {
+      "typography": 8,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 8,
+      "empty_error_states": 6
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P4 cliplist the grey selection band covers both row 02 and row 03 of the Clips rail while the panel header above still reads 'Best clip 37.2/40' instead of naming which clip is open."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P4 cliplist a triaged Keep/Maybe/Skip value is shown only as a thin outline around grey text (row 02 'Keep'), which reads as keyboard focus, and row 01 shows no chosen state at all."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "empty_error_states",
+      "issue": "In P4 error, step 3 'Transcribe' carries no status word while steps 1 and 2 both end with 'Done'; the failure is signalled by a full-width dark red rule instead."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P5 cliplist each row carries up to five pill chips plus priority bars, a status circle and a date, so titles truncate ('Add responsive and accessible UI behavi...') while metadata takes the row."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "In P5 editor the only control in the header is a bare '+', and the item view offers no save, update or close action anywhere."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In P5 cliplist the leading mark of each row switches between '...', '---' and priority bars inside the same column, with no header naming what that column is."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "empty_error_states",
+      "issue": "In P1 editor the AI Tools rows 'Eye Contact', 'Green screen' and 'Automatic multicam' are so faint on white that they read as blank rows rather than unavailable options."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In P1 editor the transcript strip under the timeline is clipped at the right edge by the AI Tools panel, cutting the word tokens ('welcome everyone to toda') and the last control mid-glyph."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P1 cliplist the open row menu ('Clear local cache' through 'Delete project') overlays the Last Viewed column values ('Thurs...', 'April ...') while the row's 3-dot trigger stays visible at the menu's left edge."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P3 cliplist the header holds 'Create' (filled purple), 'Ask Co-Creator' (dark filled) and 'Export all' (outlined, with a focus ring) at near-equal weight, so no single move reads as primary."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P3 cliplist three raw identifiers ('d591db2c-...', '69e48d8e...', 'composer-5gohk1eo6') sit unlabeled between the tab row and the 'Tracks' heading, ahead of the real content."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In P3 editor the selected 'Sound Effects' tab in the Audio panel is drawn as a rounded outline hanging below the label, so it reads as a focus artifact rather than a selected tab."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P6 cliplist the 'Auto headline' banner runs two lines of paragraph text across the top of the grid with its 'Disable it' control floating alone at the far right, and it pushes the whole clip row down."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In P6 cliplist the far-left rail stacks nine unlabeled 20px icons in one column with no text or tooltip, so none of them can be identified at a glance."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In P6 editor the transcript colours scattered words green and orange/yellow ('Captions already done', 'Great headline', 'style', 'templates') with no legend anywhere, so the colour carries no readable meaning."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "In P2 editor the Details panel's 'Saved:' path wraps onto a second line and overruns the value column while 'Name', 'Ratio' and 'Frame rate' stay single-line."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P2 cliplist the tool strip (Media, Audio, Text, Stickers, Effects, Transitions, Filters, >>) runs one small size in one tight row, with 'Filters' and the '>>' chevron almost touching."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In P2 cliplist all seven 'More tools' tiles plus the three featured cards carry the same teal 'AI' pill, so the badge stops distinguishing anything."
+    }
+  ],
+  "notes": "Only P4 has an error screen, so category 8 for the other five is read off their cliplist and editor screens alone. P5's screens are an issue tracker rather than a clip list or editor and P2's cliplist is a launcher home, so both were scored as shown, with no credit for clips that are not on screen."
+}

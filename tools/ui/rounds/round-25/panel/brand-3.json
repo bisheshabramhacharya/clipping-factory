@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 6.5,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6,
+      "component_consistency": 6,
+      "iconography_detail": 5.5,
+      "primary_action": 7,
+      "empty_error_states": 5.5
+    },
+    "P2": {
+      "typography": 7.5,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 5.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6,
+      "color_contrast": 7,
+      "component_consistency": 6,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 9,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 9,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 5.5
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 10,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P6": {
+      "typography": 6.5,
+      "hierarchy": 5.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 5.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 6.5,
+      "empty_error_states": 5.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In cliplist the Style swatch picker is a four-column grid holding seven swatches, so the second row (Violet, Orange, Custom) stops after three and leaves a dead cell, and the 11px labels set each column to a different width."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor the selected row 03 in the left Clips list is a near-white blue wash that reads as hover rather than selection, and it drops the row divider the other five rows keep."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In cliplist the extracted caption on the right rail is set at roughly 30px semibold, louder than the 'Best clip 37.2/40' score and every section label, so the eye lands on quoted speech instead of on choosing a clip."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In cliplist the issue titles truncate at a different x on almost every row (ENG-139 stops near x=718, ENG-416 near x=876) because the label chips before them take whatever width they need, so the left edge of the list has no scan line."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In editor the four icon-only controls above the Properties rail (properties, link, copy, branch) are unlabeled and unmarked, while every other control on the screen is a labeled chip or button."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor the add-reaction circle and the paperclip under the body sit at roughly 12% grey on white, 12px, on opposite edges of the column, so both comment affordances are close to invisible."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In cliplist the cyan-to-blue 'Create project' banner is the largest and loudest object on the screen, ahead of the Projects grid the screen exists for, and it is not a button."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "In editor the top tool row mixes drawn line glyphs (Stickers, Effects, Transitions) with letterform marks ('TI' for Text) and a filled colored tile for Media, all at the same 20px size, so no icon family holds."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In editor the Details 'Saved:' value wraps to a second line directly under the label column with no hanging indent, breaking the label/value pair that every other row in that panel keeps on one line."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In cliplist the open row menu sits over the Last Viewed column, clipping every value in it ('Thur...', 'April...' at x=1270), and the column header has no reserved width to protect it."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In cliplist 'New project' and 'Record' share the top corner at equal height while the table itself has no primary, and the selected row's periwinkle fill lands on the actions cell as well as the name."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor the disabled tools in the 'Look good' card (Eye Contact, Center active speaker, Green screen) are dimmed only slightly and carry the same sparkle glyph as enabled rows, so on and off read alike."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In editor the timeline clip labels ('Fill', 'AI image B-roll', 'Slow pus') are set at roughly 8-9px and the 'Slow push' chip clips its own word, unreadable at 100%."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In cliplist the 'Auto headline' explainer runs two lines of 12px body across the full 1,240px width with 'Disable it' floated at the far right edge, about 1,180px from the sentence it acts on, while the lime scores are the first thing the eye finds."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In cliplist there is no batch-level action for the 20 clips: the only control is a 'Select' pill, and each card carries three equal-weight 16px icons (schedule, download, cut)."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In cliplist three raw ids (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit as unlabeled body text above 'Tracks', presented with the weight of content."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In editor four unrelated accents run at once: lime waveform and lime 'Speaker 1', magenta selection inside the waveform, purple buttons and sparkles, and green/blue/red gradient collection cards, so color stops marking state."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In editor the 'Sound Effects' tab carries a hard white 2px outline, the same outline that sits on 'Export all' in cliplist, so a focus ring reads as a second selected state next to the purple primary."
+    }
+  ],
+  "notes": "P5 is the only product with an error screen, so the other five were scored on their two states alone (P2's editor at least shows a partial 'Transcribing... 34%' state). No product showed an empty state, so that category is judged from the screens present and marked down where nothing was shown."
+}

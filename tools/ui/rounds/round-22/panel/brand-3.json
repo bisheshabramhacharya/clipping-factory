@@ -1,0 +1,176 @@
+{
+  "judge": "brand",
+  "products": {
+    "P1": {
+      "typography": 8,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 7
+    },
+    "P2": {
+      "typography": 6,
+      "hierarchy": 6,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 6.5,
+      "iconography_detail": 6,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9.5,
+      "iconography_detail": 9,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 6.5,
+      "empty_error_states": 7.5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 8,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 7.5,
+      "iconography_detail": 8,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In the left clip list only row 02 shows Keep/Maybe/Skip as bordered chips; rows 01, 03, 04, 05 and 06 show the same three controls as bare 11px grey text, so one control has two appearances in one list."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The score appears three times on one screen (header 'Clips 6', each row's '37.2/40', panel 'Best clip 37.2/40') with no legend for the /40 scale, so the number's meaning has to be guessed."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "primary_action",
+      "issue": "On the failed-transcribe screen 'Retry stage' (black) and 'Start over' (outline) are the same height and width and sit 230px apart at equal weight, so the one recovery move is not singular."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The left sidebar lists 'Projects' and 'Views' twice with the same icons (once under Workspace, once under Your teams), so two nav destinations carry the same name."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "iconography_detail",
+      "issue": "The issue header shows a checked box beside the title in the top bar and a separate 'Done' row in the Properties rail, so completion state is drawn twice in two different styles."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In the issue list the rightmost column (date plus avatar) is clipped against the panel edge on the ENG-139 row, and the 'In Review' section header repeats cut off at the bottom."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "With the row kebab menu open the page behind it is rendered at roughly half opacity, so 'Personal', the column headers and every row title wash to the same grey and the hierarchy flattens instead of isolating the menu."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "The right side carries an 'AI Tools' panel whose header is 'AI Tools', and a far-right rail whose selected top item is also 'AI Tools' (above Project, Properties, Elements, Captions, Stock, Underlord), so two adjacent panels duplicate navigation."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In the page header 'Record' (outlined, red dot) and 'New project' (filled black) are the same size and sit 12px apart, so the screen has two competing first actions."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "On the clips screen the loudest control is 'Add more credits' (filled black, top right) while the 20 clips have no single primary action and 'Disable it' in the Auto headline band is styled as plain text."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "About a dozen words in the transcript are highlighted green alongside yellow timestamp chips and purple background chips, with no legend, so three colours carry unexplained meaning in one paragraph."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The full-width 'Auto headline' notice (two lines of 15px prose plus a detached 'Disable it') sits directly above the clip grid and reads louder than the clips it describes."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "The 'Create project' gradient band, seven AI tool tiles and a 300px promo carousel card for auto removal fill the screen down to y=545, so the actual project grid starts below them and the page reads as a landing page."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "Ten of the eleven tiles on the screen carry the same cyan 'AI' badge (three hero cards, seven tool tiles), so the badge stops distinguishing anything."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In the editor's top bar 'Export' is a filled cyan pill at one height while 'Shortcut' beside it and 'Modify' at the bottom of Details are grey rectangles at different heights and radii."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "The page opens with three unlabelled raw identifiers ('d591db2c-0a82-482e-a8c8-5f93768b9a24', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') set as body text above 'Tracks'."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "The header row mixes a filled purple 'Create', a purple-outline 'Generate with AI' and an 'Export all' with a bright white focus ring that out-shouts both."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "The editor uses lime (Speaker 1, waveform), magenta (Speaker 2, avatars) and purple (sparkles, Export outline) at once with no legend, so speaker colour and decoration colour are indistinguishable."
+    }
+  ],
+  "notes": "P4 is the only product with an error screen; the other five were scored on cliplist and editor only, so their empty/error scores rest on how those two screens hold. P6's editor image carries a hand-drawn red arrow over the Audio rail, which I read as an annotation rather than a product element."
+}

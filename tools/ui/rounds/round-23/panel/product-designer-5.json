@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 8,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 7,
+      "empty_error_states": 5
+    },
+    "P2": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 9,
+      "component_consistency": 8.5,
+      "iconography_detail": 9,
+      "primary_action": 9,
+      "empty_error_states": 10
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 8,
+      "color_contrast": 7.5,
+      "component_consistency": 8,
+      "iconography_detail": 8.5,
+      "primary_action": 8.5,
+      "empty_error_states": 5.5
+    },
+    "P4": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 9.5,
+      "primary_action": 6.5,
+      "empty_error_states": 6
+    },
+    "P5": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 7.5,
+      "iconography_detail": 7,
+      "primary_action": 7,
+      "empty_error_states": 4.5
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8.5,
+      "component_consistency": 8,
+      "iconography_detail": 10,
+      "primary_action": 10,
+      "empty_error_states": 5
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P1 cliplist: the left rail is eight icon-only buttons (home, grid, folder, calendar, bar chart, link, crown, gear) with no labels, and the crown and link glyphs cannot be identified from the screen."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: the only filled white button on the screen is 'Add more credits' in the header, while each clip's actual actions are three unlabeled icons (calendar, download, scissors) under its score."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: five settings share one ~11px header run in three formats ('9:16', 'Layout: Fill', a bare 'B', 'Color correction: OFF'), so none of them reads as a control."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P2 cliplist: 'Keep / Maybe / Skip' is 11px gray text at the bottom of each row, the quietest element on the list that exists to collect that decision, and a kept clip is marked only by the focus ring on row 02's 'Keep'."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the centre pane shows a still frame with no play, scrub or volume control, so the clip under review cannot be watched from this screen."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P2 editor: the outlined 'Download MP4' button sits one row above the black 'Apply changes' in the same right-aligned column, so export and commit read as the same kind of decision."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: the Created column mixes three formats in one column, 'March 6' (row 1), 'Tuesday' (row 2) and 'April 9' (row 5)."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor: disabled AI tools ('Eye Contact', 'Green screen', 'Automatic multicam', 'Blur speaker background') sit at roughly 2:1 on white with no reason given, and enabled rows in the same list use the same weight."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P3 editor: the right rail lists AI Tools, Project, Properties, Elements, Captions, Stock and Underlord with one identical treatment, so panel switches and one-shot tools look the same."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P4 cliplist: rows 4 to 10 (ENG-811, ENG-810, ENG-786, ENG-784, ENG-722, ENG-788) are prefixed with literal '---' characters as an indent, which reads as stray text rather than a parent/child relationship."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: the list header offers only 'Filter' and 'Display' plus a search icon; there is no create-issue control anywhere on the screen."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "hierarchy",
+      "issue": "P4 editor: the same title is printed twice within about 90px, as 'IOS-30 Fix memory leak in map view controller' in the tab strip and as 'Fix memory leak in map view controller' in the page heading."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P5 cliplist: three raw identifiers (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1e06) are printed as body text above the 'Tracks' heading, where the section header belongs."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: '+ Create' (purple, filled) and 'Ask Co-Creator' (outlined) sit side by side at the same size and weight in the header, so the page has two primaries."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P5 editor: the active 'Sound Effects' tab carries both a 3px rounded focus ring and a 2px underline, a doubled indicator, and the field below it still reads 'Search music'."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P6 cliplist: the project meta under each thumbnail ('215.4K | 00:03', '2.6M | 00:07') is set around 10px in mid-gray, the smallest type on a screen whose job is choosing a project."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P6 cliplist: an 'AI' badge sits on all three top tiles and all seven 'More tools' tiles, so it distinguishes nothing, and a cyan dot floats above the 'Project sync' button attached to no element."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P6 editor: in the Details panel the 'Saved' value is a full path (C:/Users/Admin/Desktop/CapCut Drafts/1025 (1)) that wraps to two lines while every other value stays on one, breaking the label/value column."
+    }
+  ],
+  "notes": "Only P2 shows a screen for the error state (a staged run with the failing step, its exit code and two captioned ways forward); the other five are scored on the screens they have, and their empty/error scores reflect that absence. P3 and P4 show a generic project list and an issue tracker rather than a set of clips to review, so those categories judge the screens actually filed under each code."
+}

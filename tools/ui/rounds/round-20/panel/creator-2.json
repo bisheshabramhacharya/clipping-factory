@@ -1,0 +1,176 @@
+{
+  "judge": "creator",
+  "products": {
+    "P1": {
+      "typography": 7,
+      "hierarchy": 7,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 7.5,
+      "primary_action": 7.5,
+      "empty_error_states": 6
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 7,
+      "color_contrast": 7,
+      "component_consistency": 6.5,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6
+    },
+    "P3": {
+      "typography": 8.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9,
+      "color_contrast": 8.5,
+      "component_consistency": 10,
+      "iconography_detail": 8.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P4": {
+      "typography": 8,
+      "hierarchy": 9,
+      "spacing_rhythm": 8.5,
+      "color_contrast": 8,
+      "component_consistency": 8,
+      "iconography_detail": 8,
+      "primary_action": 8.5,
+      "empty_error_states": 6.5
+    },
+    "P5": {
+      "typography": 9.5,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 8.5,
+      "iconography_detail": 10,
+      "primary_action": 8,
+      "empty_error_states": 6.5
+    },
+    "P6": {
+      "typography": 10,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 9.5,
+      "primary_action": 8,
+      "empty_error_states": 7
+    }
+  },
+  "issues": [
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P1 cliplist: three raw ids (d591db2c-0a82-482e-a8c8-5f93768b9a24, 69e48d8e849ab9426f17022d, composer-5gohk1eo6) sit unlabelled between the tab bar and the Tracks header, reading as loose body copy above the content."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P1 cliplist: four Download buttons (All participants, Cassidy, Gene, Meredith) and the Transcript Download share identical weight, so each row's obvious action is export and nothing offers opening the track."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P1 editor: the Details rail gives Name, Saved, Ratio, Resolution, Color space, Frame rate and Import material the same 12px weight, and Saved prints a full path (C:/Users/Admin/Desktop/CapCut Drafts/1025 (1))."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P2 cliplist: the teal Create project band plus three tool cards (AI video maker, Script to video, Record screen) occupy the top two thirds, pushing the Projects thumbnails to the bottom edge of the screen."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "P2 cliplist: an AI badge sits at the top-right of each of the seven More tools tiles (Long video to shorts through AI image) at slightly different offsets and at the same size as the tool label, so badges compete with the names."
+    },
+    {
+      "product": "P2",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "P2 editor: the selected Sound Effects tab renders as a white rounded outline over an underline while Music beside it is a plain label, so selection reads as a focus ring; the third Ready-made collection card is clipped mid-word (Educati) at the panel edge."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P3 cliplist: the Auto headline notice is a three-line paragraph at body size directly under the page title, so the notice outranks the 20 clips it is describing."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "P3 cliplist: clip titles truncate mid-word at two lines (Unlock Audience Secrets: Dive into Online, Effortless AI Video Creation: Voiceovers, Characters), and only 5 of the 20 Original clips are shown with no paging or scroll cue."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "P3 editor: the same score is printed twice in two treatments, 35.7/40 in the rail header and 35.7/40 on the list row, and neither says what the 40 is or what a good number looks like."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P4 cliplist: Keep, Maybe and Skip repeat under all six clips as three identical outline buttons with no selected or resolved state, so a reviewed clip looks the same as an unreviewed one."
+    },
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P4 cliplist: the portrait preview sits in a roughly 600px centre column with about 90px of dead space on each side while the clip list is squeezed to 11px text and 40px thumbnails."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "P4 editor: the right rail runs Style, six colour dots, Custom, Font, four Extras toggles, Caption, In/Out/Length and five export links (Download MP4, SRT, VTT, Meta, Poster) at 11px with no section breaks, so the column has no bottom."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "P5 cliplist: the open row menu (Clear local cache through Delete project) covers the Last Viewed column entirely, and the Duration, Created and Last Viewed headers sit a few pixels left of the values beneath them."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "P5 cliplist: the Ram Create Clips row is selected in lavender with a checked box, but no bulk action bar appears anywhere on the screen, so the selection leads nowhere visible."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "primary_action",
+      "issue": "P5 editor: the properties rail opens with a Done chip that looks like a static label, and the screen offers no Save, Edit or Share control, so the only action available is changing properties one at a time."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "P6 cliplist: rows carry up to three label chips plus a comment count, a date and an avatar on the right, so the title column truncates hard (Integrate internationalization (i18n) supp, Add responsive and accessible UI behavi) and no single row reads as the one to open."
+    },
+    {
+      "product": "P6",
+      "state": "editor",
+      "category": "spacing_rhythm",
+      "issue": "P6 editor: two right rails stack (the AI Tools panel plus an eight-icon rail) and AI Tools is labelled at the top of both, taking roughly 40 percent of the width from the transcript."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "P6 cliplist: the 5 more item in the tab bar is a wide pill with a different radius from the neighbouring tabs (All issues, Active, Backlog), and sidebar counts (Inbox 1, Triage 39) use two different badge treatments."
+    }
+  ],
+  "notes": "The code sets do not line up across states: P1 cliplist and P1 editor are clearly different products, and P3, P4, P5 and P6 each mix two designs between their list and editor files, so each code was scored on the files it actually owns and issues cite the exact code and state. Only P3 has an error screen, so the empty/error scores for P1, P2, P4, P5 and P6 come from the loading, selected and disabled states their screens happen to show."
+}

@@ -1,0 +1,176 @@
+{
+  "judge": "product-designer",
+  "products": {
+    "P1": {
+      "typography": 9,
+      "hierarchy": 8.5,
+      "spacing_rhythm": 9,
+      "color_contrast": 6.5,
+      "component_consistency": 8.5,
+      "iconography_detail": 8.5,
+      "primary_action": 8,
+      "empty_error_states": 7
+    },
+    "P2": {
+      "typography": 7,
+      "hierarchy": 6.5,
+      "spacing_rhythm": 6.5,
+      "color_contrast": 6.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    },
+    "P3": {
+      "typography": 8,
+      "hierarchy": 8,
+      "spacing_rhythm": 7.5,
+      "color_contrast": 7,
+      "component_consistency": 8,
+      "iconography_detail": 7.5,
+      "primary_action": 6.5,
+      "empty_error_states": 7
+    },
+    "P4": {
+      "typography": 9.5,
+      "hierarchy": 10,
+      "spacing_rhythm": 9.5,
+      "color_contrast": 9.5,
+      "component_consistency": 9,
+      "iconography_detail": 9.5,
+      "primary_action": 10,
+      "empty_error_states": 10
+    },
+    "P5": {
+      "typography": 10,
+      "hierarchy": 9.5,
+      "spacing_rhythm": 10,
+      "color_contrast": 10,
+      "component_consistency": 10,
+      "iconography_detail": 10,
+      "primary_action": 7.5,
+      "empty_error_states": 7
+    },
+    "P6": {
+      "typography": 7.5,
+      "hierarchy": 7,
+      "spacing_rhythm": 7,
+      "color_contrast": 7.5,
+      "component_consistency": 7,
+      "iconography_detail": 6.5,
+      "primary_action": 7,
+      "empty_error_states": 6.5
+    }
+  },
+  "issues": [
+    {
+      "product": "P4",
+      "state": "cliplist",
+      "category": "component_consistency",
+      "issue": "In P4 cliplist the Keep/Maybe/Skip controls in clip rows 02-06 render as three equal-weight gray text links with no border, while only the selected row 01 gets a boxed Keep, so the per-clip decision control looks unstyled and unhoverable until selected."
+    },
+    {
+      "product": "P4",
+      "state": "editor",
+      "category": "typography",
+      "issue": "In P4 editor the export row sets Download MP4, SRT, VTT, Meta and Poster as one 11px gray text run at the smallest size in the inspector, so the most consequential action in the panel is quieter than the caption body above it."
+    },
+    {
+      "product": "P4",
+      "state": "error",
+      "category": "hierarchy",
+      "issue": "In P4 error the failed stage is titled twice, '3. Transcribe' at 14px followed by 'Transcription failed' at 20px, and the 2px dark-red rule above it spans the full column like a section divider, so the failure does not read as the focus until you read the copy."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "spacing_rhythm",
+      "issue": "In P5 cliplist each row carries a different number of label chips, so the comment-count, date and avatar columns land at a different x on every row and the list's right edge is ragged rather than aligned."
+    },
+    {
+      "product": "P5",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P5 cliplist there is no single primary action: a plus on the 'In Review 12' header, a plus in the team bar and the tab row all offer entry points at similar weight, while the active 'Active' tab differs from 'All issues' only by a faint fill."
+    },
+    {
+      "product": "P5",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In P5 editor the Properties rail renders static values (Done, Urgent, olivia, Bug, Cycle 6) and editable controls ('Add to project', the plus beside Labels) at identical weight with no hover or edit affordance, so nothing in the rail signals what can be changed."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In P1 cliplist the entire page behind the open row menu is dimmed to low-contrast gray, including all twelve project names and the Name/Duration/Created values, with no visible scrim edge tying the dimming to the menu, so the list reads as disabled."
+    },
+    {
+      "product": "P1",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P1 cliplist 'Record' (outlined, red dot) and 'New project' (solid black) sit eight pixels apart in the same header group at comparable weight, so the screen offers two competing creation paths and no cue for which starts the work."
+    },
+    {
+      "product": "P1",
+      "state": "editor",
+      "category": "component_consistency",
+      "issue": "In P1 editor the 'Look good' group lists Eye Contact, Center active speaker, Green screen, Automatic multicam and Blur speaker background at reduced opacity with 'Beta' tags and no lock or reason, so unavailable actions look like broken buttons next to enabled ones of the same shape."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P2 cliplist a full-width cyan gradient band roughly 870x150 holding one centered '+ Create project' is the loudest object on the screen, sitting above the three tool cards and pushing the actual Projects grid below the fold."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "typography",
+      "issue": "In P2 cliplist the 'More tools' row wraps three of seven labels to two lines ('Long video to shorts', 'AI dialogue scene', 'AI fashion model') against single-line neighbours, so the row has no common label baseline."
+    },
+    {
+      "product": "P2",
+      "state": "cliplist",
+      "category": "color_contrast",
+      "issue": "In P2 cliplist the saturated cyan gradient is used at once for the create banner, the three tool cards, every 'AI' badge and the 220px 'Auto removal' promo card, so the accent carries promotion, category and action with no way to tell them apart."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P3 cliplist three bare hashes ('d591db2c-0a82-...', '69e48d8e849ab9426f17022d', 'composer-5gohk1eo6') sit as loose 13px unlabeled text between the tab bar and the 'Tracks' heading, reading as leaked debug data ahead of the content."
+    },
+    {
+      "product": "P3",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P3 cliplist five track rows each carry a full-weight 'Download' button plus an equal-weight overflow, so the repeated row actions outnumber and compete with the header's 'Create' and 'Export all'."
+    },
+    {
+      "product": "P3",
+      "state": "editor",
+      "category": "color_contrast",
+      "issue": "In P3 editor four overlapping magenta collaborator avatars at about 28px sit directly left of the purple 'Export' button with no presence ring or overflow count, and they are the most saturated element on a near-monochrome screen."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "hierarchy",
+      "issue": "In P6 cliplist the 'Auto headline' banner spans the full content width directly under the page title with two lines of 14px instruction copy and a 'Disable it' link, outranking the clip grid and pushing the scores and thumbnails down."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "iconography_detail",
+      "issue": "In P6 cliplist the left rail is eight unlabeled icons (house, grid, folder, calendar, chart, link, tray, list) floating in empty space with no selected state, so the rail reads as decoration rather than navigation."
+    },
+    {
+      "product": "P6",
+      "state": "cliplist",
+      "category": "primary_action",
+      "issue": "In P6 cliplist the only filled control on screen is 'Add more credits' in the header, while the clips offer no primary action at all beyond an icon row of unlabeled buttons under each title."
+    }
+  ],
+  "notes": "Only P4 shows an error screen, so every other product's empty/error score comes from its two remaining screens. P6's editor image also carries a hand-drawn red arrow, which I treated as an annotation and not product UI; P1's cliplist may be dimmed by a menu scrim, but nothing marks it as one."
+}
