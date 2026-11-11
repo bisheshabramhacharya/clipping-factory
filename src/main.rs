@@ -14,6 +14,7 @@ mod export;
 mod frame;
 mod media;
 mod pipeline;
+mod pool;
 mod render;
 mod select;
 mod settings;
