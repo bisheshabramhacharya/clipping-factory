@@ -359,12 +359,14 @@ fn sample_detect_and_cuts(
             i += 1;
         };
         drop(tx);
+        // Kill before the scope joins: the stderr reader only ends at EOF,
+        // and a decoder whose stdout nobody drains never gets there.
+        if outcome.is_err() {
+            child.kill().ok();
+        }
         outcome
     });
     drop(done_tx);
-    if read.is_err() {
-        child.kill().ok();
-    }
     child.wait().ok();
     read?;
 
@@ -1102,6 +1104,55 @@ mod tests {
             (64, 36),
             &cancelled,
         );
+        assert!(crate::util::is_cancelled(&result.err().unwrap()));
+    }
+    #[test]
+    fn cancel_mid_decode_returns_instead_of_waiting_on_ffmpeg() {
+        let model =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/models/seeta_fd_frontal_v1.0.bin");
+        let dir = std::env::temp_dir().join(format!("cf-frame-cancel-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.mp4");
+        let made = Command::new("ffmpeg")
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+            ])
+            .arg("testsrc=size=640x360:rate=30")
+            .args(["-t", "60", "-pix_fmt", "yuv420p", "-preset", "ultrafast"])
+            .arg(&src)
+            .status();
+        if !made.is_ok_and(|s| s.success()) {
+            // No ffmpeg on this machine: nothing to decode, nothing to test.
+            return;
+        }
+        let cancelled = std::sync::Arc::new(AtomicBool::new(false));
+        let (tx, rx) = mpsc::channel();
+        {
+            let cancelled = cancelled.clone();
+            std::thread::spawn(move || {
+                let result = sample_detect_and_cuts(
+                    "ffmpeg",
+                    &src,
+                    &model,
+                    0,
+                    60_000,
+                    (320, 180),
+                    &cancelled,
+                );
+                tx.send(result.map(|_| ())).ok();
+            });
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        cancelled.store(true, Ordering::Relaxed);
+        let result = rx.recv_timeout(std::time::Duration::from_secs(10));
+        std::fs::remove_dir_all(&dir).ok();
+        let result = result.expect("cancel must end the decode, not wait for ffmpeg to finish");
         assert!(crate::util::is_cancelled(&result.err().unwrap()));
     }
 }
