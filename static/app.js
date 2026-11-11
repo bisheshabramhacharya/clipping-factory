@@ -947,9 +947,12 @@
     const p = view && view.project;
     const section = $("review-state");
     if (!p || !section || section.classList.contains("hidden")) return;
+    if (document.body.classList.contains("modal-open")) return;
     const t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
         t.tagName === "SELECT" || t.isContentEditable)) return;
+    // Enter and Space on a focused button or link belong to that control.
+    if ((e.key === "Enter" || e.key === " ") && t && t.closest && t.closest("button, a")) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const all = sortedCandidates();
     if (!all.length) return;
@@ -1013,6 +1016,7 @@
     section.classList.toggle("hidden", !show || !all.length);
     if (!show || !all.length) {
       // A preview inside a hidden section keeps playing — stop it.
+      section.querySelectorAll("video").forEach((v) => v.pause());
       if (playingRank != null) {
         delete candidateRowCache[playingRank];
         playingRank = null;
@@ -1028,7 +1032,7 @@
     const allBtn = $("render-all-btn");
     if (!moreMode) {
       const kept = candidatesKept();
-      $("review-title").textContent = "Review candidates";
+      $("review-candidates-title").textContent = "Review candidates";
       $("review-sub").textContent =
         `Kept ${kept.length} of ${all.length} · ${view.source_name || ""}`;
       keptBtn.textContent = `Render kept (${kept.length})`;
@@ -1040,7 +1044,7 @@
       allBtn.disabled = reviewBusy || all.length === 0;
       allBtn.title = "Frame and render every candidate — skips the review.";
     } else {
-      $("review-title").textContent = "Render more candidates";
+      $("review-candidates-title").textContent = "Render more candidates";
       $("review-sub").textContent =
         `${all.length - unrendered.length} of ${all.length} already rendered — renders can't be undone.`;
       keptBtn.textContent = `Render selected (${renderMorePicks.size})`;
