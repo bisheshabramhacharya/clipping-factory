@@ -118,8 +118,8 @@ PY
 echo "== source: $VIDEO"
 medians=()
 for run in $(seq 1 "$RUNS"); do
-  TRANSITIONS="$(mktemp -t cf-time-transitions)"
-  VIEW_JSON="$(mktemp -t cf-time-view)"
+  TRANSITIONS="$(mktemp "${TMPDIR:-/tmp}/cf-time-transitions.XXXXXX")"
+  VIEW_JSON="$(mktemp "${TMPDIR:-/tmp}/cf-time-view.XXXXXX")"
   : > "$TRANSITIONS"
   echo "── run $run/$RUNS"
   one_run | tee "run-${run}.tsv"
