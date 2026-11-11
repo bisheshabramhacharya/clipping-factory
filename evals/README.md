@@ -14,6 +14,12 @@ Media, models, local paths, and generated clips remain outside Git.
 cp evals/manifest.example.json evals/manifest.json
 ```
 
+Or fetch the public set, which writes `evals/manifest.json` for you:
+
+```bash
+bash evals/public/fetch.sh
+```
+
 Edit `evals/manifest.json` so every `path` points to a local source. Relative
 paths are resolved from the manifest's directory. The committed example covers
 the minimum useful distribution:
@@ -90,6 +96,33 @@ evals/results/<UTC-run-id>/
 ```
 
 `evals/results/` and `evals/sources/` are gitignored.
+
+## 1a. The public set
+
+`evals/public/manifest.json` catalogs eight freely licensed episodes
+(20–60 minutes each) that anyone can download:
+
+```bash
+bash evals/public/fetch.sh
+```
+
+The fetcher downloads each source into `evals/sources/` (gitignored), wraps
+audio-only podcasts in an MP4 with a black frame so the studio's ingest path
+accepts them, and writes a filled `evals/manifest.json` `run.sh` can use.
+Re-running it skips files already on disk.
+
+Every source is a US Government work (public domain, 17 U.S.C. §105): NASA's
+*Houston We Have a Podcast*, a NASA media teleconference over a phone bridge,
+a State of NASA address, an ISS science panel, a White House press briefing,
+a cosmonaut crew news conference for accented speech, and a committee
+hearing room. Together they cover the manifest distribution — two-person
+interview, solo monologue, panel, noisy/room-tone audio, fast or accented
+speech — on real recordings instead of fixtures.
+
+This set sits next to the owner's private baseline (`evals/baselines/`, still
+to be filled per ROADMAP item 1): the public set is for anyone rebuilding
+the eval, the private one is the owner's own episode. `evals/public/` is
+also where the moments answer keys (`<source-id>.moments.json`) live.
 
 ## 2a. No media yet? The synthetic fixture
 
