@@ -44,11 +44,29 @@ fn first_existing(cands: Vec<PathBuf>) -> Option<PathBuf> {
     cands.into_iter().find(|p| p.is_file())
 }
 
-fn find_whisper_model(dirs: &[PathBuf]) -> Option<PathBuf> {
+pub(crate) fn find_whisper_model(dirs: &[PathBuf]) -> Option<PathBuf> {
     // English-only weights stay preferred: they are measurably stronger on
     // English than the multilingual equivalent at the same size. Multilingual
     // names come after so an install with only e.g. ggml-base.bin still works.
     find_model(dirs, ENGLISH_MODELS).or_else(|| find_multilingual_model(dirs))
+}
+
+/// Locate the whisper.cpp binary: `CF_WHISPER_BIN` → PATH → common local
+/// build locations. Resolved fresh on each call so a binary installed after
+/// startup is picked up by the next attempt (i.e. Retry works).
+pub(crate) fn resolve_whisper_bin(cwd: &Path) -> Option<PathBuf> {
+    env_path("CF_WHISPER_BIN")
+        .filter(|p| p.is_file())
+        .or_else(|| which("whisper-cli"))
+        .or_else(|| which("whisper-cpp"))
+        .or_else(|| {
+            first_existing(vec![
+                cwd.join("whisper.cpp/build/bin/whisper-cli"),
+                cwd.join("../whisper.cpp/build/bin/whisper-cli"),
+                PathBuf::from("/opt/homebrew/bin/whisper-cli"),
+                PathBuf::from("/usr/local/bin/whisper-cli"),
+            ])
+        })
 }
 
 /// English-only ggml model names, best first: bigger models win.
@@ -135,18 +153,7 @@ impl Config {
         });
 
         // whisper.cpp binary: env → PATH → common local build locations.
-        let whisper_bin = env_path("CF_WHISPER_BIN")
-            .filter(|p| p.is_file())
-            .or_else(|| which("whisper-cli"))
-            .or_else(|| which("whisper-cpp"))
-            .or_else(|| {
-                first_existing(vec![
-                    cwd.join("whisper.cpp/build/bin/whisper-cli"),
-                    cwd.join("../whisper.cpp/build/bin/whisper-cli"),
-                    PathBuf::from("/opt/homebrew/bin/whisper-cli"),
-                    PathBuf::from("/usr/local/bin/whisper-cli"),
-                ])
-            });
+        let whisper_bin = resolve_whisper_bin(&cwd);
 
         // Model: env → data dir → common local locations.
         let whisper_model = env_path("CF_WHISPER_MODEL")
