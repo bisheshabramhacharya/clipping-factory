@@ -273,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rubric", type=Path, help="rubric.csv (default: alongside --selection)")
     parser.add_argument("--moments-dir", type=Path, default=Path(__file__).parent / "public",
                         help="answer-key directory for --run-dir (default: evals/public)")
-    parser.add_argument("--source-id", help="rubric source id for --selection (default: moments file's source_id)")
+    parser.add_argument("--source-id", help="rubric source id for --selection (default: the moments file's source_id, else its file name)")
     parser.add_argument("--json", type=Path, help="write the full report JSON here")
     args = parser.parse_args(argv)
 
@@ -283,7 +283,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.selection and args.moments:
             moments_path = args.moments.resolve()
             moments_doc = read_json(moments_path)
-            source_id = args.source_id or str(moments_doc.get("source_id") or args.selection.stem)
+            # Answer keys are named <source-id>.moments.json; that id is what
+            # the rubric rows are keyed on.
+            source_id = args.source_id or str(
+                moments_doc.get("source_id") or moments_path.name.removesuffix(".moments.json")
+            )
             rubric_path = args.rubric or args.selection.parent / "rubric.csv"
             episode = score_episode(
                 source_id,

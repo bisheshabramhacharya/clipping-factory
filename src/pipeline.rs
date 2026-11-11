@@ -1073,137 +1073,157 @@ async fn run(
         .map(&clip_weight)
         .sum::<f64>()
         .max(1.0);
-    let mut done_w: f64 = 0.0;
+    // Render pool: `jobs` workers render clips concurrently; one writer
+    // applies every outcome in rank order — status flips, manifest saves,
+    // and output-folder copies never interleave. A clip's share of the
+    // stage is its output duration's fraction of the manifest.
+    let clips = Arc::new(manifest.clips.clone());
+    let weights = Arc::new(clips.iter().map(clip_weight).collect::<Vec<f64>>());
+    // Each slot holds a clip's own progress fraction (0..1); the stage's
+    // fraction is the duration-weighted sum over all of them.
+    let shares = Arc::new(Mutex::new(vec![0.0f64; total]));
+    // Cancelling the pool stops claims and kills in-flight ffmpeg without
+    // marking the project cancelled — apply-side aborts use it too.
+    let pool_cancel = ctx.cancel.child_token();
+    let stage_fraction = |shares: &Mutex<Vec<f64>>, weights: &Arc<Vec<f64>>| -> f32 {
+        let s = shares.lock().unwrap();
+        (s.iter()
+            .zip(weights.iter())
+            .map(|(a, w)| a * w)
+            .sum::<f64>()
+            / total_w) as f32
+    };
 
-    for i in 0..manifest.clips.len() {
-        if ctx.cancel.is_cancelled() {
-            ctx.mark_cancelled(&mut p, "rendering").await?;
-            return Ok(());
-        }
-        let mut clip = manifest.clips[i].clone();
-        let w_i = clip_weight(&clip);
-        let mut prog = ctx.progress_fn("rendering");
-        let out_path = store.clips_dir(&id).join(&clip.filename);
-        if clip.status == ClipStatus::Ready
-            && store.final_is_ready(&id, &clip.id, &clip.filename).await?
-        {
-            done_w += w_i;
-            prog(
-                (done_w / total_w) as f32,
-                Some(format!("Clip {} of {} already rendered", i + 1, total)),
-            );
-            // Clips rendered before export packs existed get their sidecars
-            // backfilled on resume — no re-render needed.
-            let words = crate::export::caption_words(&transcript, &clip);
-            let input = crate::export::MetaInput {
-                clip: &clip,
-                source: &source,
-                words: &words,
-                project_id: &id,
-                selector: p.selector.as_deref(),
-                caption_style: clip.caption_style.as_deref(),
-            };
-            if let Err(e) = crate::export::ensure_export_pack(
-                &store.clips_dir(&id),
-                &input,
-                &settings,
-                &ctx.cancel,
-            )
-            .await
-            {
-                tracing::warn!(clip = %clip.id, "export pack backfill failed: {e:#}");
-            }
-            continue;
-        }
-
-        // Auto-cut (opt-in): compute the cut list once and persist it on the
-        // clip so restyle/retry reproduce the identical cut without
-        // re-running silence detection.
-        if clip.auto_cut && clip.cut_spans.is_none() {
-            let energy = store.load_energy(&id).await;
-            match crate::autocut::plan_for_clip(
-                cfg,
-                &src,
-                &transcript.words,
-                clip.start_ms,
-                clip.end_ms,
-                energy.as_ref(),
-                &ctx.cancel,
-            )
-            .await
-            {
-                Ok(removals) => {
-                    clip.cut_spans = Some(removals);
-                    manifest.clips[i].cut_spans = clip.cut_spans.clone();
-                    store.save_manifest(&id, &manifest).await?;
+    let work = |i: usize, slot: crate::pool::WorkSlot<ClipOutcome>| {
+        let shares = shares.clone();
+        let weights = weights.clone();
+        let clips = clips.clone();
+        // `async move` consumes its captures — rebind everything to shared
+        // references (Copy) so the closure stays callable for every item.
+        let (id, src, transcript, source, ctx, accent_hex, pool_cancel) = (
+            &id,
+            &src,
+            &transcript,
+            &source,
+            &ctx,
+            &accent_hex,
+            &pool_cancel,
+        );
+        async move {
+            let mut clip = clips[i].clone();
+            match store.final_is_ready(id, &clip.id, &clip.filename).await {
+                Ok(true) if clip.status == ClipStatus::Ready => {
+                    return ClipOutcome {
+                        clip,
+                        base_ready: true,
+                        kind: Ok(ClipDone::AlreadyReady),
+                    }
                 }
-                Err(e) if is_cancelled(&e, &ctx.cancel) => {
-                    ctx.mark_cancelled(&mut p, "rendering").await?;
-                    return Ok(());
-                }
+                Ok(_) => {}
                 Err(e) => {
-                    ctx.fail_clip(&id, &mut manifest, i, &e).await?;
-                    done_w += w_i;
-                    prog(
-                        (done_w / total_w) as f32,
-                        Some(format!("Clip {} of {} failed", i + 1, total)),
-                    );
-                    continue;
+                    // Base was never checked — don't touch it on cleanup.
+                    return ClipOutcome {
+                        clip,
+                        base_ready: true,
+                        kind: Err(e),
+                    };
                 }
             }
-        }
-        let removals = clip.effective_removals();
-        let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
-        let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
-        // Zoom cuts (opt-in): plan the keyframes once and persist them on
-        // the clip so restyle/retry reproduce the identical zoom without
-        // re-running beat detection. Beats land on the post-cut timeline,
-        // so this runs after auto-cut's removals are known.
-        if clip.zoom_cuts && clip.zoom_keys.is_none() {
-            let energy = store.load_energy(&id).await;
-            let words = crate::captions::with_caption_text(
-                &crate::captions::words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
-                clip.caption_text.as_deref(),
-            );
-            let keys = crate::zoom::plan(
-                clip.start_ms,
-                clip.end_ms,
-                &words,
-                energy.as_ref(),
-                removals,
-                out_dur_ms,
-            );
-            clip.zoom_keys = Some(keys);
-            manifest.clips[i].zoom_keys = clip.zoom_keys.clone();
-            store.save_manifest(&id, &manifest).await?;
-        }
-        let base_key = clip.base_key();
+            if ctx.cancel.is_cancelled() {
+                return ClipOutcome {
+                    clip,
+                    base_ready: true,
+                    kind: Ok(ClipDone::Abandoned),
+                };
+            }
 
-        manifest.clips[i].status = ClipStatus::Rendering;
-        store.save_manifest(&id, &manifest).await?;
-        ctx.handle
-            .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
+            // Auto-cut (opt-in): compute the cut list once; the writer
+            // persists it with the outcome so restyle/retry reproduce the
+            // identical cut without re-running silence detection.
+            if clip.auto_cut && clip.cut_spans.is_none() {
+                let energy = store.load_energy(id).await;
+                match crate::autocut::plan_for_clip(
+                    cfg,
+                    src,
+                    &transcript.words,
+                    clip.start_ms,
+                    clip.end_ms,
+                    energy.as_ref(),
+                    &ctx.cancel,
+                )
+                .await
+                {
+                    Ok(removals) => clip.cut_spans = Some(removals),
+                    Err(e) => {
+                        // Plan errors never touched the base before either —
+                        // leave whatever is on disk alone.
+                        return ClipOutcome {
+                            clip,
+                            base_ready: true,
+                            kind: Err(e),
+                        };
+                    }
+                }
+            }
+            let removals = clip.effective_removals();
+            let keeps = crate::autocut::keeps_from_removals(clip.start_ms, clip.end_ms, removals);
+            let out_dur_ms = keeps.iter().map(|k| k.len_ms()).sum::<u64>();
+            // Zoom cuts (opt-in): plan the keyframes once; beats land on the
+            // post-cut timeline, so this runs after auto-cut's removals.
+            if clip.zoom_cuts && clip.zoom_keys.is_none() {
+                let energy = store.load_energy(id).await;
+                let words = crate::captions::with_caption_text(
+                    &crate::captions::words_in_interval(
+                        &transcript.words,
+                        clip.start_ms,
+                        clip.end_ms,
+                    ),
+                    clip.caption_text.as_deref(),
+                );
+                clip.zoom_keys = Some(crate::zoom::plan(
+                    clip.start_ms,
+                    clip.end_ms,
+                    &words,
+                    energy.as_ref(),
+                    removals,
+                    out_dur_ms,
+                ));
+            }
+            let base_key = clip.base_key();
+            let base_ready = match store.base_is_ready(id, &base_key).await {
+                Ok(v) => v,
+                Err(e) => {
+                    return ClipOutcome {
+                        clip,
+                        base_ready: true,
+                        kind: Err(e),
+                    }
+                }
+            };
 
-        let done_label = format!("Rendering clip {} of {}", i + 1, total);
-        let caption_label = format!("Burning captions for clip {} of {}", i + 1, total);
-        let base_path = store.base_clip_path(&id, &base_key);
-        let base_ready = store.base_is_ready(&id, &base_key).await?;
-
-        let render_result: anyhow::Result<ClipRecord> = async {
+            slot.started();
+            let mut prog = ctx.progress_fn("rendering");
+            let mut report = |frac: f64, label: &String| {
+                shares.lock().unwrap()[i] = frac;
+                prog(stage_fraction(&shares, &weights), Some(label.clone()));
+            };
+            let done_label = format!("Rendering clip {} of {}", i + 1, total);
+            let caption_label = format!("Burning captions for clip {} of {}", i + 1, total);
             let variant = ClipVariant {
                 cfg,
                 store,
-                project_id: &id,
-                src: &src,
-                source: Some(&source),
-                transcript: &transcript,
+                project_id: id,
+                src,
+                source: Some(source),
+                transcript,
                 clip: &clip,
                 style: caption_style,
-                accent_hex: &accent_hex,
+                accent_hex,
                 font: &cfg.caption_font,
                 base_ready,
+                ffmpeg_threads: cfg.render_threads,
             };
-            let burned = render_clip_variant(&variant, &ctx.cancel, |pass, pct| {
+            let kind = render_clip_variant(&variant, pool_cancel, |pass, pct| {
                 let (share, label) = match pass {
                     RenderPass::Base => (pct as f64 * RENDER_BASE_SHARE, &done_label),
                     RenderPass::Burn => (
@@ -1211,127 +1231,264 @@ async fn run(
                         &caption_label,
                     ),
                 };
-                prog(
-                    ((done_w + w_i * share) / total_w) as f32,
-                    Some(label.clone()),
-                )
+                report(share, label)
             })
-            .await?;
-            let finished: anyhow::Result<()> = async {
-                // The export pack lands before the clip is marked ready — a
-                // Ready clip always carries its .srt/.vtt/.meta.json sidecars.
-                crate::export::write_export_pack(
-                    &store.clips_dir(&id),
-                    &crate::export::MetaInput {
-                        clip: &clip,
-                        source: &source,
-                        words: &burned.words,
-                        project_id: &id,
-                        selector: p.selector.as_deref(),
-                        caption_style: Some(caption_style.label()),
-                    },
-                    &settings,
-                    &ctx.cancel,
-                )
-                .await?;
-                promote_atomic(&burned.temp_path, &out_path).await
+            .await
+            .map(|burned| ClipDone::Burned {
+                record: Box::new(variant.rendered_record(&burned)),
+                burned,
+            });
+            ClipOutcome {
+                clip,
+                base_ready,
+                kind,
             }
-            .await;
-            tokio::fs::remove_file(&burned.temp_path).await.ok();
-            finished?;
-            // Poster frame beside the export pack: a shareable still pulled
-            // ~1s in so it carries the hook title when that's on. Best-effort —
-            // a poster failure never un-marks a rendered clip.
-            let poster = store
-                .clips_dir(&id)
-                .join(crate::export::poster_name(&clip.filename));
-            let _ = crate::util::run_streaming(
-                &cfg.ffmpeg,
-                &[
-                    "-y".into(),
-                    "-ss".into(),
-                    "0.9".into(),
-                    "-i".into(),
-                    out_path.to_string_lossy().into_owned(),
-                    "-frames:v".into(),
-                    "1".into(),
-                    "-q:v".into(),
-                    "3".into(),
-                    poster.to_string_lossy().into_owned(),
-                ],
-                &ctx.cancel,
-                |_, _| {},
-            )
-            .await;
-            store.mark_final_ready(&id, &clip.id).await?;
-            Ok(variant.rendered_record(&burned))
         }
-        .await;
+    };
 
-        match render_result {
-            Ok(rendered) => {
-                done_w += w_i;
-                prog((done_w / total_w) as f32, Some(done_label.clone()));
-                manifest.clips[i] = ClipRecord {
-                    status: ClipStatus::Ready,
-                    error: None,
-                    ..rendered
-                };
-                // Copy into the user-facing output folder (best-effort).
-                if tokio::fs::create_dir_all(&output_dir).await.is_ok() {
-                    let dest = output_dir.join(&clip.filename);
-                    if tokio::fs::copy(&out_path, &dest).await.is_ok() {
-                        manifest.output_dir = Some(output_dir.to_string_lossy().into_owned());
+    let (ev_tx, mut ev_rx) =
+        tokio::sync::mpsc::unbounded_channel::<crate::pool::WriteEvent<ClipOutcome>>();
+    let pool_run = crate::pool::run(total, cfg.render_jobs, work, ev_tx);
+
+    let apply = async {
+        let mut prog = ctx.progress_fn("rendering");
+        let mut apply_err: Option<anyhow::Error> = None;
+        let mut note_share = |i: usize, frac: f64, label: String| {
+            shares.lock().unwrap()[i] = frac;
+            prog(stage_fraction(&shares, &weights), Some(label));
+        };
+        while let Some(ev) = ev_rx.recv().await {
+            match ev {
+                crate::pool::WriteEvent::Started(i) => {
+                    if apply_err.is_some() {
+                        continue;
                     }
-                    // The export pack travels with the MP4 — same best-effort copy.
-                    for name in [
-                        crate::export::srt_name(&clip.filename),
-                        crate::export::vtt_name(&clip.filename),
-                        crate::export::meta_name(&clip.filename),
-                        crate::export::poster_name(&clip.filename),
-                    ] {
-                        let sidecar = store.clips_dir(&id).join(&name);
-                        tokio::fs::copy(&sidecar, output_dir.join(&name)).await.ok();
+                    manifest.clips[i].status = ClipStatus::Rendering;
+                    match store.save_manifest(&id, &manifest).await {
+                        Ok(()) => ctx
+                            .handle
+                            .emit(json!({"type": "clip", "clip": manifest.clips[i]})),
+                        Err(e) => {
+                            apply_err = Some(e);
+                            pool_cancel.cancel();
+                        }
                     }
                 }
-                store.save_manifest(&id, &manifest).await?;
-                ctx.handle
-                    .emit(json!({"type": "clip", "clip": manifest.clips[i]}));
-                if ctx.cancel.is_cancelled() {
-                    ctx.mark_cancelled(&mut p, "rendering").await?;
-                    return Ok(());
+                crate::pool::WriteEvent::Done(i, outcome) => {
+                    if apply_err.is_some() {
+                        continue;
+                    }
+                    let ClipOutcome {
+                        clip,
+                        base_ready,
+                        kind,
+                    } = outcome;
+                    // Plans the worker computed persist whatever the render
+                    // did — a retry must reproduce the identical cut/zoom.
+                    if manifest.clips[i].cut_spans != clip.cut_spans
+                        || manifest.clips[i].zoom_keys != clip.zoom_keys
+                    {
+                        manifest.clips[i].cut_spans = clip.cut_spans.clone();
+                        manifest.clips[i].zoom_keys = clip.zoom_keys.clone();
+                        if let Err(e) = store.save_manifest(&id, &manifest).await {
+                            apply_err = Some(e);
+                            pool_cancel.cancel();
+                            continue;
+                        }
+                    }
+                    let out_path = store.clips_dir(&id).join(&clip.filename);
+                    match kind {
+                        Ok(ClipDone::AlreadyReady) => {
+                            note_share(
+                                i,
+                                1.0,
+                                format!("Clip {} of {} already rendered", i + 1, total),
+                            );
+                            // Clips rendered before export packs existed get
+                            // their sidecars backfilled on resume — no
+                            // re-render needed.
+                            let words = crate::export::caption_words(&transcript, &clip);
+                            let input = crate::export::MetaInput {
+                                clip: &clip,
+                                source: &source,
+                                words: &words,
+                                project_id: &id,
+                                selector: p.selector.as_deref(),
+                                caption_style: clip.caption_style.as_deref(),
+                            };
+                            if let Err(e) = crate::export::ensure_export_pack(
+                                &store.clips_dir(&id),
+                                &input,
+                                &settings,
+                                &ctx.cancel,
+                            )
+                            .await
+                            {
+                                tracing::warn!(clip = %clip.id, "export pack backfill failed: {e:#}");
+                            }
+                        }
+                        Ok(ClipDone::Abandoned) => {}
+                        Ok(ClipDone::Burned { record, burned }) => {
+                            let finished: anyhow::Result<()> = async {
+                                // The export pack lands before the clip is
+                                // marked ready — a Ready clip always carries
+                                // its .srt/.vtt/.meta.json sidecars.
+                                crate::export::write_export_pack(
+                                    &store.clips_dir(&id),
+                                    &crate::export::MetaInput {
+                                        clip: &clip,
+                                        source: &source,
+                                        words: &burned.words,
+                                        project_id: &id,
+                                        selector: p.selector.as_deref(),
+                                        caption_style: Some(caption_style.label()),
+                                    },
+                                    &settings,
+                                    &ctx.cancel,
+                                )
+                                .await?;
+                                promote_atomic(&burned.temp_path, &out_path).await
+                            }
+                            .await;
+                            tokio::fs::remove_file(&burned.temp_path).await.ok();
+                            match finished {
+                                Err(e) => {
+                                    apply_err = Some(e);
+                                    pool_cancel.cancel();
+                                }
+                                Ok(()) => {
+                                    // Poster frame beside the export pack —
+                                    // best-effort, never un-marks the clip.
+                                    let poster = store
+                                        .clips_dir(&id)
+                                        .join(crate::export::poster_name(&clip.filename));
+                                    let _ = crate::util::run_streaming(
+                                        &cfg.ffmpeg,
+                                        &[
+                                            "-y".into(),
+                                            "-ss".into(),
+                                            "0.9".into(),
+                                            "-i".into(),
+                                            out_path.to_string_lossy().into_owned(),
+                                            "-frames:v".into(),
+                                            "1".into(),
+                                            "-q:v".into(),
+                                            "3".into(),
+                                            poster.to_string_lossy().into_owned(),
+                                        ],
+                                        &ctx.cancel,
+                                        |_, _| {},
+                                    )
+                                    .await;
+                                    match store.mark_final_ready(&id, &clip.id).await {
+                                        Err(e) => {
+                                            apply_err = Some(e);
+                                            pool_cancel.cancel();
+                                        }
+                                        Ok(()) => {
+                                            note_share(
+                                                i,
+                                                1.0,
+                                                format!("Rendering clip {} of {}", i + 1, total),
+                                            );
+                                            manifest.clips[i] = ClipRecord {
+                                                status: ClipStatus::Ready,
+                                                error: None,
+                                                ..*record
+                                            };
+                                            // Copy into the user-facing
+                                            // output folder (best-effort).
+                                            if tokio::fs::create_dir_all(&output_dir).await.is_ok()
+                                            {
+                                                let dest = output_dir.join(&clip.filename);
+                                                if tokio::fs::copy(&out_path, &dest).await.is_ok() {
+                                                    manifest.output_dir = Some(
+                                                        output_dir.to_string_lossy().into_owned(),
+                                                    );
+                                                }
+                                                // The export pack travels with
+                                                // the MP4 — same best-effort copy.
+                                                for name in [
+                                                    crate::export::srt_name(&clip.filename),
+                                                    crate::export::vtt_name(&clip.filename),
+                                                    crate::export::meta_name(&clip.filename),
+                                                    crate::export::poster_name(&clip.filename),
+                                                ] {
+                                                    let sidecar = store.clips_dir(&id).join(&name);
+                                                    tokio::fs::copy(
+                                                        &sidecar,
+                                                        output_dir.join(&name),
+                                                    )
+                                                    .await
+                                                    .ok();
+                                                }
+                                            }
+                                            match store.save_manifest(&id, &manifest).await {
+                                                Ok(()) => ctx.handle.emit(
+                                                    json!({"type": "clip", "clip": manifest.clips[i]}),
+                                                ),
+                                                Err(e) => {
+                                                    apply_err = Some(e);
+                                                    pool_cancel.cancel();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) if is_cancelled(&e, &pool_cancel) => {
+                            tokio::fs::remove_file(&out_path).await.ok();
+                            store.clear_final_ready(&id, &clip.id).await;
+                            if !base_ready {
+                                let base_path = store.base_clip_path(&id, &clip.base_key());
+                                tokio::fs::remove_file(&base_path).await.ok();
+                                store.clear_base_ready(&id, &clip.base_key()).await;
+                            }
+                            manifest.clips[i].status = ClipStatus::Pending;
+                            if let Err(e) = store.save_manifest(&id, &manifest).await {
+                                apply_err = Some(e);
+                                pool_cancel.cancel();
+                            }
+                        }
+                        Err(e) => {
+                            // A failed render must not discard successful
+                            // outputs (PRD §12). Drop this clip's base so
+                            // retry rebuilds it — a truncated base from a
+                            // crash would poison every re-burn.
+                            if !base_ready {
+                                let base_path = store.base_clip_path(&id, &clip.base_key());
+                                tokio::fs::remove_file(&base_path).await.ok();
+                                store.clear_base_ready(&id, &clip.base_key()).await;
+                            }
+                            tokio::fs::remove_file(&out_path).await.ok();
+                            store.clear_final_ready(&id, &clip.id).await;
+                            match ctx.fail_clip(&id, &mut manifest, i, &e).await {
+                                Ok(()) => note_share(
+                                    i,
+                                    1.0,
+                                    format!("Clip {} of {} failed", i + 1, total),
+                                ),
+                                Err(e2) => {
+                                    apply_err = Some(e2);
+                                    pool_cancel.cancel();
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            Err(e) if is_cancelled(&e, &ctx.cancel) => {
-                tokio::fs::remove_file(&out_path).await.ok();
-                store.clear_final_ready(&id, &clip.id).await;
-                if !base_ready {
-                    tokio::fs::remove_file(&base_path).await.ok();
-                    store.clear_base_ready(&id, &base_key).await;
-                }
-                manifest.clips[i].status = ClipStatus::Pending;
-                store.save_manifest(&id, &manifest).await?;
-                ctx.mark_cancelled(&mut p, "rendering").await?;
-                return Ok(());
-            }
-            Err(e) => {
-                // A failed render must not discard successful outputs (PRD §12).
-                // Drop this clip's base so retry rebuilds it from scratch — a
-                // truncated base from a crash would poison every re-burn.
-                if !base_ready {
-                    tokio::fs::remove_file(&base_path).await.ok();
-                    store.clear_base_ready(&id, &base_key).await;
-                }
-                tokio::fs::remove_file(&out_path).await.ok();
-                store.clear_final_ready(&id, &clip.id).await;
-                ctx.fail_clip(&id, &mut manifest, i, &e).await?;
-                done_w += w_i;
-                prog(
-                    (done_w / total_w) as f32,
-                    Some(format!("Clip {} of {} failed", i + 1, total)),
-                );
             }
         }
+        apply_err
+    };
+    let (_, apply_err) = tokio::join!(pool_run, apply);
+    if let Some(e) = apply_err {
+        return Err(e);
+    }
+
+    if ctx.cancel.is_cancelled() {
+        ctx.mark_cancelled(&mut p, "rendering").await?;
+        return Ok(());
     }
 
     let ready = manifest
@@ -1405,6 +1562,9 @@ pub struct ClipVariant<'a> {
     pub font: &'a str,
     /// The base for `clip.base_key()` is complete on disk; skip pass 1.
     pub base_ready: bool,
+    /// Per-process ffmpeg thread budget. The render pool passes
+    /// `Config::render_threads`; a one-off restyle passes `Config::threads`.
+    pub ffmpeg_threads: usize,
 }
 
 pub struct BurnedClip {
@@ -1416,6 +1576,29 @@ pub struct BurnedClip {
     pub out_w: u32,
     pub out_h: u32,
     pub out_dur_ms: u64,
+}
+
+/// A claimed clip's report to the render writer: the record with any plans
+/// the worker computed applied, plus the outcome of the actual render.
+struct ClipOutcome {
+    clip: ClipRecord,
+    /// The base MP4 + ready marker for `clip.base_key()` existed when the
+    /// worker checked — cleanup keeps a pre-existing base but drops a
+    /// partial one.
+    base_ready: bool,
+    kind: Result<ClipDone>,
+}
+
+enum ClipDone {
+    /// Final MP4 + marker already on disk; only sidecar backfill is due.
+    AlreadyReady,
+    /// Claimed after cancellation — never started, stays Pending.
+    Abandoned,
+    /// Both passes finished; `record` is the clip stamped with this look.
+    Burned {
+        record: Box<ClipRecord>,
+        burned: BurnedClip,
+    },
 }
 
 impl ClipVariant<'_> {
@@ -1484,6 +1667,7 @@ pub async fn render_clip_variant(
                         caps: v.style.uses_caps(),
                     }),
                 },
+                v.ffmpeg_threads,
                 &base_temp,
                 cancel,
                 |pct| on_progress(RenderPass::Base, pct),
@@ -1534,6 +1718,7 @@ pub async fn render_clip_variant(
             &ass_path,
             &temp_path,
             out_dur_ms,
+            v.ffmpeg_threads,
             cancel,
             |pct| on_progress(RenderPass::Burn, pct),
         )
