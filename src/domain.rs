@@ -26,6 +26,9 @@ pub enum JobState {
     ValidatingCandidates,
     AnalyzingLayout,
     Rendering,
+    /// Paused after validation, waiting for the user to pick which
+    /// candidates to render (`review_before_render` projects only).
+    AwaitingReview,
     Complete,
     Cancelled,
     Failed,
@@ -46,10 +49,16 @@ impl JobState {
     }
 
     /// True while a pipeline run is (or should be) actively working.
+    /// `AwaitingReview` is a pause, not a run in flight: the state survives
+    /// restarts and is never flagged as an interrupted run.
     pub fn is_active(&self) -> bool {
         !matches!(
             self,
-            JobState::Created | JobState::Complete | JobState::Cancelled | JobState::Failed
+            JobState::Created
+                | JobState::AwaitingReview
+                | JobState::Complete
+                | JobState::Cancelled
+                | JobState::Failed
         )
     }
 }
@@ -132,6 +141,21 @@ pub struct Project {
     /// an accept bound. `Generic` keeps the default 25–60 s window.
     #[serde(default)]
     pub platform: Platform,
+    /// Stop at `awaiting_review` after candidate validation so the user can
+    /// keep or drop candidates before any framing/rendering work runs.
+    /// Missing in older project files — defaults to render-everything.
+    #[serde(default)]
+    pub review_before_render: bool,
+    /// The accepted ranks the user asked to render, cumulative across
+    /// `POST /render` calls. `None` on old projects (renders all accepted)
+    /// and on review projects until the first decision is posted.
+    #[serde(default)]
+    pub kept_ranks: Option<Vec<usize>>,
+    /// Ranks the user dropped in the review step, persisted so a refresh or
+    /// restart keeps the review where it was. Everything not listed here is
+    /// kept. Cleared for a rank once it is rendered.
+    #[serde(default)]
+    pub review_drops: Vec<usize>,
 }
 
 impl Project {
@@ -152,6 +176,9 @@ impl Project {
             language: None,
             focus_prompt: None,
             platform: Platform::default(),
+            review_before_render: false,
+            kept_ranks: None,
+            review_drops: Vec::new(),
         }
     }
 
@@ -598,6 +625,39 @@ mod tests {
         // Older manifests carry `dy` and no cy/zoom/pad.
         let key: CropKey = serde_json::from_str(r#"{"t_ms":0,"cx":0.4,"dy":0.1}"#).unwrap();
         assert_eq!(key, CropKey::crop(0, 0.4, 0.5, 1.0));
+    }
+
+    #[test]
+    fn awaiting_review_serializes_as_a_resting_state() {
+        assert_eq!(
+            serde_json::to_value(JobState::AwaitingReview).unwrap(),
+            "awaiting_review"
+        );
+        // It is a pause, not a run: the interrupted-run detector in
+        // get_project only flips active states to failed.
+        assert!(!JobState::AwaitingReview.is_active());
+    }
+
+    /// project.json written before the review step existed has neither
+    /// `review_before_render` nor `kept_ranks` — it must still load, and it
+    /// renders every accepted candidate.
+    #[test]
+    fn old_projects_without_review_fields_still_load() {
+        let old = r#"{
+            "id": "abc123",
+            "created_at": "2024-01-01T00:00:00Z",
+            "status": "complete",
+            "source": null,
+            "source_path": "/tmp/x.mp4",
+            "stages": [],
+            "error": null,
+            "selector": null,
+            "warning": null
+        }"#;
+        let p: Project = serde_json::from_str(old).unwrap();
+        assert!(!p.review_before_render);
+        assert_eq!(p.kept_ranks, None);
+        assert!(p.review_drops.is_empty());
     }
 
     /// Manifests written before per-clip caption styling must still load.
