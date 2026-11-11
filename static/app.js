@@ -58,6 +58,18 @@
   // clip id → {sig, row}: lets a refetch rebuild only the cards whose clip
   // changed instead of remounting the whole list.
   const clipRowCache = {};
+  // rank → {sig, row}: same reconciliation trick as the clip list so a
+  // keep/drop toggle rebuilds only its own card.
+  const candidateRowCache = {};
+  let reviewBusy = false; // a render is being posted from the review screen
+  let playingRank = null; // candidate rank with an open source preview
+  let renderMoreOpen = false; // the render-more candidate list is expanded
+  const renderMorePicks = new Set(); // unrendered ranks checked for rendering
+  let focusRank = null; // keyboard-focused candidate rank in the review list
+  let reviewSort = localStorage["cf-review-sort"] || "score"; // "score" | "time"
+  // Resting statuses where "Render more" can reopen the candidate list —
+  // including a cancelled run, which may hold rendered and unrendered clips.
+  const MORE_STATUSES = new Set(["complete", "failed", "cancelled"]);
 
   function isProcessing(status) { return STAGE_ORDER.includes(status); }
   function apiPath(...segments) { return `/api/${segments.map((segment) => encodeURIComponent(String(segment))).join("/")}`; }
@@ -333,6 +345,13 @@
     platformSelect.addEventListener("change", () => {
       localStorage.setItem("cf-platform", platformSelect.value);
     });
+    // Review-on is the default; an unchecked choice sticks like the others.
+    const reviewBox = $("upload-review");
+    const savedReview = localStorage.getItem("cf-review");
+    if (savedReview !== null) reviewBox.checked = savedReview === "true";
+    reviewBox.addEventListener("change", () => {
+      localStorage.setItem("cf-review", String(reviewBox.checked));
+    });
   }
 
   function uploadFile(file) {
@@ -360,6 +379,7 @@
     form.append("platform", $("upload-platform").value || "any");
     const focusPrompt = $("focus-prompt").value.trim();
     if (focusPrompt) form.append("focus_prompt", focusPrompt);
+    if ($("upload-review").checked) form.append("review_before_render", "true");
     form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
@@ -445,6 +465,12 @@
     for (const key of Object.keys(restyleState)) delete restyleState[key];
     for (const key of Object.keys(clipRev)) delete clipRev[key];
     for (const key of Object.keys(clipRowCache)) delete clipRowCache[key];
+    for (const key of Object.keys(candidateRowCache)) delete candidateRowCache[key];
+    reviewBusy = false;
+    playingRank = null;
+    renderMoreOpen = false;
+    renderMorePicks.clear();
+    focusRank = null;
   }
 
   function resetToEmpty({ message = null, kind = "error" } = {}) {
@@ -512,6 +538,7 @@
 
   const LIBRARY_STATUS = {
     created: "Queued",
+    awaiting_review: "Review",
     complete: "Complete",
     cancelled: "Cancelled",
     failed: "Failed",
@@ -735,7 +762,12 @@
     $("processing-state").classList.toggle("hidden", !p || p.status === "complete");
     // Once clips exist the studio owns the screen; progress shrinks to a strip.
     $("processing-state").classList.toggle("compact", !!p && (view.clips || []).length > 0);
-    if (!p) { $("results-state").classList.add("hidden"); stopElapsed(); return; }
+    if (!p) {
+      $("results-state").classList.add("hidden");
+      $("review-state").classList.add("hidden");
+      stopElapsed();
+      return;
+    }
     if (!isProcessing(p.status)) {
       if (cancellationPending) {
         cancellationPending = false;
@@ -760,8 +792,385 @@
     renderStages(p);
     renderCurrentOp(p);
     renderError(p);
+    renderReview(p);
     renderResults(p);
     startElapsed(p);
+  }
+
+  // -------------------------------------------------------------- review
+  // Candidate review: a run uploaded with review on parks at
+  // awaiting_review after validation. Keep/drop marks live in
+  // project.review_drops — the server is the source of truth, so a refresh
+  // or a second tab sees the same review.
+
+  function candidatesKept() {
+    return (view.candidates || []).filter((c) => !c.dropped);
+  }
+
+  function candidateSignature(c, moreMode) {
+    return JSON.stringify([
+      moreMode ? 1 : 0, c.rank, c.headline, c.start_ms, c.end_ms, c.score,
+      c.selection_reason, c.text, !!c.dropped, !!c.rendered,
+    ]);
+  }
+
+  function candidateRow(c, moreMode) {
+    const row = document.createElement("article");
+    row.className = "candidate-card";
+    row.dataset.rank = c.rank;
+    row.setAttribute("role", "listitem");
+    const head = document.createElement("div");
+    head.className = "candidate-head";
+    const rank = document.createElement("span");
+    rank.className = "rank";
+    rank.textContent = `#${c.rank}`;
+    const h = document.createElement("h3");
+    h.textContent = c.headline || "(untitled)";
+    const times = document.createElement("span");
+    times.className = "times";
+    const len = Math.max(0, (c.end_ms || 0) - (c.start_ms || 0));
+    times.textContent = `${fmtMs(c.start_ms)} – ${fmtMs(c.end_ms)} · ${fmtMs(len)}`;
+    const badges = document.createElement("span");
+    badges.className = "badges";
+    if (typeof c.score === "number") {
+      const score = document.createElement("span");
+      score.className = "badge score";
+      score.textContent = c.score.toFixed(1);
+      badges.appendChild(score);
+    }
+    head.append(rank, h, times, badges);
+
+    const reason = document.createElement("p");
+    reason.className = "candidate-reason muted";
+    reason.textContent = c.selection_reason || "";
+
+    const text = document.createElement("p");
+    text.className = "candidate-text";
+    text.textContent = c.text || "";
+
+    const actions = document.createElement("div");
+    actions.className = "candidate-actions";
+    const tag = document.createElement("span");
+    tag.className = `dropped-tag${c.dropped ? "" : " hidden"}`;
+    tag.textContent = "Dropped";
+    const play = document.createElement("button");
+    play.type = "button";
+    play.textContent = playingRank === c.rank ? "Close preview" : "Play";
+    play.addEventListener("click", () => togglePreview(c.rank));
+    if (moreMode) {
+      if (c.rendered) {
+        // Rendered is read-only — nothing here can undo a render.
+        const done = document.createElement("span");
+        done.className = "dropped-tag";
+        done.textContent = "Rendered";
+        actions.append(done, play, tag);
+      } else {
+        const pick = document.createElement("label");
+        pick.className = "candidate-pick";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = renderMorePicks.has(c.rank);
+        box.addEventListener("change", () => {
+          if (box.checked) renderMorePicks.add(c.rank);
+          else renderMorePicks.delete(c.rank);
+          const keptBtn = $("render-kept-btn");
+          keptBtn.textContent = `Render selected (${renderMorePicks.size})`;
+          keptBtn.disabled = reviewBusy || renderMorePicks.size === 0;
+        });
+        pick.append(box, document.createTextNode("Render this"));
+        actions.append(tag, pick, play);
+      }
+    } else {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.textContent = c.dropped ? "Bring back" : "Drop";
+      toggle.addEventListener("click", () => toggleDropped(c.rank, !c.dropped));
+      actions.append(tag, play, toggle);
+    }
+
+    row.append(head, reason, text, actions);
+    // The preview streams the uploaded source itself — a #t=start,end
+    // media fragment bounds it to this candidate's range, no file needed.
+    if (playingRank === c.rank) row.appendChild(previewPlayer(c));
+    row.classList.toggle("dropped", !!c.dropped);
+    return row;
+  }
+
+  function previewPlayer(c) {
+    const box = document.createElement("div");
+    box.className = "candidate-preview";
+    const video = document.createElement("video");
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    const start = ((c.start_ms || 0) / 1000).toFixed(3);
+    const end = ((c.end_ms || 0) / 1000).toFixed(3);
+    video.src = `${apiPath("projects", projectId, "source")}#t=${start},${end}`;
+    video.setAttribute("aria-label", `Preview of ${c.headline || `candidate ${c.rank}`}`);
+    // Belt and braces for browsers that ignore the media fragment's end.
+    const endSec = (c.end_ms || 0) / 1000;
+    video.addEventListener("timeupdate", () => {
+      if (video.currentTime >= endSec - 0.05) video.pause();
+    });
+    box.appendChild(video);
+    requestAnimationFrame(() => video.play().catch(() => {}));
+    return box;
+  }
+
+  function togglePreview(rank) {
+    const prev = playingRank;
+    playingRank = prev === rank ? null : rank;
+    // Rebuild only the two affected cards so nothing else remounts.
+    for (const r of [prev, rank]) if (r != null) delete candidateRowCache[r];
+    renderReview(view.project);
+  }
+
+  function sortedCandidates() {
+    const all = [...(view.candidates || [])];
+    if (reviewSort === "time") {
+      all.sort((a, b) => (a.start_ms || 0) - (b.start_ms || 0) || a.rank - b.rank);
+    } else {
+      all.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity) || a.rank - b.rank);
+    }
+    return all;
+  }
+
+  function markFocusedRow() {
+    const wrap = $("candidates");
+    if (!wrap) return;
+    for (const row of wrap.children) {
+      row.classList.toggle("focused", Number(row.dataset.rank) === focusRank);
+    }
+  }
+
+  function reviewKeydown(e) {
+    const p = view && view.project;
+    const section = $("review-state");
+    if (!p || !section || section.classList.contains("hidden")) return;
+    if (document.body.classList.contains("modal-open")) return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
+        t.tagName === "SELECT" || t.isContentEditable)) return;
+    // Enter and Space on a focused button or link belong to that control.
+    if ((e.key === "Enter" || e.key === " ") && t && t.closest && t.closest("button, a")) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const all = sortedCandidates();
+    if (!all.length) return;
+    const moreMode = MORE_STATUSES.has(p.status);
+    const idx = all.findIndex((c) => c.rank === focusRank);
+    const focused = idx >= 0 ? all[idx] : null;
+    const moveTo = (i) => {
+      const next = all[Math.max(0, Math.min(all.length - 1, i))];
+      focusRank = next.rank;
+      markFocusedRow();
+      const row = candidateRowCache[focusRank];
+      if (row) row.row.scrollIntoView({ block: "nearest" });
+    };
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        moveTo(idx < 0 ? 0 : idx + 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        moveTo(idx < 0 ? all.length - 1 : idx - 1);
+        break;
+      case " ":
+        if (focusRank != null) {
+          e.preventDefault();
+          togglePreview(focusRank);
+        }
+        break;
+      case "Enter":
+        e.preventDefault();
+        $("render-kept-btn").click();
+        break;
+      case "k": case "K":
+        if (!moreMode && focused && focused.dropped) toggleDropped(focusRank, false);
+        break;
+      case "d": case "D":
+        if (!moreMode && focused && !focused.dropped) toggleDropped(focusRank, true);
+        break;
+    }
+  }
+
+  function renderReview(p) {
+    const section = $("review-state");
+    const all = sortedCandidates();
+    const moreMode = MORE_STATUSES.has(p.status);
+    const unrendered = all.filter((c) => !c.rendered);
+
+    // The entry points live on the results and error headers — each only
+    // appears when there is actually an unrendered candidate to offer.
+    for (const [id, on] of [
+      ["render-more-btn", p.status === "complete" && unrendered.length > 0],
+      ["render-more-fail-btn", (p.status === "failed" || p.status === "cancelled") && unrendered.length > 0],
+    ]) {
+      const btn = $(id);
+      if (!btn) continue;
+      btn.classList.toggle("hidden", !on);
+      btn.textContent = renderMoreOpen ? "Close render list" : "Render more";
+    }
+
+    const show = p.status === "awaiting_review" || (moreMode && renderMoreOpen);
+    section.classList.toggle("hidden", !show || !all.length);
+    if (!show || !all.length) {
+      // A preview inside a hidden section keeps playing — stop it.
+      section.querySelectorAll("video").forEach((v) => v.pause());
+      if (playingRank != null) {
+        delete candidateRowCache[playingRank];
+        playingRank = null;
+      }
+      return;
+    }
+
+    // Keep the keyboard focus on a real card: default to the first in the
+    // current order, and re-anchor when the focused rank disappears.
+    if (!all.some((c) => c.rank === focusRank)) focusRank = all[0].rank;
+
+    const keptBtn = $("render-kept-btn");
+    const allBtn = $("render-all-btn");
+    if (!moreMode) {
+      const kept = candidatesKept();
+      $("review-candidates-title").textContent = "Review candidates";
+      $("review-sub").textContent =
+        `Kept ${kept.length} of ${all.length} · ${view.source_name || ""}`;
+      keptBtn.textContent = `Render kept (${kept.length})`;
+      keptBtn.disabled = reviewBusy || kept.length === 0;
+      keptBtn.title = kept.length === 0
+        ? "Keep at least one candidate to render."
+        : "Frame and render the kept candidates only.";
+      allBtn.textContent = "Render all";
+      allBtn.disabled = reviewBusy || all.length === 0;
+      allBtn.title = "Frame and render every candidate — skips the review.";
+    } else {
+      $("review-candidates-title").textContent = "Render more candidates";
+      $("review-sub").textContent =
+        `${all.length - unrendered.length} of ${all.length} already rendered — renders can't be undone.`;
+      keptBtn.textContent = `Render selected (${renderMorePicks.size})`;
+      keptBtn.disabled = reviewBusy || renderMorePicks.size === 0;
+      keptBtn.title = "Frame and render only the checked candidates.";
+      allBtn.textContent = "Render all unrendered";
+      allBtn.disabled = reviewBusy || unrendered.length === 0;
+      allBtn.title = "Frame and render every candidate that has not rendered yet.";
+    }
+
+    const wrap = $("candidates");
+    const seen = new Set();
+    const keptRows = new Set();
+    const rows = all.map((c) => {
+      const prev = candidateRowCache[c.rank];
+      const sig = candidateSignature(c, moreMode);
+      const row = prev && prev.sig === sig ? prev.row : candidateRow(c, moreMode);
+      candidateRowCache[c.rank] = { sig, row };
+      seen.add(c.rank);
+      keptRows.add(row);
+      return row;
+    });
+    for (const rank of Object.keys(candidateRowCache)) {
+      if (!seen.has(Number(rank))) delete candidateRowCache[rank];
+    }
+    for (const child of [...wrap.children]) if (!keptRows.has(child)) child.remove();
+    rows.forEach((row, i) => {
+      const current = wrap.children[i];
+      if (current !== row) wrap.insertBefore(row, current || null);
+    });
+    markFocusedRow();
+  }
+
+  function toggleRenderMore() {
+    renderMoreOpen = !renderMoreOpen;
+    if (!renderMoreOpen) renderMorePicks.clear();
+    if (playingRank != null) {
+      delete candidateRowCache[playingRank];
+      playingRank = null;
+    }
+    renderReview(view.project);
+  }
+
+  async function toggleDropped(rank, dropped) {
+    const all = view.candidates || [];
+    const next = all
+      .filter((c) => (c.rank === rank ? dropped : c.dropped))
+      .map((c) => c.rank);
+    // Optimistic flip — the POST below carries the whole set, and the
+    // server's answer is what the cards settle on.
+    const target = all.find((c) => c.rank === rank);
+    if (target) target.dropped = dropped;
+    renderReview(view.project);
+    try {
+      const res = await requestJson(
+        apiPath("projects", projectId, "review"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dropped: next }),
+        },
+        "Couldn't save the review."
+      );
+      const serverDrops = new Set(res.dropped || []);
+      for (const c of all) c.dropped = serverDrops.has(c.rank);
+      renderReview(view.project);
+    } catch (err) {
+      showActionMessage(err.message);
+      refetch();
+    }
+  }
+
+  async function postRender(ranks) {
+    if (reviewBusy || !ranks.length) return;
+    reviewBusy = true;
+    renderReview(view.project);
+    try {
+      await requestJson(
+        apiPath("projects", projectId, "render"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ranks }),
+        },
+        "Couldn't start the render."
+      );
+      // The run resumes at validating_candidates — SSE stage events pull
+      // the view back to processing.
+      refetch();
+    } catch (err) {
+      showActionMessage(err.message);
+    } finally {
+      reviewBusy = false;
+      if (view) renderReview(view.project);
+    }
+  }
+
+  function wireReview() {
+    const inMoreMode = () => {
+      const status = view && view.project && view.project.status;
+      return MORE_STATUSES.has(status);
+    };
+    $("render-kept-btn").addEventListener("click", () => {
+      if (inMoreMode()) {
+        postRender([...renderMorePicks].sort((a, b) => a - b));
+      } else {
+        postRender(candidatesKept().map((c) => c.rank));
+      }
+    });
+    $("render-all-btn").addEventListener("click", () => {
+      if (inMoreMode()) {
+        postRender((view.candidates || []).filter((c) => !c.rendered).map((c) => c.rank));
+      } else {
+        postRender((view.candidates || []).map((c) => c.rank));
+      }
+    });
+    $("render-more-btn").addEventListener("click", toggleRenderMore);
+    $("render-more-fail-btn").addEventListener("click", toggleRenderMore);
+    const sortSel = $("review-sort");
+    sortSel.value = reviewSort;
+    sortSel.addEventListener("change", () => {
+      reviewSort = sortSel.value;
+      localStorage["cf-review-sort"] = reviewSort;
+      renderReview(view.project);
+    });
+    document.addEventListener("keydown", reviewKeydown);
   }
 
   function stageState(p, name) {
@@ -1886,6 +2295,7 @@
     wireModal();
     wireDeleteModal();
     wireLibrary();
+    wireReview();
     loadLibrary();
     $("cancel-upload-btn").addEventListener("click", cancelUpload);
     $("cancel-btn").addEventListener("click", cancel);

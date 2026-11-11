@@ -41,7 +41,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 
 ```text
 Drop MP4 → Inspect → Extract audio → Transcribe → Find candidates
-         → Validate → Analyze framing → Render → Preview and download
+         → Validate → Review candidates → Analyze framing → Render → Preview and download
 ```
 
 ## Quickstart
@@ -65,6 +65,10 @@ cargo run --release
 ```
 
 The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4, pick the caption style, accent color, framing, language, and clip length, then click **Make clips**. Nothing is uploaded or transcribed until you do. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
+
+With **Review candidates before rendering** on (the default), the run pauses after validation: each accepted candidate lists its headline, range, score, selection reason, and the exact transcript words it would cover — press **Play** to watch the range straight from the source. Drop the weak ones and **Render kept** frames and renders only those; **Render all** skips the decision and renders everything. Keyboard: `↑`/`↓` between cards, `Space` previews, `D` drops, `K` brings back, `Enter` renders. Sort by score or time. The review survives refresh and restarts — the server stores it.
+
+Later, on any finished, failed, or cancelled project, **Render more** reopens the list: rendered candidates are marked, and any unrendered one — including a candidate you dropped earlier — can be rendered without redoing the work.
 
 ### Linux
 

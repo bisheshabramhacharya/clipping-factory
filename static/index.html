@@ -120,6 +120,11 @@
               <input id="focus-prompt" type="text" maxlength="500" autocomplete="off"
                 placeholder="Optional — e.g. pricing, or where they disagree">
             </label>
+            <label class="opt opt-wide opt-check">
+              <input id="upload-review" type="checkbox" checked>
+              <span class="opt-label">Review candidates before rendering</span>
+              <small class="muted small">Pick the keepers after validation — unchecked renders every accepted candidate automatically.</small>
+            </label>
           </div>
         </div>
         <div id="upload-progress" class="hidden" aria-live="polite">
@@ -166,9 +171,31 @@
           </div>
           <div class="error-actions">
             <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
+            <button id="render-more-fail-btn" type="button" class="hidden">Render more</button>
             <button id="retry-btn" class="primary" type="button">Retry stage</button>
           </div>
         </div>
+      </section>
+
+      <!-- Review state: candidates parked for a keep/drop before rendering -->
+      <section id="review-state" class="hidden" aria-labelledby="review-candidates-title">
+        <div class="results-head">
+          <div class="results-title-wrap">
+            <h2 id="review-candidates-title">Review candidates</h2>
+            <p class="muted small" id="review-sub"></p>
+          </div>
+          <div class="results-actions">
+            <label class="review-sort muted small">Sort
+              <select id="review-sort">
+                <option value="score">Score</option>
+                <option value="time">Time</option>
+              </select>
+            </label>
+            <button id="render-all-btn" type="button">Render all</button>
+            <button id="render-kept-btn" class="primary" type="button">Render kept</button>
+          </div>
+        </div>
+        <div id="candidates" class="candidate-list" role="list"></div>
       </section>
 
       <!-- Results state -->
@@ -180,6 +207,7 @@
           </div>
           <div class="results-actions">
             <button id="review-clips-btn" class="primary" type="button" hidden>Review clips <kbd>R</kbd></button>
+            <button id="render-more-btn" type="button" class="hidden">Render more</button>
             <button id="open-folder-btn" type="button">Open folder</button>
             <button id="new-project-btn" type="button">New project</button>
           </div>
