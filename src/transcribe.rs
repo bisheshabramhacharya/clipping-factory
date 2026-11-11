@@ -138,9 +138,12 @@ fn resolve_language(
     requested: &str,
     model_dirs: &[PathBuf],
 ) -> Result<(PathBuf, String)> {
+    // The boot-time resolution is a snapshot — a model downloaded into a
+    // search dir afterwards must still be found, or Retry can never work.
     let model = cfg
         .whisper_model
-        .as_ref()
+        .clone()
+        .or_else(|| crate::config::find_whisper_model(model_dirs))
         .ok_or_else(|| anyhow!("Transcription model missing. Download ggml-base.bin (~148MB) into <data-dir>/models or set CF_WHISPER_MODEL."))?;
     let code = requested.trim().to_lowercase();
     let code = code.as_str();
@@ -149,8 +152,8 @@ fn resolve_language(
             "Unknown transcription language \"{code}\". Pick a language from the list."
         ));
     }
-    if crate::config::model_is_multilingual(model) {
-        return Ok((model.clone(), code.to_string()));
+    if crate::config::model_is_multilingual(&model) {
+        return Ok((model, code.to_string()));
     }
     // English-only weights can neither detect a language nor transcribe
     // non-English — swap to a multilingual model on disk when one exists.
@@ -166,7 +169,7 @@ fn resolve_language(
         }
     }
     // `auto` with no multilingual model on disk keeps the historical `-l en`.
-    Ok((model.clone(), "en".into()))
+    Ok((model, "en".into()))
 }
 
 pub async fn transcribe<F>(
@@ -179,11 +182,12 @@ pub async fn transcribe<F>(
 where
     F: FnMut(f32),
 {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let bin = cfg
         .whisper_bin
-        .as_ref()
+        .clone()
+        .or_else(|| crate::config::resolve_whisper_bin(&cwd))
         .ok_or_else(|| anyhow!("whisper-cli not found. Install whisper.cpp (macOS: `brew install whisper-cpp`) or set CF_WHISPER_BIN."))?;
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let model_dirs =
         crate::config::model_search_dirs(&cfg.data_dir, &cwd, dirs::home_dir().as_deref());
     let (model, whisper_lang) = resolve_language(cfg, language.unwrap_or("auto"), &model_dirs)?;
@@ -258,6 +262,14 @@ where
                 .ok()
                 .flatten()
         };
+        let (parsed, dropped) = drop_hallucinated_segments(parsed, speech.as_deref());
+        for (at_ms, text) in &dropped {
+            tracing::info!(
+                "dropped whisper segment at {} that does not look spoken: {:?}",
+                crate::domain::fmt_ms(*at_ms),
+                text
+            );
+        }
         let words = parse_words(&parsed, preset.map(calibration), speech.as_deref());
         if words.is_empty() {
             return Err(anyhow!(
@@ -690,6 +702,84 @@ fn dtw_timing(words: Vec<TokenWord>, calib: Calibration, speech: Option<&[bool]>
     out
 }
 
+/// whisper.cpp sometimes writes fluent text where nobody spoke — a looped
+/// line during silence or static, or a burst of tokens in a span too short
+/// to say them in. A caption of words nobody said is worse than no caption,
+/// so such segments never reach the transcript. A segment is dropped when:
+///
+/// - it is the third-or-later verbatim repeat in a row (whisper's classic
+///   silence loop; one repeated line can be real emphasis, a run cannot).
+///   Only back-to-back repeats count: "Yeah." said a third time an hour
+///   into an episode is still someone saying it,
+/// - its words are packed tighter than anyone could speak them — sustained
+///   speech stays under ~6 words a second, hallucination bursts exceed 9,
+/// - the RMS speech mask says the audio under it is mostly not speech
+///   (music beds, room noise, silence). The mask is skipped when it flags
+///   under 2% of the file: a mask that sees nothing explains nothing.
+///
+/// Returns the input JSON with dropped segments removed from
+/// `transcription`, plus each dropped segment's offset and raw text so the
+/// caller can log them for review.
+fn drop_hallucinated_segments(
+    mut v: serde_json::Value,
+    speech: Option<&[bool]>,
+) -> (serde_json::Value, Vec<(u64, String)>) {
+    let Some(segments) = v["transcription"].as_array() else {
+        return (v, Vec::new());
+    };
+    let mask_usable = speech
+        .map(|m| m.iter().filter(|f| **f).count() as f64 / m.len().max(1) as f64 > 0.02)
+        .unwrap_or(false);
+    let mut last_kept = String::new();
+    let mut run = 0usize;
+    let mut kept: Vec<serde_json::Value> = Vec::with_capacity(segments.len());
+    let mut dropped: Vec<(u64, String)> = Vec::new();
+    for seg in segments {
+        let raw = seg["text"].as_str().unwrap_or("");
+        let text = strip_turn_markers(raw).trim().to_string();
+        let norm = crate::validate::normalize(&text);
+        let from = seg["offsets"]["from"].as_u64().unwrap_or(0);
+        let to = seg["offsets"]["to"].as_u64().unwrap_or(from).max(from);
+        let words = norm
+            .split_whitespace()
+            .filter(|w| w.chars().any(char::is_alphanumeric))
+            .count();
+        let span_s = (to - from) as f64 / 1000.0;
+        let packed = words >= 4 && words as f64 / span_s.max(0.05) > 9.0;
+        let low_energy = mask_usable
+            && speech
+                .map(|m| {
+                    let a = (from / 10) as usize;
+                    let b = ((to / 10) as usize).min(m.len());
+                    if a >= b {
+                        return false;
+                    }
+                    let voiced = m[a..b].iter().filter(|f| **f).count();
+                    (voiced as f64 / (b - a) as f64) < 0.25
+                })
+                .unwrap_or(false);
+        let mut drop = packed || low_energy;
+        if !drop && !norm.is_empty() {
+            if norm == last_kept {
+                run += 1;
+            } else {
+                last_kept = norm;
+                run = 1;
+            }
+            drop = run > 2;
+        }
+        if drop && !text.is_empty() {
+            dropped.push((from, text));
+            continue;
+        }
+        kept.push(seg.clone());
+    }
+    if let Some(arr) = v["transcription"].as_array_mut() {
+        *arr = kept;
+    }
+    (v, dropped)
+}
+
 fn parse_words(
     v: &serde_json::Value,
     calib: Option<Calibration>,
@@ -990,6 +1080,21 @@ mod tests {
     }
 
     #[test]
+    fn model_dropped_in_after_boot_is_found_at_transcribe() {
+        // Config resolved at boot had no model; the file landing in the
+        // search dirs afterwards must be picked up so Retry works.
+        let dir = std::env::temp_dir().join(format!("cf-model-late-{}", crate::util::short_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("ggml-base.bin"), b"multi").unwrap();
+        let mut cfg = Config::resolve();
+        cfg.whisper_model = None;
+        let dirs = [dir.clone()];
+        let (model, _lang) = resolve_language(&cfg, "auto", &dirs).unwrap();
+        assert_eq!(model, dir.join("ggml-base.bin"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn auto_language_detects_only_on_multilingual_weights() {
         let multi = cfg_with_model(Path::new("models/ggml-base.bin"));
         let en_only = cfg_with_model(Path::new("models/ggml-base.en.bin"));
@@ -1278,5 +1383,115 @@ mod tests {
         assert_eq!(mask.len(), 100);
         assert!(mask[..50].iter().all(|s| !s));
         assert!(mask[50..].iter().all(|s| *s));
+    }
+
+    fn seg(text: &str, from_ms: u64, to_ms: u64) -> serde_json::Value {
+        serde_json::json!({
+            "text": text,
+            "offsets": {"from": from_ms, "to": to_ms},
+            "tokens": []
+        })
+    }
+
+    fn transcription(segments: Vec<serde_json::Value>) -> serde_json::Value {
+        serde_json::json!({"transcription": segments})
+    }
+
+    #[test]
+    fn a_looped_line_is_dropped_from_the_third_repeat() {
+        let v = transcription(vec![
+            seg("Thank you for watching.", 0, 2000),
+            seg("Thank you for watching.", 3000, 5000),
+            seg("Thank you for watching.", 6000, 8000),
+            seg("Thank you for watching.", 9000, 11_000),
+            seg("A real sentence here.", 12_000, 14_000),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 3);
+        assert_eq!(dropped.len(), 2);
+        assert_eq!(dropped[0].0, 6000);
+    }
+
+    #[test]
+    fn one_verbatim_repeat_can_still_be_emphasis() {
+        let v = transcription(vec![
+            seg("We have to go.", 0, 1500),
+            seg("We have to go.", 2000, 3500),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 2);
+        assert!(dropped.is_empty());
+    }
+
+    #[test]
+    fn words_packed_tighter_than_speech_are_dropped() {
+        // 12 words inside one second — nobody talks at twelve words a second.
+        let v = transcription(vec![
+            seg(
+                "one two three four five six seven eight nine ten eleven twelve",
+                0,
+                1000,
+            ),
+            seg("a normal paced sentence follows", 2000, 6000),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 1);
+        assert_eq!(dropped.len(), 1);
+    }
+
+    #[test]
+    fn text_over_non_speech_audio_is_dropped() {
+        // 10 ms frames: speech only in the first 5 s; the second segment
+        // sits entirely in music/silence.
+        let mask: Vec<bool> = (0..4000).map(|f| f < 500).collect();
+        let v = transcription(vec![
+            seg("real words over speech", 0, 3000),
+            seg("caption nobody said out loud", 30_000, 34_000),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 1);
+        assert_eq!(dropped[0].1, "caption nobody said out loud");
+    }
+
+    #[test]
+    fn a_mask_that_flags_nothing_disables_the_energy_check() {
+        // A degenerate mask must not condemn every segment.
+        let mask = vec![false; 1000];
+        let v = transcription(vec![seg("still real speech", 10_000, 13_000)]);
+        let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 1);
+        assert!(dropped.is_empty());
+    }
+
+    #[test]
+    fn dropped_segments_do_not_condemn_a_later_real_utterance() {
+        // The hallucinated repeat is removed for low energy; when the speaker
+        // genuinely says the line twice more it is not a "third repeat".
+        let mask: Vec<bool> = (0..2000).map(|f| (500..1500).contains(&f)).collect();
+        let v = transcription(vec![
+            seg("Thank you for watching.", 0, 2000),      // over silence
+            seg("Thank you for watching.", 5000, 7000),   // over speech
+            seg("Thank you for watching.", 8000, 10_000), // over speech
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
+        assert_eq!(dropped.len(), 1);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn a_short_line_said_again_later_is_not_a_loop() {
+        // "Yeah." three times across an episode, with other speech between,
+        // is a person agreeing — only a consecutive run is whisper looping.
+        let v = transcription(vec![
+            seg("Yeah.", 0, 800),
+            seg("So that is the first point.", 1000, 3000),
+            seg("Yeah.", 60_000, 60_800),
+            seg("And that is the second point.", 61_000, 63_000),
+            seg("Yeah.", 120_000, 120_800),
+            seg("Yeah.", 121_000, 121_800),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 6);
+        assert!(dropped.is_empty());
     }
 }

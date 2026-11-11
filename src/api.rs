@@ -1339,6 +1339,8 @@ async fn restyle_clip(
         accent_hex: &accent_hex,
         font: &caption_font,
         base_ready,
+        // A one-off restyle isn't pool-bound — it gets the whole machine.
+        ffmpeg_threads: cfg.threads,
     };
     let burned = crate::pipeline::render_clip_variant(&variant, &cancel, |_, _| {})
         .await

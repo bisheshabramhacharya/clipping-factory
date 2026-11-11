@@ -94,11 +94,13 @@ pub struct BaseClipSpec<'a> {
 /// Render the framed, uncaptioned base clip from the source video. The
 /// interval, keep list, zoom keys, and garnish travel in [`BaseClipSpec`];
 /// two or more keeps go through a trim+concat stage that lifts the cuts out
-/// of the stream before framing.
+/// of the stream before framing. `threads` caps the ffmpeg process's decode,
+/// filter, and encode parallelism so pooled renders share the machine.
 pub async fn render_base_clip<F>(
     cfg: &Config,
     src: &Path,
     spec: BaseClipSpec<'_>,
+    threads: usize,
     out_path: &Path,
     cancel: &CancellationToken,
     mut on_progress: F,
@@ -173,8 +175,12 @@ where
         format!("{:.3}", in_start_ms as f64 / 1000.0),
         "-t".into(),
         format!("{:.3}", dur_s),
+        "-threads".into(),
+        threads.to_string(),
         "-i".into(),
         src.to_string_lossy().into_owned(),
+        "-filter_complex_threads".into(),
+        threads.to_string(),
         "-filter_complex".into(),
         graph,
         "-map".into(),
@@ -182,7 +188,7 @@ where
         "-map".into(),
         "[a]".into(),
     ];
-    args.extend(video_encode_args());
+    args.extend(video_encode_args(threads));
     args.extend([
         "-c:a".into(),
         "aac".into(),
@@ -215,13 +221,16 @@ where
 }
 
 /// Burn ASS captions onto an already-framed base clip. The video is
-/// re-encoded (subtitle filter only); the audio stream is copied.
+/// re-encoded (subtitle filter only); the audio stream is copied. `threads`
+/// caps the ffmpeg process's decode/filter/encode parallelism.
+#[allow(clippy::too_many_arguments)]
 pub async fn burn_captions<F>(
     cfg: &Config,
     base: &Path,
     ass_path: &Path,
     out_path: &Path,
     dur_ms: u64,
+    threads: usize,
     cancel: &CancellationToken,
     mut on_progress: F,
 ) -> Result<()>
@@ -235,12 +244,16 @@ where
         "-hide_banner".into(),
         "-loglevel".into(),
         "error".into(),
+        "-threads".into(),
+        threads.to_string(),
         "-i".into(),
         base.to_string_lossy().into_owned(),
+        "-filter_threads".into(),
+        threads.to_string(),
         "-vf".into(),
         subs,
     ];
-    args.extend(video_encode_args());
+    args.extend(video_encode_args(threads));
     args.extend([
         "-c:a".into(),
         "copy".into(),
@@ -292,7 +305,7 @@ where
 /// high quality, on every platform (ADR-0003). The VideoToolbox hardware
 /// encoder is faster but its quality slider doesn't track CRF semantics, and
 /// clips visibly degraded at -q:v 60.
-fn video_encode_args() -> Vec<String> {
+fn video_encode_args(threads: usize) -> Vec<String> {
     vec![
         "-c:v".into(),
         "libx264".into(),
@@ -302,6 +315,8 @@ fn video_encode_args() -> Vec<String> {
         "fast".into(),
         "-pix_fmt".into(),
         "yuv420p".into(),
+        "-threads".into(),
+        threads.to_string(),
     ]
 }
 
@@ -1137,12 +1152,13 @@ mod tests {
 
     #[test]
     fn encode_args_are_libx264_crf17_preset_fast() {
-        let args = video_encode_args();
+        let args = video_encode_args(4);
         let s = args.join(" ");
         assert!(s.contains("libx264"), "args: {s}");
         assert!(s.contains("-crf 17"), "args: {s}");
         assert!(s.contains("-preset fast"), "args: {s}");
         assert!(s.contains("-pix_fmt yuv420p"), "args: {s}");
+        assert!(s.contains("-threads 4"), "args: {s}");
         assert!(
             !s.to_lowercase().contains("videotoolbox"),
             "args must never select VideoToolbox: {s}"

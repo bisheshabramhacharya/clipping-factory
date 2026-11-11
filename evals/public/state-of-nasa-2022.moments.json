@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "source_duration_ms": 2705101,
+  "moments": [
+    {
+      "start_ms": 305520,
+      "end_ms": 337440,
+      "first_words": "artemis one's journey from high bay",
+      "last_words": "best and nobody does it better",
+      "reason": "Mission-superlative close on the Artemis spirit \u2014 self-contained brag."
+    },
+    {
+      "start_ms": 367680,
+      "end_ms": 392880,
+      "first_words": "it's a request from the president",
+      "last_words": "it's the largest request for science",
+      "reason": "Budget news with hard numbers and the record-size payoff line."
+    },
+    {
+      "start_ms": 538800,
+      "end_ms": 596640,
+      "first_words": "the webb telescope had the world",
+      "last_words": "first galaxy thirteen and a half",
+      "reason": "Webb skeptics-to-triumph arc ending on the 13.5-billion-year payoff."
+    },
+    {
+      "start_ms": 622640,
+      "end_ms": 675200,
+      "first_words": "extended the commitment to the international",
+      "last_words": "and that includes the professional between",
+      "reason": "ISS extension + Vande Hei's 355 days; self-contained news beat."
+    },
+    {
+      "start_ms": 802639,
+      "end_ms": 875279,
+      "first_words": "many of us have looked up",
+      "last_words": "and a first person of color",
+      "reason": "Artemis future beat: SLS thrust, crew, first woman/person of color payoff."
+    },
+    {
+      "start_ms": 884560,
+      "end_ms": 917279,
+      "first_words": "remember what happened after the apollo",
+      "last_words": "is preparing to push the boundaries",
+      "reason": "Apollo-to-Artemis torch-passing theme stated plainly."
+    },
+    {
+      "start_ms": 1084960,
+      "end_ms": 1146720,
+      "first_words": "are we ready we we are",
+      "last_words": "seconds tick off the countdown clock",
+      "reason": "Launch director Q&A peaking on the terminal-count human detail."
+    },
+    {
+      "start_ms": 1265679,
+      "end_ms": 1282640,
+      "first_words": "our goal is to apply what",
+      "last_words": "to walk on mars by 2040.",
+      "reason": "Moon-to-Mars plan landing on the 2040 headline."
+    },
+    {
+      "start_ms": 1393039,
+      "end_ms": 1441600,
+      "first_words": "perseverance is putting them at different",
+      "last_words": "well where else in the universe",
+      "reason": "Sample-return mechanics ending on the ultimate life-on-Mars question."
+    },
+    {
+      "start_ms": 1758960,
+      "end_ms": 1775919,
+      "first_words": "if we can measure this climate",
+      "last_words": "planet occurred in the last decade",
+      "reason": "Measure-to-mitigate hook plus the top-ten-warmest-years stat."
+    },
+    {
+      "start_ms": 2387680,
+      "end_ms": 2395119,
+      "first_words": "we have much work to do",
+      "last_words": "the work we must do together",
+      "reason": "Closing charge \u2014 Artemis as American story; 'more perfect union' callback."
+    }
+  ]
+}

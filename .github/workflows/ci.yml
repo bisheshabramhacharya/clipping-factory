@@ -37,10 +37,10 @@ jobs:
         run: cargo test --locked
 
       - name: Eval runner syntax
-        run: bash -n evals/run.sh evals/verify_clip_quality.sh evals/bless_baseline.sh
+        run: bash -n evals/run.sh evals/verify_clip_quality.sh evals/bless_baseline.sh evals/public/fetch.sh
 
       - name: Eval report syntax
-        run: python3 -m py_compile evals/report.py evals/replay_opening_gate.py evals/clip_checks.py evals/make_fixture.py
+        run: python3 -m py_compile evals/report.py evals/replay_opening_gate.py evals/clip_checks.py evals/make_fixture.py evals/score_moments.py
 
       - name: Eval fixture tests
         run: python3 -m unittest discover -s evals/tests -v

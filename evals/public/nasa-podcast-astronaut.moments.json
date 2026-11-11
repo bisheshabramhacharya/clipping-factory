@@ -1,0 +1,69 @@
+{
+ "schema_version": 1,
+ "source_duration_ms": 3092349,
+ "moments": [
+  {
+   "start_ms": 179190,
+   "end_ms": 226449,
+   "first_words": "rehabilitation, physical rehabilitation",
+   "last_words": "hoping to incorporate",
+   "reason": "30-45 days of physical rehab \u2014 neuro-vestibular, agility, bone density."
+  },
+  {
+   "start_ms": 286570,
+   "end_ms": 351589,
+   "first_words": "starts and stops",
+   "last_words": "we're just ready",
+   "reason": "Two launch scrubs were 'par for the course'; quarantine 'sort of relaxing'."
+  },
+  {
+   "start_ms": 438540,
+   "end_ms": 460009,
+   "first_words": "sublimator had a",
+   "last_words": "because things weren't",
+   "reason": "Real launch vs sim: 'more dramatic because it's real \u2014 the noises, the clunks'."
+  },
+  {
+   "start_ms": 487140,
+   "end_ms": 501569,
+   "first_words": "if you can",
+   "last_words": "for its specific",
+   "reason": "Test-pilot maxim: 'if you can start it, you can fly it'."
+  },
+  {
+   "start_ms": 2214290,
+   "end_ms": 2246859,
+   "first_words": "r word, the",
+   "last_words": "if i'll ever",
+   "reason": "Emotional close: 'the evil R word\u2026 Gosh, I don't know if I'll ever get back up here again.'"
+  },
+  {
+   "start_ms": 2418840,
+   "end_ms": 2438789,
+   "first_words": "people are nice,",
+   "last_words": "overwhelming, but reassuring",
+   "reason": "Welcome home: 'people are nice, people are good, and people care'."
+  },
+  {
+   "start_ms": 2560820,
+   "end_ms": 2684149,
+   "first_words": "stranded. did you",
+   "last_words": "we were left",
+   "reason": "THE headline: 'No, we never felt stranded\u2026 I wanted to point out: No, we weren't stranded.' Foam seats detail inside."
+  },
+  {
+   "start_ms": 2800640,
+   "end_ms": 2806599,
+   "first_words": "sports car compared",
+   "last_words": "you can compare",
+   "reason": "Spacesuit compare: EMU is 'little sports car', Orlan is 'pickup truck' \u2014 4 spacecraft perspective."
+  },
+  {
+   "start_ms": 2849600,
+   "end_ms": 2863399,
+   "first_words": "peed in the",
+   "last_words": "that's that's 10",
+   "reason": "Viral: 'I've probably peed in the most spacecraft of anybody \u2014 close to 10.'"
+  }
+ ]
+}

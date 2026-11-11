@@ -99,3 +99,11 @@ _Avoid_: approval step, triage queue
 **Kept rank**:
 The rank of an accepted Candidate the user asked to render. Kept ranks accumulate on the project (`kept_ranks`) — the set only grows, so adding a rank to a finished project frames and renders just the new Candidate and never re-renders a ready Clip.
 _Avoid_: approved candidate, selected clip
+
+**Moments answer key**:
+The per-episode reference for selection evals: the moments a good human clip editor would post, written down before looking at the ranker's output and stored at `evals/public/<source-id>.moments.json` (times, a reason, at most six-word first/last quotes — never transcript text). A Moment here is an editorial judgment, distinct from a Candidate, which is what the ranker proposes.
+_Avoid_: ground truth, golden clips
+
+**Recall and precision**:
+The two numbers that decide a ranking change. Recall: the share of an episode's Moments answer key that some accepted candidate covers (≥50% interval overlap). Precision: the share of the top-10 accepted candidates a reviewer would post, scored `would_post_1to5 >= 4` in the run's `rubric.csv`. A ranking PR must keep both better or equal in total and may not drop more than one moment on any single episode.
+_Avoid_: F1, accuracy

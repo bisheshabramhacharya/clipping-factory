@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "moments": [
+    {
+      "start_ms": 186760,
+      "end_ms": 252280,
+      "first_words": "Kate, you are a scientist and",
+      "last_words": "with that team.",
+      "reason": "Opening science pitch: cells, tissues and organs in microgravity that collapse under gravity."
+    },
+    {
+      "start_ms": 364840,
+      "end_ms": 415080,
+      "first_words": "Could you talk about how DNA",
+      "last_words": "coming and going from it.",
+      "reason": "Station microbiome answer: 'separate from Earth for 20 years, its own biome'."
+    },
+    {
+      "start_ms": 475200,
+      "end_ms": 532560,
+      "first_words": "So when you start out as",
+      "last_words": "during our increment.",
+      "reason": "Rookie 'space legs': crawling handrails, floating payloads with 20 parts; concrete and warm."
+    },
+    {
+      "start_ms": 573920,
+      "end_ms": 641880,
+      "first_words": "So I did used to be",
+      "last_words": "and your family safe.",
+      "reason": "Astronaut-virologist's pandemic advice; news hook plus sincere close."
+    },
+    {
+      "start_ms": 668640,
+      "end_ms": 749120,
+      "first_words": "And as a scientist astronaut yourself,",
+      "last_words": "looking forward to seeing that.",
+      "reason": "Seven-crew era as the station's science payoff; self-contained answer."
+    },
+    {
+      "start_ms": 882440,
+      "end_ms": 924960,
+      "first_words": "What comfort protocols are there",
+      "last_words": "supports me in space.",
+      "reason": "Homesickness Q&A ending on the plastic-science-kit care package detail; human and complete."
+    },
+    {
+      "start_ms": 1311200,
+      "end_ms": 1389720,
+      "first_words": "So we have those kinds of",
+      "last_words": "devices to us.",
+      "reason": "Cold Atom Lab in layman terms ending on the GPS comparison."
+    },
+    {
+      "start_ms": 1427440,
+      "end_ms": 1486920,
+      "first_words": "I think it's uh just incredible",
+      "last_words": "incredible engineering marvel.",
+      "reason": "20 years of continuous presence; 'space fan' to crew member arc."
+    },
+    {
+      "start_ms": 1509560,
+      "end_ms": 1572960,
+      "first_words": "Yeah, I think, you know, things",
+      "last_words": "emerge from it.",
+      "reason": "Pandemic silver lining: 'never seen so many scientists working towards one goal'."
+    },
+    {
+      "start_ms": 1703720,
+      "end_ms": 1748120,
+      "first_words": "So DNA, this is the building",
+      "last_words": "This is called RNA.",
+      "reason": "DNA-sequencing explainer: 'a strange book with four letters'; clean teaching clip."
+    },
+    {
+      "start_ms": 1820360,
+      "end_ms": 1862040,
+      "first_words": "I think uh probably my my",
+      "last_words": "best memory I have.",
+      "reason": "Spacewalk memory: seeing the whole station from outside; emotional peak."
+    }
+  ]
+}

@@ -10,6 +10,7 @@
 //! - `CF_FONTS_DIR`       — directory containing caption fonts
 //! - `CF_FACE_MODEL`      — rustface seeta model path
 //! - `CF_THREADS`         — transcription threads (default = physical cores)
+//! - `CF_RENDER_JOBS`     — clips rendered at once (default = clamp(cores/4, 1, 3))
 //! - `CF_NO_OPEN=1`       — don't try to open the browser on start
 
 use crate::util::which;
@@ -32,6 +33,12 @@ pub struct Config {
     pub caption_style: String,
     pub face_model: Option<PathBuf>,
     pub threads: usize,
+    /// Clip renders running at once (the render pool size).
+    pub render_jobs: usize,
+    /// Thread budget handed to each pooled render's ffmpeg
+    /// (`max(1, cores / render_jobs)`): with the default pool of three on a
+    /// 12-core machine each encode gets four threads.
+    pub render_threads: usize,
 }
 
 fn env_path(key: &str) -> Option<PathBuf> {
@@ -44,11 +51,29 @@ fn first_existing(cands: Vec<PathBuf>) -> Option<PathBuf> {
     cands.into_iter().find(|p| p.is_file())
 }
 
-fn find_whisper_model(dirs: &[PathBuf]) -> Option<PathBuf> {
+pub(crate) fn find_whisper_model(dirs: &[PathBuf]) -> Option<PathBuf> {
     // English-only weights stay preferred: they are measurably stronger on
     // English than the multilingual equivalent at the same size. Multilingual
     // names come after so an install with only e.g. ggml-base.bin still works.
     find_model(dirs, ENGLISH_MODELS).or_else(|| find_multilingual_model(dirs))
+}
+
+/// Locate the whisper.cpp binary: `CF_WHISPER_BIN` → PATH → common local
+/// build locations. Resolved fresh on each call so a binary installed after
+/// startup is picked up by the next attempt (i.e. Retry works).
+pub(crate) fn resolve_whisper_bin(cwd: &Path) -> Option<PathBuf> {
+    env_path("CF_WHISPER_BIN")
+        .filter(|p| p.is_file())
+        .or_else(|| which("whisper-cli"))
+        .or_else(|| which("whisper-cpp"))
+        .or_else(|| {
+            first_existing(vec![
+                cwd.join("whisper.cpp/build/bin/whisper-cli"),
+                cwd.join("../whisper.cpp/build/bin/whisper-cli"),
+                PathBuf::from("/opt/homebrew/bin/whisper-cli"),
+                PathBuf::from("/usr/local/bin/whisper-cli"),
+            ])
+        })
 }
 
 /// English-only ggml model names, best first: bigger models win.
@@ -135,18 +160,7 @@ impl Config {
         });
 
         // whisper.cpp binary: env → PATH → common local build locations.
-        let whisper_bin = env_path("CF_WHISPER_BIN")
-            .filter(|p| p.is_file())
-            .or_else(|| which("whisper-cli"))
-            .or_else(|| which("whisper-cpp"))
-            .or_else(|| {
-                first_existing(vec![
-                    cwd.join("whisper.cpp/build/bin/whisper-cli"),
-                    cwd.join("../whisper.cpp/build/bin/whisper-cli"),
-                    PathBuf::from("/opt/homebrew/bin/whisper-cli"),
-                    PathBuf::from("/usr/local/bin/whisper-cli"),
-                ])
-            });
+        let whisper_bin = resolve_whisper_bin(&cwd);
 
         // Model: env → data dir → common local locations.
         let whisper_model = env_path("CF_WHISPER_MODEL")
@@ -190,14 +204,23 @@ impl Config {
                 ])
             });
 
+        let cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
         let threads = std::env::var("CF_THREADS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or_else(|| {
-                std::thread::available_parallelism()
-                    .map(|n| n.get())
-                    .unwrap_or(4)
-            });
+            .unwrap_or(cores);
+
+        // The render pool defaults to a quarter of the machine (three jobs
+        // on 12 cores) so a run never saturates every core at once; each
+        // worker's ffmpeg is capped to a fair share of threads.
+        let render_jobs = std::env::var("CF_RENDER_JOBS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_else(|| (cores / 4).clamp(1, 3))
+            .clamp(1, cores);
+        let render_threads = (cores / render_jobs).max(1);
 
         Config {
             port: std::env::var("CF_PORT")
@@ -218,6 +241,8 @@ impl Config {
             caption_style: std::env::var("CF_CAPTION_STYLE").unwrap_or_else(|_| "impact".into()),
             face_model,
             threads,
+            render_jobs,
+            render_threads,
         }
     }
 

@@ -14,6 +14,12 @@ Media, models, local paths, and generated clips remain outside Git.
 cp evals/manifest.example.json evals/manifest.json
 ```
 
+Or fetch the public set, which writes `evals/manifest.json` for you:
+
+```bash
+bash evals/public/fetch.sh
+```
+
 Edit `evals/manifest.json` so every `path` points to a local source. Relative
 paths are resolved from the manifest's directory. The committed example covers
 the minimum useful distribution:
@@ -90,6 +96,60 @@ evals/results/<UTC-run-id>/
 ```
 
 `evals/results/` and `evals/sources/` are gitignored.
+
+## 1a. The public set
+
+`evals/public/manifest.json` catalogs eight freely licensed episodes
+(20–60 minutes each) that anyone can download:
+
+```bash
+bash evals/public/fetch.sh
+```
+
+The fetcher downloads each source into `evals/sources/` (gitignored), wraps
+audio-only podcasts in an MP4 with a black frame so the studio's ingest path
+accepts them, and writes a filled `evals/manifest.json` `run.sh` can use.
+Re-running it skips files already on disk.
+
+Every source is a US Government work (public domain, 17 U.S.C. §105): NASA's
+*Houston We Have a Podcast*, a NASA media teleconference over a phone bridge,
+a State of NASA address, an ISS science panel, a White House press briefing,
+a cosmonaut crew news conference for accented speech, and a committee
+hearing room. Together they cover the manifest distribution — two-person
+interview, solo monologue, panel, noisy/room-tone audio, fast or accented
+speech — on real recordings instead of fixtures.
+
+This set sits next to the owner's private baseline (`evals/baselines/`, still
+to be filled per ROADMAP item 1): the public set is for anyone rebuilding
+the eval, the private one is the owner's own episode. `evals/public/` is
+also where the moments answer keys (`<source-id>.moments.json`) live.
+
+## 3a. Scoring a run against the moments answer key
+
+Each public episode has an answer key at `evals/public/<source-id>.moments.json` —
+the moments a good editor would post, written down before looking at the
+ranker's output (times, a reason, and at most the first and last six words;
+never transcript text). Score a run with:
+
+```bash
+python3 evals/score_moments.py --run-dir evals/results/<run-id>
+# or one episode on its own
+python3 evals/score_moments.py \
+  --selection evals/results/<run-id>/sources/<id>/selection.json \
+  --moments evals/public/<id>.moments.json --rubric evals/results/<run-id>/rubric.csv
+```
+
+Two numbers decide a ranking change:
+
+- **recall** — share of answer-key moments some accepted candidate covers
+  (at least 50% interval overlap).
+- **precision** — share of the top-10 accepted candidates a reviewer would
+  post: `would_post_1to5 >= 4` in the run's rubric.csv. Unjudged clips are
+  excluded and counted separately; fill the rubric before quoting precision.
+
+`select-replay` regenerates a project's `selection.json` in seconds
+(`cargo run --release -- select-replay ~/.clipping-factory/projects/<id>`),
+so scoring a ranking change costs one replay per episode, not a re-render.
 
 ## 2a. No media yet? The synthetic fixture
 
