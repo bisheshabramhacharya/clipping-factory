@@ -221,7 +221,9 @@ const RELATED_TERMS: &[&[&str]] = &[
         "pricing",
         "cost",
         "charge",
-        "fee",
+        // "fees", not "fee": variants match by prefix, and a three-letter
+        // "fee" would also hit "feel", "feed" and "feet".
+        "fees",
         "expensive",
         "cheap",
     ],
@@ -1397,6 +1399,8 @@ mod tests {
         let pricing = expanded_term_variants("pricing");
         assert!(pricing.iter().any(|v| term_hits_word(v, "cost")));
         assert!(pricing.iter().any(|v| term_hits_word(v, "fee")));
+        assert!(pricing.iter().any(|v| term_hits_word(v, "fees")));
+        assert!(!pricing.iter().any(|v| term_hits_word(v, "feel")));
         assert!(pricing.iter().any(|v| term_hits_word(v, "expensive")));
         let companies = expanded_term_variants("companies");
         assert!(companies.iter().any(|v| term_hits_word(v, "company")));
