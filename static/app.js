@@ -944,9 +944,12 @@
     const p = view && view.project;
     const section = $("review-state");
     if (!p || !section || section.classList.contains("hidden")) return;
+    if (document.body.classList.contains("modal-open")) return;
     const t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
         t.tagName === "SELECT" || t.isContentEditable)) return;
+    // Enter and Space on a focused button or link belong to that control.
+    if ((e.key === "Enter" || e.key === " ") && t && t.closest && t.closest("button, a")) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const all = sortedCandidates();
     if (!all.length) return;
