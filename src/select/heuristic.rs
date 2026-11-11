@@ -213,9 +213,6 @@ fn term_hits_word(term: &str, word: &str) -> bool {
         || (short.len() >= 5 && long.starts_with(&short[..short.len() - 1]))
 }
 
-/// The >50 s length tax on composite score: a window pays for seconds past
-/// the short-form sweet spot — but a window whose end is a verified sentence
-/// close pays only 30%, since the extra seconds bought a real ending.
 /// Bonus for a window that opens on a question and still reaches a payoff
 /// under a minute-plus: short fragments of the same exchange can't compete.
 fn complete_exchange_boost(question_open: bool, payoff: u8, dur_s: f32) -> f32 {
@@ -226,6 +223,9 @@ fn complete_exchange_boost(question_open: bool, payoff: u8, dur_s: f32) -> f32 {
     }
 }
 
+/// The >50 s length tax on composite score: a window pays for seconds past
+/// the short-form sweet spot — but a window whose end is a verified sentence
+/// close pays only 30%, since the extra seconds bought a real ending.
 fn length_tax(dur_s: f32, closed: bool) -> f32 {
     0.1 * (dur_s - 50.0).max(0.0) * if closed { 0.3 } else { 1.0 }
 }
