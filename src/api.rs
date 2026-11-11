@@ -10,8 +10,11 @@
 //! GET    /api/projects/{id}          full project view
 //! GET    /api/projects/{id}/events   SSE progress stream
 //! POST   /api/projects/{id}/process  start/resume
+//! POST   /api/projects/{id}/render   frame + render the kept candidate ranks
+//! POST   /api/projects/{id}/review   persist the review screen's dropped ranks
 //! POST   /api/projects/{id}/cancel   stop subprocesses, keep finished clips
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
+//! GET    /api/projects/{id}/source   uploaded source MP4 (Range-aware preview)
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
 //! GET    /api/projects/{id}/clips/{clipId}/export/{kind}  export pack sidecar (srt|vtt|meta|poster)
@@ -59,7 +62,10 @@ pub fn router(state: AppState) -> Router {
             get(get_project).delete(delete_project),
         )
         .route("/api/projects/{id}/events", get(project_events))
+        .route("/api/projects/{id}/source", get(serve_source))
         .route("/api/projects/{id}/process", post(process_project))
+        .route("/api/projects/{id}/render", post(render_project))
+        .route("/api/projects/{id}/review", post(review_decisions))
         .route("/api/projects/{id}/cancel", post(cancel_project))
         .route("/api/projects/{id}/retry", post(retry_project))
         .route("/api/projects/{id}/clips/{clip}", get(serve_clip_inline))
@@ -327,6 +333,7 @@ struct UploadFields {
     language: Option<String>,
     focus_prompt: Option<String>,
     platform: Platform,
+    review_before_render: bool,
 }
 
 const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -440,6 +447,7 @@ async fn receive_upload(
     let mut language: Option<String> = None;
     let mut focus_prompt: Option<String> = None;
     let mut platform = Platform::default();
+    let mut review_before_render = false;
     let mut saw_file = false;
 
     while let Some(mut field) = multipart
@@ -500,6 +508,11 @@ async fn receive_upload(
                 let v = read_multipart_text(field).await?;
                 platform = Platform::parse(&v)
                     .ok_or_else(|| bad_request("platform must be any, tiktok, reels, or shorts"))?;
+                continue;
+            }
+            "review_before_render" => {
+                let v = read_multipart_text(field).await?;
+                review_before_render = matches!(v.trim(), "true" | "1" | "yes" | "on");
                 continue;
             }
             _ => continue,
@@ -579,6 +592,7 @@ async fn receive_upload(
         language,
         focus_prompt,
         platform,
+        review_before_render,
     })
 }
 
@@ -604,6 +618,7 @@ async fn create_project(
     project.language = fields.language;
     project.focus_prompt = fields.focus_prompt;
     project.platform = fields.platform;
+    project.review_before_render = fields.review_before_render;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
         cleanup.disarm();
@@ -672,6 +687,51 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
     let manifest = state.store.load_manifest(id).await.ok();
     let source_name = state.store.load_source_name(id).await.unwrap_or_default();
 
+    // Accepted candidates for the review step and the render-more list.
+    // `text` is the exact transcript words inside the candidate's range.
+    let transcript = if selection.is_some() {
+        state.store.load_transcript(id).await.ok()
+    } else {
+        None
+    };
+    // A rank counts as rendered once its clip reached Ready — planned or
+    // failed clips still show as unrendered so they can be picked again.
+    let rendered_ranks: std::collections::BTreeSet<usize> = manifest
+        .as_ref()
+        .map(|m| {
+            m.clips
+                .iter()
+                .filter(|c| c.status == ClipStatus::Ready)
+                .map(|c| c.rank)
+                .collect()
+        })
+        .unwrap_or_default();
+    let candidates: Vec<serde_json::Value> = selection
+        .as_ref()
+        .map(|s| {
+            s.accepted
+                .iter()
+                .map(|vc| {
+                    let c = &vc.candidate;
+                    json!({
+                        "rank": vc.rank,
+                        "headline": c.headline,
+                        "start_ms": c.start_ms,
+                        "end_ms": c.end_ms,
+                        "score": vc.composite,
+                        "selection_reason": c.selection_reason,
+                        "dropped": p.review_drops.contains(&vc.rank),
+                        "rendered": rendered_ranks.contains(&vc.rank),
+                        "text": transcript
+                            .as_ref()
+                            .map(|t| crate::validate::excerpt_text(t, c.start_ms, c.end_ms))
+                            .unwrap_or_default(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     let rejected_summary: Vec<serde_json::Value> = selection
         .as_ref()
         .map(|s| {
@@ -703,6 +763,7 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
         "accepted": selection.as_ref().map(|s| s.accepted.len()).unwrap_or(0),
         "rejected": selection.as_ref().map(|s| s.rejected.len()).unwrap_or(0),
         "rejected_summary": rejected_summary,
+        "candidates": candidates,
         "selector": p.selector,
         "caption_only": p.source.as_ref().is_some_and(|source| pipeline::is_caption_only(source.duration_ms)),
         "clips": manifest.as_ref().map(|m| m.clips.clone()).unwrap_or_default(),
@@ -721,6 +782,145 @@ async fn process_project(
         Ok(()) => Ok(Json(json!({ "started": true }))),
         Err(msg) => Err(ApiError(StatusCode::CONFLICT, msg)),
     }
+}
+
+#[derive(serde::Deserialize)]
+struct RenderIn {
+    #[serde(default)]
+    ranks: Vec<usize>,
+}
+
+/// Frame + render the accepted candidate ranks the user kept at review.
+/// `kept_ranks` accumulates across calls — posting more ranks to a finished
+/// project is how "render more later" works: the run frames only ranks that
+/// aren't already in the manifest and leaves ready clips untouched. The
+/// update is serialized against other project mutations by the operation
+/// lock; the run itself starts after it is released.
+async fn render_project(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    Json(body): Json<RenderIn>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if !state.store.exists(&id) {
+        return Err(not_found("Project not found."));
+    }
+    if body.ranks.is_empty() {
+        return Err(bad_request(
+            "ranks must list at least one accepted candidate.",
+        ));
+    }
+    let handle = state.handle(&id);
+    {
+        let _operation = handle.operation.lock().await;
+        if handle.is_running() {
+            return Err(ApiError(
+                StatusCode::CONFLICT,
+                "Processing is running for this project. Wait for it to finish first.".into(),
+            ));
+        }
+        let mut p = state
+            .store
+            .load_project(&id)
+            .await
+            .map_err(ApiError::from)?;
+        if p.status.is_active() {
+            // An active status without a running handle means a restart
+            // stranded the run — recover it the same way get_project does.
+            p.status = JobState::Failed;
+            p.error = Some(
+                "Processing was interrupted. The render resumes from the last completed stage."
+                    .into(),
+            );
+            state.store.save_project(&p).await.map_err(ApiError::from)?;
+        }
+        let report = state.store.load_selection(&id).await.map_err(|_| {
+            ApiError(
+                StatusCode::CONFLICT,
+                "Selection has not finished for this project yet.".into(),
+            )
+        })?;
+        let accepted: std::collections::BTreeSet<usize> =
+            report.accepted.iter().map(|vc| vc.rank).collect();
+        if let Some(bad) = body.ranks.iter().find(|r| !accepted.contains(r)) {
+            return Err(bad_request(format!(
+                "Rank {bad} is not an accepted candidate."
+            )));
+        }
+        let mut kept: std::collections::BTreeSet<usize> =
+            p.kept_ranks.iter().flatten().copied().collect();
+        kept.extend(body.ranks.iter().copied());
+        p.kept_ranks = Some(kept.iter().copied().collect());
+        // A rank that renders is decided — it can't stay marked dropped.
+        p.review_drops.retain(|rank| !kept.contains(rank));
+        state.store.save_project(&p).await.map_err(ApiError::from)?;
+    }
+    match pipeline::start(state.clone(), id).await {
+        Ok(()) => Ok(Json(json!({ "started": true }))),
+        Err(msg) => Err(ApiError(StatusCode::CONFLICT, msg)),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ReviewIn {
+    #[serde(default)]
+    dropped: Vec<usize>,
+}
+
+/// Persist the review screen's keep/drop marks. `dropped` replaces the whole
+/// set, so rapid toggles settle on the last write; only accepted ranks are
+/// valid. Once a render posts `kept_ranks`, the decision is fixed and this
+/// route stops taking edits.
+async fn review_decisions(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    Json(body): Json<ReviewIn>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if !state.store.exists(&id) {
+        return Err(not_found("Project not found."));
+    }
+    let handle = state.handle(&id);
+    let _operation = handle.operation.lock().await;
+    if handle.is_running() {
+        return Err(ApiError(
+            StatusCode::CONFLICT,
+            "Processing is running for this project. Wait for it to finish first.".into(),
+        ));
+    }
+    let mut p = state
+        .store
+        .load_project(&id)
+        .await
+        .map_err(ApiError::from)?;
+    if p.status.is_active() {
+        p.status = JobState::Failed;
+        p.error = Some(
+            "Processing was interrupted. The render resumes from the last completed stage.".into(),
+        );
+        state.store.save_project(&p).await.map_err(ApiError::from)?;
+    }
+    if p.kept_ranks.is_some() {
+        return Err(ApiError(
+            StatusCode::CONFLICT,
+            "Rendering already started on the kept set — the review is over.".into(),
+        ));
+    }
+    let report = state.store.load_selection(&id).await.map_err(|_| {
+        ApiError(
+            StatusCode::CONFLICT,
+            "Selection has not finished for this project yet.".into(),
+        )
+    })?;
+    let accepted: std::collections::BTreeSet<usize> =
+        report.accepted.iter().map(|vc| vc.rank).collect();
+    if let Some(bad) = body.dropped.iter().find(|r| !accepted.contains(r)) {
+        return Err(bad_request(format!(
+            "Rank {bad} is not an accepted candidate."
+        )));
+    }
+    let dropped: std::collections::BTreeSet<usize> = body.dropped.into_iter().collect();
+    p.review_drops = dropped.into_iter().collect();
+    state.store.save_project(&p).await.map_err(ApiError::from)?;
+    Ok(Json(json!({ "dropped": p.review_drops })))
 }
 
 async fn cancel_project(
@@ -1139,6 +1339,8 @@ async fn restyle_clip(
         accent_hex: &accent_hex,
         font: &caption_font,
         base_ready,
+        // A one-off restyle isn't pool-bound — it gets the whole machine.
+        ffmpeg_threads: cfg.threads,
     };
     let burned = crate::pipeline::render_clip_variant(&variant, &cancel, |_, _| {})
         .await
@@ -1263,6 +1465,21 @@ async fn serve_clip_download(
 ) -> Result<Response, ApiError> {
     let (clip, path) = find_clip(&state, &id, &clip_id).await?;
     serve_video(&path, &headers, Some(clip.filename)).await
+}
+
+/// The uploaded source MP4, inline — the review screen plays a candidate's
+/// range straight from it with a `#t=start,end` media fragment, so no
+/// preview files are needed. Same Range-aware streaming as rendered clips.
+async fn serve_source(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = state.store.source_path(&id);
+    if !state.store.exists(&id) || !path.is_file() {
+        return Err(not_found("Project not found."));
+    }
+    serve_video(&path, &headers, None).await
 }
 
 /// One export-pack sidecar for a rendered clip: `srt`, `vtt`, or `meta`
@@ -2319,6 +2536,602 @@ mod tests {
             .is_err());
         let mut projects = tokio::fs::read_dir(projects_dir).await.unwrap();
         assert!(projects.next_entry().await.unwrap().is_none());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    // ---- review + render ----------------------------------------------------
+
+    fn render_request(id: &str, body: &str) -> Request<Body> {
+        Request::builder()
+            .method(Method::POST)
+            .uri(format!("/api/projects/{id}/render"))
+            .header(header::HOST, "localhost:4571")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    }
+
+    /// A transcript fixture long enough for the candidate windows below.
+    /// Every 10th word closes a sentence so window edges pass the
+    /// mid-sentence guard.
+    fn api_words(word_count: u64) -> Transcript {
+        Transcript {
+            language: "en".into(),
+            sentences: Vec::new(),
+            words: (0..word_count)
+                .map(|i| Word {
+                    text: if (i + 1) % 10 == 0 {
+                        format!("w{i}.")
+                    } else {
+                        format!("w{i}")
+                    },
+                    start_ms: i * 300,
+                    end_ms: i * 300 + 250,
+                    p: 0.95,
+                })
+                .collect(),
+            avg_confidence: 0.95,
+        }
+    }
+
+    /// A project parked at `awaiting_review`: selection resolved with three
+    /// accepted candidates (ranks 1–3), no manifest, no clips on disk.
+    async fn awaiting_review_project(store: &crate::store::Store, id: &str) {
+        store.create_dirs(id).await.unwrap();
+        let mut p = Project::new(id.to_string(), store.source_path(id));
+        p.review_before_render = true;
+        p.status = JobState::AwaitingReview;
+        p.source = Some(SourceInfo {
+            filename: "episode.mp4".into(),
+            duration_ms: 120_000,
+            width: 1280,
+            height: 720,
+            fps: 30.0,
+            video_codec: "h264".into(),
+            audio_codec: "aac".into(),
+            size_bytes: 1,
+            scene_boundaries_ms: Vec::new(),
+        });
+        store.save_project(&p).await.unwrap();
+        let transcript = api_words(900);
+        store.save_transcript(id, &transcript).await.unwrap();
+        let strong = Scores {
+            self_contained: 5,
+            opening_strength: 5,
+            specificity: 4,
+            tension_or_novelty: 4,
+            payoff: 4,
+            clarity: 5,
+            context_dependency: 1,
+            slop_risk: 1,
+        };
+        let candidates: Vec<Candidate> = (1..=3usize)
+            .map(|rank| {
+                scored_candidate(
+                    &transcript,
+                    rank as u64 * 60_000,
+                    rank as u64 * 60_000 + 30_000,
+                    strong,
+                )
+            })
+            .collect();
+        // A parked project carries both files: the selector's raw output and
+        // the validated report a re-run reproduces deterministically.
+        store.save_raw_candidates(id, &candidates).await.unwrap();
+        let report = SelectionReport {
+            selector: "fixture".into(),
+            accepted: candidates
+                .into_iter()
+                .enumerate()
+                .map(|(i, candidate)| ValidatedCandidate {
+                    candidate,
+                    rank: i + 1,
+                    composite: 10.0 - i as f32,
+                    duration_exception: false,
+                })
+                .collect(),
+            rejected: Vec::new(),
+        };
+        store.save_selection(id, &report).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn render_rejects_empty_and_unknown_rank_lists() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000101";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+
+        let res = app
+            .clone()
+            .oneshot(render_request(id, r#"{"ranks":[]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[1,9]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        // Nothing decided — kept_ranks stays unset.
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.kept_ranks, None);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn render_conflicts_before_selection_and_while_running() {
+        let (state, tmp) = test_state();
+        let store = state.store.clone();
+        // Selection has not finished yet — candidates.json is absent.
+        make_project(&store, "0a0e000102").await;
+        let app = router(state.clone());
+        let res = app
+            .clone()
+            .oneshot(render_request("0a0e000102", r#"{"ranks":[1]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+
+        // A run in flight conflicts too.
+        let id = "0a0e000103";
+        awaiting_review_project(&store, id).await;
+        let lease = state.handle(id).try_start().expect("run should start");
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[1]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        state.handle(id).finish(lease.generation);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn render_saves_kept_ranks_then_starts_the_same_run_path() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000104";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[1,3]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.kept_ranks, Some(vec![1, 3]));
+
+        // The spawned run itself does not clobber the recorded decision.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert_eq!(
+            state.store.load_project(id).await.unwrap().kept_ranks,
+            Some(vec![1, 3])
+        );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn render_more_on_a_complete_project_unions_the_ranks() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000105";
+        awaiting_review_project(&state.store, id).await;
+        let mut p = state.store.load_project(id).await.unwrap();
+        p.status = JobState::Complete;
+        p.kept_ranks = Some(vec![1, 3]);
+        state.store.save_project(&p).await.unwrap();
+        let app = router(state.clone());
+
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(
+            state.store.load_project(id).await.unwrap().kept_ranks,
+            Some(vec![1, 2, 3])
+        );
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn a_project_at_awaiting_review_is_not_an_interrupted_run() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000106";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+
+        let res = app
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        // get_project's interrupted-run detector must leave it alone.
+        assert_eq!(view["project"]["status"], "awaiting_review");
+        let candidates = view["candidates"].as_array().unwrap();
+        assert_eq!(candidates.len(), 3);
+        assert_eq!(candidates[0]["rank"], 1);
+        assert!(!candidates[0]["text"].as_str().unwrap().is_empty());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn cancel_at_awaiting_review_reports_the_resting_status() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000107";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/projects/{id}/cancel"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(view["cancelled"], false);
+        assert_eq!(view["status"], "awaiting_review");
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn review_saves_drops_rejects_bad_ranks_and_freezes_after_render() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000108";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+        let review_req = |body: &str| {
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/projects/{id}/review"))
+                .header(header::HOST, "localhost:4571")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap()
+        };
+
+        // A rank that was never accepted is a 400 and stores nothing.
+        let res = app
+            .clone()
+            .oneshot(review_req(r#"{"dropped":[9]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        assert!(state
+            .store
+            .load_project(id)
+            .await
+            .unwrap()
+            .review_drops
+            .is_empty());
+
+        // The full set replaces whatever was there — the last write wins.
+        let res = app
+            .clone()
+            .oneshot(review_req(r#"{"dropped":[2,1,2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(view["dropped"], serde_json::json!([1, 2]));
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.review_drops, vec![1, 2]);
+
+        // The review marks surface on the candidate rows in the view.
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let candidates = view["candidates"].as_array().unwrap();
+        let drops: Vec<bool> = candidates
+            .iter()
+            .map(|c| c["dropped"].as_bool().unwrap())
+            .collect();
+        assert_eq!(drops, vec![true, true, false]);
+
+        // Rendering the kept rank clears nothing it shouldn't — and once a
+        // render posts, the review stops taking edits.
+        let res = app
+            .clone()
+            .oneshot(render_request(id, r#"{"ranks":[1]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.review_drops, vec![2]);
+        let res = app.oneshot(review_req(r#"{"dropped":[]}"#)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// Render more: a finished project takes another render call, the view
+    /// marks which candidates already rendered, and the kept set unions.
+    #[tokio::test]
+    async fn a_finished_project_renders_more_candidates() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000111";
+        awaiting_review_project(&state.store, id).await;
+        let mut p = state.store.load_project(id).await.unwrap();
+        p.status = JobState::Complete;
+        state.store.save_project(&p).await.unwrap();
+        let selection = state.store.load_selection(id).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![clip_from_validated(&selection.accepted[0])],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let app = router(state.clone());
+
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let rendered: Vec<bool> = view["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["rendered"].as_bool().unwrap())
+            .collect();
+        assert_eq!(rendered, vec![true, false, false]);
+
+        // A render call on the finished project unions into kept_ranks —
+        // the ready rank-1 clip is never in play again.
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.kept_ranks, Some(vec![2]));
+        let manifest = state.store.load_manifest(id).await.unwrap();
+        assert_eq!(manifest.clips.len(), 1);
+        assert_eq!(manifest.clips[0].status, ClipStatus::Ready);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// A run cancelled mid-render must still offer render-more: the project
+    /// rests at `cancelled`, so `/render` takes the next batch of ranks.
+    #[tokio::test]
+    async fn a_cancelled_run_still_accepts_a_render_call() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000112";
+        awaiting_review_project(&state.store, id).await;
+        let mut p = state.store.load_project(id).await.unwrap();
+        p.status = JobState::Cancelled;
+        state.store.save_project(&p).await.unwrap();
+        let selection = state.store.load_selection(id).await.unwrap();
+        state
+            .store
+            .save_manifest(
+                id,
+                &RenderManifest {
+                    clips: vec![clip_from_validated(&selection.accepted[0])],
+                    output_dir: None,
+                },
+            )
+            .await
+            .unwrap();
+        let app = router(state.clone());
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[2]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let p = state.store.load_project(id).await.unwrap();
+        assert_eq!(p.kept_ranks, Some(vec![2]));
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// Two tabs (or a double-click) can only ever own one run: while a lease
+    /// is held, a second `/render` post is a conflict, not a second run.
+    #[tokio::test]
+    async fn a_running_project_refuses_a_second_render() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000113";
+        awaiting_review_project(&state.store, id).await;
+        let _lease = state.handle(id).try_start().unwrap();
+        let app = router(state.clone());
+        let res = app
+            .oneshot(render_request(id, r#"{"ranks":[1]}"#))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        // Nothing was committed on the conflicting post.
+        assert!(state
+            .store
+            .load_project(id)
+            .await
+            .unwrap()
+            .kept_ranks
+            .is_none());
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    /// Deleting while parked at the review must work like deleting any other
+    /// resting project: 204, the directory and the handle both gone.
+    #[tokio::test]
+    async fn deleting_at_awaiting_review_removes_the_project() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000114";
+        awaiting_review_project(&state.store, id).await;
+        let app = router(state.clone());
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::DELETE)
+                    .uri(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let res = app
+            .oneshot(
+                Request::get(format!("/api/projects/{id}"))
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn the_source_streams_inline_with_range_support() {
+        let (state, tmp) = test_state();
+        let id = "0a0e000110";
+        state.store.create_dirs(id).await.unwrap();
+        state
+            .store
+            .save_project(&Project::new(id.into(), state.store.source_path(id)))
+            .await
+            .unwrap();
+        tokio::fs::write(state.store.source_path(id), b"0123456789")
+            .await
+            .unwrap();
+        let app = router(state.clone());
+        let source_req = |range: Option<&str>| {
+            let mut req = Request::builder()
+                .uri(format!("/api/projects/{id}/source"))
+                .header(header::HOST, "localhost:4571");
+            if let Some(range) = range {
+                req = req.header(header::RANGE, range);
+            }
+            req.body(Body::empty()).unwrap()
+        };
+
+        let res = app.clone().oneshot(source_req(None)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(body.as_ref(), b"0123456789");
+
+        let res = app
+            .clone()
+            .oneshot(source_req(Some("bytes=2-5")))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::PARTIAL_CONTENT);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(body.as_ref(), b"2345");
+
+        // No project, no source — 404 like every other media route.
+        let res = app
+            .oneshot(
+                Request::get("/api/projects/0a0e099999/source")
+                    .header(header::HOST, "localhost:4571")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn the_upload_flag_sets_review_before_render_on_the_project() {
+        let (state, tmp) = test_state();
+        let boundary = "cf-review-upload";
+        let build = |review_field: Option<&str>| {
+            let mut body = Vec::new();
+            if let Some(v) = review_field {
+                body.extend_from_slice(
+                    format!("--{boundary}\r\nContent-Disposition: form-data; name=\"review_before_render\"\r\n\r\n{v}\r\n")
+                        .as_bytes(),
+                );
+            }
+            body.extend_from_slice(
+                format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"clip.mp4\"\r\nContent-Type: video/mp4\r\n\r\n")
+                    .as_bytes(),
+            );
+            body.extend_from_slice(b"fake-mp4-bytes");
+            body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/projects")
+                .header(header::HOST, "localhost:4571")
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(body))
+                .unwrap()
+        };
+        let app = router(state.clone());
+
+        let res = app.clone().oneshot(build(Some("true"))).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(view["project"]["review_before_render"], true);
+        assert_eq!(view["project"]["kept_ranks"], serde_json::Value::Null);
+
+        // No field → the default is render-everything.
+        let res = app.oneshot(build(None)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(view["project"]["review_before_render"], false);
         tokio::fs::remove_dir_all(tmp).await.ok();
     }
 }

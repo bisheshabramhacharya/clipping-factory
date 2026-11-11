@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "name": "public",
+  "sources": [
+    {
+      "id": "nasa-podcast-mars",
+      "title": "Houston We Have a Podcast - Mars is Hard",
+      "url": "https://traffic.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION5374288563.mp3?updated=1751031711",
+      "page": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "two_person_interview",
+      "duration_seconds": 2763,
+      "media": "audio",
+      "notes": "NASA's official podcast; host-plus-expert interview on why Mars missions fail. Clean two-person conversation."
+    },
+    {
+      "id": "nasa-podcast-astronaut",
+      "title": "Houston We Have a Podcast - A Record-Breaking Astronaut",
+      "url": "https://traffic.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION1498297395.mp3?updated=1756992745",
+      "page": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "target_distribution",
+      "duration_seconds": 3137,
+      "media": "audio",
+      "notes": "Astronaut career interview; the podcast-like distribution the product is built for."
+    },
+    {
+      "id": "iss-soyuz-teleconf",
+      "title": "ISS Soyuz Status Teleconference 01-11-23",
+      "url": "https://archive.org/download/ISS-Soyuz-Status-Teleconference_01-11-23/ISS-SoyuzStatusTeleconference01-11-23.mp3",
+      "page": "https://archive.org/details/ISS-Soyuz-Status-Teleconference_01-11-23",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "noisy_audio",
+      "duration_seconds": 3561,
+      "media": "audio",
+      "notes": "NASA media teleconference over a phone bridge: narrow-band audio, dropouts, crosstalk. Stresses transcription confidence."
+    },
+    {
+      "id": "state-of-nasa-2022",
+      "title": "2022 State of NASA Address - Bill Nelson",
+      "url": "https://www.youtube.com/watch?v=7jTaQQA5vAk",
+      "page": "https://www.youtube.com/watch?v=7jTaQQA5vAk",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "solo_monologue",
+      "duration_seconds": 2706,
+      "media": "video",
+      "notes": "One speaker at a lectern; stresses ranking without conversational turns."
+    },
+    {
+      "id": "iss-science-panel",
+      "title": "ISS Science, Research and Technology Panel",
+      "url": "https://www.youtube.com/watch?v=h9h0k02OsXw",
+      "page": "https://www.youtube.com/watch?v=h9h0k02OsXw",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "panel",
+      "duration_seconds": 3549,
+      "media": "video",
+      "notes": "NASA TV panel with four-plus speakers; crosstalk and speaker changes."
+    },
+    {
+      "id": "wh-briefing-2026-02-18",
+      "title": "White House Press Briefing 2026-02-18",
+      "url": "https://www.youtube.com/watch?v=RkMpdNeG2sA",
+      "page": "https://www.youtube.com/watch?v=RkMpdNeG2sA",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "panel",
+      "duration_seconds": 2480,
+      "media": "video",
+      "notes": "Press secretary plus a room of reporters: rapid Q&A turns and interruptions."
+    },
+    {
+      "id": "expedition-63-64-crew",
+      "title": "Expedition 63-64 Crew News Conference",
+      "url": "https://www.youtube.com/watch?v=3H8fH2Yx4Jg",
+      "page": "https://www.youtube.com/watch?v=3H8fH2Yx4Jg",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "fast_or_accented_speech",
+      "duration_seconds": 2370,
+      "media": "video",
+      "notes": "Two Russian cosmonauts answering in accented English alongside a NASA astronaut; stresses word timestamps and quote matching."
+    },
+    {
+      "id": "house-members-day",
+      "title": "House Science Committee Members' Day Hearing",
+      "url": "https://www.youtube.com/watch?v=SrdCOWXnZZg",
+      "page": "https://www.youtube.com/watch?v=SrdCOWXnZZg",
+      "license": "public domain (US Government work, 17 U.S.C. §105)",
+      "category": "noisy_audio",
+      "duration_seconds": 1856,
+      "media": "video",
+      "notes": "Large echoing hearing room with distant mics and bumps; room-tone stress."
+    }
+  ]
+}

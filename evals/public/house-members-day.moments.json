@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "moments": [
+    {
+      "start_ms": 948360,
+      "end_ms": 990360,
+      "first_words": "colleagues for joining us today",
+      "last_words": "generations of tomorrow",
+      "reason": "Chair's bipartisan frame: science committee 'driving American Scientific progress'."
+    },
+    {
+      "start_ms": 990360,
+      "end_ms": 1045919,
+      "first_words": "you Mr chairman and for this",
+      "last_words": "thoughtful way",
+      "reason": "Lofgren: AI to fusion \u2014 'this committee really is about the Future... never partisan'."
+    },
+    {
+      "start_ms": 1077480,
+      "end_ms": 1160100,
+      "first_words": "we provide these agencies to",
+      "last_words": "opportunities for all",
+      "reason": "Henrietta Lacks and Katherine Johnson: unacknowledged contributions to science."
+    },
+    {
+      "start_ms": 1160100,
+      "end_ms": 1220880,
+      "first_words": "the 118th Congress has demonized",
+      "last_words": "problem solving capabilities",
+      "reason": "'Only one person who looks like me' on the wall; Eddie Bernice Johnson's legacy."
+    },
+    {
+      "start_ms": 1277660,
+      "end_ms": 1335600,
+      "first_words": "methodologies and findings are more",
+      "last_words": "a good thing",
+      "reason": "'You don't need to be an astrophysicist to be a member of this committee'."
+    },
+    {
+      "start_ms": 1378080,
+      "end_ms": 1439100,
+      "first_words": "allocating amongst unlimited demands to",
+      "last_words": "the ranking member",
+      "reason": "Chair's response: 'our people is our greatest asset' plus the AI-bias commitment."
+    },
+    {
+      "start_ms": 1536539,
+      "end_ms": 1583400,
+      "first_words": "committee thank you ranking member",
+      "last_words": "reduce methane",
+      "reason": "Abandoned wells emitting methane since the 1850s; bipartisan remediation act."
+    },
+    {
+      "start_ms": 1639620,
+      "end_ms": 1746360,
+      "first_words": "implications of the use of AI",
+      "last_words": "kind of got that guidance",
+      "reason": "Randall Reed: wrongfully jailed six days on a bad facial-recognition match \u2014 'there was no Source, it was AI'."
+    }
+  ]
+}
