@@ -1,0 +1,104 @@
+{
+ "schema_version": 1,
+ "source_duration_ms": 2718249,
+ "moments": [
+  {
+   "start_ms": 156540,
+   "end_ms": 259479,
+   "first_words": "moon is pretty",
+   "last_words": "difference between walking",
+   "reason": "Distance ladder: thumb blots the Moon, Mars is a dot; 250mi\u2192250k\u2192250M."
+  },
+  {
+   "start_ms": 360110,
+   "end_ms": 410999,
+   "first_words": "environment that will",
+   "last_words": "because the toilet",
+   "reason": "Supplies rant: 3 min to death, 7s unconscious; 'what a way to die \u2014 the toilet broke'."
+  },
+  {
+   "start_ms": 460820,
+   "end_ms": 480439,
+   "first_words": "no free lunches",
+   "last_words": "proposal. into land",
+   "reason": "No free lunches: pay to slow down; aerobrake helps but the last feet are yours."
+  },
+  {
+   "start_ms": 755520,
+   "end_ms": 780079,
+   "first_words": "crazy sky crane",
+   "last_words": "they were very",
+   "reason": "Sky crane: hover, unreel cables, drop the rover; even its engineers were relieved."
+  },
+  {
+   "start_ms": 861960,
+   "end_ms": 874329,
+   "first_words": "bounced like 18",
+   "last_words": "up. so they",
+   "reason": "Airbag lander bounced 18 times into Eagle crater \u2014 'hole-in-one'."
+  },
+  {
+   "start_ms": 1038990,
+   "end_ms": 1119639,
+   "first_words": "every 26 months",
+   "last_words": "committed to nine",
+   "reason": "Launch windows: committed to 9 months out, a year on the surface, 9 months back."
+  },
+  {
+   "start_ms": 1217170,
+   "end_ms": 1284789,
+   "first_words": "once every 50",
+   "last_words": "hope we're way",
+   "reason": "The Venus flyby: once every 50 years, nightside pass, 'odds of crew surviving probably real good'."
+  },
+  {
+   "start_ms": 1425980,
+   "end_ms": 1436639,
+   "first_words": "5%. so not",
+   "last_words": "just 3%. every",
+   "reason": "Radiation: 5% excess cancer vs 3% admin limit \u2014 'every single hand would go up'."
+  },
+  {
+   "start_ms": 1550830,
+   "end_ms": 1581329,
+   "first_words": "propellant plant and",
+   "last_words": "there you can't",
+   "reason": "Pre-place the propellant plant: want tanks 'freaking full' before crew launches \u2014 The Martian tactic."
+  },
+  {
+   "start_ms": 1965690,
+   "end_ms": 2105379,
+   "first_words": "nansen, who was",
+   "last_words": "and it's all",
+   "reason": "Nansen's Fram: froze the ship in ice deliberately; 'it's all about the food' \u2014 Mars lesson."
+  },
+  {
+   "start_ms": 2193360,
+   "end_ms": 2236259,
+   "first_words": "size of the",
+   "last_words": "it has humans",
+   "reason": "Transit ship \u2248 ISS-sized; 'what makes human spaceflight interesting is it has humans in it'."
+  },
+  {
+   "start_ms": 2273480,
+   "end_ms": 2279159,
+   "first_words": "blue suit and",
+   "last_words": "is. it makes",
+   "reason": "Blue-suit effect: school kids didn't care about the scientist \u2014 astronaut suit changed everything."
+  },
+  {
+   "start_ms": 2301370,
+   "end_ms": 2348159,
+   "first_words": "burst your appendix,",
+   "last_words": "people are living",
+   "reason": "Moon as stepping stone: 'burst your appendix, home in four days'; the bright star people live in."
+  },
+  {
+   "start_ms": 2490730,
+   "end_ms": 2549379,
+   "first_words": "natural human drive.",
+   "last_words": "be the best",
+   "reason": "Closer: exploration 'brings out the best in us' \u2014 only ocean floor and space left."
+  }
+ ]
+}

@@ -91,3 +91,11 @@ _Avoid_: topic filter
 **Platform target**:
 The destination platform a project optimizes for, picked at upload (Any / TikTok / Reels / Shorts). Re-centers the duration window the Composite score's sweet-spot nudge rewards — TikTok 25–35s, Reels 35–45s, Shorts 45–60s, Any 25–60s — and adds a preference hint to the selector's window prompt. A ranking preference only: the validator's accept bounds never move.
 _Avoid_: export preset, publish target
+
+**Moments answer key**:
+The per-episode reference for selection evals: the moments a good human clip editor would post, written down before looking at the ranker's output and stored at `evals/public/<source-id>.moments.json` (times, a reason, at most six-word first/last quotes — never transcript text). A Moment here is an editorial judgment, distinct from a Candidate, which is what the ranker proposes.
+_Avoid_: ground truth, golden clips
+
+**Recall and precision**:
+The two numbers that decide a ranking change. Recall: the share of an episode's Moments answer key that some accepted candidate covers (≥50% interval overlap). Precision: the share of the top-10 accepted candidates a reviewer would post, scored `would_post_1to5 >= 4` in the run's `rubric.csv`. A ranking PR must keep both better or equal in total and may not drop more than one moment on any single episode.
+_Avoid_: F1, accuracy
