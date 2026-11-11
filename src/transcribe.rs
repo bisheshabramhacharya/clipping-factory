@@ -703,9 +703,10 @@ fn dtw_timing(words: Vec<TokenWord>, calib: Calibration, speech: Option<&[bool]>
 /// to say them in. A caption of words nobody said is worse than no caption,
 /// so such segments never reach the transcript. A segment is dropped when:
 ///
-/// - it is the third-or-later verbatim repeat of an earlier segment
-///   (whisper's classic silence loop; one repeated line can be real
-///   emphasis, a run cannot),
+/// - it is the third-or-later verbatim repeat in a row (whisper's classic
+///   silence loop; one repeated line can be real emphasis, a run cannot).
+///   Only back-to-back repeats count: "Yeah." said a third time an hour
+///   into an episode is still someone saying it,
 /// - its words are packed tighter than anyone could speak them — sustained
 ///   speech stays under ~6 words a second, hallucination bursts exceed 9,
 /// - the RMS speech mask says the audio under it is mostly not speech
@@ -725,7 +726,8 @@ fn drop_hallucinated_segments(
     let mask_usable = speech
         .map(|m| m.iter().filter(|f| **f).count() as f64 / m.len().max(1) as f64 > 0.02)
         .unwrap_or(false);
-    let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut last_kept = String::new();
+    let mut run = 0usize;
     let mut kept: Vec<serde_json::Value> = Vec::with_capacity(segments.len());
     let mut dropped: Vec<(u64, String)> = Vec::new();
     for seg in segments {
@@ -754,9 +756,13 @@ fn drop_hallucinated_segments(
                 .unwrap_or(false);
         let mut drop = packed || low_energy;
         if !drop && !norm.is_empty() {
-            let count = seen.entry(norm).or_insert(0);
-            *count += 1;
-            drop = *count > 2;
+            if norm == last_kept {
+                run += 1;
+            } else {
+                last_kept = norm;
+                run = 1;
+            }
+            drop = run > 2;
         }
         if drop && !text.is_empty() {
             dropped.push((from, text));
@@ -1451,5 +1457,22 @@ mod tests {
         let (kept, dropped) = drop_hallucinated_segments(v, Some(&mask));
         assert_eq!(dropped.len(), 1);
         assert_eq!(kept["transcription"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn a_short_line_said_again_later_is_not_a_loop() {
+        // "Yeah." three times across an episode, with other speech between,
+        // is a person agreeing — only a consecutive run is whisper looping.
+        let v = transcription(vec![
+            seg("Yeah.", 0, 800),
+            seg("So that is the first point.", 1000, 3000),
+            seg("Yeah.", 60_000, 60_800),
+            seg("And that is the second point.", 61_000, 63_000),
+            seg("Yeah.", 120_000, 120_800),
+            seg("Yeah.", 121_000, 121_800),
+        ]);
+        let (kept, dropped) = drop_hallucinated_segments(v, None);
+        assert_eq!(kept["transcription"].as_array().unwrap().len(), 6);
+        assert!(dropped.is_empty());
     }
 }
