@@ -358,6 +358,11 @@
     const sourceKindSelect = $("upload-source-kind");
     const framingInputs = [...document.querySelectorAll('input[name="framing-mode"]')];
     for (const input of framingInputs) {
+      // `change` does not fire when the user clicks the already-checked
+      // default to confirm it. A click is still an explicit framing choice.
+      input.addEventListener("click", () => {
+        framingTouched = true;
+      });
       input.addEventListener("change", () => {
         if (input.checked) framingTouched = true;
       });
