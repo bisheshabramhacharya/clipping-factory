@@ -110,7 +110,10 @@ fn visual_moment_candidates(
         }
     }
 
-    if hot_windows.is_empty() && !source.scene_boundaries_ms.is_empty() {
+    // Audio and visual evidence are independent signals. Keep both and
+    // normalize cut density onto roughly the loudness-boost scale so one
+    // intro spike cannot hide the real action later in a long gameplay VOD.
+    if !source.scene_boundaries_ms.is_empty() {
         let mut boundaries = source.scene_boundaries_ms.clone();
         boundaries.sort_unstable();
         for (i, &center) in boundaries.iter().enumerate() {
@@ -124,7 +127,7 @@ fn visual_moment_candidates(
                     .count();
             if density >= 2 {
                 hot_windows.push((
-                    density as f32,
+                    density as f32 / 2.0,
                     center.saturating_sub(10_000),
                     "visual-action",
                 ));
@@ -856,6 +859,23 @@ mod tests {
                 .iter()
                 .map(|r| &r.reasons)
                 .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn audio_spikes_do_not_hide_dense_visual_action() {
+        let mut source = tiny_fixture().1;
+        source.duration_ms = 180_000;
+        source.scene_boundaries_ms = vec![120_000, 124_000, 128_000, 132_000];
+        let mut db = vec![-42.0; 180];
+        for v in db.iter_mut().skip(5).take(15) {
+            *v = -14.0;
+        }
+        let energy = crate::energy::EnergyProfile { per_second_db: db };
+        let candidates = visual_moment_candidates(&source, Some(&energy));
+        assert!(
+            candidates.iter().any(|c| c.start_ms >= 60_000),
+            "dense visual action must survive the earlier audio spike: {candidates:?}"
         );
     }
 
