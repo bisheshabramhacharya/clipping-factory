@@ -299,7 +299,7 @@ pub async fn clip_metadata(
 // Provider-generated copy (with per-field fallback to the template)
 // ---------------------------------------------------------------------------
 
-const META_SYSTEM: &str = r#"You write the posting copy for one short vertical clip cut from a podcast. Return ONLY a JSON object, no markdown fences:
+const META_SYSTEM: &str = r#"You write the posting copy for one short vertical clip cut from a longer video. Return ONLY a JSON object, no markdown fences:
 {"title":"…","description":"…","hashtags":["tag","tag",…]}
 Rules:
 - title: under 90 characters, sentence case, no surrounding quotes, faithful to what is actually said.
@@ -558,7 +558,7 @@ fn keyword_tags(input: &MetaInput<'_>) -> Vec<String> {
         .map(|(tag, _)| format!("#{tag}"))
         .collect();
     if tags.is_empty() {
-        vec!["#podcast".into(), "#clips".into()]
+        vec!["#video".into(), "#clips".into()]
     } else {
         tags
     }
@@ -871,11 +871,11 @@ mod tests {
         let tags = clean_hashtags(&[
             "#Podcast".into(),
             "pod-cast!".into(),
-            "podcast".into(),
+            "video".into(),
             "a".into(),
             "Growth2024".into(),
         ]);
-        assert_eq!(tags, vec!["#podcast", "#growth2024"]);
+        assert_eq!(tags, vec!["#podcast", "#video", "#growth2024"]);
     }
 
     #[test]

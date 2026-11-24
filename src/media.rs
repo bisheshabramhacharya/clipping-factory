@@ -9,7 +9,25 @@ use anyhow::{anyhow, bail, Context, Result};
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
-pub const MAX_SOURCE_MS: u64 = 4 * 3600 * 1000;
+/// Long-form ceiling for one uploaded source. Twelve hours covers normal
+/// podcast episodes as well as full Twitch/YouTube stream VODs; the local
+/// transcription pass is still the practical cost center, so this is a
+/// guardrail rather than a target.
+pub const MAX_SOURCE_MS: u64 = 12 * 3600 * 1000;
+
+/// Browser/client prefilter for common containers ffmpeg can inspect. The
+/// ffprobe decode check remains authoritative — extension support only keeps
+/// obviously wrong files out before upload.
+const SOURCE_EXTENSIONS: &[&str] = &[
+    "mp4", "m4v", "mov", "mkv", "webm", "avi", "ts", "m2ts", "mpg", "mpeg",
+];
+
+pub fn is_supported_source_filename(filename: &str) -> bool {
+    filename
+        .rsplit_once('.')
+        .map(|(_, ext)| SOURCE_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
 
 /// Inspect and validate the uploaded source. Errors are user-actionable.
 pub async fn probe(
@@ -43,13 +61,15 @@ pub async fn probe(
     let video = streams
         .iter()
         .find(|s| s["codec_type"] == "video")
-        .ok_or_else(|| anyhow!("No video stream found. Attach an MP4 that contains video."))?;
+        .ok_or_else(|| {
+            anyhow!("No video stream found. Attach a video file that contains video.")
+        })?;
     let audio = streams
         .iter()
         .find(|s| s["codec_type"] == "audio")
         .ok_or_else(|| {
             anyhow!(
-                "This MP4 has no audio stream. Clipping Factory needs speech audio to work with."
+                "This video has no audio stream. Clipping Factory needs audio to find moments and transcribe speech."
             )
         })?;
 
@@ -66,7 +86,7 @@ pub async fn probe(
         bail!("This video has no measurable duration.");
     }
     if duration_ms > MAX_SOURCE_MS {
-        bail!("This video is over 4 hours. The MVP supports sources up to 4 hours.");
+        bail!("This video is over 12 hours. Clipping Factory supports sources up to 12 hours.");
     }
 
     let width = video["width"].as_u64().unwrap_or(0) as u32;
@@ -122,7 +142,7 @@ async fn ensure_decodable(
         if codec != "unknown" && !decoder_list_has(&list, codec) {
             bail!(
                 "This source uses the {codec} codec, which this FFmpeg build cannot decode. \
-                 Convert it to an MP4 with H.264 video and AAC audio, then upload it again."
+                 Convert it to H.264 video and AAC audio, then upload it again."
             );
         }
     }
@@ -310,6 +330,30 @@ mod tests {
         assert!(!decoder_list_has(list, "vp9"));
         // A codec named only in a description is not a decoder.
         assert!(!decoder_list_has(list, "H.264"));
+    }
+
+    #[test]
+    fn source_filename_prefilter_accepts_common_video_containers() {
+        for name in [
+            "show.mp4",
+            "show.m4v",
+            "demo.mov",
+            "vod.mkv",
+            "gameplay.webm",
+            "camera.avi",
+            "capture.ts",
+            "archive.m2ts",
+            "old.mpg",
+            "old.mpeg",
+        ] {
+            assert!(
+                is_supported_source_filename(name),
+                "{name} should be accepted"
+            );
+        }
+        assert!(is_supported_source_filename("UPPER.MKV"));
+        assert!(!is_supported_source_filename("notes.txt"));
+        assert!(!is_supported_source_filename("no-extension"));
     }
 
     #[test]

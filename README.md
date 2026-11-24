@@ -2,9 +2,9 @@
 
 # Clipping Factory
 
-### One podcast in. Every strong, faithful clip out.
+### One long video in. Every strong, faithful clip out.
 
-A local-first podcast clipping studio with full-transcript ranking, face-aware reframing, and word-accurate captions. Built entirely in Rust.
+A local-first clipping studio for podcasts, interviews, Twitch streams, gameplay, tutorials, screen recordings, and other long videos — with transcript-aware ranking, smart reframing, visual/energy fallback for no-speech footage, and word-accurate captions. Built entirely in Rust.
 
 [![CI](https://github.com/bisheshabramhacharya/clipping-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/bisheshabramhacharya/clipping-factory/actions/workflows/ci.yml)
 ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
@@ -15,7 +15,7 @@ A local-first podcast clipping studio with full-transcript ranking, face-aware r
 
 ![Clipping Factory results showing six rendered vertical clips](docs/assets/studio-results.png)
 
-Clipping Factory turns a podcast MP4 into a set of strong, distinct vertical clips. Every result is one continuous excerpt with word-timed captions and clean, face-aware framing.
+Clipping Factory turns one long video into a set of strong, distinct vertical clips. Speech-led videos get transcript-first editorial selection with word-timed captions; stream, gameplay, and screen footage can use action-oriented selection and center-crop or full-frame layouts. No-speech footage falls back to audio-energy and visual-cut moments instead of automatically producing zero clips.
 
 The goal is simple: find clips worth posting without rewriting the speaker, inventing context, or hiding weak edits behind effects.
 
@@ -40,7 +40,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 </p>
 
 ```text
-Drop MP4 → Inspect → Extract audio → Transcribe → Find candidates
+Drop video → Inspect → Extract audio → Transcribe → Find candidates
          → Validate → Review candidates → Analyze framing → Render → Preview and download
 ```
 
@@ -64,7 +64,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
 cargo run --release
 ```
 
-The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one MP4, pick the caption style, accent color, framing, language, and clip length, then click **Make clips**. Nothing is uploaded or transcribed until you do. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
+The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one video (`mp4`, `mov`, `mkv`, `webm`, `avi`, `ts`, `m2ts`, `mpg`, or `mpeg`), pick the video type, caption style, accent color, framing, language, and clip length, then click **Make clips**. Nothing is uploaded or transcribed until you do. Video type steers selection and the default framing: talking videos use face-aware Fill, streams/gameplay default to a center Crop, and screen recordings default to Fit. You can override framing per project. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue", "clutch moments"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
 
 With **Review candidates before rendering** on (the default), the run pauses after validation: each accepted candidate lists its headline, range, score, selection reason, and the exact transcript words it would cover — press **Play** to watch the range straight from the source. Drop the weak ones and **Render kept** frames and renders only those; **Render all** skips the decision and renders everything. Keyboard: `↑`/`↓` between cards, `Space` previews, `D` drops, `K` brings back, `Enter` renders. Sort by score or time. The review survives refresh and restarts — the server stores it.
 
@@ -83,7 +83,7 @@ Set `CF_WHISPER_BIN` to the resulting `whisper-cli` path if it is not already on
 
 ### Better transcription
 
-`ggml-base` is the fast default and covers ~99 languages. For English podcasts, `ggml-small.en.bin` gives noticeably cleaner transcripts at about 2.4× the transcription time. Models are found in `~/.clipping-factory/models/`, `./models/`, and `~/.cache/whisper.cpp/`; the largest one wins, and English-only weights (`ggml-*.en.bin`, up to `medium.en`) win over multilingual ones of any size. A project that needs another language switches to the best multilingual model found. `CF_WHISPER_MODEL` overrides discovery.
+`ggml-base` is the fast default and covers ~99 languages. For English speech-led videos, `ggml-small.en.bin` gives noticeably cleaner transcripts at about 2.4× the transcription time. Models are found in `~/.clipping-factory/models/`, `./models/`, and `~/.cache/whisper.cpp/`; the largest one wins, and English-only weights (`ggml-*.en.bin`, up to `medium.en`) win over multilingual ones of any size. A project that needs another language switches to the best multilingual model found. `CF_WHISPER_MODEL` overrides discovery.
 
 Language is chosen per project at upload: **Auto-detect** is the default, or pick a specific language to skip detection. Non-English sources need a multilingual model.
 

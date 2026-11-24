@@ -6,7 +6,7 @@
 //! same 1–5 rubric so the deterministic validator applies identical rules.
 //! Quotes are exact transcript substrings, so faithfulness is guaranteed.
 
-use crate::domain::{Candidate, Scores, Sentence, Transcript};
+use crate::domain::{Candidate, Scores, Sentence, SourceKind, Transcript};
 use crate::select::overlap_ms;
 use crate::validate::{normalize, MAX_MS, MIN_MS};
 
@@ -78,6 +78,28 @@ const PAYOFF_CUES: &[&str] = &[
     "it works because",
     "that's how",
     "thats how",
+];
+
+/// Audible reaction language common to streams, gameplay, sports, and live
+/// recordings. These are not magic pass keys — they only feed the same
+/// tension/payoff signals as a question-answer exchange — but without them
+/// the offline selector reads hype footage like a flat interview.
+const HYPE_REACTION_CUES: &[&str] = &[
+    "let's go",
+    "lets go",
+    "no way",
+    "what just happened",
+    "that was insane",
+    "that's insane",
+    "thats insane",
+    "holy shit",
+    "oh my god",
+    "clip it",
+    "clipped it",
+    "we won",
+    "i won",
+    "i lost",
+    "so close",
 ];
 
 const REFERENCE_CUES: &[&str] = &[
@@ -342,6 +364,29 @@ pub fn propose(
     focus: Option<&str>,
     title: Option<&str>,
 ) -> Vec<Candidate> {
+    propose_with_kind(
+        t,
+        source_duration_ms,
+        candidate_count,
+        energy,
+        focus,
+        title,
+        SourceKind::Auto,
+    )
+}
+
+/// `propose` with the project's broad video type. The rubric stays shared —
+/// the type only reweights evidence that is already audible in the
+/// transcript/audio, so a stream label can never manufacture a weak clip.
+pub fn propose_with_kind(
+    t: &Transcript,
+    source_duration_ms: u64,
+    candidate_count: usize,
+    energy: Option<&crate::energy::EnergyProfile>,
+    focus: Option<&str>,
+    title: Option<&str>,
+    source_kind: SourceKind,
+) -> Vec<Candidate> {
     let sentences = &t.sentences;
     if sentences.is_empty() {
         return Vec::new();
@@ -518,7 +563,10 @@ pub fn propose(
             let question_open = opener.text.contains('?')
                 || ["what", "why", "how", "who", "when"].contains(&first_word);
             let repeated_claim = has_repeated_claim(window);
-            let exchange = has_reaction_exchange(window);
+            let hype_reaction = HYPE_REACTION_CUES
+                .iter()
+                .any(|cue| window_lower.contains(cue));
+            let exchange = has_reaction_exchange(window) || hype_reaction;
             let absolute_claim = contains_absolute_claim(&window_lower);
 
             // Keep routine housekeeping, sponsor reads, and filler-heavy windows
@@ -621,9 +669,21 @@ pub fn propose(
                 // A window that opens on a question and ends on a payoff is a
                 // complete exchange; fragments of one score less.
                 + complete_exchange_boost(question_open, payoff, dur_s)
+                + if matches!(source_kind, SourceKind::Stream | SourceKind::Gameplay)
+                    && hype_reaction
+                {
+                    3.0
+                } else {
+                    0.0
+                }
                 + energy
                     .map(|e| crate::energy::window_boost(e, opener.start_ms, closer.end_ms))
-                    .unwrap_or(0.0);
+                    .unwrap_or(0.0)
+                    * if matches!(source_kind, SourceKind::Stream | SourceKind::Gameplay) {
+                        1.4
+                    } else {
+                        1.0
+                    };
 
             let headline = make_headline(best_headline_sentence(window));
             let opening_quote = quote_head(&opener.text, 12);

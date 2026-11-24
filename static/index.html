@@ -36,8 +36,8 @@
           <div class="drop-target">
             <div id="drop-empty" class="drop-panel">
               <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <strong>Drop a podcast</strong>
-              <button id="choose-btn" class="primary" type="button">Choose MP4</button>
+              <strong>Drop any video</strong>
+              <button id="choose-btn" class="primary" type="button">Choose video</button>
             </div>
             <div id="drop-staged" class="drop-panel hidden" aria-live="polite">
               <span class="staged-kicker">Ready to clip</span>
@@ -49,7 +49,7 @@
                 <button id="start-btn" class="primary" type="button">Make clips</button>
               </div>
             </div>
-            <input id="file-input" type="file" accept="video/mp4,.mp4,.m4v" hidden>
+            <input id="file-input" type="file" accept="video/*,.mp4,.m4v,.mov,.mkv,.webm,.avi,.ts,.m2ts,.mpg,.mpeg" hidden>
           </div>
           <div class="upload-options">
             <div class="opt opt-wide">
@@ -80,6 +80,10 @@
                   <input type="radio" name="framing-mode" value="fill" checked>
                   <span>Fill</span>
                 </label>
+                <label title="Static center crop that fills vertical — best for gameplay and action">
+                  <input type="radio" name="framing-mode" value="crop">
+                  <span>Crop</span>
+                </label>
                 <label title="Full frame over a blurred background">
                   <input type="radio" name="framing-mode" value="background">
                   <span>Fit</span>
@@ -99,6 +103,17 @@
                 <small id="upload-accent-hex" class="sr-only" aria-live="polite"></small>
               </div>
             </div>
+            <label class="opt">
+              <span class="opt-label">Video type</span>
+              <select id="upload-source-kind" aria-label="Video type">
+                <option value="auto" selected>Auto-detect</option>
+                <option value="conversation">Talking / podcast</option>
+                <option value="stream">Stream / VOD</option>
+                <option value="gameplay">Gameplay</option>
+                <option value="screen">Screen / tutorial</option>
+              </select>
+              <small class="sr-only">Steers what moments are selected and the default framing.</small>
+            </label>
             <label class="opt">
               <span class="opt-label">Language</span>
               <select id="upload-language" aria-label="Language">
@@ -170,7 +185,7 @@
             <p id="error-text"></p>
           </div>
           <div class="error-actions">
-            <button id="choose-another-btn" type="button" class="hidden">Choose another MP4</button>
+            <button id="choose-another-btn" type="button" class="hidden">Choose another video</button>
             <button id="render-more-fail-btn" type="button" class="hidden">Render more</button>
             <button id="retry-btn" class="primary" type="button">Retry stage</button>
           </div>
@@ -223,9 +238,9 @@
           <div id="clips" class="clip-stage"></div>
           <div id="empty-results" class="empty-results hidden">
             <strong>No clips this time</strong>
-            <p class="muted">Nothing here stood on its own well enough. Try a longer, more conversational recording.</p>
+            <p class="muted">Nothing here stood on its own well enough. Try a longer recording with clearer speech, reactions, or visible action.</p>
             <div class="empty-actions">
-              <button id="empty-choose-btn" type="button" class="primary">Choose another MP4</button>
+              <button id="empty-choose-btn" type="button" class="primary">Choose another video</button>
             </div>
           </div>
         </div>
@@ -245,7 +260,7 @@
     </div>
     <section id="library-state">
       <div id="library-list" class="library-list"></div>
-      <p id="library-empty" class="muted small library-empty hidden">No projects yet. Drop an MP4 to start one.</p>
+      <p id="library-empty" class="muted small library-empty hidden">No projects yet. Drop a video to start one.</p>
     </section>
   </aside>
 
@@ -344,7 +359,7 @@
   <!-- Window-wide drop target: works from any state, not just the empty screen -->
   <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
     <div class="drop-overlay-box">
-      <strong>Drop an MP4 to set up a new project</strong>
+      <strong>Drop a video to set up a new project</strong>
       <p class="muted small">The project on screen stays saved on disk.</p>
     </div>
   </div>

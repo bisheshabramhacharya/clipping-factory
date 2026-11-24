@@ -1,5 +1,5 @@
 //! Clipping Factory — a local clipping studio.
-//! One podcast MP4 in → several faithful, polished 9:16 clips out.
+//! One long video in → several faithful, polished 9:16 clips out.
 //!
 //! Launch with one command: `cargo run --release` (or run the built binary).
 

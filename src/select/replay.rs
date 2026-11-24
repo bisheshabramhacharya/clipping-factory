@@ -43,8 +43,13 @@ pub async fn replay(project_dir: &Path, focus: Option<&str>) -> Result<Selection
         &transcript,
         &source,
         energy.as_ref(),
-        focus.or(project.focus_prompt.as_deref()),
-        project.platform,
+        crate::select::SelectionOptions {
+            focus: focus.or(project.focus_prompt.as_deref()),
+            platform: project.platform,
+            source_kind: project
+                .source_kind
+                .resolve(&source.filename, source.duration_ms),
+        },
         |_| {},
     )
     .await?;

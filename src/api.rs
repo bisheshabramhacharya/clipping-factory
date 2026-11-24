@@ -333,6 +333,7 @@ struct UploadFields {
     language: Option<String>,
     focus_prompt: Option<String>,
     platform: Platform,
+    source_kind: SourceKind,
     review_before_render: bool,
 }
 
@@ -447,6 +448,7 @@ async fn receive_upload(
     let mut language: Option<String> = None;
     let mut focus_prompt: Option<String> = None;
     let mut platform = Platform::default();
+    let mut source_kind = SourceKind::default();
     let mut review_before_render = false;
     let mut saw_file = false;
 
@@ -483,6 +485,7 @@ async fn receive_upload(
                 let v = read_multipart_text(field).await?;
                 framing_mode = match v.trim() {
                     "background" => FramingMode::Background,
+                    "crop" => FramingMode::Crop,
                     _ => FramingMode::Fill,
                 };
                 continue;
@@ -510,6 +513,15 @@ async fn receive_upload(
                     .ok_or_else(|| bad_request("platform must be any, tiktok, reels, or shorts"))?;
                 continue;
             }
+            "source_kind" => {
+                let v = read_multipart_text(field).await?;
+                source_kind = SourceKind::parse(&v).ok_or_else(|| {
+                    bad_request(
+                        "source_kind must be auto, conversation, stream, gameplay, or screen",
+                    )
+                })?;
+                continue;
+            }
             "review_before_render" => {
                 let v = read_multipart_text(field).await?;
                 review_before_render = matches!(v.trim(), "true" | "1" | "yes" | "on");
@@ -518,14 +530,13 @@ async fn receive_upload(
             _ => continue,
         }
         if saw_file {
-            return Err(bad_request("Attach exactly one MP4 file."));
+            return Err(bad_request("Attach exactly one video file."));
         }
         saw_file = true;
         source_name = field.file_name().unwrap_or("source.mp4").to_string();
-        let lower = source_name.to_lowercase();
-        if !(lower.ends_with(".mp4") || lower.ends_with(".m4v")) {
+        if !crate::media::is_supported_source_filename(&source_name) {
             return Err(bad_request(
-                "Attach an .mp4 file. Other containers are post-MVP.",
+                "Attach a common video file: mp4, mov, mkv, webm, avi, ts, m2ts, mpg, or mpeg.",
             ));
         }
         // Stream to disk without buffering the whole video in memory (PRD §7.2).
@@ -559,7 +570,7 @@ async fn receive_upload(
 
     if wrote_bytes == 0 {
         return Err(bad_request(
-            "No file received. Drop one MP4 into the studio.",
+            "No file received. Drop one video into the studio.",
         ));
     }
 
@@ -592,6 +603,7 @@ async fn receive_upload(
         language,
         focus_prompt,
         platform,
+        source_kind,
         review_before_render,
     })
 }
@@ -618,6 +630,7 @@ async fn create_project(
     project.language = fields.language;
     project.focus_prompt = fields.focus_prompt;
     project.platform = fields.platform;
+    project.source_kind = fields.source_kind;
     project.review_before_render = fields.review_before_render;
     if let Err(error) = state.store.save_project(&project).await {
         cleanup_upload(&state, &id).await;
@@ -1455,7 +1468,7 @@ async fn serve_clip_inline(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let (_clip, path) = find_clip(&state, &id, &clip_id).await?;
-    serve_video(&path, &headers, None).await
+    serve_video(&path, &headers, None, "video/mp4").await
 }
 
 async fn serve_clip_download(
@@ -1464,10 +1477,10 @@ async fn serve_clip_download(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let (clip, path) = find_clip(&state, &id, &clip_id).await?;
-    serve_video(&path, &headers, Some(clip.filename)).await
+    serve_video(&path, &headers, Some(clip.filename), "video/mp4").await
 }
 
-/// The uploaded source MP4, inline — the review screen plays a candidate's
+/// The uploaded source video, inline — the review screen plays a candidate's
 /// range straight from it with a `#t=start,end` media fragment, so no
 /// preview files are needed. Same Range-aware streaming as rendered clips.
 async fn serve_source(
@@ -1479,7 +1492,28 @@ async fn serve_source(
     if !state.store.exists(&id) || !path.is_file() {
         return Err(not_found("Project not found."));
     }
-    serve_video(&path, &headers, None).await
+    let source_name = state
+        .store
+        .load_source_name(&id)
+        .await
+        .unwrap_or_else(|| "source.mp4".into());
+    serve_video(&path, &headers, None, source_content_type(&source_name)).await
+}
+
+fn source_content_type(filename: &str) -> &'static str {
+    match filename
+        .rsplit_once('.')
+        .map(|(_, ext)| ext.to_lowercase())
+        .as_deref()
+    {
+        Some("mov") => "video/quicktime",
+        Some("mkv") => "video/x-matroska",
+        Some("webm") => "video/webm",
+        Some("avi") => "video/x-msvideo",
+        Some("mpg" | "mpeg") => "video/mpeg",
+        Some("ts" | "m2ts") => "video/mp2t",
+        _ => "video/mp4",
+    }
 }
 
 /// One export-pack sidecar for a rendered clip: `srt`, `vtt`, or `meta`
@@ -1532,6 +1566,7 @@ async fn serve_video(
     path: &std::path::Path,
     headers: &HeaderMap,
     download_name: Option<String>,
+    content_type: &'static str,
 ) -> Result<Response, ApiError> {
     use tokio::io::{AsyncReadExt, AsyncSeekExt};
     use tokio_util::io::ReaderStream;
@@ -1552,7 +1587,7 @@ async fn serve_video(
         // Clip bytes change in place when captions are restyled — never let
         // the browser reuse a cached copy.
         .header(header::CACHE_CONTROL, "no-store")
-        .header(header::CONTENT_TYPE, "video/mp4");
+        .header(header::CONTENT_TYPE, content_type);
     if let Some(name) = &download_name {
         builder = builder.header(
             header::CONTENT_DISPOSITION,
@@ -2152,6 +2187,66 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn upload_accepts_video_type_crop_and_common_containers() {
+        let (state, tmp) = test_state();
+        let boundary = "cf-any-video-upload";
+        let build = |filename: &str, kind: Option<&str>, framing: Option<&str>| {
+            let kind_field = kind
+                .map(|value| {
+                    format!("--{boundary}\r\nContent-Disposition: form-data; name=\"source_kind\"\r\n\r\n{value}\r\n")
+                })
+                .unwrap_or_default();
+            let framing_field = framing
+                .map(|value| {
+                    format!("--{boundary}\r\nContent-Disposition: form-data; name=\"framing_mode\"\r\n\r\n{value}\r\n")
+                })
+                .unwrap_or_default();
+            Request::builder()
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(format!(
+                    "{kind_field}{framing_field}--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\nContent-Type: video/mp4\r\n\r\nx\r\n--{boundary}--\r\n"
+                )))
+                .unwrap()
+        };
+
+        let id = crate::util::short_id();
+        let multipart =
+            Multipart::from_request(build("stream-vod.mkv", Some("stream"), Some("crop")), &())
+                .await
+                .unwrap();
+        let fields = receive_upload(&state, &id, multipart).await.unwrap();
+        assert_eq!(fields.source_name, "stream-vod.mkv");
+        assert_eq!(fields.source_kind, SourceKind::Stream);
+        assert_eq!(fields.framing_mode, FramingMode::Crop);
+
+        for filename in ["demo.mov", "gameplay.webm", "archive.m2ts"] {
+            let id = crate::util::short_id();
+            let multipart = Multipart::from_request(build(filename, None, None), &())
+                .await
+                .unwrap();
+            receive_upload(&state, &id, multipart).await.unwrap();
+        }
+
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("notes.txt", None, None), &())
+            .await
+            .unwrap();
+        let error = receive_upload(&state, &id, multipart).await.unwrap_err();
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("x.mp4", Some("unknown"), None), &())
+            .await
+            .unwrap();
+        let error = receive_upload(&state, &id, multipart).await.unwrap_err();
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
     async fn video_range_response_caps_end_and_streams_only_requested_bytes() {
         let tmp = std::env::temp_dir().join(format!("cf-range-{}", crate::util::short_id()));
         tokio::fs::create_dir_all(&tmp).await.unwrap();
@@ -2160,7 +2255,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(header::RANGE, "bytes=4-99".parse().unwrap());
 
-        let response = match serve_video(&path, &headers, None).await {
+        let response = match serve_video(&path, &headers, None, "video/mp4").await {
             Ok(response) => response,
             Err(_) => panic!("range response should be served"),
         };

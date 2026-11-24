@@ -24,7 +24,7 @@
   let elapsedTimer = null;
   let uploadXhr = null;
   let uploadCancelRequested = false;
-  // A chosen MP4 waits here until "Make clips", so the caption and framing
+  // A chosen video waits here until "Make clips", so the caption and framing
   // options can still change before any upload or transcription starts.
   let stagedFile = null;
   let cancellationPending = false;
@@ -249,7 +249,7 @@
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (!f) return;
       if (view && isProcessing(view.project.status)) {
-        showActionMessage("Cancel or finish the current project before dropping a new MP4.", "notice");
+        showActionMessage("Cancel or finish the current project before dropping a new video.", "notice");
         return;
       }
       if (Object.values(restyleState).some((state) => state.busy)) {
@@ -261,9 +261,14 @@
     });
   }
 
+  function isSupportedVideoFile(file) {
+    return /\.(mp4|m4v|mov|mkv|webm|avi|ts|m2ts|mpg|mpeg)$/i.test(file.name)
+      || (file.type || "").startsWith("video/");
+  }
+
   function stageFile(file) {
-    if (!/\.(mp4|m4v)$/i.test(file.name)) {
-      showActionMessage("Attach an .mp4 file. Other containers are not supported yet.");
+    if (!isSupportedVideoFile(file)) {
+      showActionMessage("Attach a common video file: mp4, mov, mkv, webm, avi, ts, m2ts, mpg, or mpeg.");
       return;
     }
     stagedFile = file;
@@ -345,6 +350,40 @@
     platformSelect.addEventListener("change", () => {
       localStorage.setItem("cf-platform", platformSelect.value);
     });
+    // Video type restores like the other setup prefs. Unless the user has
+    // explicitly touched framing, it also chooses the safest default layout:
+    // face tracking for talking videos, center crop for stream/gameplay, and
+    // full frame for screen recordings where UI edges matter.
+    const sourceKindSelect = $("upload-source-kind");
+    const framingInputs = [...document.querySelectorAll('input[name="framing-mode"]')];
+    let framingTouched = false;
+    for (const input of framingInputs) {
+      input.addEventListener("change", () => {
+        if (input.checked) framingTouched = true;
+      });
+    }
+    function defaultFramingForKind(kind) {
+      if (kind === "gameplay" || kind === "stream") return "crop";
+      if (kind === "screen") return "background";
+      if (kind === "conversation") return "fill";
+      return null;
+    }
+    function applyKindDefault() {
+      const framing = defaultFramingForKind(sourceKindSelect.value);
+      if (!framingTouched && framing) {
+        const input = framingInputs.find((candidate) => candidate.value === framing);
+        if (input) input.checked = true;
+      }
+    }
+    const savedKind = localStorage.getItem("cf-source-kind");
+    if (savedKind && [...sourceKindSelect.options].some((o) => o.value === savedKind)) {
+      sourceKindSelect.value = savedKind;
+    }
+    applyKindDefault();
+    sourceKindSelect.addEventListener("change", () => {
+      localStorage.setItem("cf-source-kind", sourceKindSelect.value);
+      applyKindDefault();
+    });
     // Review-on is the default; an unchecked choice sticks like the others.
     const reviewBox = $("upload-review");
     const savedReview = localStorage.getItem("cf-review");
@@ -355,8 +394,8 @@
   }
 
   function uploadFile(file) {
-    if (!/\.(mp4|m4v)$/i.test(file.name)) {
-      showActionMessage("Attach an .mp4 file. Other containers are not supported yet.");
+    if (!isSupportedVideoFile(file)) {
+      showActionMessage("Attach a common video file: mp4, mov, mkv, webm, avi, ts, m2ts, mpg, or mpeg.");
       return;
     }
     if (uploadXhr) return;
@@ -377,6 +416,7 @@
     form.append("accent_color", $("upload-accent-color").value.toUpperCase());
     form.append("language", $("upload-language").value || "auto");
     form.append("platform", $("upload-platform").value || "any");
+    form.append("source_kind", $("upload-source-kind").value || "auto");
     const focusPrompt = $("focus-prompt").value.trim();
     if (focusPrompt) form.append("focus_prompt", focusPrompt);
     if ($("upload-review").checked) form.append("review_before_render", "true");
@@ -418,7 +458,7 @@
       if (uploadXhr !== xhr) return;
       uploadXhr = null;
       const message = uploadCancelRequested
-        ? "Upload cancelled. Choose another MP4."
+        ? "Upload cancelled. Choose another video."
         : "Upload stopped before it finished. Try again.";
       resetToEmpty({ message, kind: uploadCancelRequested ? "notice" : "error" });
     };
@@ -498,7 +538,7 @@
       const res = await fetch(apiPath("projects", requestProjectId));
       if (projectId !== requestProjectId) return;
       if (res.status === 404) {
-        resetToEmpty({ message: "This project is no longer available. Choose another MP4." });
+        resetToEmpty({ message: "This project is no longer available. Choose another video." });
         return;
       }
       let payload = null;
@@ -1335,7 +1375,7 @@
       $("error-stage").textContent = failedStage
         ? `${STAGE_LABELS[failedStage.name] || failedStage.name} failed`
         : "Processing failed";
-      $("error-text").textContent = p.error || "Processing failed. Try again or choose another MP4.";
+      $("error-text").textContent = p.error || "Processing failed. Try again or choose another video.";
       box.classList.remove("hidden");
     } else if (p.status === "cancelled") {
       $("error-stage").textContent = "Cancelled";
@@ -1404,7 +1444,7 @@
       : "New project";
     newProject.title = active
       ? "Cancel processing first. Completed clips will stay available."
-      : "Leave this project and choose another MP4";
+      : "Leave this project and choose another video";
 
     // Empty (quality bar) state
     $("empty-results").classList.toggle("hidden", !(p.status === "complete" && total === 0));

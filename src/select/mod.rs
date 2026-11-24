@@ -15,7 +15,7 @@ pub mod local;
 pub mod openai;
 pub mod replay;
 
-use crate::domain::{fmt_ms, Candidate, Platform, Scores, SourceInfo, Transcript};
+use crate::domain::{fmt_ms, Candidate, Platform, Scores, SourceInfo, SourceKind, Transcript};
 use crate::settings::{AiSettings, Provider};
 use anyhow::{anyhow, Result};
 
@@ -40,15 +40,30 @@ fn local_ranking(
     source: &SourceInfo,
     energy: Option<&crate::energy::EnergyProfile>,
     focus: Option<&str>,
+    source_kind: SourceKind,
 ) -> Vec<Candidate> {
-    heuristic::propose(
-        transcript,
-        source.duration_ms,
-        local_candidate_limit(source.duration_ms),
-        energy,
-        focus,
-        Some(&source.filename),
-    )
+    let candidate_count = local_candidate_limit(source.duration_ms);
+    let title = Some(source.filename.as_str());
+    if source_kind == SourceKind::Auto {
+        heuristic::propose(
+            transcript,
+            source.duration_ms,
+            candidate_count,
+            energy,
+            focus,
+            title,
+        )
+    } else {
+        heuristic::propose_with_kind(
+            transcript,
+            source.duration_ms,
+            candidate_count,
+            energy,
+            focus,
+            title,
+            source_kind,
+        )
+    }
 }
 
 pub struct SelectionOutcome {
@@ -59,22 +74,156 @@ pub struct SelectionOutcome {
     pub warning: Option<String>,
 }
 
-/// `focus` is the project's optional free-text steering prompt ("clips about
-/// pricing"). Providers receive it as a rubric directive; the offline tier
-/// falls back to keyword matching. Blank or absent focus keeps generic
-/// best-candidate ranking. `platform` re-centers the preferred clip length in
-/// the window prompt; `Platform::Generic` adds no hint.
+/// Candidate generation for videos with no transcribable speech. The normal
+/// editorial ranker is transcript-first, so silent gameplay/action/screen
+/// footage would otherwise produce zero clips no matter how much happened on
+/// screen. This fallback looks for loudness spikes first and hard-cut density
+/// second, then validates those intervals through the transcript-independent
+/// visual path. It is intentionally conservative: no signal still means zero
+/// clips rather than arbitrary chunks.
+fn visual_moment_candidates(
+    source: &SourceInfo,
+    energy: Option<&crate::energy::EnergyProfile>,
+) -> Vec<Candidate> {
+    const HOT_WINDOW_MS: u64 = 20_000;
+    const STEP_MS: u64 = 5_000;
+    const CLIP_LEN_MS: u64 = 45_000;
+    const LEAD_IN_MS: u64 = 10_000;
+
+    let duration = source.duration_ms;
+    if duration < crate::validate::MIN_MS {
+        return Vec::new();
+    }
+    let limit = local_candidate_limit(duration).min(12);
+    let mut hot_windows: Vec<(f32, u64, &'static str)> = Vec::new();
+
+    if let Some(profile) = energy {
+        if profile.per_second_db.len() >= 2 && duration > HOT_WINDOW_MS {
+            let mut start = 0;
+            while start + HOT_WINDOW_MS <= duration {
+                let boost = crate::energy::window_boost(profile, start, start + HOT_WINDOW_MS);
+                if boost >= 1.2 {
+                    hot_windows.push((boost, start, "high-energy"));
+                }
+                start += STEP_MS;
+            }
+        }
+    }
+
+    if hot_windows.is_empty() && !source.scene_boundaries_ms.is_empty() {
+        let mut boundaries = source.scene_boundaries_ms.clone();
+        boundaries.sort_unstable();
+        for (i, &center) in boundaries.iter().enumerate() {
+            let lo = center.saturating_sub(15_000);
+            let hi = center.saturating_add(15_000);
+            let density = boundaries[i..].iter().take_while(|&&b| b <= hi).count()
+                + boundaries[..i]
+                    .iter()
+                    .rev()
+                    .take_while(|&&b| b >= lo)
+                    .count();
+            if density >= 2 {
+                hot_windows.push((
+                    density as f32,
+                    center.saturating_sub(10_000),
+                    "visual-action",
+                ));
+            }
+        }
+    }
+
+    hot_windows.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mut kept: Vec<Candidate> = Vec::new();
+    for (strength, hot_start, label) in hot_windows {
+        if kept.len() >= limit {
+            break;
+        }
+        let mut start = hot_start.saturating_sub(LEAD_IN_MS);
+        if start + CLIP_LEN_MS > duration {
+            start = duration.saturating_sub(CLIP_LEN_MS);
+        }
+        let end = (start + CLIP_LEN_MS).min(duration);
+        if end.saturating_sub(start) < crate::validate::MIN_MS {
+            continue;
+        }
+        let overlaps = kept.iter().any(|c| {
+            let inter = overlap_ms(c.start_ms, c.end_ms, start, end) as f64;
+            inter / ((end - start).max(1) as f64) > 0.25
+        });
+        if overlaps {
+            continue;
+        }
+        let strong = strength >= 2.5;
+        kept.push(Candidate {
+            start_ms: start,
+            end_ms: end,
+            headline: format!(
+                "{} moment at {}",
+                if label == "high-energy" { "High-energy" } else { "Visual" },
+                fmt_ms(start)
+            ),
+            opening_quote: String::new(),
+            closing_quote: String::new(),
+            selection_reason: if label == "high-energy" {
+                "A loudness spike marks a reaction, impact, or other high-energy moment in a video with little or no speech.".into()
+            } else {
+                "A dense run of visual cuts marks an action-heavy moment in a video with little or no speech.".into()
+            },
+            scores: Scores {
+                self_contained: 4,
+                opening_strength: 4,
+                specificity: 3,
+                tension_or_novelty: if strong { 5 } else { 4 },
+                payoff: if strong { 4 } else { 3 },
+                clarity: 4,
+                context_dependency: 1,
+                slop_risk: 1,
+            },
+        });
+    }
+    kept
+}
+
+/// Project-level steering shared by every selection tier.
+#[derive(Clone, Copy)]
+pub struct SelectionOptions<'a> {
+    /// Optional free-text steering prompt ("clips about pricing"). Providers
+    /// receive it as a rubric directive; the offline tier falls back to
+    /// keyword matching.
+    pub focus: Option<&'a str>,
+    /// Short-form target that re-centers the preferred clip length in the
+    /// window prompt; `Platform::Generic` adds no hint.
+    pub platform: Platform,
+    /// Broad source type that steers editorial priorities.
+    pub source_kind: SourceKind,
+}
+
 pub async fn propose(
     settings: &AiSettings,
     transcript: &Transcript,
     source: &SourceInfo,
     energy: Option<&crate::energy::EnergyProfile>,
-    focus: Option<&str>,
-    platform: Platform,
+    options: SelectionOptions<'_>,
     on_progress: impl FnMut(f32),
 ) -> Result<SelectionOutcome> {
     let (target, candidate_count) = plan_counts(source.duration_ms);
-    let focus = focus.map(str::trim).filter(|f| !f.is_empty());
+    let focus = options.focus.map(str::trim).filter(|f| !f.is_empty());
+    let platform = options.platform;
+    let source_kind = options.source_kind;
+
+    // A silent or instrumental video has no editorial transcript for either
+    // the local or networked tiers. Rank observable moments instead of
+    // turning the run into an automatic zero-clip outcome.
+    if !crate::validate::has_meaningful_speech(transcript, source.duration_ms) {
+        return Ok(SelectionOutcome {
+            candidates: visual_moment_candidates(source, energy),
+            selector: "visual/energy ranking".into(),
+            warning: Some(
+                "No speech was detected, so clips were ranked from audio energy and visual cuts. Captions and quote checks are unavailable for these clips."
+                    .into(),
+            ),
+        });
+    }
 
     // An unconnected setup always ranks locally, whatever its stored provider says.
     let provider = if settings.connected() {
@@ -89,7 +238,7 @@ pub async fn propose(
         // pass, so its shortlist is already finally ranked (PRD §9.1) — only
         // the windowed tiers below need a separate ranking pass.
         return Ok(SelectionOutcome {
-            candidates: local_ranking(transcript, source, energy, focus),
+            candidates: local_ranking(transcript, source, energy, focus, source_kind),
             selector: "local ranking".into(),
             warning: None,
         });
@@ -121,7 +270,17 @@ pub async fn propose(
     };
     let results = complete_windows(
         &windows,
-        |win| window_prompt(win, source, target, per_window.max(2), focus, platform),
+        |win| {
+            window_prompt(
+                win,
+                source,
+                target,
+                per_window.max(2),
+                focus,
+                platform,
+                source_kind,
+            )
+        },
         on_progress,
         &mut completion,
         provider == Provider::Local,
@@ -133,7 +292,7 @@ pub async fn propose(
     // rank the whole source locally and say so in the UI.
     if provider == Provider::Local && failures > 0 {
         return Ok(SelectionOutcome {
-            candidates: local_ranking(transcript, source, energy, focus),
+            candidates: local_ranking(transcript, source, energy, focus, source_kind),
             selector: "local ranking (local endpoint failed)".into(),
             warning: Some(format!(
                 "The local endpoint failed ({}) — ranked locally instead.",
@@ -147,7 +306,8 @@ pub async fn propose(
         return Err(anyhow!(first_error(&results)));
     }
 
-    let local_fallback = (failures > 0).then(|| local_ranking(transcript, source, energy, focus));
+    let local_fallback =
+        (failures > 0).then(|| local_ranking(transcript, source, energy, focus, source_kind));
     let (mut all, warning) = merge_windows(
         &windows,
         results,
@@ -363,7 +523,7 @@ fn ts_precise(ms: u64) -> String {
 // Prompting & parsing
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT: &str = r#"You are the editorial selector inside Clipping Factory, a tool that turns one long podcast into a few faithful vertical clips. You choose which continuous candidates of the source recording deserve to stand alone. You are a demanding editor: quality over quota.
+const SYSTEM_PROMPT: &str = r#"You are the editorial selector inside Clipping Factory, a tool that turns one long video into a few faithful vertical clips. You choose which continuous candidates of the source recording deserve to stand alone. The source may be a podcast, interview, livestream, gameplay session, tutorial, screen recording, or another spoken-video format. You are a demanding editor: quality over quota.
 
 HARD RULES
 - Each candidate is ONE continuous interval of the source. You choose only start_ms and end_ms.
@@ -408,6 +568,7 @@ fn window_prompt(
     per_window: usize,
     focus: Option<&str>,
     platform: Platform,
+    source_kind: SourceKind,
 ) -> String {
     let mut directive = focus
         .map(|f| f.split_whitespace().collect::<Vec<_>>().join(" "))
@@ -418,6 +579,11 @@ fn window_prompt(
             )
         })
         .unwrap_or_default();
+    directive.push_str(&format!(
+        "\n\nVIDEO TYPE\nThis source is best treated as {}. {}",
+        source_kind.label(),
+        source_kind.prompt_guidance()
+    ));
     if platform != Platform::Generic {
         let (min_ms, max_ms) = platform.sweet_spot_ms();
         directive.push_str(&format!(
@@ -543,7 +709,7 @@ pub fn parse_candidates(raw: &str) -> Result<Vec<Candidate>> {
 /// more and the reply must order every candidate by index.
 fn ranking_prompt(shortlist: &[Candidate]) -> String {
     let mut lines = String::from(
-        "You are the editorial selector inside Clipping Factory. You receive the merged shortlist of candidate clips from one long podcast and order them best first. Return ONLY a JSON object shaped exactly like {\"order\":[2,0,1]}: every candidate index appears exactly once, best first, and no index is added or dropped.\n\nShortlist:\n",
+        "You are the editorial selector inside Clipping Factory. You receive the merged shortlist of candidate clips from one long video and order them best first. Return ONLY a JSON object shaped exactly like {\"order\":[2,0,1]}: every candidate index appears exactly once, best first, and no index is added or dropped.\n\nShortlist:\n",
     );
     for (i, c) in shortlist.iter().enumerate() {
         lines.push_str(&format!(
@@ -647,6 +813,63 @@ mod tests {
     }
 
     #[test]
+    fn sparse_speech_falls_back_to_visual_energy_candidates() {
+        let duration_ms = 180_000;
+        let transcript = Transcript {
+            language: "en".into(),
+            words: vec![crate::domain::Word {
+                text: "music".into(),
+                start_ms: 1_000,
+                end_ms: 1_400,
+                p: 0.5,
+            }],
+            sentences: Vec::new(),
+            avg_confidence: 0.5,
+        };
+        let mut source = tiny_fixture().1;
+        source.duration_ms = duration_ms;
+        let mut db = vec![-42.0; 180];
+        for v in db.iter_mut().skip(60).take(25) {
+            *v = -14.0;
+        }
+        let energy = crate::energy::EnergyProfile { per_second_db: db };
+
+        let candidates = visual_moment_candidates(&source, Some(&energy));
+        assert!(
+            !candidates.is_empty(),
+            "a loud no-speech stretch should produce visual candidates"
+        );
+        assert!(candidates.iter().all(|c| c.opening_quote.is_empty()));
+        let report = crate::validate::validate(
+            candidates,
+            &transcript,
+            duration_ms,
+            "visual/energy ranking".into(),
+            &[],
+            Platform::Generic,
+        );
+        assert!(
+            !report.accepted.is_empty(),
+            "visual candidates must pass validation without transcript quotes: {:?}",
+            report
+                .rejected
+                .iter()
+                .map(|r| &r.reasons)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn flat_silent_video_does_not_invent_visual_candidates() {
+        let mut source = tiny_fixture().1;
+        source.duration_ms = 180_000;
+        let energy = crate::energy::EnergyProfile {
+            per_second_db: vec![-30.0; 180],
+        };
+        assert!(visual_moment_candidates(&source, Some(&energy)).is_empty());
+    }
+
+    #[test]
     fn parses_fenced_json() {
         let raw = "```json\n{\"candidates\":[{\"start_ms\":1000,\"end_ms\":31000,\"headline\":\"H\",\"opening_quote\":\"a\",\"closing_quote\":\"b\",\"selection_reason\":\"r\",\"scores\":{\"self_contained\":5,\"opening_strength\":4,\"specificity\":4,\"tension_or_novelty\":4,\"payoff\":5,\"clarity\":5,\"context_dependency\":1,\"slop_risk\":1}}]}\n```";
         let c = parse_candidates(raw).unwrap();
@@ -710,9 +933,20 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, None, Platform::Generic, |_| {})
-            .await
-            .unwrap();
+        let outcome = propose(
+            &settings,
+            &t,
+            &src,
+            None,
+            SelectionOptions {
+                focus: None,
+                platform: Platform::Generic,
+                source_kind: SourceKind::Auto,
+            },
+            |_| {},
+        )
+        .await
+        .unwrap();
         assert_eq!(outcome.selector, "local · qwen2.5:7b");
         assert!(outcome.warning.is_none());
         assert_eq!(outcome.candidates.len(), 1);
@@ -734,9 +968,20 @@ mod tests {
             api_key: None,
         };
         let (t, src) = tiny_fixture();
-        let outcome = propose(&settings, &t, &src, None, None, Platform::Generic, |_| {})
-            .await
-            .unwrap();
+        let outcome = propose(
+            &settings,
+            &t,
+            &src,
+            None,
+            SelectionOptions {
+                focus: None,
+                platform: Platform::Generic,
+                source_kind: SourceKind::Auto,
+            },
+            |_| {},
+        )
+        .await
+        .unwrap();
         assert_eq!(outcome.selector, "local ranking (local endpoint failed)");
         assert!(outcome.warning.is_some());
     }
@@ -752,12 +997,29 @@ mod tests {
             2,
             Some("clips about pricing"),
             Platform::Generic,
+            SourceKind::Auto,
         );
         assert!(focused.contains("EDITORIAL FOCUS"));
         assert!(focused.contains("clips about pricing"));
-        let plain = window_prompt(&windows[0], &src, 1, 2, None, Platform::Generic);
+        let plain = window_prompt(
+            &windows[0],
+            &src,
+            1,
+            2,
+            None,
+            Platform::Generic,
+            SourceKind::Auto,
+        );
         assert!(!plain.contains("EDITORIAL FOCUS"));
-        let blank = window_prompt(&windows[0], &src, 1, 2, Some("   "), Platform::Generic);
+        let blank = window_prompt(
+            &windows[0],
+            &src,
+            1,
+            2,
+            Some("   "),
+            Platform::Generic,
+            SourceKind::Auto,
+        );
         assert_eq!(blank, plain);
     }
 
@@ -765,14 +1027,38 @@ mod tests {
     fn window_prompt_carries_the_platform_target() {
         let (t, src) = tiny_fixture();
         let windows = build_windows(&t, src.duration_ms);
-        let tiktok = window_prompt(&windows[0], &src, 1, 2, None, Platform::TikTok);
+        let tiktok = window_prompt(
+            &windows[0],
+            &src,
+            1,
+            2,
+            None,
+            Platform::TikTok,
+            SourceKind::Auto,
+        );
         assert!(tiktok.contains("PLATFORM TARGET"));
         assert!(tiktok.contains("TikTok"));
         assert!(tiktok.contains("25–35 s"));
         // Generic keeps the prompt identical to no platform line at all.
-        let generic = window_prompt(&windows[0], &src, 1, 2, None, Platform::Generic);
+        let generic = window_prompt(
+            &windows[0],
+            &src,
+            1,
+            2,
+            None,
+            Platform::Generic,
+            SourceKind::Auto,
+        );
         assert!(!generic.contains("PLATFORM TARGET"));
-        let reels = window_prompt(&windows[0], &src, 1, 2, None, Platform::Reels);
+        let reels = window_prompt(
+            &windows[0],
+            &src,
+            1,
+            2,
+            None,
+            Platform::Reels,
+            SourceKind::Auto,
+        );
         assert!(reels.contains("35–45 s"));
     }
 
@@ -795,8 +1081,11 @@ mod tests {
             &t,
             &src,
             None,
-            Some("clips about pricing"),
-            Platform::Generic,
+            SelectionOptions {
+                focus: Some("clips about pricing"),
+                platform: Platform::Generic,
+                source_kind: SourceKind::Auto,
+            },
             |_| {},
         )
         .await

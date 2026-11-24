@@ -141,6 +141,12 @@ pub struct Project {
     /// an accept bound. `Generic` keeps the default 25–60 s window.
     #[serde(default)]
     pub platform: Platform,
+    /// The kind of video this project is built from. `Auto` preserves the
+    /// generic behavior while letting the pipeline infer broad stream/gameplay
+    /// traits; the explicit kinds steer editorial selection and sensible
+    /// framing defaults. Missing in older project files.
+    #[serde(default)]
+    pub source_kind: SourceKind,
     /// Stop at `awaiting_review` after candidate validation so the user can
     /// keep or drop candidates before any framing/rendering work runs.
     /// Missing in older project files — defaults to render-everything.
@@ -176,6 +182,7 @@ impl Project {
             language: None,
             focus_prompt: None,
             platform: Platform::default(),
+            source_kind: SourceKind::default(),
             review_before_render: false,
             kept_ranks: None,
             review_drops: Vec::new(),
@@ -324,6 +331,88 @@ impl Platform {
     }
 }
 
+/// The broad kind of source video being clipped. This is not a rigid genre
+/// taxonomy; it is a practical hint about what "a good moment" looks like
+/// and how the video should be framed.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceKind {
+    /// Infer broad behavior from the source. Conversation remains the
+    /// safest default because transcription-driven clipping needs speech.
+    #[default]
+    Auto,
+    /// Podcasts, interviews, meetings, essays, and other talking-led videos.
+    Conversation,
+    /// Twitch/YouTube livestreams and long VODs with reactions, hype, and chatty tangents.
+    Stream,
+    /// Gameplay-first videos where visual action matters as much as speech.
+    Gameplay,
+    /// Screen recordings, tutorials, demos, and other UI-first videos.
+    Screen,
+}
+
+impl SourceKind {
+    pub fn parse(input: &str) -> Option<Self> {
+        match input.trim().to_lowercase().as_str() {
+            "" | "auto" | "any" => Some(Self::Auto),
+            "conversation" | "talking" | "podcast" | "interview" => Some(Self::Conversation),
+            "stream" | "vod" | "livestream" | "twitch" => Some(Self::Stream),
+            "gameplay" | "gaming" | "game" => Some(Self::Gameplay),
+            "screen" | "screen_recording" | "tutorial" | "demo" => Some(Self::Screen),
+            _ => None,
+        }
+    }
+
+    /// Resolve `Auto` into a practical working kind using cheap source facts.
+    /// Explicit user choices are always preserved.
+    pub fn resolve(self, filename: &str, duration_ms: u64) -> Self {
+        if self != Self::Auto {
+            return self;
+        }
+        let lower = filename.to_lowercase();
+        if ["gameplay", "gaming", "letsplay", "let's play", "speedrun"]
+            .iter()
+            .any(|needle| lower.contains(needle))
+        {
+            return Self::Gameplay;
+        }
+        if ["twitch", "stream", "vod", "livestream"]
+            .iter()
+            .any(|needle| lower.contains(needle))
+            || duration_ms >= 4 * 3600 * 1000
+        {
+            return Self::Stream;
+        }
+        if ["screen", "tutorial", "demo", "walkthrough"]
+            .iter()
+            .any(|needle| lower.contains(needle))
+        {
+            return Self::Screen;
+        }
+        Self::Conversation
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Auto => "auto-detect",
+            Self::Conversation => "talking video",
+            Self::Stream => "stream/VOD",
+            Self::Gameplay => "gameplay",
+            Self::Screen => "screen recording",
+        }
+    }
+
+    /// Editorial guidance injected into model-assisted selection.
+    pub fn prompt_guidance(&self) -> &'static str {
+        match self {
+            Self::Auto | Self::Conversation => "Prioritize self-contained ideas, stories, disagreement, reveals, jokes, and useful explanations.",
+            Self::Stream => "This is a livestream or long VOD. Prioritize hype reactions, unexpected moments, wins, fails, arguments, funny exchanges, and moments a viewer would clip even when they are less polished than a podcast answer.",
+            Self::Gameplay => "This is gameplay-first footage. Prioritize clutch plays, wins, fails, glitches, close calls, loud reactions, and moments where the action is understandable without the full session.",
+            Self::Screen => "This is a screen recording, tutorial, or demo. Prioritize complete demonstrations, before/after reveals, mistakes and fixes, useful workflows, and moments where the viewer can see the payoff on screen.",
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Layout & rendering
 // ---------------------------------------------------------------------------
@@ -337,6 +426,10 @@ pub enum FramingMode {
     Fill,
     /// Preserve the full source over a blurred background.
     Background,
+    /// Fill the vertical canvas with one static center crop, regardless of
+    /// faces. Intended for gameplay, sports, and screen/action footage where
+    /// BlurPad would make the important content tiny.
+    Crop,
 }
 
 impl FramingMode {
@@ -344,7 +437,17 @@ impl FramingMode {
         match self {
             FramingMode::Fill => analyzed,
             FramingMode::Background => LayoutPlan::BlurPad,
+            FramingMode::Crop => LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)],
+            },
         }
+    }
+
+    /// Whether this mode benefits from the expensive per-clip face/shot
+    /// analysis. Explicit full-frame and center-crop modes already know their
+    /// layout, so they can plan instantly.
+    pub fn needs_analysis(&self) -> bool {
+        matches!(self, FramingMode::Fill)
     }
 }
 
@@ -618,6 +721,42 @@ mod tests {
             keyframes: vec![CropKey::crop(0, 0.42, 0.5, 1.0)],
         };
         assert_eq!(FramingMode::Background.apply(tracked), LayoutPlan::BlurPad);
+    }
+
+    #[test]
+    fn crop_framing_is_a_static_center_crop() {
+        let tracked = LayoutPlan::FaceCrop {
+            keyframes: vec![CropKey::crop(0, 0.2, 0.5, 1.0)],
+        };
+        assert_eq!(
+            FramingMode::Crop.apply(tracked),
+            LayoutPlan::FaceCrop {
+                keyframes: vec![CropKey::crop(0, 0.5, 0.5, 1.0)]
+            }
+        );
+        assert!(!FramingMode::Crop.needs_analysis());
+        assert!(!FramingMode::Background.needs_analysis());
+        assert!(FramingMode::Fill.needs_analysis());
+    }
+
+    #[test]
+    fn source_kind_parses_and_resolves_auto() {
+        assert_eq!(SourceKind::parse("twitch"), Some(SourceKind::Stream));
+        assert_eq!(SourceKind::parse("gameplay"), Some(SourceKind::Gameplay));
+        assert_eq!(SourceKind::parse("screen"), Some(SourceKind::Screen));
+        assert_eq!(SourceKind::parse("mystery"), None);
+        assert_eq!(
+            SourceKind::Auto.resolve("twitch-vod.mp4", 30 * 60_000),
+            SourceKind::Stream
+        );
+        assert_eq!(
+            SourceKind::Auto.resolve("interview.mp4", 30 * 60_000),
+            SourceKind::Conversation
+        );
+        assert_eq!(
+            SourceKind::Auto.resolve("long.mp4", 5 * 3600 * 1000),
+            SourceKind::Stream
+        );
     }
 
     #[test]

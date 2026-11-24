@@ -134,6 +134,15 @@ pub fn score_reasons(s: &Scores) -> Vec<String> {
     reasons
 }
 
+/// Whether the transcript carries enough speech for transcript-first
+/// clipping. Normal speech is dozens of words per minute; an isolated
+/// hallucinated word or two in a music/gameplay/video track must not send
+/// the whole source down the quote-matching path.
+pub fn has_meaningful_speech(transcript: &Transcript, duration_ms: u64) -> bool {
+    let minutes = (duration_ms as f64 / 60_000.0).max(1.0 / 6.0);
+    transcript.words.len() as f64 / minutes >= 2.0
+}
+
 pub(crate) fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
     let joined = normalize(
         &first_words
@@ -169,6 +178,8 @@ pub fn validate(
     scene_bounds.sort_unstable();
     scene_bounds.dedup();
 
+    let visual_only = !has_meaningful_speech(transcript, source_duration_ms);
+
     for mut cand in candidates {
         let mut reasons: Vec<String> = Vec::new();
 
@@ -192,15 +203,19 @@ pub fn validate(
         }
 
         // --- Snap to real word timestamps (PRD §9.1) ---------------------
-        if let Some((s, e)) = snap_to_words(transcript, cand.start_ms, cand.end_ms) {
-            cand.start_ms = s;
-            cand.end_ms = e;
-        } else {
-            evaluated.push(Err(RejectedCandidate {
-                candidate: cand,
-                reasons: vec!["interval contains no transcribed words".into()],
-            }));
-            continue;
+        // Silent/instrumental videos use visual-energy candidates instead;
+        // there is no transcript to snap, quote, or caption.
+        if !visual_only {
+            if let Some((s, e)) = snap_to_words(transcript, cand.start_ms, cand.end_ms) {
+                cand.start_ms = s;
+                cand.end_ms = e;
+            } else {
+                evaluated.push(Err(RejectedCandidate {
+                    candidate: cand,
+                    reasons: vec!["interval contains no transcribed words".into()],
+                }));
+                continue;
+            }
         }
 
         // The selector's quotes are verified against its own (word-snapped)
@@ -209,7 +224,12 @@ pub fn validate(
         let quoted = (cand.start_ms, cand.end_ms);
 
         // --- Scene-transition guard ---------------------------------------
-        if let Err(reason) = clear_scene_transitions(transcript, &scene_bounds, &mut cand) {
+        let scene_result = if visual_only {
+            clear_visual_scene_transitions(&scene_bounds, &mut cand)
+        } else {
+            clear_scene_transitions(transcript, &scene_bounds, &mut cand)
+        };
+        if let Err(reason) = scene_result {
             evaluated.push(Err(RejectedCandidate {
                 candidate: cand,
                 reasons: vec![reason],
@@ -225,42 +245,46 @@ pub fn validate(
         let words = &transcript.words;
         let fi = words.iter().position(|w| w.end_ms > cand.start_ms);
         let li = words.iter().rposition(|w| w.start_ms < cand.end_ms);
-        if let (Some(fi), Some(li)) = (fi, li) {
-            let first = &words[fi];
-            let last = &words[li];
-            if let Some(reason) = cold_open_reason(&words[fi..]) {
-                reasons.push(reason);
-            }
-            if let Some(reason) = cta_close_reason(&words[..li + 1]) {
-                reasons.push(reason);
-            }
-            if !crate::transcribe::terminal_word(&last.text) {
-                let continues = words
-                    .get(li + 1)
-                    .map(|n| n.start_ms.saturating_sub(last.end_ms) < TRAILING_SPEECH_MS)
-                    .unwrap_or(false);
-                if continues {
-                    reasons
-                        .push("ends mid-sentence with speech continuing under 0.7s later".into());
+        if !visual_only {
+            if let (Some(fi), Some(li)) = (fi, li) {
+                let first = &words[fi];
+                let last = &words[li];
+                if let Some(reason) = cold_open_reason(&words[fi..]) {
+                    reasons.push(reason);
                 }
-            }
-            // Breathing-room pads applied to the final (post-scene-guard)
-            // boundary: a little room tone so the clip never opens or closes
-            // on a hard sample edge, capped by the actual silence gap so the
-            // pad can never swallow a neighboring word's samples.
-            let lead_gap = fi
-                .checked_sub(1)
-                .map(|p| first.start_ms.saturating_sub(words[p].end_ms))
-                .unwrap_or(first.start_ms);
-            cand.start_ms = first
-                .start_ms
-                .saturating_sub(lead_gap.saturating_sub(PAD_MARGIN_MS).min(LEAD_PAD_MS));
-            let tail_gap = words
-                .get(li + 1)
-                .map(|n| n.start_ms.saturating_sub(last.end_ms))
-                .unwrap_or(source_duration_ms.saturating_sub(last.end_ms));
-            cand.end_ms = (last.end_ms + tail_gap.saturating_sub(PAD_MARGIN_MS).min(TAIL_PAD_MS))
+                if let Some(reason) = cta_close_reason(&words[..li + 1]) {
+                    reasons.push(reason);
+                }
+                if !crate::transcribe::terminal_word(&last.text) {
+                    let continues = words
+                        .get(li + 1)
+                        .map(|n| n.start_ms.saturating_sub(last.end_ms) < TRAILING_SPEECH_MS)
+                        .unwrap_or(false);
+                    if continues {
+                        reasons.push(
+                            "ends mid-sentence with speech continuing under 0.7s later".into(),
+                        );
+                    }
+                }
+                // Breathing-room pads applied to the final (post-scene-guard)
+                // boundary: a little room tone so the clip never opens or closes
+                // on a hard sample edge, capped by the actual silence gap so the
+                // pad can never swallow a neighboring word's samples.
+                let lead_gap = fi
+                    .checked_sub(1)
+                    .map(|p| first.start_ms.saturating_sub(words[p].end_ms))
+                    .unwrap_or(first.start_ms);
+                cand.start_ms = first
+                    .start_ms
+                    .saturating_sub(lead_gap.saturating_sub(PAD_MARGIN_MS).min(LEAD_PAD_MS));
+                let tail_gap = words
+                    .get(li + 1)
+                    .map(|n| n.start_ms.saturating_sub(last.end_ms))
+                    .unwrap_or(source_duration_ms.saturating_sub(last.end_ms));
+                cand.end_ms = (last.end_ms
+                    + tail_gap.saturating_sub(PAD_MARGIN_MS).min(TAIL_PAD_MS))
                 .min(source_duration_ms);
+            }
         }
 
         // --- Score thresholds (PRD §9.3) ---------------------------------
@@ -283,6 +307,23 @@ pub fn validate(
         }
 
         // --- Verbatim quote matching (PRD §9.3) ---------------------------
+        if visual_only {
+            if reasons.is_empty() {
+                let composite = ranked_score(&s, dur, platform);
+                evaluated.push(Ok(ValidatedCandidate {
+                    rank: 0,
+                    candidate: cand,
+                    composite,
+                    duration_exception,
+                }));
+            } else {
+                evaluated.push(Err(RejectedCandidate {
+                    candidate: cand,
+                    reasons,
+                }));
+            }
+            continue;
+        }
         let excerpt = excerpt_text(transcript, quoted.0, quoted.1);
         let excerpt_norm = normalize(&excerpt);
         for (label, quote, near_start) in [
@@ -475,6 +516,33 @@ fn clear_scene_transitions(
                 return Err(format!("closes inside a scene transition at {}", fmt_ms(b)));
             }
         }
+    }
+    Ok(())
+}
+
+/// Scene-transition guard for videos without speech. There are no word
+/// boundaries to land on, so move the cut just outside the transition itself
+/// while preserving the requested interval as closely as possible.
+fn clear_visual_scene_transitions(boundaries: &[u64], cand: &mut Candidate) -> Result<(), String> {
+    while let Some(&b) = boundaries
+        .iter()
+        .find(|&&b| cand.start_ms.abs_diff(b) <= TRANSITION_HALF_MS)
+    {
+        let after = b.saturating_add(TRANSITION_HALF_MS + 1);
+        if after >= cand.end_ms {
+            return Err(format!("opens inside a scene transition at {}", fmt_ms(b)));
+        }
+        cand.start_ms = after;
+    }
+    while let Some(&b) = boundaries
+        .iter()
+        .find(|&&b| cand.end_ms.abs_diff(b) <= TRANSITION_HALF_MS)
+    {
+        let before = b.saturating_sub(TRANSITION_HALF_MS + 1);
+        if before <= cand.start_ms {
+            return Err(format!("closes inside a scene transition at {}", fmt_ms(b)));
+        }
+        cand.end_ms = before;
     }
     Ok(())
 }

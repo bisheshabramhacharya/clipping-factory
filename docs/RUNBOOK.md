@@ -32,7 +32,7 @@ curl -L -o ~/.clipping-factory/models/ggml-base.bin \
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
 ```
 
-`ggml-base` is the fast default. For English podcasts, `ggml-small.en.bin`
+`ggml-base` is the fast default. For English speech-led videos, `ggml-small.en.bin`
 gives noticeably cleaner transcripts at about 2.4× the transcription time. Put
 it in `~/.clipping-factory/models/` (or `~/.cache/whisper.cpp/`), or point
 `CF_WHISPER_MODEL` at another compatible ggml model. English-only weights
@@ -59,7 +59,7 @@ cargo build --release
 ```
 
 The studio starts at [http://localhost:4571](http://localhost:4571) and opens your
-browser automatically (set `CF_NO_OPEN=1` to suppress that). Drop in one MP4 and the
+browser automatically (set `CF_NO_OPEN=1` to suppress that). Drop in one video and the
 pipeline runs: inspect, extract audio, transcribe, select candidates, validate, analyze
 layout, render.
 

@@ -715,6 +715,7 @@ async fn run(
         });
     }
     let source = p.source.clone().expect("source set after inspect");
+    let source_kind = p.source_kind.resolve(&source.filename, source.duration_ms);
 
     let transcript_exists = store.transcript_path(&id).is_file();
 
@@ -855,8 +856,11 @@ async fn run(
                         &transcript,
                         &source,
                         energy.as_ref(),
-                        p.focus_prompt.as_deref(),
-                        p.platform,
+                        crate::select::SelectionOptions {
+                            focus: p.focus_prompt.as_deref(),
+                            platform: p.platform,
+                            source_kind,
+                        },
                         |pct| prog(pct, None),
                     ) => result,
                 };
@@ -990,26 +994,33 @@ async fn run(
                     Some(format!("Analyzing framing for clip {} of {}", i + 1, total)),
                 );
                 analyzed_ms += vc.candidate.end_ms.saturating_sub(vc.candidate.start_ms);
-                let analyzed_layout = match crate::frame::analyze_layout(
-                    cfg,
-                    &src,
-                    &source,
-                    vc.candidate.start_ms,
-                    vc.candidate.end_ms,
-                    &transcript.words,
-                    &ctx.cancel,
-                )
-                .await
-                {
-                    Ok(l) => l,
-                    Err(e) if is_cancelled(&e, &ctx.cancel) => {
-                        result = Err(e);
-                        break;
+                let analyzed_layout = if p.framing_mode.needs_analysis() {
+                    match crate::frame::analyze_layout(
+                        cfg,
+                        &src,
+                        &source,
+                        vc.candidate.start_ms,
+                        vc.candidate.end_ms,
+                        &transcript.words,
+                        &ctx.cancel,
+                    )
+                    .await
+                    {
+                        Ok(l) => l,
+                        Err(e) if is_cancelled(&e, &ctx.cancel) => {
+                            result = Err(e);
+                            break;
+                        }
+                        Err(e) => {
+                            tracing::warn!("framing analysis failed, using blur-pad: {e:#}");
+                            LayoutPlan::BlurPad
+                        }
                     }
-                    Err(e) => {
-                        tracing::warn!("framing analysis failed, using blur-pad: {e:#}");
-                        LayoutPlan::BlurPad
-                    }
+                } else {
+                    // Fit and explicit center-crop already know their layout;
+                    // don't spend minutes decoding clips for face analysis
+                    // that will be discarded anyway.
+                    LayoutPlan::BlurPad
                 };
                 let layout = p.framing_mode.apply(analyzed_layout);
                 let (out_w, out_h) = crate::render::output_size(&source, &layout);
@@ -1121,10 +1132,11 @@ async fn run(
         .accent_color
         .clone()
         .unwrap_or_else(|| crate::captions::default_accent_hex(caption_style).to_string());
-    let output_dir = state
-        .cfg
-        .output_root
-        .join(slugify(source.filename.trim_end_matches(".mp4"), 60));
+    let source_stem = std::path::Path::new(&source.filename)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&source.filename);
+    let output_dir = state.cfg.output_root.join(slugify(source_stem, 60));
     let settings = state.settings.read().unwrap().clone();
     let total = manifest.clips.len();
     tokio::fs::create_dir_all(store.base_dir(&id)).await?;
