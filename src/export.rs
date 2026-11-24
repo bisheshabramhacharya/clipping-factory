@@ -13,7 +13,7 @@
 use crate::captions::{
     is_stopword, normalize_token, paginate, with_caption_text, words_in_interval,
 };
-use crate::domain::{fmt_ms, ClipRecord, SourceInfo, Transcript, Word};
+use crate::domain::{fmt_ms, ClipRecord, CutSpan, SourceInfo, Transcript, Word};
 use crate::settings::{AiSettings, Provider};
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
@@ -149,14 +149,49 @@ pub fn caption_words(transcript: &Transcript, clip: &ClipRecord) -> Vec<Word> {
     if count == 0 {
         return words;
     }
-    let duration = clip.end_ms.saturating_sub(clip.start_ms).max(1);
+    distribute_untimed_captions(
+        &replacements,
+        clip.start_ms,
+        clip.end_ms,
+        clip.effective_removals(),
+    )
+}
+
+/// Spread untimed manual captions across the source spans that survive the
+/// render. Auto-cut concatenates those spans, so caption timing must be
+/// planned on the kept media rather than the original interval: a word
+/// placed entirely inside a silence removal would otherwise be dropped by
+/// `retime_words` and vanish from both the burn-in and subtitle exports.
+fn distribute_untimed_captions(
+    replacements: &[&str],
+    start_ms: u64,
+    end_ms: u64,
+    removals: &[CutSpan],
+) -> Vec<Word> {
+    let keeps = crate::autocut::keeps_from_removals(start_ms, end_ms, removals);
+    let total = keeps.iter().map(|span| span.len_ms()).sum::<u64>();
+    if total == 0 {
+        return Vec::new();
+    }
+    let instant_at = |offset: u64| {
+        let mut remaining = offset.min(total);
+        for keep in &keeps {
+            let len = keep.len_ms();
+            if remaining < len {
+                return keep.start_ms + remaining;
+            }
+            remaining -= len;
+        }
+        end_ms
+    };
+    let count = replacements.len() as u64;
     replacements
-        .into_iter()
+        .iter()
         .enumerate()
         .map(|(index, text)| Word {
-            text: text.to_string(),
-            start_ms: clip.start_ms + duration * index as u64 / count,
-            end_ms: clip.start_ms + duration * (index as u64 + 1) / count,
+            text: (*text).to_string(),
+            start_ms: instant_at(total * index as u64 / count),
+            end_ms: instant_at(total * (index as u64 + 1) / count),
             p: 1.0,
         })
         .collect()
@@ -825,6 +860,35 @@ mod tests {
         assert_eq!(
             got.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(),
             vec!["manual", "words", "still", "caption"]
+        );
+    }
+
+    #[test]
+    fn manual_caption_text_survives_auto_cut_removals() {
+        let transcript = Transcript {
+            language: "en".into(),
+            words: Vec::new(),
+            sentences: Vec::new(),
+            avg_confidence: 0.0,
+        };
+        let mut visual_clip = clip();
+        visual_clip.caption_text = Some("one two three four".into());
+        visual_clip.auto_cut = true;
+        visual_clip.cut_spans = Some(vec![CutSpan {
+            start_ms: 65_000,
+            end_ms: 85_000,
+        }]);
+
+        let authored = caption_words(&transcript, &visual_clip);
+        let retimed = crate::autocut::retime_words(&authored, visual_clip.effective_removals());
+        assert_eq!(retimed.len(), 4);
+        assert_eq!(
+            retimed.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(),
+            vec!["one", "two", "three", "four"]
+        );
+        assert!(
+            retimed.iter().all(|w| w.end_ms > w.start_ms),
+            "every manual word must retain visible time after auto-cut: {retimed:?}"
         );
     }
 
