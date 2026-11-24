@@ -690,7 +690,11 @@ async fn run(
                         info.height,
                         fmt_ms(info.duration_ms),
                         info.video_codec,
-                        info.audio_codec
+                        if info.has_audio() {
+                            info.audio_codec.as_str()
+                        } else {
+                            "no audio"
+                        }
                     );
                     // Scene detection is the slow half of inspection: the
                     // scdet scan reports real decode progress, so a 3-hour
@@ -739,6 +743,9 @@ async fn run(
     if transcript_exists {
         ctx.skip(&mut p, "extracting_audio", "Transcript already on disk")
             .await?;
+    } else if !source.has_audio() {
+        ctx.skip(&mut p, "extracting_audio", "No audio stream")
+            .await?;
     } else {
         let wav = store.audio_path(&id);
         // A previous run may have been killed after FFmpeg created the final
@@ -780,6 +787,17 @@ async fn run(
     if transcript_exists {
         ctx.skip(&mut p, "transcribing", "Transcript already on disk")
             .await?;
+    } else if !source.has_audio() {
+        stage!("transcribing", {
+            let transcript = Transcript {
+                language: "und".into(),
+                words: Vec::new(),
+                sentences: Vec::new(),
+                avg_confidence: 0.0,
+            };
+            store.save_transcript(&id, &transcript).await?;
+            Ok::<String, anyhow::Error>("No audio stream · using visual moments".to_string())
+        });
     } else {
         let wav = store.audio_path(&id);
         let language = p.language.clone();

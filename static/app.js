@@ -27,6 +27,7 @@
   // A chosen video waits here until "Make clips", so the caption and framing
   // options can still change before any upload or transcription starts.
   let stagedFile = null;
+  let framingTouched = false;
   let cancellationPending = false;
   let retryPending = false;
   let actionMessageKind = null;
@@ -356,7 +357,6 @@
     // full frame for screen recordings where UI edges matter.
     const sourceKindSelect = $("upload-source-kind");
     const framingInputs = [...document.querySelectorAll('input[name="framing-mode"]')];
-    let framingTouched = false;
     for (const input of framingInputs) {
       input.addEventListener("change", () => {
         if (input.checked) framingTouched = true;
@@ -407,7 +407,20 @@
     setUploadPhase(`Uploading ${file.name}…`, 0);
 
     const form = new FormData();
-    const framingMode = document.querySelector('input[name="framing-mode"]:checked').value;
+    let framingMode = document.querySelector('input[name="framing-mode"]:checked').value;
+    // Auto-detect still deserves the type-specific framing default. The
+    // server cannot resolve the kind until after inspection, so mirror the
+    // cheap filename inference here; any explicit framing click wins.
+    if (!framingTouched && ($("upload-source-kind").value || "auto") === "auto") {
+      const lower = file.name.toLowerCase();
+      if (["gameplay", "gaming", "letsplay", "let's play", "speedrun"].some((needle) => lower.includes(needle))) {
+        framingMode = "crop";
+      } else if (["screen", "tutorial", "demo", "walkthrough"].some((needle) => lower.includes(needle))) {
+        framingMode = "background";
+      } else if (["twitch", "stream", "vod", "livestream"].some((needle) => lower.includes(needle))) {
+        framingMode = "crop";
+      }
+    }
     const accentMode = document.querySelector('input[name="accent-mode"]:checked').value;
     const styleInput = document.querySelector('input[name="caption-style"]:checked');
     if (styleInput) form.append("caption_style", styleInput.value);

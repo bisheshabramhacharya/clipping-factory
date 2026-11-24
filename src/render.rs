@@ -33,15 +33,22 @@ pub const OUT_H: u32 = 1920;
 /// The clip's rendered size (ADR-0002): the native crop window, capped at
 /// OUT_W×OUT_H and even-dimensioned for yuv420p — never upscaled.
 ///
-/// - FaceCrop: `source_h × 9/16` wide × `source_h` tall, capped.
+/// - FaceCrop: the largest 9:16 window that fits the source, capped.
 /// - BlurPad: the largest 9:16 canvas inscribed in the source, capped.
 pub fn output_size(source: &SourceInfo, layout: &LayoutPlan) -> (u32, u32) {
     let (sw, sh) = (source.width as f64, source.height as f64);
     match layout {
         LayoutPlan::FaceCrop { .. } if face_window_fits(source) => {
-            let h = source.height.min(OUT_H) & !1;
-            let w = even_round(h as f64 * 9.0 / 16.0).min(OUT_W);
-            (w, h)
+            let (cw, ch, _, _) = crop_window(source, &DEFAULT_VIEW);
+            if sw * 16.0 >= sh * 9.0 {
+                let h = ch.min(OUT_H) & !1;
+                let w = even_round(h as f64 * 9.0 / 16.0).min(OUT_W);
+                (w, h)
+            } else {
+                let w = cw.min(OUT_W) & !1;
+                let h = even_round(w as f64 * 16.0 / 9.0).min(OUT_H);
+                (w, h)
+            }
         }
         // BlurPad, or a FaceCrop window that cannot fit the source.
         _ => {
@@ -54,10 +61,11 @@ pub fn output_size(source: &SourceInfo, layout: &LayoutPlan) -> (u32, u32) {
     }
 }
 
-/// True when the native 9:16 crop window fits inside the source frame.
-/// Integer compare, so portrait-ish sources degrade to BlurPad exactly.
+/// True when a non-degenerate 9:16 crop window can fit inside the source
+/// frame. Narrow portrait sources crop vertically rather than falling back:
+/// explicit Crop must mean Crop.
 fn face_window_fits(source: &SourceInfo) -> bool {
-    source.width as u64 * 16 >= source.height as u64 * 9
+    source.width >= 2 && source.height >= 2
 }
 
 /// Nearest even value (yuv420p needs even dimensions).
@@ -185,20 +193,22 @@ where
         graph,
         "-map".into(),
         "[v]".into(),
-        "-map".into(),
-        "[a]".into(),
     ];
+    if source.has_audio() {
+        args.extend(["-map".into(), "[a]".into()]);
+    }
     args.extend(video_encode_args(threads));
-    args.extend([
-        "-c:a".into(),
-        "aac".into(),
-        "-b:a".into(),
-        "160k".into(),
-        "-ar".into(),
-        "48000".into(),
-        "-movflags".into(),
-        "+faststart".into(),
-    ]);
+    if source.has_audio() {
+        args.extend([
+            "-c:a".into(),
+            "aac".into(),
+            "-b:a".into(),
+            "160k".into(),
+            "-ar".into(),
+            "48000".into(),
+        ]);
+    }
+    args.extend(["-movflags".into(), "+faststart".into()]);
     // Preserve source frame rate when practical, otherwise 30 fps (PRD §11.1).
     if !(20.0..=60.0).contains(&source.fps) {
         args.push("-r".into());
@@ -438,7 +448,11 @@ fn build_graph_from(
         out_v: vout,
         out_a: aout,
     } = pads;
-    let audio = audio_chain(dur_ms);
+    let audio_step = if source.has_audio() {
+        format!(";[{apad}]{}[{aout}]", audio_chain(dur_ms))
+    } else {
+        String::new()
+    };
     let (w, h) = output_size(source, layout);
     let hook_step = hook_title_step(garnish.hook, dur_ms, w, h);
     let crop = match layout {
@@ -451,16 +465,13 @@ fn build_graph_from(
              [bga]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,\
              crop={w}:{h},gblur=sigma=26,eq=brightness=-0.14:saturation=0.8[bg];\
              [fga]scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2[fg];\
-             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}{hook}{bar_step}format=yuv420p[{vout}];\
-             [{apad}]{audio}[{aout}]",
+             [bg][fg]overlay=(W-w)/2:(H-h)/2,{subs}{hook}{bar_step}format=yuv420p[{vout}]{audio_step}",
             vpad = vpad,
-            apad = apad,
             w = w,
             h = h,
             subs = subs_step,
-            audio = audio,
+            audio_step = audio_step,
             vout = vout,
-            aout = aout,
             hook = hook_step,
             bar_step = bar_step
         ),
@@ -515,8 +526,7 @@ fn build_graph_from(
                 g.push_str(&format!("concat=n={}:v=1:a=0[framed]", views.len()));
             }
             g.push_str(&format!(
-                ";[framed]{zoom_step}{subs_step}{hook_step}{bar_step}format=yuv420p[{vout}];\
-                 [{apad}]{audio}[{aout}]"
+                ";[framed]{zoom_step}{subs_step}{hook_step}{bar_step}format=yuv420p[{vout}]{audio_step}"
             ));
             g
         }
@@ -600,8 +610,21 @@ fn view_graph(
 /// centered on the key and clamped inside the frame.
 fn crop_window(source: &SourceInfo, key: &CropKey) -> (u32, u32, u32, u32) {
     let (sw, sh) = (source.width, source.height);
-    let ch = even_floor(sh as f64 / (key.zoom as f64).max(1.0)).max(2);
-    let cw = even_round(ch as f64 * 9.0 / 16.0).min(sw & !1);
+    let zoom = (key.zoom as f64).max(1.0);
+    // Use the largest 9:16 window the frame can contain. Wide sources take
+    // the full height and crop horizontally; narrow portrait sources take
+    // the full width and crop vertically. Zoom shrinks within whichever
+    // dimension is already the constraint.
+    let wide = sw as u64 * 16 >= sh as u64 * 9;
+    let (cw, ch) = if wide {
+        let ch = even_floor(sh as f64 / zoom).max(2).min(sh & !1);
+        let cw = even_round(ch as f64 * 9.0 / 16.0).min(sw & !1);
+        (cw, ch)
+    } else {
+        let cw = even_floor(sw as f64 / zoom).max(2).min(sw & !1);
+        let ch = even_round(cw as f64 * 16.0 / 9.0).min(sh & !1);
+        (cw, ch)
+    };
     let place = |c: f32, full: u32, win: u32| -> u32 {
         let max = full.saturating_sub(win) as f64;
         (c as f64 * full as f64 - win as f64 / 2.0)
@@ -668,27 +691,36 @@ fn build_cut_graph(
         g.push_str(&format!("[cv{i}]"));
     }
     g.push(';');
-    g.push_str(&format!("[0:a]asplit={n}"));
-    for i in 0..n {
-        g.push_str(&format!("[ca{i}]"));
+    let has_audio = source.has_audio();
+    if has_audio {
+        g.push_str(&format!("[0:a]asplit={n}"));
+        for i in 0..n {
+            g.push_str(&format!("[ca{i}]"));
+        }
+        g.push(';');
     }
-    g.push(';');
     for (i, k) in keeps.iter().enumerate() {
         let s = k.start_ms.saturating_sub(origin_ms) as f64 / 1000.0;
         let d = k.len_ms() as f64 / 1000.0;
         g.push_str(&format!(
-            "[cv{i}]trim=start={s:.3}:duration={d:.3},setpts=PTS-STARTPTS[cvt{i}];\
-             [ca{i}]atrim=start={s:.3}:duration={d:.3},asetpts=PTS-STARTPTS[cat{i}];"
+            "[cv{i}]trim=start={s:.3}:duration={d:.3},setpts=PTS-STARTPTS[cvt{i}];"
         ));
+        if has_audio {
+            g.push_str(&format!(
+                "[ca{i}]atrim=start={s:.3}:duration={d:.3},asetpts=PTS-STARTPTS[cat{i}];"
+            ));
+        }
     }
     for i in 0..n {
         g.push_str(&format!("[cvt{i}]"));
     }
     g.push_str(&format!("concat=n={n}:v=1:a=0[cvj];"));
-    for i in 0..n {
-        g.push_str(&format!("[cat{i}]"));
+    if has_audio {
+        for i in 0..n {
+            g.push_str(&format!("[cat{i}]"));
+        }
+        g.push_str(&format!("concat=n={n}:v=0:a=1[caj];"));
     }
-    g.push_str(&format!("concat=n={n}:v=0:a=1[caj];"));
     g.push_str(&graph_body(
         source,
         layout,
@@ -1235,6 +1267,48 @@ mod tests {
     }
 
     #[test]
+    fn video_only_graph_omits_audio_pads() {
+        let mut silent = source(1920, 1080);
+        silent.audio_codec = "none".into();
+        let g = build_graph(
+            &silent,
+            &LayoutPlan::BlurPad,
+            None,
+            &[],
+            10_000,
+            Garnish::default(),
+        );
+        assert!(!g.contains("[0:a]"), "{g}");
+        assert!(!g.contains("[a]"), "{g}");
+
+        let keeps = [
+            CutSpan {
+                start_ms: 0,
+                end_ms: 2_000,
+            },
+            CutSpan {
+                start_ms: 4_000,
+                end_ms: 6_000,
+            },
+        ];
+        let cut = build_cut_graph(
+            &silent,
+            &LayoutPlan::BlurPad,
+            None,
+            CutSpec {
+                keeps: &keeps,
+                origin_ms: 0,
+            },
+            &[],
+            4_000,
+            Garnish::default(),
+        );
+        assert!(!cut.contains("[0:a]"), "{cut}");
+        assert!(!cut.contains("atrim"), "{cut}");
+        assert!(!cut.contains("[a]"), "{cut}");
+    }
+
+    #[test]
     fn cut_graph_trims_each_keep_and_concats() {
         let g = build_cut_graph(
             &source(1920, 1080),
@@ -1424,8 +1498,9 @@ mod tests {
     }
 
     #[test]
-    fn portrait_source_falls_back_to_blur_pad() {
-        // 540×1280 is narrower than 9:16 — the crop window cannot fit.
+    fn narrow_portrait_crop_crops_vertically_instead_of_falling_back() {
+        // 540×1280 is narrower than 9:16 — explicit Crop uses the full
+        // width and removes vertical range rather than silently BlurPadding.
         let g = build_graph(
             &source(540, 1280),
             &LayoutPlan::FaceCrop {
@@ -1436,9 +1511,10 @@ mod tests {
             10_000,
             Garnish::default(),
         );
+        assert!(g.contains("crop=540:960:0:160"), "{g}");
         assert!(
-            g.contains("gblur"),
-            "portrait must fall back to blur-pad: {g}"
+            !g.contains("gblur"),
+            "explicit crop must not fall back: {g}"
         );
     }
 

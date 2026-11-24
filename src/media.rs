@@ -64,14 +64,7 @@ pub async fn probe(
         .ok_or_else(|| {
             anyhow!("No video stream found. Attach a video file that contains video.")
         })?;
-    let audio = streams
-        .iter()
-        .find(|s| s["codec_type"] == "audio")
-        .ok_or_else(|| {
-            anyhow!(
-                "This video has no audio stream. Clipping Factory needs audio to find moments and transcribe speech."
-            )
-        })?;
+    let audio = streams.iter().find(|s| s["codec_type"] == "audio");
 
     let duration_s: f64 = v["format"]["duration"]
         .as_str()
@@ -113,11 +106,15 @@ pub async fn probe(
         .as_str()
         .unwrap_or("unknown")
         .to_string();
-    let audio_codec = audio["codec_name"]
-        .as_str()
-        .unwrap_or("unknown")
+    let audio_codec = audio
+        .and_then(|stream| stream["codec_name"].as_str())
+        .unwrap_or("none")
         .to_string();
-    ensure_decodable(cfg, [&video_codec, &audio_codec], cancel).await?;
+    let mut codecs = vec![video_codec.as_str()];
+    if audio_codec != "none" {
+        codecs.push(audio_codec.as_str());
+    }
+    ensure_decodable(cfg, &codecs, cancel).await?;
 
     Ok(SourceInfo {
         filename: source_filename.to_string(),
@@ -136,15 +133,11 @@ pub async fn probe(
 /// extract and render would otherwise fail mid-run with a less actionable
 /// message. The decoder list is read without touching the source, so the
 /// check stays constant-time on long files.
-async fn ensure_decodable(
-    cfg: &Config,
-    codecs: [&str; 2],
-    cancel: &CancellationToken,
-) -> Result<()> {
+async fn ensure_decodable(cfg: &Config, codecs: &[&str], cancel: &CancellationToken) -> Result<()> {
     let args: Vec<String> = vec!["-hide_banner".into(), "-decoders".into()];
     let list = crate::util::run_capture_cancellable(&cfg.ffmpeg, &args, cancel).await?;
     for codec in codecs {
-        if codec != "unknown" && !decoder_list_has(&list, codec) {
+        if *codec != "unknown" && !decoder_list_has(&list, codec) {
             bail!(
                 "This source uses the {codec} codec, which this FFmpeg build cannot decode. \
                  Convert it to H.264 video and AAC audio, then upload it again."

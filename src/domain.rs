@@ -105,6 +105,15 @@ pub struct SourceInfo {
     pub scene_boundaries_ms: Vec<u64>,
 }
 
+impl SourceInfo {
+    /// Whether the container carried an audio stream. `"none"` is the
+    /// serialized sentinel used for video-only sources so older JSON keeps
+    /// the same schema shape.
+    pub fn has_audio(&self) -> bool {
+        !self.audio_codec.is_empty() && self.audio_codec != "none"
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Project {
     pub id: String,

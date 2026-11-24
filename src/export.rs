@@ -131,6 +131,27 @@ fn clean_text(s: &str) -> String {
 /// the interval with any `caption_text` edit applied on the original timings.
 pub fn caption_words(transcript: &Transcript, clip: &ClipRecord) -> Vec<Word> {
     let timed = words_in_interval(&transcript.words, clip.start_ms, clip.end_ms);
+    if !timed.is_empty() {
+        if let Some(text) = clip.caption_text.as_deref().map(str::trim) {
+            let replacement_count = text.split_whitespace().count();
+            if replacement_count > 0 && replacement_count != timed.len() {
+                // A changed word count has no honest one-to-one alignment.
+                // Spread the edit across the spoken interval's surviving
+                // media, not the pre-cut timeline, so auto-cut cannot drop
+                // user-authored words into removed silence.
+                let replacements: Vec<&str> = text.split_whitespace().collect();
+                let start_ms = timed.first().map(|w| w.start_ms).unwrap_or(clip.start_ms);
+                let end_ms = timed.last().map(|w| w.end_ms).unwrap_or(clip.end_ms);
+                return distribute_untimed_captions(
+                    &replacements,
+                    start_ms,
+                    end_ms,
+                    clip.effective_removals(),
+                );
+            }
+        }
+        return with_caption_text(&timed, clip.caption_text.as_deref());
+    }
     let words = with_caption_text(&timed, clip.caption_text.as_deref());
     if !words.is_empty() {
         return words;
@@ -890,6 +911,44 @@ mod tests {
             retimed.iter().all(|w| w.end_ms > w.start_ms),
             "every manual word must retain visible time after auto-cut: {retimed:?}"
         );
+    }
+
+    #[test]
+    fn word_count_changing_manual_captions_use_auto_cut_kept_spans() {
+        let transcript = Transcript {
+            language: "en".into(),
+            words: vec![
+                Word {
+                    text: "hello".into(),
+                    start_ms: 60_000,
+                    end_ms: 61_000,
+                    p: 0.9,
+                },
+                Word {
+                    text: "again".into(),
+                    start_ms: 88_000,
+                    end_ms: 89_000,
+                    p: 0.9,
+                },
+            ],
+            sentences: Vec::new(),
+            avg_confidence: 0.9,
+        };
+        let mut edited = clip();
+        edited.caption_text = Some("one two three four".into());
+        edited.auto_cut = true;
+        edited.cut_spans = Some(vec![CutSpan {
+            start_ms: 65_000,
+            end_ms: 85_000,
+        }]);
+        let authored = caption_words(&transcript, &edited);
+        let retimed = crate::autocut::retime_words(&authored, edited.effective_removals());
+        assert_eq!(
+            retimed.len(),
+            4,
+            "middle replacement words must not fall inside the removal: {authored:?}"
+        );
+        assert!(retimed.iter().all(|w| w.end_ms > w.start_ms));
     }
 
     #[test]

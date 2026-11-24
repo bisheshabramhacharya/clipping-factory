@@ -134,18 +134,57 @@ pub fn score_reasons(s: &Scores) -> Vec<String> {
     reasons
 }
 
-/// Minimum average density for transcript-first clipping. Normal speech is
-/// dozens of words per minute. Whisper commonly invents a few words over
-/// loud effects, music, or silence; those isolated tokens must not send the
-/// whole source down quote matching when energy/visual selection is the
-/// honest path.
-const MEANINGFUL_WORDS_PER_MINUTE: f64 = 10.0;
+/// Minimum density inside a one-minute neighborhood for transcript-first
+/// clipping. Normal speech is dozens of words per minute. Whisper commonly
+/// invents a few words over loud effects, music, or silence; those isolated
+/// tokens must not send the whole source down quote matching when
+/// energy/visual selection is the honest path.
+const MEANINGFUL_WORDS_PER_MINUTE: f64 = 20.0;
+const SPEECH_WINDOW_MS: u64 = 60_000;
+const MIN_SPEECH_WINDOW_MS: u64 = 10_000;
 
 /// Whether the transcript carries enough speech for transcript-first
-/// clipping.
+/// clipping. This is deliberately a local test rather than a whole-file
+/// average: long streams often have ten strong minutes of commentary inside
+/// hours of quiet gameplay, and averaging those words away would erase the
+/// exact moments worth clipping.
 pub fn has_meaningful_speech(transcript: &Transcript, duration_ms: u64) -> bool {
-    let minutes = (duration_ms as f64 / 60_000.0).max(1.0 / 6.0);
-    transcript.words.len() as f64 / minutes >= MEANINGFUL_WORDS_PER_MINUTE
+    if transcript.words.is_empty() || duration_ms == 0 {
+        return false;
+    }
+    let mut words: Vec<&Word> = transcript.words.iter().collect();
+    words.sort_by_key(|w| w.start_ms);
+    for (left, first) in words.iter().enumerate() {
+        let window_start = first.start_ms;
+        let window_end = (window_start + SPEECH_WINDOW_MS).min(duration_ms);
+        if window_end <= window_start {
+            continue;
+        }
+        let in_window: Vec<&&Word> = words[left..]
+            .iter()
+            .take_while(|w| w.start_ms < window_end)
+            .collect();
+        let count = in_window.len() as f64;
+        let minutes = ((window_end - window_start).max(MIN_SPEECH_WINDOW_MS) as f64) / 60_000.0;
+        // Density alone is not enough: whisper noise often arrives as one
+        // tight burst, which is not commentary anyone can edit around.
+        // Require evidence across several five-second buckets too; real
+        // sparse speech is distributed, while hallucinated phrases clump.
+        let buckets = in_window
+            .iter()
+            .map(|w| w.start_ms / 5_000)
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
+        let required_buckets = if window_end - window_start < 15_000 {
+            2
+        } else {
+            3
+        };
+        if count / minutes >= MEANINGFUL_WORDS_PER_MINUTE && buckets >= required_buckets {
+            return true;
+        }
+    }
+    false
 }
 
 /// Transcript text dense enough for captioning and quote validation. Sparse
@@ -1062,6 +1101,40 @@ mod tests {
         assert!(transcript_for_editorial_use(&noise, 80_000)
             .words
             .is_empty());
+
+        // Noise beds can invent a denser-looking handful of words. Eight in
+        // forty seconds is still far below even sparse commentary.
+        let mut noise_bed = sparse.clone();
+        noise_bed.words = (0..8)
+            .map(|i| Word {
+                text: format!("noise{i}"),
+                start_ms: if i < 4 {
+                    i * 1_000
+                } else {
+                    30_000 + (i - 4) * 1_000
+                },
+                end_ms: if i < 4 {
+                    i * 1_000 + 300
+                } else {
+                    30_000 + (i - 4) * 1_000 + 300
+                },
+                p: 0.9,
+            })
+            .collect();
+        assert!(!has_meaningful_speech(&noise_bed, 40_000));
+
+        // The long-VOD case is the inverse: an hour of quiet before and
+        // after must not erase ten dense minutes of real commentary.
+        let mut vod = sparse.clone();
+        vod.words = (0..1_500)
+            .map(|i| Word {
+                text: format!("word{i}"),
+                start_ms: 3_600_000 + i * 350,
+                end_ms: 3_600_000 + i * 350 + 250,
+                p: 0.9,
+            })
+            .collect();
+        assert!(has_meaningful_speech(&vod, 4 * 3_600_000));
 
         let mut dense = sparse.clone();
         dense.words = (0..120)
