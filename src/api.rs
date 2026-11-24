@@ -1274,12 +1274,18 @@ async fn restyle_clip(
         .load_project(&id)
         .await
         .map_err(ApiError::from)?;
-    let transcript = state.store.load_transcript(&id).await.map_err(|_| {
+    let stored_transcript = state.store.load_transcript(&id).await.map_err(|_| {
         ApiError(
             StatusCode::CONFLICT,
             "The transcript is no longer on disk, so captions cannot be rebuilt.".into(),
         )
     })?;
+    let transcript = match p.source.as_ref().map(|source| source.duration_ms) {
+        Some(duration_ms) if !crate::pipeline::is_caption_only(duration_ms) => {
+            crate::validate::transcript_for_editorial_use(&stored_transcript, duration_ms)
+        }
+        _ => stored_transcript,
+    };
     let cancel = tokio_util::sync::CancellationToken::new();
 
     // Auto-cut: the cut list is computed once and stored on the clip, so a

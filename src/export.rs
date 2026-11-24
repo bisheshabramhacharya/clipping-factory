@@ -130,10 +130,36 @@ fn clean_text(s: &str) -> String {
 /// The clip's caption words as burned into the MP4 — transcript words inside
 /// the interval with any `caption_text` edit applied on the original timings.
 pub fn caption_words(transcript: &Transcript, clip: &ClipRecord) -> Vec<Word> {
-    with_caption_text(
-        &words_in_interval(&transcript.words, clip.start_ms, clip.end_ms),
-        clip.caption_text.as_deref(),
-    )
+    let timed = words_in_interval(&transcript.words, clip.start_ms, clip.end_ms);
+    let words = with_caption_text(&timed, clip.caption_text.as_deref());
+    if !words.is_empty() {
+        return words;
+    }
+    let Some(text) = clip.caption_text.as_deref().map(str::trim) else {
+        return words;
+    };
+    if text.is_empty() {
+        return words;
+    }
+    // Manual captions must still work for visual-only clips with no transcript
+    // timings. Without audio alignment the only honest fallback is an even
+    // distribution across the clip; blank text still means no captions.
+    let replacements: Vec<&str> = text.split_whitespace().collect();
+    let count = replacements.len() as u64;
+    if count == 0 {
+        return words;
+    }
+    let duration = clip.end_ms.saturating_sub(clip.start_ms).max(1);
+    replacements
+        .into_iter()
+        .enumerate()
+        .map(|(index, text)| Word {
+            text: text.to_string(),
+            start_ms: clip.start_ms + duration * index as u64 / count,
+            end_ms: clip.start_ms + duration * (index as u64 + 1) / count,
+            p: 1.0,
+        })
+        .collect()
 }
 
 fn srt_ts(ms: u64) -> String {
@@ -780,6 +806,26 @@ mod tests {
         assert!(vtt.starts_with("WEBVTT\n\n"));
         assert!(vtt.contains("00:00:00.000 --> 00:00:01.500\nhello world\n"));
         assert!(!vtt.contains(','));
+    }
+
+    #[test]
+    fn manual_caption_text_works_without_transcript_timings() {
+        let transcript = Transcript {
+            language: "en".into(),
+            words: Vec::new(),
+            sentences: Vec::new(),
+            avg_confidence: 0.0,
+        };
+        let mut visual_clip = clip();
+        visual_clip.caption_text = Some("manual words still caption".into());
+        let got = caption_words(&transcript, &visual_clip);
+        assert_eq!(got.len(), 4);
+        assert_eq!(got[0].start_ms, visual_clip.start_ms);
+        assert!(got.last().unwrap().end_ms <= visual_clip.end_ms);
+        assert_eq!(
+            got.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(),
+            vec!["manual", "words", "still", "caption"]
+        );
     }
 
     #[test]
