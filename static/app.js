@@ -584,6 +584,7 @@
     failed: "Failed",
   };
   function libraryStatus(entry) {
+    if (entry.status === "complete" && !entry.clips_ready) return "No clips";
     if (LIBRARY_STATUS[entry.status]) return LIBRARY_STATUS[entry.status];
     const stage = STAGE_LABELS[entry.status];
     return stage ? stage.replace(/^\d+\.\s*/, "") + "…" : entry.status;

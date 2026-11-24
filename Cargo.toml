@@ -2,7 +2,7 @@
 name = "clipping-factory"
 version = "0.2.0"
 edition = "2021"
-description = "A local clipping studio: one podcast MP4 in, several faithful vertical clips out."
+description = "A local clipping studio: one long video in, several faithful vertical clips out."
 license = "MIT"
 repository = "https://github.com/bisheshabramhacharya/clipping-factory"
 readme = "README.md"

@@ -7,11 +7,11 @@ Primary handoff: Fable 5
 
 ## 1. Product Summary
 
-Clipping Factory is a local web studio that turns one long podcast MP4 into several finished vertical clips.
+Clipping Factory is a local web studio that turns one long video into several finished vertical clips.
 
 The user drops in a video, connects their own AI API key, waits while the app analyzes and renders the strongest moments, previews every result, and downloads whichever MP4s they like.
 
-The product must not generate “AI slop.” It keeps the original podcast intact and applies a restrained, consistent visual treatment. The AI chooses different source moments; it does not fabricate speech, rewrite the conversation, splice sentences together, add unrelated B-roll, or cover weak excerpts with excessive effects.
+The product must not generate “AI slop.” It keeps the original recording intact and applies a restrained, consistent visual treatment. The AI chooses different source moments; it does not fabricate speech, rewrite the conversation, splice sentences together, add unrelated B-roll, or cover weak excerpts with excessive effects.
 
 ## 2. Product Decision
 
@@ -19,7 +19,7 @@ Build a custom, quality-first MVP.
 
 This is a complete clipping studio workflow, but not a general-purpose video editor:
 
-1. Attach one podcast MP4.
+1. Attach one supported local video file.
 2. Transcribe it locally.
 3. Find and rank several strong, self-contained moments.
 4. Convert each moment to a polished 9:16 clip.
@@ -32,7 +32,7 @@ The first supported environment is macOS on Apple Silicon. Cross-platform packag
 
 ## 3. Problem
 
-Long podcasts contain short moments worth sharing, but finding and packaging them requires:
+Long recordings contain short moments worth sharing, but finding and packaging them requires:
 
 - Watching or scanning the full recording.
 - Identifying excerpts that make sense without earlier context.
@@ -47,12 +47,12 @@ Existing AI clippers often optimize for output volume and visual activity. The r
 
 The MVP succeeds when it:
 
-- Accepts one local MP4 without uploading the video to Clipping Factory servers.
-- Handles speech-led MP4 sources up to four hours long when the machine has sufficient disk space.
+- Accepts one local video in a common FFmpeg-readable container without uploading the video to Clipping Factory servers.
+- Handles speech-led and visual/action-led sources up to twelve hours long when the machine has sufficient disk space.
 - Produces several distinct clips from different moments in the source.
 - Selects only excerpts that work as standalone ideas.
 - Preserves one continuous section of the original recording in every clip.
-- Creates polished 1080×1920 MP4s using one restrained house style.
+- Creates polished native 9:16 MP4s using restrained built-in caption styles.
 - Lets the user preview and download each result independently.
 - Makes every long-running stage and failure visible.
 
@@ -70,7 +70,7 @@ Do not build these in the MVP:
 - Sentence reordering, voice cloning, or rewritten speech.
 - Stock footage, generated B-roll, generated images, or generated video.
 - Automatic music, sound effects, or emojis.
-- Multiple caption templates or visual themes.
+- A visual theme editor beyond the built-in caption styles.
 - Social scheduling or automatic posting.
 - Download-all ZIP files.
 - Claims that a clip has a measurable probability of going viral.
@@ -81,7 +81,7 @@ These exclusions are deliberate. The first release must prove that the selected 
 
 ### 6.1 Faithful source
 
-Each clip is one continuous interval from the original podcast.
+Each clip is one continuous interval from the original recording.
 
 - The app may choose only `start_time` and `end_time`.
 - Spoken words must not be removed, reordered, duplicated, or generated.
@@ -155,7 +155,7 @@ Each result row shows:
 - Short explanation of why the excerpt was selected.
 - **Download MP4** action.
 
-The candidates are different moments from the podcast, not alternate visual versions of the same moment.
+The candidates are different moments from the source recording, not alternate visual versions of the same moment.
 
 ## 8. Screen Requirements
 
@@ -165,9 +165,9 @@ The MVP has one studio screen with three states.
 
 - Product name.
 - **AI connection** button and connection status.
-- Large drop target for one MP4.
+- Large drop target for one supported video file.
 - Clear statement that processing happens locally.
-- Supported-input note: MP4 with at least one audio stream.
+- Supported-input note: common video containers with at least one audio stream.
 
 ### 8.2 Processing state
 
@@ -389,7 +389,7 @@ Recommended stack:
 
 ```mermaid
 flowchart LR
-    A["Drop local MP4"] --> B["Inspect with FFprobe"]
+    A["Drop local video"] --> B["Inspect with FFprobe"]
     B --> C["Extract audio"]
     C --> D["Local word-timestamp transcription"]
     D --> E["LLM proposes source intervals"]
@@ -436,7 +436,7 @@ Each state records `started_at`, `completed_at`, progress details, and a recover
 
 The MVP must handle:
 
-- Invalid or corrupted MP4.
+- Invalid, corrupted, or unsupported video files.
 - Missing audio stream.
 - Unsupported codec.
 - Video shorter than 20 seconds.
@@ -465,7 +465,7 @@ Cancellation must terminate the active FFmpeg, transcription, or rendering subpr
 ### 16.1 Functional
 
 - A user can launch the studio with one command.
-- A valid MP4 can be attached without creating an account.
+- A valid supported video can be attached without creating an account.
 - The app produces a timestamped local transcript.
 - Every candidate maps to one continuous source interval.
 - Every candidate is between 20 and 90 seconds unless explicitly marked as an allowed exception.
@@ -478,7 +478,7 @@ Cancellation must terminate the active FFmpeg, transcription, or rendering subpr
 
 ### 16.2 Anti-slop quality gate
 
-Test with at least three clear, speech-led podcast videos that the tester has permission to use.
+Test with at least three representative videos that the tester has permission to use, including speech-led footage and visual/action-led footage.
 
 - 100% of output clips preserve continuous source audio.
 - 100% of headlines are supported by the excerpt.
@@ -505,8 +505,8 @@ If the final criterion fails, do not add more effects. Improve the editorial pro
 Build and verify one vertical slice at a time.
 
 1. **Local shell and import**
-   - Studio UI, Express server, MP4 validation, project filesystem.
-   - Verify with valid and invalid MP4 fixtures.
+   - Studio UI, local server, media validation, project filesystem.
+   - Verify with supported and unsupported video fixtures.
 2. **Transcription**
    - Audio extraction, local model setup, word timestamps, progress.
    - Verify timestamps against a short known transcript.
@@ -531,7 +531,7 @@ Build and verify one vertical slice at a time.
 
 ## 18. Definition of Done
 
-The MVP is done when a user can attach one long podcast MP4 and, without editing a timeline, receive several ranked, faithful, polished vertical clips that they can preview and download individually.
+The MVP is done when a user can attach one long supported video and, without editing a timeline, receive several ranked, faithful, polished vertical clips that they can preview and download individually.
 
 “Several” means the number of excerpts that pass the quality gate, with roughly one candidate per ten minutes as a planning target. The app must be willing to return fewer clips rather than return bad ones.
 
@@ -551,12 +551,12 @@ Do not add B-roll generation, auto-posting, style marketplaces, or a full timeli
 
 - MVP supports English speech.
 - MVP supports macOS on Apple Silicon.
-- MVP accepts any MP4 streams that the installed FFmpeg build can decode, with a supported duration of up to four hours.
+- MVP accepts common video containers that the installed FFmpeg build can decode, with a supported duration of up to twelve hours.
 - MVP supports OpenAI for editorial selection.
 - The user runs the tool on a machine capable of local transcription and video rendering.
 - Payment is deferred until quality is demonstrated.
 - Different outputs are different source moments, not multiple edits of one moment.
-- The reference “Joe Rogan clip” describes the desired podcast format; test and production inputs must be content the user has permission to process.
+- Reference viral clips describe the desired output grammar; test and production inputs must be content the user has permission to process.
 
 ## 21. Source Notes
 
