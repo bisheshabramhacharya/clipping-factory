@@ -6,7 +6,7 @@
 //! GET    /api/settings/ai            public status (never the key)
 //! POST   /api/settings/ai/test       verify connectivity
 //! GET    /api/setup                  first-run environment checks
-//! POST   /api/projects               multipart MP4 upload → project (auto-starts)
+//! POST   /api/projects               multipart video upload → project (auto-starts)
 //! GET    /api/projects/{id}          full project view
 //! GET    /api/projects/{id}/events   SSE progress stream
 //! POST   /api/projects/{id}/process  start/resume
@@ -14,7 +14,8 @@
 //! POST   /api/projects/{id}/review   persist the review screen's dropped ranks
 //! POST   /api/projects/{id}/cancel   stop subprocesses, keep finished clips
 //! POST   /api/projects/{id}/retry    re-run failed stage / failed clips only
-//! GET    /api/projects/{id}/source   uploaded source MP4 (Range-aware preview)
+//! GET    /api/projects/{id}/source   uploaded source video (Range-aware)
+//! GET    /api/projects/{id}/candidates/{rank}/preview  browser-safe candidate preview MP4
 //! GET    /api/projects/{id}/clips/{clipId}           inline MP4 (Range-aware)
 //! GET    /api/projects/{id}/clips/{clipId}/download  attachment
 //! GET    /api/projects/{id}/clips/{clipId}/export/{kind}  export pack sidecar (srt|vtt|meta|poster)
@@ -63,6 +64,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/projects/{id}/events", get(project_events))
         .route("/api/projects/{id}/source", get(serve_source))
+        .route(
+            "/api/projects/{id}/candidates/{rank}/preview",
+            get(serve_candidate_preview),
+        )
         .route("/api/projects/{id}/process", post(process_project))
         .route("/api/projects/{id}/render", post(render_project))
         .route("/api/projects/{id}/review", post(review_decisions))
@@ -703,7 +708,14 @@ async fn project_view(state: &AppState, id: &str) -> anyhow::Result<serde_json::
     // Accepted candidates for the review step and the render-more list.
     // `text` is the exact transcript words inside the candidate's range.
     let transcript = if selection.is_some() {
-        state.store.load_transcript(id).await.ok()
+        state.store.load_transcript(id).await.ok().map(|t| {
+            match p.source.as_ref().map(|source| source.duration_ms) {
+                Some(duration_ms) if !crate::pipeline::is_caption_only(duration_ms) => {
+                    crate::validate::transcript_for_editorial_use(&t, duration_ms)
+                }
+                _ => t,
+            }
+        })
     } else {
         None
     };
@@ -1480,9 +1492,9 @@ async fn serve_clip_download(
     serve_video(&path, &headers, Some(clip.filename), "video/mp4").await
 }
 
-/// The uploaded source video, inline — the review screen plays a candidate's
-/// range straight from it with a `#t=start,end` media fragment, so no
-/// preview files are needed. Same Range-aware streaming as rendered clips.
+/// The uploaded source video, inline. Review previews use the transcoded
+/// candidate endpoint because browsers cannot play every accepted container;
+/// this raw source endpoint remains useful for direct download/inspection.
 async fn serve_source(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
@@ -1498,6 +1510,91 @@ async fn serve_source(
         .await
         .unwrap_or_else(|| "source.mp4".into());
     serve_video(&path, &headers, None, source_content_type(&source_name)).await
+}
+
+/// Candidate review previews must play in the browser even when the accepted
+/// source container/codec does not (AVI, MPEG-TS, many MKV/MOV files). Build
+/// a small cached H.264/AAC MP4 for just the candidate range on first use.
+async fn serve_candidate_preview(
+    State(state): State<AppState>,
+    AxPath((id, rank)): AxPath<(String, usize)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let selection = state
+        .store
+        .load_selection(&id)
+        .await
+        .map_err(|_| not_found("Candidate not found."))?;
+    let candidate = selection
+        .accepted
+        .iter()
+        .find(|vc| vc.rank == rank)
+        .map(|vc| vc.candidate.clone())
+        .ok_or_else(|| not_found("Candidate not found."))?;
+    let preview_dir = state.store.project_dir(&id).join("previews");
+    let path = preview_dir.join(format!("candidate-{rank}.mp4"));
+    if !crate::util::is_nonempty_file(&path).await {
+        let source = state.store.source_path(&id);
+        if !source.is_file() {
+            return Err(not_found("Project source not found."));
+        }
+        tokio::fs::create_dir_all(&preview_dir)
+            .await
+            .map_err(|e| ApiError::from(anyhow::Error::from(e)))?;
+        let temp = crate::util::unique_temp_path(&path);
+        let start = candidate.start_ms as f64 / 1000.0;
+        let duration = candidate.end_ms.saturating_sub(candidate.start_ms).max(100) as f64 / 1000.0;
+        let args = vec![
+            "-y".into(),
+            "-hide_banner".into(),
+            "-loglevel".into(),
+            "error".into(),
+            "-ss".into(),
+            format!("{start:.3}"),
+            "-i".into(),
+            source.to_string_lossy().into_owned(),
+            "-t".into(),
+            format!("{duration:.3}"),
+            "-map".into(),
+            "0:v:0".into(),
+            "-map".into(),
+            "0:a:0?".into(),
+            "-vf".into(),
+            "scale=640:-2".into(),
+            "-c:v".into(),
+            "libx264".into(),
+            "-preset".into(),
+            "veryfast".into(),
+            "-crf".into(),
+            "30".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+            "-c:a".into(),
+            "aac".into(),
+            "-b:a".into(),
+            "96k".into(),
+            "-movflags".into(),
+            "+faststart".into(),
+            temp.to_string_lossy().into_owned(),
+        ];
+        let rendered = crate::util::run_streaming(
+            &state.cfg.ffmpeg,
+            &args,
+            &tokio_util::sync::CancellationToken::new(),
+            |_, _| {},
+        )
+        .await;
+        if let Err(e) = rendered {
+            tokio::fs::remove_file(&temp).await.ok();
+            return Err(ApiError::from(
+                e.context("Could not build a browser preview for this candidate."),
+            ));
+        }
+        crate::util::promote_atomic(&temp, &path)
+            .await
+            .map_err(ApiError::from)?;
+    }
+    serve_video(&path, &headers, None, "video/mp4").await
 }
 
 fn source_content_type(filename: &str) -> &'static str {

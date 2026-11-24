@@ -143,6 +143,22 @@ pub fn has_meaningful_speech(transcript: &Transcript, duration_ms: u64) -> bool 
     transcript.words.len() as f64 / minutes >= 2.0
 }
 
+/// Transcript text dense enough for captioning and quote validation. Sparse
+/// whisper noise (a few hallucinated words across minutes of music/action)
+/// is worse than no transcript: it can burn misleading captions onto visual
+/// clips, so downstream editorial/rendering uses an empty transcript there.
+pub fn transcript_for_editorial_use(transcript: &Transcript, duration_ms: u64) -> Transcript {
+    if has_meaningful_speech(transcript, duration_ms) {
+        return transcript.clone();
+    }
+    Transcript {
+        language: transcript.language.clone(),
+        words: Vec::new(),
+        sentences: Vec::new(),
+        avg_confidence: 0.0,
+    }
+}
+
 pub(crate) fn cold_open_reason(first_words: &[crate::domain::Word]) -> Option<String> {
     let joined = normalize(
         &first_words
@@ -1007,6 +1023,36 @@ mod tests {
             composite_score(&r.accepted[0].candidate.scores),
             "outside the platform window earns no bonus"
         );
+    }
+
+    #[test]
+    fn sparse_whisper_noise_is_removed_before_captioning() {
+        let sparse = Transcript {
+            language: "en".into(),
+            words: vec![Word {
+                text: "yeah".into(),
+                start_ms: 30_000,
+                end_ms: 30_500,
+                p: 0.5,
+            }],
+            sentences: Vec::new(),
+            avg_confidence: 0.5,
+        };
+        let cleaned = transcript_for_editorial_use(&sparse, 10 * 60_000);
+        assert!(cleaned.words.is_empty());
+        assert!(cleaned.sentences.is_empty());
+
+        let mut dense = sparse.clone();
+        dense.words = (0..120)
+            .map(|i| Word {
+                text: format!("word{i}"),
+                start_ms: i * 500,
+                end_ms: i * 500 + 300,
+                p: 0.9,
+            })
+            .collect();
+        let kept = transcript_for_editorial_use(&dense, 60_000);
+        assert_eq!(kept.words.len(), 120);
     }
 
     #[test]

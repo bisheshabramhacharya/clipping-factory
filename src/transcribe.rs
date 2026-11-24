@@ -271,11 +271,9 @@ where
             );
         }
         let words = parse_words(&parsed, preset.map(calibration), speech.as_deref());
-        if words.is_empty() {
-            return Err(anyhow!(
-                "No speech was detected in this video. Clipping Factory needs clear spoken audio."
-            ));
-        }
+        // Silent, instrumental, and gameplay footage legitimately has no
+        // transcript. Keep the empty transcript so selection can fall back
+        // to observable audio/visual moments instead of failing the upload.
         let sentences = build_sentences(&words);
         let avg_confidence = words.iter().map(|w| w.p).sum::<f32>() / (words.len().max(1) as f32);
         let language = parsed["result"]["language"]

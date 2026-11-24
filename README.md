@@ -167,7 +167,7 @@ Every rendered clip carries opt-in toggles — each re-renders just that clip:
 ## Outputs and local state
 
 ```text
-~/Downloads/Clipping Factory/<source-name>/
+~/Downloads/Clipping Factory/<source-name>-<project-id>/
   01-headline-slug.mp4
 
 ~/.clipping-factory/projects/<project-id>/

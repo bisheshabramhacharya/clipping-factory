@@ -89,11 +89,16 @@ pub async fn probe(
         bail!("This video is over 12 hours. Clipping Factory supports sources up to 12 hours.");
     }
 
-    let width = video["width"].as_u64().unwrap_or(0) as u32;
-    let height = video["height"].as_u64().unwrap_or(0) as u32;
-    if width == 0 || height == 0 {
+    let coded_width = video["width"].as_u64().unwrap_or(0) as u32;
+    let coded_height = video["height"].as_u64().unwrap_or(0) as u32;
+    if coded_width == 0 || coded_height == 0 {
         bail!("Could not read the video dimensions. The file may be corrupted.");
     }
+    // ffmpeg autorotates decoded frames before the filter graph, so crop
+    // coordinates must use display dimensions rather than the coded matrix.
+    // Phone MOVs commonly store 1920×1080 pixels plus a ±90° rotation.
+    let rotation = display_rotation_degrees(video);
+    let (width, height) = display_dimensions(coded_width, coded_height, rotation);
 
     let fps = parse_rate(video["avg_frame_rate"].as_str().unwrap_or(""))
         .or_else(|| parse_rate(video["r_frame_rate"].as_str().unwrap_or("")))
@@ -240,6 +245,41 @@ pub(crate) fn parse_scdet_time_ms(line: &str) -> Option<u64> {
     }
 }
 
+fn display_dimensions(coded_width: u32, coded_height: u32, rotation: i32) -> (u32, u32) {
+    if matches!(rotation.rem_euclid(360), 90 | 270) {
+        (coded_height, coded_width)
+    } else {
+        (coded_width, coded_height)
+    }
+}
+
+fn display_rotation_degrees(video: &serde_json::Value) -> i32 {
+    let parse = |value: Option<&serde_json::Value>| -> Option<i32> {
+        let v = value?;
+        if let Some(n) = v.as_i64() {
+            return Some(n as i32);
+        }
+        if let Some(text) = v.as_str() {
+            return text.parse::<i32>().ok();
+        }
+        v.as_f64().map(|n| n as i32)
+    };
+    let raw = parse(Some(&video["tags"]["rotate"]))
+        .or_else(|| {
+            video["side_data_list"].as_array().and_then(|items| {
+                items.iter().find_map(|item| {
+                    item["side_data_type"]
+                        .as_str()
+                        .is_some_and(|kind| kind == "Display Matrix")
+                        .then(|| parse(Some(&item["rotation"])))
+                        .flatten()
+                })
+            })
+        })
+        .unwrap_or(0);
+    raw.rem_euclid(360)
+}
+
 fn parse_rate(s: &str) -> Option<f64> {
     let (num, den) = s.split_once('/')?;
     let num: f64 = num.parse().ok()?;
@@ -320,6 +360,29 @@ mod tests {
         assert_eq!(parse_scdet_time_ms("lavfi.scdet.time: 0"), Some(0));
         assert_eq!(parse_scdet_time_ms("frame=  100 fps=30"), None);
         assert_eq!(parse_scdet_time_ms("lavfi.scdet.time=abc"), None);
+    }
+
+    #[test]
+    fn display_dimensions_swap_for_quarter_turns_only() {
+        assert_eq!(display_dimensions(1920, 1080, 90), (1080, 1920));
+        assert_eq!(display_dimensions(1920, 1080, 270), (1080, 1920));
+        assert_eq!(display_dimensions(1920, 1080, 180), (1920, 1080));
+        assert_eq!(display_dimensions(1920, 1080, 0), (1920, 1080));
+    }
+
+    #[test]
+    fn display_rotation_comes_from_tags_or_display_matrix() {
+        assert_eq!(
+            display_rotation_degrees(&serde_json::json!({"tags":{"rotate":"90"}})),
+            90
+        );
+        assert_eq!(
+            display_rotation_degrees(&serde_json::json!({
+                "side_data_list":[{"side_data_type":"Display Matrix","rotation":-90}]
+            })),
+            270
+        );
+        assert_eq!(display_rotation_degrees(&serde_json::json!({})), 0);
     }
 
     #[test]

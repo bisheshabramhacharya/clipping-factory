@@ -551,6 +551,22 @@ fn is_cancelled(e: &anyhow::Error, token: &CancellationToken) -> bool {
     token.is_cancelled() || crate::util::is_cancelled(e)
 }
 
+/// Finished clips are shared through one user-facing root, so the folder
+/// must be unique to the project rather than just the source basename:
+/// `demo.mp4` and `demo.mov` (or two unrelated `demo.mp4` files) otherwise
+/// overwrite each other's `01-….mp4` and sidecars.
+fn output_dir_for_project(
+    output_root: &std::path::Path,
+    filename: &str,
+    project_id: &str,
+) -> PathBuf {
+    let stem = std::path::Path::new(filename)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(filename);
+    output_root.join(format!("{}-{}", slugify(stem, 48), slugify(project_id, 16)))
+}
+
 fn full_video_candidate(transcript: &Transcript, duration_ms: u64) -> Candidate {
     let caption = words_to_text(&transcript.words);
     Candidate {
@@ -787,26 +803,36 @@ async fn run(
                     }
                     // PRD §13: delete temporary audio after successful transcription.
                     tokio::fs::remove_file(&wav).await.ok();
-                    if t.avg_confidence < 0.68 {
+                    if !t.words.is_empty() && t.avg_confidence < 0.68 {
                         p.warning = Some(format!(
                             "Transcription confidence was low ({:.0}%). Captions may contain errors.",
                             t.avg_confidence * 100.0
                         ));
                     }
-                    let lang = crate::transcribe::language_name(&t.language)
-                        .unwrap_or(t.language.as_str());
-                    Ok(format!(
-                        "{} words · {} · avg confidence {:.0}%",
-                        t.words.len(),
-                        lang,
-                        t.avg_confidence * 100.0
-                    ))
+                    let detail = if t.words.is_empty() {
+                        "No speech detected · using visual/energy moments".to_string()
+                    } else {
+                        let lang = crate::transcribe::language_name(&t.language)
+                            .unwrap_or(t.language.as_str());
+                        format!(
+                            "{} words · {} · avg confidence {:.0}%",
+                            t.words.len(),
+                            lang,
+                            t.avg_confidence * 100.0
+                        )
+                    };
+                    Ok(detail)
                 }
                 Err(e) => Err(e),
             }
         });
     }
-    let transcript = store.load_transcript(&id).await?;
+    let stored_transcript = store.load_transcript(&id).await?;
+    let transcript = if is_caption_only(source.duration_ms) {
+        stored_transcript
+    } else {
+        crate::validate::transcript_for_editorial_use(&stored_transcript, source.duration_ms)
+    };
 
     // ---- 4–5. Select and validate -----------------------------------------
     // Short videos are caption-only jobs: preserve the entire source instead
@@ -1132,11 +1158,7 @@ async fn run(
         .accent_color
         .clone()
         .unwrap_or_else(|| crate::captions::default_accent_hex(caption_style).to_string());
-    let source_stem = std::path::Path::new(&source.filename)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or(&source.filename);
-    let output_dir = state.cfg.output_root.join(slugify(source_stem, 60));
+    let output_dir = output_dir_for_project(&state.cfg.output_root, &source.filename, &id);
     let settings = state.settings.read().unwrap().clone();
     let total = manifest.clips.len();
     tokio::fs::create_dir_all(store.base_dir(&id)).await?;
@@ -1890,6 +1912,16 @@ mod tests {
     fn caption_only_threshold_excludes_exactly_twenty_seconds() {
         assert!(is_caption_only(19_999));
         assert!(!is_caption_only(20_000));
+    }
+
+    #[test]
+    fn output_folder_is_project_unique_even_for_same_stem() {
+        let root = std::path::Path::new("/tmp/clips");
+        let mp4 = output_dir_for_project(root, "demo.mp4", "e4b0000004");
+        let mov = output_dir_for_project(root, "demo.mov", "5c0e000005");
+        assert_ne!(mp4, mov);
+        assert!(mp4.to_string_lossy().contains("demo-e4b0000004"));
+        assert!(mov.to_string_lossy().contains("demo-5c0e000005"));
     }
 
     // ---- progress model ---------------------------------------------------

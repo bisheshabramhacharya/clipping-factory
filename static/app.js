@@ -929,8 +929,8 @@
     }
 
     row.append(head, reason, text, actions);
-    // The preview streams the uploaded source itself — a #t=start,end
-    // media fragment bounds it to this candidate's range, no file needed.
+    // The preview is a cached browser-safe MP4 of just this candidate —
+    // uploads in AVI/MKV/TS/MOV containers are often not browser-playable.
     if (playingRank === c.rank) row.appendChild(previewPlayer(c));
     row.classList.toggle("dropped", !!c.dropped);
     return row;
@@ -943,9 +943,7 @@
     video.controls = true;
     video.playsInline = true;
     video.preload = "auto";
-    const start = ((c.start_ms || 0) / 1000).toFixed(3);
-    const end = ((c.end_ms || 0) / 1000).toFixed(3);
-    video.src = `${apiPath("projects", projectId, "source")}#t=${start},${end}`;
+    video.src = apiPath("projects", projectId, "candidates", c.rank, "preview");
     video.setAttribute("aria-label", `Preview of ${c.headline || `candidate ${c.rank}`}`);
     // Belt and braces for browsers that ignore the media fragment's end.
     const endSec = (c.end_ms || 0) / 1000;
