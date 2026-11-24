@@ -330,13 +330,15 @@ fn video_encode_args(threads: usize) -> Vec<String> {
     ]
 }
 
-/// The output must exist and be non-trivial.
+/// The output must exist and be non-trivial. Keep the floor low: a short,
+/// static, video-only MP4 can validly be only a few KiB, while ffmpeg's
+/// failure/empty-output cases are still far below this.
 async fn ensure_nontrivial(path: &Path, msg: &str) -> Result<()> {
     let size = tokio::fs::metadata(path)
         .await
         .map(|m| m.len())
         .unwrap_or(0);
-    if size < 10_000 {
+    if size < 1_000 {
         return Err(anyhow!("{}", msg));
     }
     Ok(())
