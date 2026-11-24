@@ -134,13 +134,18 @@ pub fn score_reasons(s: &Scores) -> Vec<String> {
     reasons
 }
 
+/// Minimum average density for transcript-first clipping. Normal speech is
+/// dozens of words per minute. Whisper commonly invents a few words over
+/// loud effects, music, or silence; those isolated tokens must not send the
+/// whole source down quote matching when energy/visual selection is the
+/// honest path.
+const MEANINGFUL_WORDS_PER_MINUTE: f64 = 10.0;
+
 /// Whether the transcript carries enough speech for transcript-first
-/// clipping. Normal speech is dozens of words per minute; an isolated
-/// hallucinated word or two in a music/gameplay/video track must not send
-/// the whole source down the quote-matching path.
+/// clipping.
 pub fn has_meaningful_speech(transcript: &Transcript, duration_ms: u64) -> bool {
     let minutes = (duration_ms as f64 / 60_000.0).max(1.0 / 6.0);
-    transcript.words.len() as f64 / minutes >= 2.0
+    transcript.words.len() as f64 / minutes >= MEANINGFUL_WORDS_PER_MINUTE
 }
 
 /// Transcript text dense enough for captioning and quote validation. Sparse
@@ -1041,6 +1046,22 @@ mod tests {
         let cleaned = transcript_for_editorial_use(&sparse, 10 * 60_000);
         assert!(cleaned.words.is_empty());
         assert!(cleaned.sentences.is_empty());
+
+        // The realistic failure mode seen on gameplay audio: four confident
+        // noise hallucinations in 80 seconds is still not a spoken video.
+        let mut noise = sparse.clone();
+        noise.words = (0..4)
+            .map(|i| Word {
+                text: format!("noise{i}"),
+                start_ms: i * 20_000,
+                end_ms: i * 20_000 + 300,
+                p: 0.9,
+            })
+            .collect();
+        assert!(!has_meaningful_speech(&noise, 80_000));
+        assert!(transcript_for_editorial_use(&noise, 80_000)
+            .words
+            .is_empty());
 
         let mut dense = sparse.clone();
         dense.words = (0..120)

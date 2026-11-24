@@ -529,6 +529,11 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<TokenWord> {
         // Non-lexical symbols before the next word (¿, ¡, quotes, dashes) —
         // attached to the word they open so captions keep them.
         let mut prefix = String::new();
+        // Whisper annotations are not always one token: `(crickets chirping)`
+        // and `[BLANK_AUDIO]` may split after their opening bracket. Treat the
+        // whole span as non-speech instead of leaking its inner words into the
+        // transcript (where they can look like sparse real speech).
+        let mut skip_until: Option<char> = None;
         let Some(tokens) = segment["tokens"].as_array() else {
             continue;
         };
@@ -545,6 +550,24 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<TokenWord> {
             if part.is_empty() || part.starts_with("[_") {
                 continue;
             }
+            if let Some(closing) = skip_until {
+                if part.ends_with(closing) {
+                    skip_until = None;
+                }
+                continue;
+            }
+            for (opening, closing) in [('(', ')'), ('[', ']')] {
+                if part.starts_with(opening) {
+                    finish_word(&mut words, &mut pending);
+                    if !part.ends_with(closing) || part.len() == 1 {
+                        skip_until = Some(closing);
+                    }
+                    break;
+                }
+            }
+            if skip_until.is_some() || part.starts_with('(') || part.starts_with('[') {
+                continue;
+            }
             let dtw = token_dtw_ms(token);
             let prev_dtw = last_dtw;
             last_dtw = dtw.or(last_dtw);
@@ -554,11 +577,6 @@ fn parse_token_words(segments: &[serde_json::Value]) -> Vec<TokenWord> {
             }
 
             let lexical = part.chars().any(char::is_alphanumeric);
-            let annotation = (part.starts_with('[') && part.ends_with(']'))
-                || (part.starts_with('(') && part.ends_with(')'));
-            if annotation {
-                continue;
-            }
             if !lexical && pending.is_none() {
                 prefix.push_str(part);
                 continue;
@@ -778,6 +796,28 @@ fn drop_hallucinated_segments(
     (v, dropped)
 }
 
+/// Remove non-speech annotations from segment-level fallback text. Whisper
+/// often emits `(crickets chirping)` or `[BLANK AUDIO]`; when those tokens
+/// split, token parsing alone cannot leave them for the fallback to count.
+fn strip_non_speech_annotations(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut stack: Vec<char> = Vec::new();
+    for ch in text.chars() {
+        if let Some(close) = stack.last().copied() {
+            if ch == close {
+                stack.pop();
+            }
+            continue;
+        }
+        match ch {
+            '(' => stack.push(')'),
+            '[' => stack.push(']'),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 fn parse_words(
     v: &serde_json::Value,
     calib: Option<Calibration>,
@@ -797,9 +837,11 @@ fn parse_words(
         };
     }
     for seg in segments {
-        let text = strip_turn_markers(seg["text"].as_str().unwrap_or(""))
-            .trim()
-            .to_string();
+        let text = strip_non_speech_annotations(
+            strip_turn_markers(seg["text"].as_str().unwrap_or("")).trim(),
+        )
+        .trim()
+        .to_string();
         if text.is_empty() {
             continue;
         }
@@ -1029,6 +1071,23 @@ mod tests {
                 ("now.", 950, 1050),
             ]
         );
+    }
+
+    #[test]
+    fn multi_token_non_speech_annotations_do_not_leak_words() {
+        let parsed = serde_json::json!({
+            "transcription": [{
+                "offsets": {"from": 0, "to": 1200},
+                "text": "(crickets chirping) [BLANK_AUDIO]",
+                "tokens": [
+                    {"text": " (crickets", "offsets": {"from": 100, "to": 200}, "p": 0.9},
+                    {"text": " chirping)", "offsets": {"from": 200, "to": 300}, "p": 0.9},
+                    {"text": " [BLANK", "offsets": {"from": 400, "to": 500}, "p": 0.9},
+                    {"text": "_AUDIO]", "offsets": {"from": 500, "to": 600}, "p": 0.9}
+                ]
+            }]
+        });
+        assert!(parse_words(&parsed, None, None).is_empty());
     }
 
     #[test]
