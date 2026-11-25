@@ -535,6 +535,20 @@ pub(crate) fn out_time_fraction(line: &str, dur_us: f64) -> Option<f32> {
     (dur_us > 0.0).then(|| (us / dur_us).clamp(0.0, 1.0) as f32)
 }
 
+fn parse_duration_tag_ms(text: &str) -> Option<u64> {
+    let parts: Vec<&str> = text.trim().split(':').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let hours = parts[0].parse::<f64>().ok()?;
+    let minutes = parts[1].parse::<f64>().ok()?;
+    let seconds = parts[2].parse::<f64>().ok()?;
+    if hours < 0.0 || minutes < 0.0 || seconds < 0.0 {
+        return None;
+    }
+    Some((((hours * 60.0 + minutes) * 60.0 + seconds) * 1000.0).round() as u64)
+}
+
 async fn video_stream_duration_ms(
     cfg: &Config,
     src: &Path,
@@ -546,16 +560,33 @@ async fn video_stream_duration_ms(
         "-select_streams".into(),
         "V:0".into(),
         "-show_entries".into(),
-        "stream=duration".into(),
+        "stream=duration:stream_tags=DURATION".into(),
         "-of".into(),
-        "default=noprint_wrappers=1:nokey=1".into(),
+        "json".into(),
         src.to_string_lossy().into_owned(),
     ];
     let out = crate::util::run_capture_cancellable(&cfg.ffprobe, &args, cancel).await?;
-    Ok(out
-        .lines()
-        .find_map(|line| line.trim().parse::<f64>().ok())
-        .map(|seconds| (seconds * 1000.0).round() as u64))
+    let json: serde_json::Value = match serde_json::from_str(&out) {
+        Ok(json) => json,
+        Err(_) => return Ok(None),
+    };
+    let Some(stream) = json["streams"]
+        .as_array()
+        .and_then(|streams| streams.first())
+    else {
+        return Ok(None);
+    };
+    let direct = stream["duration"]
+        .as_str()
+        .and_then(|duration| duration.parse::<f64>().ok())
+        .map(|seconds| (seconds * 1000.0).round() as u64);
+    let tagged = stream["tags"].as_object().and_then(|tags| {
+        tags.iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case("duration"))
+            .and_then(|(_, value)| value.as_str())
+            .and_then(parse_duration_tag_ms)
+    });
+    Ok(direct.or(tagged))
 }
 
 /// Detect scene-boundary timestamps once per Source during inspection.
@@ -598,14 +629,20 @@ where
     let mut boundaries: Vec<u64> = Vec::new();
     // Container duration can include a longer audio track, while this scan
     // decodes video only (`-an`). Compare decode coverage with the video
-    // stream's own duration so complete videos with trailing audio pass.
-    let scan_duration_ms = match video_stream_duration_ms(cfg, src, cancel).await {
-        Ok(Some(ms)) if ms > 0 => ms,
-        Ok(_) => duration_ms,
+    // stream's own duration when one is available. Matroska/WebM often omit
+    // the numeric field but carry a DURATION tag; if neither exists, skip the
+    // shortfall heuristic rather than measuring video against audio time.
+    let video_scan_duration_ms = match video_stream_duration_ms(cfg, src, cancel).await {
+        Ok(Some(ms)) if ms > 0 => Some(ms),
+        Ok(_) => None,
         Err(e) if crate::util::is_cancelled(&e) => return Err(e),
-        Err(_) => duration_ms,
+        Err(_) => None,
     };
-    let dur_us = (scan_duration_ms as f64) * 1000.0;
+    // Progress still needs some scale when the video duration is unknown.
+    // That fallback is display-only and is deliberately not used for the
+    // truncation verdict.
+    let progress_duration_ms = video_scan_duration_ms.unwrap_or(duration_ms);
+    let dur_us = (progress_duration_ms as f64) * 1000.0;
     let mut decoded_fraction = 0.0f32;
     let mut demuxer_reported_partial_file = false;
     let mut stream_mapping_started = false;
@@ -657,7 +694,9 @@ where
         }
         Ok(())
             if demuxer_reported_partial_file
-                || (scan_duration_ms >= 5_000 && decoded_fraction < 0.90) =>
+                || video_scan_duration_ms
+                    .map(|ms| ms >= 5_000 && decoded_fraction < 0.90)
+                    .unwrap_or(false) =>
         {
             return Err(anyhow::Error::new(TruncatedSource));
         }
@@ -949,6 +988,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn scene_scan_accepts_webm_video_with_longer_audio() {
+        let tmp = std::env::temp_dir().join(format!("cf-webm-audio-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let video = tmp.join("long-audio.webm");
+        let cfg = crate::config::Config::resolve();
+        if !media_tools_available(&cfg) {
+            return;
+        }
+        let status = std::process::Command::new(&cfg.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=30:duration=5",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=44100:duration=10",
+                "-c:v",
+                "libvpx",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "libvorbis",
+            ])
+            .arg(&video)
+            .status()
+            .unwrap();
+        if !status.success() {
+            tokio::fs::remove_dir_all(&tmp).await.ok();
+            return;
+        }
+        scene_boundaries(&cfg, &video, 10_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap();
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
     async fn scene_scan_accepts_multi_track_video() {
         let tmp = std::env::temp_dir().join(format!("cf-multi-video-{}", crate::util::short_id()));
         tokio::fs::create_dir_all(&tmp).await.unwrap();
@@ -993,6 +1075,14 @@ mod tests {
     }
 
     #[test]
+    fn parses_matroska_duration_tags() {
+        assert_eq!(parse_duration_tag_ms("00:00:05.007000000"), Some(5_007));
+        assert_eq!(parse_duration_tag_ms("01:02:03.5"), Some(3_723_500));
+        assert_eq!(parse_duration_tag_ms("5.007"), None);
+        assert_eq!(parse_duration_tag_ms("bad"), None);
+    }
+
+    #[test]
     fn cover_art_is_not_the_primary_video_stream() {
         let cover = serde_json::json!({
             "codec_type": "video",
@@ -1026,9 +1116,14 @@ mod tests {
         )
         .await
         .unwrap();
-        tokio::fs::write(&ffprobe, "#!/bin/sh\nprintf '5.0\\n'\n")
-            .await
-            .unwrap();
+        tokio::fs::write(
+            &ffprobe,
+            r#"#!/bin/sh
+printf '%s\n' '{"streams":[{"duration":"5.0"}]}'
+"#,
+        )
+        .await
+        .unwrap();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
