@@ -188,8 +188,6 @@ where
     let output_template = download_dir.join("source.%(ext)s");
     let mut args = vec![
         "--no-playlist".into(),
-        "--max-downloads".into(),
-        "1".into(),
         "--newline".into(),
         // A standalone playlist exposes `playlist_id` even before entries are
         // processed. Rejecting it there prevents a whole collection from being
@@ -841,7 +839,6 @@ printf 'fake-video' > "${out//%(ext)s/mp4}"
             url
         );
         let all_args = tokio::fs::read_to_string(&all_args_log).await.unwrap();
-        assert!(all_args.contains("--max-downloads\n1"));
         assert!(all_args.contains("--newline"));
         assert!(all_args.contains("--match-filters\n!is_live & !playlist_id"));
         assert!(all_args.contains("--ffmpeg-location\n/opt/custom/bin/ffmpeg"));
