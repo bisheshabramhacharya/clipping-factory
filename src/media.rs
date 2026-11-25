@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::domain::SourceInfo;
 use crate::util::run_streaming;
 use anyhow::{anyhow, bail, Context, Result};
+use std::borrow::Cow;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -496,11 +497,41 @@ pub fn is_truncated_source(e: &anyhow::Error) -> bool {
     e.chain().any(|cause| cause.is::<TruncatedSource>())
 }
 
+/// Remove ANSI CSI color/styling sequences from ffmpeg log lines. ffmpeg
+/// normally suppresses colors on pipes, but `AV_LOG_FORCE_COLOR` can override
+/// that in the user's environment and otherwise hides the demuxer wording
+/// behind escape bytes.
+fn strip_ansi_colors(line: &str) -> Cow<'_, str> {
+    if !line.contains('\x1b') {
+        return Cow::Borrowed(line);
+    }
+    let bytes = line.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
+            i += 2;
+            while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1;
+            }
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    Cow::Owned(String::from_utf8_lossy(&out).into_owned())
+}
+
 /// Demuxers report physically short reads in format-specific wording: MP4
 /// says `stream … offset …: partial file`, while Matroska/WebM says
 /// `File ended prematurely`. Require ffmpeg's demuxer log context so input
 /// metadata/titles containing those words cannot trigger a false positive.
 fn is_demuxer_truncation_line(line: &str) -> bool {
+    let plain_line = strip_ansi_colors(line);
+    let line = plain_line.as_ref();
     let demuxer_line = line.starts_with('[') && line.contains(" @ 0x");
     demuxer_line
         && ((line.contains("stream ")
@@ -639,6 +670,8 @@ where
             }
             return;
         }
+        let plain_line = strip_ansi_colors(line);
+        let line = plain_line.as_ref();
         if is_demuxer_truncation_line(line) {
             demuxer_reported_partial_file = true;
         }
@@ -1176,6 +1209,9 @@ printf '%s\n' '{"streams":[{"duration":"5.0"}]}'
         ));
         assert!(is_demuxer_truncation_line(
             "[matroska,webm @ 0x0] File ended prematurely at pos. 100 (0x64)"
+        ));
+        assert!(is_demuxer_truncation_line(
+            "\x1b[0;35m[matroska,webm @ 0x0] \x1b[0m\x1b[1;31mFile ended prematurely"
         ));
         assert!(!is_demuxer_truncation_line(
             "    title           : partial file"
