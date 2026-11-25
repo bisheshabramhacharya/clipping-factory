@@ -275,6 +275,14 @@ where
             redact_urls(&e.to_string())
         ));
     }
+    // yt-dlp can skip an oversized split audio/video track yet still exit 0.
+    // Accepting the remaining track would silently turn a sounded source into
+    // a video-only one, so any explicit filter/size rejection is fatal even
+    // when a playable partial file remains.
+    if let Some(reason) = rejection {
+        tokio::fs::remove_dir_all(download_dir).await.ok();
+        bail!(reason);
+    }
 
     let mut downloaded = None;
     let mut entries = tokio::fs::read_dir(download_dir).await?;
@@ -778,6 +786,46 @@ mod tests {
         assert!(!redacted.contains("token=two"), "{redacted}");
         assert_eq!(redacted.matches("<redacted-url>").count(), 2);
         assert!(redacted.contains("unable to download"), "{redacted}");
+    }
+
+    #[tokio::test]
+    async fn url_download_rejects_partial_tracks_even_with_success_exit() {
+        let tmp = std::env::temp_dir().join(format!("cf-url-partial-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let fake = tmp.join("fake-yt-dlp");
+        let script = r#"#!/bin/bash
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  shift
+done
+echo '[download] File is larger than max-filesize (10 bytes > 5 bytes). Aborting.'
+printf 'video-without-audio' > "${out//%(ext)s/mp4}"
+"#;
+        tokio::fs::write(&fake, script).await.unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&fake).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&fake, perms).unwrap();
+        }
+        let mut cfg = crate::config::Config::resolve();
+        cfg.ytdlp_bin = Some(fake);
+        let error = download_source_url(
+            &cfg,
+            &tmp.join("download"),
+            &tmp.join("source.mp4"),
+            "https://example.com/video",
+            1024,
+            &CancellationToken::new(),
+            |_, _| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("larger than the current disk"));
+        assert!(!tmp.join("source.mp4").exists());
+        tokio::fs::remove_dir_all(&tmp).await.ok();
     }
 
     #[tokio::test]
