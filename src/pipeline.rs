@@ -630,6 +630,62 @@ fn pending_framing<'a>(
         .collect()
 }
 
+/// URL imports are intentionally asynchronous: project creation returns at
+/// once, then inspection downloads the link with cancellation and live
+/// progress before the normal probe/scene scan starts. Returns true when this
+/// call materialized the source file.
+async fn ensure_source_available<F>(
+    cfg: &crate::config::Config,
+    store: &crate::store::Store,
+    id: &str,
+    src: &std::path::Path,
+    cancel: &CancellationToken,
+    mut progress: F,
+) -> Result<bool>
+where
+    F: FnMut(f32, Option<String>),
+{
+    if src.is_file() {
+        return Ok(false);
+    }
+    let Some(url) = store.load_source_url(id).await else {
+        return Err(anyhow::anyhow!(
+            "The source video is missing. Upload it again or paste a video URL."
+        ));
+    };
+    let capacity =
+        crate::util::upload_capacity_bytes(crate::util::disk_free_gb(&cfg.data_dir).await);
+    let download_dir = store.project_dir(id).join("url-download");
+    progress(0.0, Some("Downloading video link…".into()));
+    let mut last_pct = -1.0f32;
+    crate::media::download_source_url(
+        cfg,
+        &download_dir,
+        src,
+        &url,
+        capacity,
+        cancel,
+        |_, line| {
+            if let Some(pct) = crate::media::ytdlp_progress_percent(line) {
+                if (pct - last_pct).abs() >= 1.0 {
+                    last_pct = pct;
+                    progress(
+                        0.01 + (pct / 100.0) * 0.44,
+                        Some(format!("Downloading video link… {pct:.0}%")),
+                    );
+                }
+            }
+        },
+    )
+    .await?;
+    // Signed links often carry tokens in their query string. Keep the URL
+    // only while a retry might still need the download; the materialized
+    // source file is enough once yt-dlp has completed.
+    tokio::fs::remove_file(store.source_url_path(id)).await.ok();
+    progress(0.45, Some("Video link downloaded".into()));
+    Ok(true)
+}
+
 async fn run(
     state: AppState,
     id: String,
@@ -682,55 +738,89 @@ async fn run(
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "source.mp4".into());
         stage!("inspecting", {
-            match crate::media::probe(cfg, &src, &source_name, &ctx.cancel).await {
-                Ok(mut info) => {
-                    let detail = format!(
-                        "{}×{} · {} · {}/{}",
-                        info.width,
-                        info.height,
-                        fmt_ms(info.duration_ms),
-                        info.video_codec,
-                        if info.has_audio() {
-                            info.audio_codec.as_str()
-                        } else {
-                            "no audio"
+            let downloaded = ensure_source_available(
+                cfg,
+                store,
+                &id,
+                &src,
+                &ctx.cancel,
+                ctx.progress_fn("inspecting"),
+            )
+            .await;
+            if let Err(e) = downloaded {
+                Err(e)
+            } else {
+                let downloaded = downloaded.unwrap_or(false);
+                match crate::media::probe(cfg, &src, &source_name, &ctx.cancel).await {
+                    Ok(mut info) => {
+                        let detail = format!(
+                            "{}×{} · {} · {}/{}",
+                            info.width,
+                            info.height,
+                            fmt_ms(info.duration_ms),
+                            info.video_codec,
+                            if info.has_audio() {
+                                info.audio_codec.as_str()
+                            } else {
+                                "no audio"
+                            }
+                        );
+                        if p.accent_optimized && p.accent_color.is_none() {
+                            p.accent_color = Some(match crate::accent::optimized_accent_for_video(
+                                &cfg.ffmpeg,
+                                &cfg.ffprobe,
+                                &src,
+                            )
+                            .await
+                            {
+                                Ok(color) => color.to_string(),
+                                Err(error) => {
+                                    tracing::warn!(
+                                        "video color optimization failed, using default accent: {error:#}"
+                                    );
+                                    crate::captions::default_accent_hex(CaptionStyle::Impact)
+                                        .to_string()
+                                }
+                            });
                         }
-                    );
-                    // Scene detection is the slow half of inspection: the
-                    // scdet scan reports real decode progress, so a 3-hour
-                    // source shows a proportionally slower bar than a clip.
-                    let mut prog = ctx.progress_fn("inspecting");
-                    prog(0.05, Some("Scanning for scene boundaries".into()));
-                    // Scene detection is advisory like the energy profile: a
-                    // failed pass degrades to no boundaries — but a
-                    // cancellation must still fail the stage.
-                    match crate::media::scene_boundaries(
-                        cfg,
-                        &src,
-                        info.duration_ms,
-                        &ctx.cancel,
-                        |pct| prog(0.05 + pct * 0.95, None),
-                    )
-                    .await
-                    {
-                        Ok(boundaries) => {
-                            info.scene_boundaries_ms = boundaries;
-                            ctx.model.lock().unwrap().set_source(&info);
-                            p.source = Some(info);
-                            Ok(detail)
-                        }
-                        Err(e) if is_cancelled(&e, &ctx.cancel) => Err(e),
-                        Err(e) => {
-                            tracing::warn!(
-                                "scene detection failed; continuing without boundaries: {e:#}"
-                            );
-                            ctx.model.lock().unwrap().set_source(&info);
-                            p.source = Some(info);
-                            Ok(detail)
+                        // Scene detection is the slow half of inspection: the
+                        // scdet scan reports real decode progress, so a 3-hour
+                        // source shows a proportionally slower bar than a clip.
+                        // URL downloads reserve the first 45% of the stage.
+                        let mut prog = ctx.progress_fn("inspecting");
+                        let scene_start = if downloaded { 0.45 } else { 0.05 };
+                        prog(scene_start, Some("Scanning for scene boundaries".into()));
+                        // Scene detection is advisory like the energy profile: a
+                        // failed pass degrades to no boundaries — but a
+                        // cancellation must still fail the stage.
+                        match crate::media::scene_boundaries(
+                            cfg,
+                            &src,
+                            info.duration_ms,
+                            &ctx.cancel,
+                            |pct| prog(scene_start + pct * (1.0 - scene_start), None),
+                        )
+                        .await
+                        {
+                            Ok(boundaries) => {
+                                info.scene_boundaries_ms = boundaries;
+                                ctx.model.lock().unwrap().set_source(&info);
+                                p.source = Some(info);
+                                Ok(detail)
+                            }
+                            Err(e) if is_cancelled(&e, &ctx.cancel) => Err(e),
+                            Err(e) => {
+                                tracing::warn!(
+                                    "scene detection failed; continuing without boundaries: {e:#}"
+                                );
+                                ctx.model.lock().unwrap().set_source(&info);
+                                p.source = Some(info);
+                                Ok(detail)
+                            }
                         }
                     }
+                    Err(e) => Err(e),
                 }
-                Err(e) => Err(e),
             }
         });
     }

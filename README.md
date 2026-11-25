@@ -40,7 +40,7 @@ No account. No cloud upload. No required AI model. The built-in ranker scans the
 </p>
 
 ```text
-Drop video → Inspect → Extract audio → Transcribe → Find candidates
+Drop video or paste link → Inspect → Extract audio → Transcribe → Find candidates
          → Validate → Review candidates → Analyze framing → Render → Preview and download
 ```
 
@@ -51,6 +51,9 @@ The first supported setup is macOS on Apple Silicon.
 ```bash
 # Media and transcription runtimes
 brew install ffmpeg-full whisper-cpp
+
+# Optional: paste YouTube/Twitch/video links directly into the studio
+brew install yt-dlp
 
 # Rust toolchain — skip this if Rust is already installed
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -66,6 +69,8 @@ cargo run --release
 
 The studio opens at [http://localhost:4571](http://localhost:4571). Drop in one video (`mp4`, `mov`, `mkv`, `webm`, `avi`, `ts`, `m2ts`, `mpg`, or `mpeg`), pick the video type, caption style, accent color, framing, language, and clip length, then click **Make clips**. Nothing is uploaded or transcribed until you do. Video type steers selection and the default framing: talking videos use face-aware Fill, streams/gameplay default to a center Crop, and screen recordings default to Fit. You can override framing per project. The optional **Focus** field steers selection toward a topic ("clips about pricing", "where they argue", "clutch moments"): it reaches the configured provider as an editorial directive, and under local ranking it falls back to keyword matching. Left blank, selection stays the generic best-clips ranking.
 
+You can also paste one HTTP(S) video link — including YouTube and Twitch VOD links — instead of choosing a file. Install `yt-dlp` first (or set `CF_YTDLP`). The download runs on your machine inside the normal Inspect stage, with cancellation and progress; playlists and live streams are rejected rather than imported by accident. Some platforms can require browser cookies or block datacenter IP addresses, so a link that plays in your browser is not guaranteed to be downloadable by `yt-dlp`.
+
 With **Review candidates before rendering** on (the default), the run pauses after validation: each accepted candidate lists its headline, range, score, selection reason, and the exact transcript words it would cover — press **Play** to watch the range straight from the source. Drop the weak ones and **Render kept** frames and renders only those; **Render all** skips the decision and renders everything. Keyboard: `↑`/`↓` between cards, `Space` previews, `D` drops, `K` brings back, `Enter` renders. Sort by score or time. The review survives refresh and restarts — the server stores it.
 
 Later, on any finished, failed, or cancelled project, **Render more** reopens the list: rendered candidates are marked, and any unrendered one — including a candidate you dropped earlier — can be rendered without redoing the work.
@@ -79,7 +84,7 @@ cmake -B build
 cmake --build build -j --target whisper-cli
 ```
 
-Set `CF_WHISPER_BIN` to the resulting `whisper-cli` path if it is not already on your `PATH`.
+Set `CF_WHISPER_BIN` to the resulting `whisper-cli` path if it is not already on your `PATH`. For URL imports, install [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) with your package manager or `pipx install yt-dlp`.
 
 ### Better transcription
 

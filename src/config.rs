@@ -7,6 +7,7 @@
 //! - `CF_FFMPEG` / `CF_FFPROBE`
 //! - `CF_WHISPER_BIN`     — whisper.cpp `whisper-cli`
 //! - `CF_WHISPER_MODEL`   — ggml model path
+//! - `CF_YTDLP`           — yt-dlp binary for optional URL imports
 //! - `CF_FONTS_DIR`       — directory containing caption fonts
 //! - `CF_FACE_MODEL`      — rustface seeta model path
 //! - `CF_THREADS`         — transcription threads (default = physical cores)
@@ -26,6 +27,7 @@ pub struct Config {
     pub ffprobe: String,
     pub whisper_bin: Option<PathBuf>,
     pub whisper_model: Option<PathBuf>,
+    pub ytdlp_bin: Option<PathBuf>,
     pub fonts_dir: Option<PathBuf>,
     pub caption_font: String,
     /// Default caption style when a project doesn't specify one: one of
@@ -167,6 +169,10 @@ impl Config {
             .filter(|p| p.is_file())
             .or_else(|| find_whisper_model(&model_search_dirs(&data_dir, &cwd, Some(&home))));
 
+        let ytdlp_bin = env_path("CF_YTDLP")
+            .filter(|p| p.is_file())
+            .or_else(|| which("yt-dlp"));
+
         // Caption fonts: bundled assets dir preferred.
         let fonts_dir = env_path("CF_FONTS_DIR").filter(|p| p.is_dir()).or_else(|| {
             let d = cwd.join("assets/fonts");
@@ -236,6 +242,7 @@ impl Config {
             ffprobe,
             whisper_bin,
             whisper_model,
+            ytdlp_bin,
             fonts_dir,
             caption_font,
             caption_style: std::env::var("CF_CAPTION_STYLE").unwrap_or_else(|_| "impact".into()),

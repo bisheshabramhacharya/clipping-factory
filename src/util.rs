@@ -11,6 +11,23 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+/// Absolute fallback source-byte ceiling when `df` is unavailable. This keeps
+/// a failed disk probe from turning ingestion into an unlimited byte sink.
+pub const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+pub const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// Bytes a new source may occupy after keeping one GiB free for project state
+/// and render intermediates. URL downloads use the same budget as uploads.
+pub fn upload_capacity_bytes(disk_free_gb: Option<f64>) -> u64 {
+    disk_free_gb
+        .map(|gb| {
+            let free = (gb.max(0.0) * 1024.0 * 1024.0 * 1024.0) as u64;
+            free.saturating_sub(UPLOAD_DISK_RESERVE_BYTES)
+        })
+        .unwrap_or(MAX_SOURCE_BYTES)
+        .min(MAX_SOURCE_BYTES)
+}
+
 /// The error a cancellable operation returns once its token fires.
 #[derive(Debug)]
 pub struct Cancelled;

@@ -29,6 +29,157 @@ pub fn is_supported_source_filename(filename: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Validate one user-supplied video URL. Only plain HTTP(S) links are valid;
+/// credentials are rejected so a pasted link cannot smuggle basic-auth secret
+/// material into yt-dlp's process environment or project metadata.
+pub fn validate_source_url(input: &str) -> Result<reqwest::Url> {
+    let url = input.trim();
+    if url.len() > 2_048
+        || url.chars().any(char::is_whitespace)
+        || !(url.starts_with("https://") || url.starts_with("http://"))
+    {
+        bail!("Paste one valid http:// or https:// video URL.");
+    }
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|_| anyhow!("Paste one valid http:// or https:// video URL."))?;
+    if parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() {
+        bail!("Paste one valid http:// or https:// video URL.");
+    }
+    Ok(parsed)
+}
+
+/// The display filename for a URL import. Only well-known public video IDs
+/// are copied into the name; arbitrary query strings are deliberately left
+/// out so signed URLs do not leak tokens into project labels or output paths.
+pub fn source_name_for_url(url: &reqwest::Url) -> String {
+    let host = url.host_str().unwrap_or("video").to_lowercase();
+    let segments: Vec<&str> = url
+        .path_segments()
+        .map(|parts| parts.filter(|part| !part.is_empty()).collect())
+        .unwrap_or_default();
+    let platform_id = if host.ends_with("youtube.com") {
+        url.query_pairs()
+            .find(|(key, _)| key == "v")
+            .map(|(_, value)| value.into_owned())
+    } else if host == "youtu.be" {
+        segments.first().map(|part| (*part).to_string())
+    } else if host.ends_with("twitch.tv") {
+        if segments.first() == Some(&"videos") {
+            segments.get(1).map(|part| (*part).to_string())
+        } else {
+            segments.first().map(|part| (*part).to_string())
+        }
+    } else {
+        segments.last().map(|part| (*part).to_string())
+    };
+    let basis = platform_id
+        .as_deref()
+        .map(|id| id.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(id))
+        .filter(|id| !id.is_empty() && id.len() <= 96)
+        .map(|id| format!("{host}-{id}"))
+        .unwrap_or_else(|| host.clone());
+    let slug = crate::util::slugify(&basis, 72);
+    format!(
+        "url-{}.mp4",
+        if slug.is_empty() {
+            "video".to_string()
+        } else {
+            slug
+        }
+    )
+}
+
+/// Parse yt-dlp's normal `[download]  42.0%` progress line.
+pub(crate) fn ytdlp_progress_percent(line: &str) -> Option<f32> {
+    let rest = line.trim().strip_prefix("[download]")?.trim_start();
+    let end = rest.find('%')?;
+    let pct: f32 = rest[..end].trim().parse().ok()?;
+    (0.0..=100.0).contains(&pct).then_some(pct)
+}
+
+/// Download one validated HTTP(S) video URL with yt-dlp. The URL is passed as
+/// plain argv (never shell-interpolated), playlists are disabled, the same
+/// byte budget as uploads is enforced both in yt-dlp and after completion,
+/// and the source is promoted into place only after a successful exit.
+pub async fn download_source_url<F>(
+    cfg: &Config,
+    download_dir: &Path,
+    dest: &Path,
+    input: &str,
+    upload_capacity: u64,
+    cancel: &CancellationToken,
+    on_line: F,
+) -> Result<String>
+where
+    F: FnMut(bool, &str),
+{
+    let url = validate_source_url(input)?;
+    let Some(bin) = cfg.ytdlp_bin.as_ref() else {
+        bail!("URL import needs yt-dlp. Install yt-dlp or set CF_YTDLP, then try again.");
+    };
+    if tokio::fs::try_exists(download_dir).await.unwrap_or(false) {
+        tokio::fs::remove_dir_all(download_dir).await.ok();
+    }
+    tokio::fs::create_dir_all(download_dir).await?;
+    let output_template = download_dir.join("source.%(ext)s");
+    let args = vec![
+        "--no-playlist".into(),
+        "--match-filters".into(),
+        "!is_live".into(),
+        "--no-warnings".into(),
+        "--socket-timeout".into(),
+        "30".into(),
+        "--retries".into(),
+        "3".into(),
+        "-f".into(),
+        "bv*[height<=1080]+ba/b[height<=1080]/best".into(),
+        "--merge-output-format".into(),
+        "mp4".into(),
+        "--max-filesize".into(),
+        upload_capacity.to_string(),
+        "-o".into(),
+        output_template.to_string_lossy().into_owned(),
+        url.as_str().to_string(),
+    ];
+    let result = run_streaming(&bin.to_string_lossy(), &args, cancel, on_line).await;
+    if let Err(e) = result {
+        tokio::fs::remove_dir_all(download_dir).await.ok();
+        if crate::util::is_cancelled(&e) {
+            return Err(e);
+        }
+        return Err(anyhow!(
+            "Could not download that video URL. Check the link and try again. {}",
+            e
+        ));
+    }
+
+    let mut downloaded = None;
+    let mut entries = tokio::fs::read_dir(download_dir).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("source.") && !name.ends_with(".part") && path.is_file() {
+            downloaded = Some(path);
+            break;
+        }
+    }
+    let Some(downloaded) = downloaded else {
+        tokio::fs::remove_dir_all(download_dir).await.ok();
+        bail!("The URL download finished without a video file.");
+    };
+    let size = tokio::fs::metadata(&downloaded)
+        .await
+        .map(|m| m.len())
+        .unwrap_or(0);
+    if size == 0 || size > upload_capacity {
+        tokio::fs::remove_dir_all(download_dir).await.ok();
+        bail!("Downloaded video exceeds the upload limit or available disk space.");
+    }
+    crate::util::promote_atomic(&downloaded, dest).await?;
+    tokio::fs::remove_dir_all(download_dir).await.ok();
+    Ok(source_name_for_url(&url))
+}
+
 /// Inspect and validate the uploaded source. Errors are user-actionable.
 pub async fn probe(
     cfg: &Config,
@@ -425,5 +576,105 @@ mod tests {
         assert_eq!(out_time_fraction("out_time_ms=abc", 10_000_000.0), None);
         assert_eq!(out_time_fraction("frame=3", 10_000_000.0), None);
         assert_eq!(out_time_fraction("out_time_ms=5", 0.0), None);
+    }
+
+    #[test]
+    fn source_urls_are_strict_and_reject_credentials() {
+        assert!(validate_source_url("https://www.youtube.com/watch?v=RJKDbEbxpCY").is_ok());
+        assert!(validate_source_url("http://example.com/video.mp4").is_ok());
+        for bad in [
+            "ftp://example.com/video.mp4",
+            "javascript:alert(1)",
+            "https://user:pass@example.com/video.mp4",
+            "https://example.com/a b.mp4",
+            "not-a-url",
+        ] {
+            assert!(validate_source_url(bad).is_err(), "{bad} should fail");
+        }
+    }
+
+    #[test]
+    fn url_source_names_keep_public_ids_but_not_query_tokens() {
+        let youtube =
+            validate_source_url("https://www.youtube.com/watch?v=RJKDbEbxpCY&sig=secret-token")
+                .unwrap();
+        let name = source_name_for_url(&youtube);
+        assert!(name.contains("rjkdbebxpcy"), "{name}");
+        assert!(!name.contains("secret-token"), "{name}");
+
+        let twitch = validate_source_url("https://www.twitch.tv/videos/2631890024").unwrap();
+        assert!(source_name_for_url(&twitch).contains("2631890024"));
+
+        let direct = validate_source_url("http://127.0.0.1:48711/cf-url-e2e-source.mp4").unwrap();
+        assert!(source_name_for_url(&direct).contains("cf-url-e2e-source"));
+    }
+
+    #[test]
+    fn ytdlp_progress_lines_parse_percentages() {
+        assert_eq!(
+            ytdlp_progress_percent("[download]  42.5% of 10.00MiB at 1.00MiB/s"),
+            Some(42.5)
+        );
+        assert_eq!(
+            ytdlp_progress_percent("[download] 100% of 10.00MiB"),
+            Some(100.0)
+        );
+        assert_eq!(ytdlp_progress_percent("[youtube] extracting info"), None);
+    }
+
+    #[tokio::test]
+    async fn url_download_promotes_only_successful_ytdlp_output() {
+        let tmp = std::env::temp_dir().join(format!("cf-url-test-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let fake = tmp.join("fake-yt-dlp");
+        let args_log = tmp.join("argv-url.txt");
+        let script = r#"#!/bin/bash
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  url="$1"
+  shift
+done
+printf '%s\n' "$url" > "__ARGS_LOG__"
+echo '[download]  50.0% of 1.00MiB'
+printf 'fake-video' > "${out//%(ext)s/mp4}"
+"#
+        .replace("__ARGS_LOG__", &args_log.to_string_lossy());
+        tokio::fs::write(&fake, script).await.unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&fake).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&fake, perms).unwrap();
+        }
+
+        let mut cfg = crate::config::Config::resolve();
+        cfg.ytdlp_bin = Some(fake);
+        let download_dir = tmp.join("download");
+        let dest = tmp.join("source.mp4");
+        let url = "https://www.youtube.com/watch?v=RJKDbEbxpCY";
+        let mut saw_progress = false;
+        let name = download_source_url(
+            &cfg,
+            &download_dir,
+            &dest,
+            url,
+            1024,
+            &CancellationToken::new(),
+            |_, line| {
+                saw_progress |= ytdlp_progress_percent(line) == Some(50.0);
+            },
+        )
+        .await
+        .unwrap();
+        assert!(name.contains("rjkdbebxpcy"));
+        assert_eq!(tokio::fs::read(&dest).await.unwrap(), b"fake-video");
+        assert_eq!(
+            tokio::fs::read_to_string(&args_log).await.unwrap().trim(),
+            url
+        );
+        assert!(saw_progress);
+        tokio::fs::remove_dir_all(&tmp).await.ok();
     }
 }

@@ -125,6 +125,13 @@ async fn first_run_report(cfg: &Config) {
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|| "missing (optional — clips fall back to blur-pad layout)".into())
     );
+    println!(
+        "  ├─ yt-dlp        {}",
+        cfg.ytdlp_bin
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "missing (optional — needed for URL imports)".into())
+    );
     println!("  ├─ caption font  {}", cfg.caption_font);
     println!(
         "  ├─ disk free     {}",

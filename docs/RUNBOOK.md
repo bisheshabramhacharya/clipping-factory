@@ -13,6 +13,7 @@ The first supported setup is macOS on Apple Silicon.
 | Rust toolchain | Builds the binary | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh` |
 | `ffmpeg-full` | Media inspection and rendering (with libass for captions) | `brew install ffmpeg-full` |
 | `whisper-cpp` | Local transcription with word timestamps | `brew install whisper-cpp` |
+| `yt-dlp` | Optional URL imports (YouTube, Twitch VODs, direct video links) | `brew install yt-dlp` |
 | A ggml model | Speech-to-text weights, downloaded once | See below |
 
 Two accuracy notes before you install:
@@ -73,13 +74,14 @@ On startup the server prints a first-run report that verifies every dependency:
   ├─ whisper-cli   MISSING (brew install whisper-cpp, or set CF_WHISPER_BIN)
   ├─ whisper model MISSING — download ggml-base.bin (~148 MB) to ~/.clipping-factory/models/
   ├─ face model    missing (optional — clips fall back to blur-pad layout)
+  ├─ yt-dlp        missing (optional — needed for URL imports)
   ├─ caption font  ...
   ├─ disk free     ...
   ├─ projects dir  /Users/you/.clipping-factory
   └─ output dir    /Users/you/Downloads/Clipping Factory
 ```
 
-Anything showing `MISSING` will fail later in the pipeline, so fix it before uploading.
+Required tools showing `MISSING` will fail later in the pipeline, so fix them before uploading. Optional rows such as `yt-dlp` only affect their corresponding feature.
 
 Incremental rebuilds are fast (seconds when only a few files changed):
 
@@ -100,6 +102,7 @@ All configuration is via environment variables. There is no config file.
 | `CF_FFPROBE` | `ffprobe` on PATH | FFprobe binary override |
 | `CF_WHISPER_BIN` | `whisper-cli`/`whisper-cpp` on PATH, then common build locations | Transcription binary override |
 | `CF_WHISPER_MODEL` | best model found (see below) | ggml model path |
+| `CF_YTDLP` | `yt-dlp` on PATH | URL import binary override |
 | `CF_FONTS_DIR` | bundled `assets/fonts` | Directory containing caption fonts |
 | `CF_FACE_MODEL` | bundled model | rustface seeta model path (optional) |
 | `CF_THREADS` | physical cores | Transcription thread count |
@@ -194,6 +197,8 @@ launchctl kickstart -k gui/$(id -u)/com.clipping-factory.server
 | Transcribe fails with "needs a multilingual whisper model" | The project picked a non-English language but the configured model is English-only (`ggml-*.en.bin`). Download a multilingual model like `ggml-base.bin` into `~/.clipping-factory/models/` or point `CF_WHISPER_MODEL` at one, then retry. |
 | First-run report shows `whisper-cli MISSING` | `brew install whisper-cpp`, or set `CF_WHISPER_BIN` to your `whisper-cli` build. |
 | First-run report shows `ASS captions MISSING` | Plain `ffmpeg` lacks libass. `brew install ffmpeg-full`, or point `CF_FFMPEG` at a build with libass. |
+| URL import is disabled or says yt-dlp is missing | Install `yt-dlp` and restart the studio, or set `CF_YTDLP` to the binary. |
+| URL import fails although the video plays in a browser | The platform may require cookies, rate-limit the current IP, or block datacenter traffic. Confirm `yt-dlp "<url>"` works in a terminal; if it does not, export cookies or download the video manually and upload the file. |
 | Rendering fails mid-project | Check the log first; the most common cause is a full disk. Uploads reserve 1 GiB based on free space at upload start. Free space and retry. |
 | A project shows failed with "Retry to resume" | An interruption (crash, kill, power loss) stopped a render. Retry from the studio UI re-renders from the last completed stage; finished clips are kept. Project state lives under `~/.clipping-factory/projects/<project-id>/`. |
 | Studio unreachable after a rebuild | The running process is the old binary. `launchctl kickstart -k gui/$(id -u)/com.clipping-factory.server` to pick up the new build. |

@@ -145,6 +145,19 @@
       if (Array.isArray(s.caption_fonts) && s.caption_fonts.length) captionFonts = s.caption_fonts;
       if (Array.isArray(s.caption_styles) && s.caption_styles.length) captionStyles = s.caption_styles;
       populateLanguagePicker(s);
+      const urlInput = $("url-input");
+      const urlBtn = $("url-btn");
+      if (urlInput && urlBtn) {
+        const urlImportReady = !!s.ytdlp_ok;
+        urlInput.disabled = !urlImportReady;
+        urlBtn.disabled = !urlImportReady;
+        urlInput.placeholder = urlImportReady
+          ? "Paste YouTube, Twitch, or video URL"
+          : "Install yt-dlp to clip video links";
+        urlBtn.title = urlImportReady
+          ? "Download and clip this video URL"
+          : "URL import needs yt-dlp. Install yt-dlp or set CF_YTDLP, then restart.";
+      }
       if (problems.length) {
         banner.textContent = problems.join("\n");
         banner.classList.remove("hidden");
@@ -210,6 +223,18 @@
     });
     $("start-btn").addEventListener("click", () => {
       if (stagedFile) uploadFile(stagedFile);
+    });
+    const startUrlImport = () => {
+      const url = $("url-input").value.trim();
+      if (!/^https?:\/\/\S+$/.test(url)) {
+        showActionMessage("Paste one valid http:// or https:// video URL.");
+        return;
+      }
+      uploadFile(null, url);
+    };
+    $("url-btn").addEventListener("click", startUrlImport);
+    $("url-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") startUrlImport();
     });
     ["dragenter", "dragover"].forEach((ev) =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); })
@@ -398,8 +423,9 @@
     });
   }
 
-  function uploadFile(file) {
-    if (!isSupportedVideoFile(file)) {
+  function uploadFile(file, url = null) {
+    if (!file && !url) return;
+    if (file && !isSupportedVideoFile(file)) {
       showActionMessage("Attach a common video file: mp4, mov, mkv, webm, avi, ts, m2ts, mpg, or mpeg.");
       return;
     }
@@ -409,7 +435,8 @@
     $("upload-progress").classList.remove("hidden");
     $("cancel-upload-btn").disabled = false;
     $("cancel-upload-btn").textContent = "Cancel upload";
-    setUploadPhase(`Uploading ${file.name}…`, 0);
+    const sourceLabel = file ? file.name : "video link";
+    setUploadPhase(file ? `Uploading ${sourceLabel}…` : "Downloading video link…", 0);
 
     const form = new FormData();
     let framingMode = document.querySelector('input[name="framing-mode"]:checked').value;
@@ -417,7 +444,7 @@
     // server cannot resolve the kind until after inspection, so mirror the
     // cheap filename inference here; any explicit framing click wins.
     if (!framingTouched && ($("upload-source-kind").value || "auto") === "auto") {
-      const lower = file.name.toLowerCase();
+      const lower = (file ? file.name : url).toLowerCase();
       if (["gameplay", "gaming", "letsplay", "let's play", "speedrun"].some((needle) => lower.includes(needle))) {
         framingMode = "crop";
       } else if (["screen", "tutorial", "demo", "walkthrough"].some((needle) => lower.includes(needle))) {
@@ -438,18 +465,21 @@
     const focusPrompt = $("focus-prompt").value.trim();
     if (focusPrompt) form.append("focus_prompt", focusPrompt);
     if ($("upload-review").checked) form.append("review_before_render", "true");
-    form.append("file", file, file.name);
+    if (file) form.append("file", file, file.name);
+    if (url) form.append("url", url);
     const xhr = new XMLHttpRequest();
     uploadXhr = xhr;
     xhr.open("POST", "/api/projects");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
-        setUploadPhase(`Uploading ${file.name}… ${percent}%`, percent);
+        setUploadPhase(`Uploading ${sourceLabel}… ${percent}%`, percent);
       }
     };
     xhr.upload.onload = () => {
-      if (uploadXhr === xhr) setUploadPhase(`Preparing ${file.name}…`, 100);
+      if (uploadXhr === xhr) {
+        setUploadPhase(file ? `Preparing ${sourceLabel}…` : "Downloading video link…", file ? 100 : null);
+      }
     };
     xhr.onload = () => {
       if (uploadXhr !== xhr) return;

@@ -253,6 +253,7 @@ async fn setup_status(State(state): State<AppState>) -> Json<serde_json::Value> 
             .map(|(code, name)| json!({ "code": code, "name": name }))
             .collect::<Vec<_>>(),
         "face_model_ok": cfg.face_model.is_some(),
+        "ytdlp_ok": cfg.ytdlp_bin.is_some(),
         "caption_font": cfg.caption_font,
         "caption_fonts": crate::captions::CAPTION_FONTS,
         "caption_styles": crate::captions::CAPTION_STYLES,
@@ -334,6 +335,7 @@ struct UploadFields {
     source_name: String,
     caption_style: Option<String>,
     accent_color: Option<String>,
+    accent_optimized: bool,
     framing_mode: FramingMode,
     language: Option<String>,
     focus_prompt: Option<String>,
@@ -342,20 +344,10 @@ struct UploadFields {
     review_before_render: bool,
 }
 
-const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
-/// Absolute fallback when `df` is unavailable. This keeps a failed disk probe
-/// from turning the upload endpoint into an unlimited byte sink.
-const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
 const MAX_MULTIPART_TEXT_BYTES: usize = 16 * 1024;
 
 fn upload_capacity_bytes(free_gb: Option<f64>) -> u64 {
-    let disk_capacity = free_gb.map(|gb| {
-        let free_bytes = (gb.max(0.0) * 1024.0 * 1024.0 * 1024.0) as u64;
-        free_bytes.saturating_sub(UPLOAD_DISK_RESERVE_BYTES)
-    });
-    disk_capacity
-        .unwrap_or(MAX_SOURCE_BYTES)
-        .min(MAX_SOURCE_BYTES)
+    crate::util::upload_capacity_bytes(free_gb)
 }
 
 async fn read_multipart_text(mut field: Field<'_>) -> Result<String, ApiError> {
@@ -455,6 +447,7 @@ async fn receive_upload(
     let mut platform = Platform::default();
     let mut source_kind = SourceKind::default();
     let mut review_before_render = false;
+    let mut source_url = String::new();
     let mut saw_file = false;
 
     while let Some(mut field) = multipart
@@ -527,6 +520,10 @@ async fn receive_upload(
                 })?;
                 continue;
             }
+            "url" => {
+                source_url = read_multipart_text(field).await?.trim().to_string();
+                continue;
+            }
             "review_before_render" => {
                 let v = read_multipart_text(field).await?;
                 review_before_render = matches!(v.trim(), "true" | "1" | "yes" | "on");
@@ -573,30 +570,61 @@ async fn receive_upload(
             .map_err(ApiError::from)?;
     }
 
-    if wrote_bytes == 0 {
+    if saw_file && !source_url.is_empty() {
         return Err(bad_request(
-            "No file received. Drop one video into the studio.",
+            "Choose either one video file or one video URL, not both.",
         ));
     }
+    if !saw_file {
+        if source_url.is_empty() {
+            return Err(bad_request(
+                "No file received. Drop one video into the studio or paste a video URL.",
+            ));
+        }
+        let parsed = crate::media::validate_source_url(&source_url)
+            .map_err(|e| bad_request(e.to_string()))?;
+        if state.cfg.ytdlp_bin.is_none() {
+            return Err(bad_request(
+                "URL import needs yt-dlp. Install yt-dlp or set CF_YTDLP, then try again.",
+            ));
+        }
+        source_name = crate::media::source_name_for_url(&parsed);
+        state
+            .store
+            .save_source_url(id, parsed.as_str())
+            .await
+            .map_err(ApiError::from)?;
+    } else if wrote_bytes == 0 {
+        return Err(bad_request("That video file is empty."));
+    }
 
+    let source_ready = dest.is_file();
+    let accent_optimized = accent_mode == crate::accent::AccentMode::Optimized;
     accent_color = match accent_mode {
         crate::accent::AccentMode::Random => Some(crate::accent::random_accent().to_string()),
-        crate::accent::AccentMode::Optimized => match crate::accent::optimized_accent_for_video(
-            &state.cfg.ffmpeg,
-            &state.cfg.ffprobe,
-            &dest,
-        )
-        .await
-        {
-            Ok(color) => Some(color.to_string()),
-            Err(error) => {
-                tracing::warn!("video color optimization failed, using default accent: {error:#}");
-                Some(
-                    crate::captions::default_accent_hex(crate::captions::CaptionStyle::Impact)
-                        .to_string(),
-                )
+        crate::accent::AccentMode::Optimized if source_ready => {
+            match crate::accent::optimized_accent_for_video(
+                &state.cfg.ffmpeg,
+                &state.cfg.ffprobe,
+                &dest,
+            )
+            .await
+            {
+                Ok(color) => Some(color.to_string()),
+                Err(error) => {
+                    tracing::warn!(
+                        "video color optimization failed, using default accent: {error:#}"
+                    );
+                    Some(
+                        crate::captions::default_accent_hex(crate::captions::CaptionStyle::Impact)
+                            .to_string(),
+                    )
+                }
             }
-        },
+        }
+        // URL imports have no frames to sample yet; the pipeline finishes the
+        // optimized accent right after its download completes.
+        crate::accent::AccentMode::Optimized => None,
         crate::accent::AccentMode::Manual => accent_color,
     };
 
@@ -604,6 +632,7 @@ async fn receive_upload(
         source_name,
         caption_style,
         accent_color,
+        accent_optimized,
         framing_mode,
         language,
         focus_prompt,
@@ -631,6 +660,7 @@ async fn create_project(
     let mut project = Project::new(id.clone(), state.store.source_path(&id));
     project.caption_style = fields.caption_style;
     project.accent_color = fields.accent_color;
+    project.accent_optimized = fields.accent_optimized;
     project.framing_mode = fields.framing_mode;
     project.language = fields.language;
     project.focus_prompt = fields.focus_prompt;
@@ -1873,8 +1903,11 @@ mod tests {
     fn upload_capacity_keeps_one_gibibyte_free() {
         assert_eq!(upload_capacity_bytes(Some(3.0)), 2 * 1024 * 1024 * 1024);
         assert_eq!(upload_capacity_bytes(Some(0.5)), 0);
-        assert_eq!(upload_capacity_bytes(None), MAX_SOURCE_BYTES);
-        assert_eq!(upload_capacity_bytes(Some(1000.0)), MAX_SOURCE_BYTES);
+        assert_eq!(upload_capacity_bytes(None), crate::util::MAX_SOURCE_BYTES);
+        assert_eq!(
+            upload_capacity_bytes(Some(1000.0)),
+            crate::util::MAX_SOURCE_BYTES
+        );
     }
 
     fn test_state() -> (AppState, PathBuf) {
@@ -2347,6 +2380,89 @@ mod tests {
         let error = receive_upload(&state, &id, multipart).await.unwrap_err();
         assert_eq!(error.0, StatusCode::BAD_REQUEST);
         tokio::fs::remove_dir_all(tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn url_upload_is_accepted_without_downloading_and_defers_optimized_accent() {
+        let tmp = std::env::temp_dir().join(format!("cf-api-{}", crate::util::short_id()));
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        cfg.ytdlp_bin = Some(PathBuf::from("/bin/true"));
+        let state = AppState::new(cfg);
+        let boundary = "cf-url-upload";
+        let url = "https://www.youtube.com/watch?v=RJKDbEbxpCY";
+        let request = Request::builder()
+            .header(
+                header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(Body::from(format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"accent_mode\"\r\n\r\noptimized\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"url\"\r\n\r\n{url}\r\n--{boundary}--\r\n"
+            )))
+            .unwrap();
+        let multipart = Multipart::from_request(request, &()).await.unwrap();
+        let id = crate::util::short_id();
+        let fields = receive_upload(&state, &id, multipart).await.unwrap();
+        assert!(fields.source_name.contains("rjkdbebxpcy"));
+        assert!(fields.accent_optimized);
+        assert_eq!(fields.accent_color, None);
+        assert!(!state.store.source_path(&id).is_file());
+        assert_eq!(state.store.load_source_url(&id).await.as_deref(), Some(url));
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn url_upload_rejects_missing_ytdlp_invalid_urls_and_file_conflicts() {
+        let tmp = std::env::temp_dir().join(format!("cf-api-{}", crate::util::short_id()));
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        cfg.ytdlp_bin = None;
+        let state = AppState::new(cfg);
+        let boundary = "cf-url-validation";
+        let build = |url: &str, include_file: bool| {
+            let file = if include_file {
+                format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.mp4\"\r\nContent-Type: video/mp4\r\n\r\nx\r\n")
+            } else {
+                String::new()
+            };
+            Request::builder()
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(format!(
+                    "{file}--{boundary}\r\nContent-Disposition: form-data; name=\"url\"\r\n\r\n{url}\r\n--{boundary}--\r\n"
+                )))
+                .unwrap()
+        };
+
+        for (url, include_file) in [
+            ("https://example.com/video.mp4", false),
+            ("javascript:alert(1)", false),
+        ] {
+            let id = crate::util::short_id();
+            let multipart = Multipart::from_request(build(url, include_file), &())
+                .await
+                .unwrap();
+            let error = receive_upload(&state, &id, multipart).await.unwrap_err();
+            assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        }
+
+        let mut cfg = crate::config::Config::resolve();
+        cfg.data_dir = tmp.join("data");
+        cfg.output_root = tmp.join("output");
+        cfg.ytdlp_bin = Some(PathBuf::from("/bin/true"));
+        let state = AppState::new(cfg);
+        let id = crate::util::short_id();
+        let multipart = Multipart::from_request(build("https://example.com/video.mp4", true), &())
+            .await
+            .unwrap();
+        let error = receive_upload(&state, &id, multipart).await.unwrap_err();
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert!(error.1.contains("not both"));
+        tokio::fs::remove_dir_all(&tmp).await.ok();
     }
 
     #[tokio::test]

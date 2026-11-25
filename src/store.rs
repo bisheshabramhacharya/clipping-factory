@@ -41,6 +41,9 @@ impl Store {
     pub fn source_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("source.mp4")
     }
+    pub fn source_url_path(&self, id: &str) -> PathBuf {
+        self.project_dir(id).join("source-url.txt")
+    }
     pub fn audio_path(&self, id: &str) -> PathBuf {
         self.project_dir(id).join("audio.wav")
     }
@@ -101,6 +104,20 @@ impl Store {
             name.as_bytes(),
         )
         .await
+    }
+
+    /// URL-imported sources keep their exact input link out of project.json:
+    /// the sidecar is local-only operational state like the upload filename.
+    pub async fn load_source_url(&self, id: &str) -> Option<String> {
+        tokio::fs::read_to_string(self.source_url_path(id))
+            .await
+            .ok()
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty())
+    }
+
+    pub async fn save_source_url(&self, id: &str, url: &str) -> Result<()> {
+        atomic_write_bytes(&self.source_url_path(id), url.as_bytes()).await
     }
 
     pub fn exists(&self, id: &str) -> bool {

@@ -207,6 +207,9 @@ h1 { display: flex; align-items: center; font-size: 15px; font-weight: 700; lett
 #drop-staged strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .staged-kicker { font-size: 12px; font-weight: 650; color: var(--ok); letter-spacing: .02em; text-transform: uppercase; }
 .staged-actions { display: flex; gap: 10px; margin-top: 8px; }
+.url-import { display: flex; gap: 8px; width: min(520px, 100%); }
+.url-import input { flex: 1; min-width: 0; }
+.url-import button { flex: none; }
 
 .upload-options {
   padding: 18px 24px 22px;

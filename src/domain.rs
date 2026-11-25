@@ -135,6 +135,11 @@ pub struct Project {
     /// Accent color for the active caption word, as #RRGGBB.
     #[serde(default)]
     pub accent_color: Option<String>,
+    /// Whether the user asked for the video-matched accent. URL imports need
+    /// this remembered because the color cannot be sampled until the download
+    /// finishes inside the pipeline.
+    #[serde(default)]
+    pub accent_optimized: bool,
     /// Output composition selected before upload.
     #[serde(default)]
     pub framing_mode: FramingMode,
@@ -187,6 +192,7 @@ impl Project {
             warning: None,
             caption_style: None,
             accent_color: None,
+            accent_optimized: false,
             framing_mode: FramingMode::default(),
             language: None,
             focus_prompt: None,
