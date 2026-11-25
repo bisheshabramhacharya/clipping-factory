@@ -277,7 +277,7 @@ fn sample_detect_and_cuts(
             "-an",
             "-filter_complex",
             &format!(
-                "[0:v]setpts=PTS-STARTPTS,split=2[sample][shots];\
+                "[0:V]setpts=PTS-STARTPTS,split=2[sample][shots];\
                  [sample]fps={SAMPLE_FPS},scale={w}:{h},format=gray[frames];\
                  [shots]scale=320:-2,scdet=threshold={CUT_THRESHOLD}[scanned]"
             ),

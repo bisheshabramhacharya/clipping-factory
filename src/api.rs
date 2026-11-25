@@ -1594,7 +1594,7 @@ async fn serve_candidate_preview(
             "-t".into(),
             format!("{duration:.3}"),
             "-map".into(),
-            "0:v:0".into(),
+            "0:V:0".into(),
             "-map".into(),
             "0:a:0?".into(),
             "-vf".into(),

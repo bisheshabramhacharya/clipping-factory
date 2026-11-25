@@ -404,7 +404,7 @@ fn build_graph(
     dur_ms: u64,
     garnish: Garnish<'_>,
 ) -> String {
-    graph_body(source, layout, subs, zoom, dur_ms, ("0:v", "0:a"), garnish)
+    graph_body(source, layout, subs, zoom, dur_ms, ("0:V", "0:a"), garnish)
 }
 
 /// The framing body, reading from the given input pads.
@@ -688,7 +688,7 @@ fn build_cut_graph(
     let origin_ms = cut.origin_ms;
     let n = keeps.len();
     let mut g = String::new();
-    g.push_str(&format!("[0:v]split={n}"));
+    g.push_str(&format!("[0:V]split={n}"));
     for i in 0..n {
         g.push_str(&format!("[cv{i}]"));
     }
@@ -1244,7 +1244,7 @@ mod tests {
             10_000,
             Garnish::default(),
         );
-        assert!(g.contains("[0:v]setpts=PTS-STARTPTS"));
+        assert!(g.contains("[0:V]setpts=PTS-STARTPTS"));
         assert!(g.contains("[0:a]asetpts=PTS-STARTPTS,"), "{g}");
     }
 
@@ -1324,7 +1324,7 @@ mod tests {
             10_000,
             Garnish::default(),
         );
-        assert!(g.contains("[0:v]split=2[cv0][cv1]"), "{g}");
+        assert!(g.contains("[0:V]split=2[cv0][cv1]"), "{g}");
         assert!(g.contains("[0:a]asplit=2[ca0][ca1]"), "{g}");
         assert!(g.contains("trim=start=0.000:duration=4.500"), "{g}");
         assert!(g.contains("trim=start=6.000:duration=10.000"), "{g}");

@@ -378,7 +378,7 @@ pub async fn probe(
     let streams = v["streams"].as_array().cloned().unwrap_or_default();
     let video = streams
         .iter()
-        .find(|s| s["codec_type"] == "video")
+        .find(|s| is_primary_video_stream(s))
         .ok_or_else(|| {
             anyhow!("No video stream found. Attach a video file that contains video.")
         })?;
@@ -475,6 +475,10 @@ fn decoder_list_has(list: &str, codec: &str) -> bool {
     })
 }
 
+fn is_primary_video_stream(stream: &serde_json::Value) -> bool {
+    stream["codec_type"] == "video" && stream["disposition"]["attached_pic"].as_u64() != Some(1)
+}
+
 #[derive(Debug)]
 pub struct TruncatedSource;
 
@@ -514,7 +518,7 @@ async fn validate_video_decode(cfg: &Config, src: &Path, cancel: &CancellationTo
         "-i".into(),
         src.to_string_lossy().into_owned(),
         "-map".into(),
-        "0:v:0".into(),
+        "0:V:0".into(),
         "-an".into(),
         "-f".into(),
         "null".into(),
@@ -540,7 +544,7 @@ async fn video_stream_duration_ms(
         "-v".into(),
         "error".into(),
         "-select_streams".into(),
-        "v:0".into(),
+        "V:0".into(),
         "-show_entries".into(),
         "stream=duration".into(),
         "-of".into(),
@@ -581,7 +585,7 @@ where
         "-i".into(),
         src.to_string_lossy().into_owned(),
         "-map".into(),
-        "0:v:0".into(),
+        "0:V:0".into(),
         "-an".into(),
         "-vf".into(),
         "scale=320:-2,scdet".into(),
@@ -985,6 +989,61 @@ mod tests {
         scene_boundaries(&cfg, &video, 10_000, &CancellationToken::new(), |_| {})
             .await
             .unwrap();
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[test]
+    fn cover_art_is_not_the_primary_video_stream() {
+        let cover = serde_json::json!({
+            "codec_type": "video",
+            "codec_name": "mjpeg",
+            "disposition": {"attached_pic": 1}
+        });
+        let footage = serde_json::json!({
+            "codec_type": "video",
+            "codec_name": "h264",
+            "disposition": {"attached_pic": 0}
+        });
+        assert!(!is_primary_video_stream(&cover));
+        assert!(is_primary_video_stream(&footage));
+    }
+
+    #[tokio::test]
+    async fn scene_scan_selects_non_cover_art_video() {
+        let tmp = std::env::temp_dir().join(format!("cf-cover-args-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let src = tmp.join("source.mp4");
+        let ffmpeg = tmp.join("ffmpeg");
+        let ffprobe = tmp.join("ffprobe");
+        let args_file = tmp.join("args.txt");
+        tokio::fs::write(&src, b"fake").await.unwrap();
+        tokio::fs::write(
+            &ffmpeg,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\nprintf 'out_time_ms=5000000\\n'\nexit 0\n",
+                args_file.display()
+            ),
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(&ffprobe, "#!/bin/sh\nprintf '5.0\\n'\n")
+            .await
+            .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&ffmpeg, std::fs::Permissions::from_mode(0o755)).unwrap();
+            std::fs::set_permissions(&ffprobe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let mut cfg = crate::config::Config::resolve();
+        cfg.ffmpeg = ffmpeg.to_string_lossy().into_owned();
+        cfg.ffprobe = ffprobe.to_string_lossy().into_owned();
+        scene_boundaries(&cfg, &src, 5_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap();
+        let args = tokio::fs::read_to_string(&args_file).await.unwrap();
+        assert!(args.contains("0:V:0"), "{args}");
+        assert!(!args.contains("0:v:0"), "{args}");
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
 
