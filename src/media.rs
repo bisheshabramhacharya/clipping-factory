@@ -151,6 +151,26 @@ fn ytdlp_rejection_reason(line: &str) -> Option<&'static str> {
     }
 }
 
+fn is_probable_ytdlp_video(name: &str) -> bool {
+    let Some((_, ext)) = name.rsplit_once('.') else {
+        return true;
+    };
+    !matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "json"
+            | "description"
+            | "jpg"
+            | "jpeg"
+            | "png"
+            | "webp"
+            | "srt"
+            | "vtt"
+            | "ass"
+            | "ttml"
+            | "xml"
+    )
+}
+
 /// Download one validated HTTP(S) video URL with yt-dlp. The URL is passed as
 /// plain argv (never shell-interpolated), playlists and livestreams are
 /// rejected, concurrent downloads are serialized, and a merge-aware byte budget
@@ -186,6 +206,9 @@ where
     }
     tokio::fs::create_dir_all(download_dir).await?;
     let output_template = download_dir.join("source.%(ext)s");
+    let batch_path = download_dir.join("batch-url.txt");
+    crate::util::atomic_write_bytes_private(&batch_path, format!("{}\n", url.as_str()).as_bytes())
+        .await?;
     let mut args = vec![
         "--no-playlist".into(),
         "--newline".into(),
@@ -204,10 +227,15 @@ where
     // yt-dlp shells out to FFmpeg for split-track merges and otherwise searches
     // PATH. Give it the same configured binary the rest of the studio uses;
     // a plain `ffmpeg` command is already discoverable through PATH.
-    if cfg.ffmpeg.contains('/') || cfg.ffmpeg.contains('\\') {
-        args.push("--ffmpeg-location".into());
-        args.push(cfg.ffmpeg.clone());
-    }
+    let ffmpeg_location = if cfg.ffmpeg.contains('/') || cfg.ffmpeg.contains('\\') {
+        cfg.ffmpeg.clone()
+    } else {
+        crate::util::which(&cfg.ffmpeg)
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_else(|| cfg.ffmpeg.clone())
+    };
+    args.push("--ffmpeg-location".into());
+    args.push(ffmpeg_location);
     args.extend([
         "-f".into(),
         "bv*[height<=1080]+ba/b[height<=1080]/best".into(),
@@ -217,7 +245,8 @@ where
         upload_capacity.to_string(),
         "-o".into(),
         output_template.to_string_lossy().into_owned(),
-        url.as_str().to_string(),
+        "--batch-file".into(),
+        batch_path.to_string_lossy().into_owned(),
     ]);
     // The metadata-based `--max-filesize` check is not enough: sizes can be
     // unknown, and split tracks coexist with ffmpeg's merged output. Watch real
@@ -291,7 +320,7 @@ where
         let name = entry.file_name().to_string_lossy().into_owned();
         if name.starts_with("source.")
             && !name.ends_with(".part")
-            && is_supported_source_filename(&name)
+            && is_probable_ytdlp_video(&name)
             && path.is_file()
         {
             downloaded = Some(path);
@@ -761,6 +790,15 @@ mod tests {
     }
 
     #[test]
+    fn ytdlp_media_discovery_excludes_sidecars_not_valid_media_extensions() {
+        assert!(is_probable_ytdlp_video("source.unknown_video"));
+        assert!(is_probable_ytdlp_video("source.flv"));
+        assert!(!is_probable_ytdlp_video("source.info.json"));
+        assert!(!is_probable_ytdlp_video("source.jpg"));
+        assert!(!is_probable_ytdlp_video("source.vtt"));
+    }
+
+    #[test]
     fn ytdlp_rejections_become_actionable_messages() {
         assert_eq!(
             ytdlp_rejection_reason(
@@ -840,7 +878,7 @@ out=""
 printf '%s\n' "$@" > "__ALL_ARGS_LOG__"
 while [ "$#" -gt 0 ]; do
   if [ "$1" = "-o" ]; then shift; out="$1"; fi
-  url="$1"
+  if [ "$1" = "--batch-file" ]; then shift; url=$(cat "$1"); else url="$1"; fi
   shift
 done
 printf '%s\n' "$url" > "__ARGS_LOG__"
@@ -865,7 +903,7 @@ printf 'fake-video' > "${out//%(ext)s/mp4}"
         cfg.ffmpeg = "/opt/custom/bin/ffmpeg".into();
         let download_dir = tmp.join("download");
         let dest = tmp.join("source.mp4");
-        let url = "https://www.youtube.com/watch?v=RJKDbEbxpCY";
+        let url = "https://www.youtube.com/watch?v=RJKDbEbxpCY&sig=secret";
         let mut saw_progress = false;
         let name = download_source_url(
             &cfg,
@@ -891,6 +929,8 @@ printf 'fake-video' > "${out//%(ext)s/mp4}"
         assert!(all_args.contains("--match-filters\n!is_live & !playlist_id"));
         assert!(all_args.contains("--ffmpeg-location\n/opt/custom/bin/ffmpeg"));
         assert!(all_args.contains("--max-filesize\n1024"));
+        assert!(all_args.contains("--batch-file"));
+        assert!(!all_args.contains("sig=secret"));
         assert!(saw_progress);
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
