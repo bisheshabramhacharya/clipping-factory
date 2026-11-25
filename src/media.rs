@@ -500,6 +500,29 @@ pub(crate) fn out_time_fraction(line: &str, dur_us: f64) -> Option<f32> {
     (dur_us > 0.0).then(|| (us / dur_us).clamp(0.0, 1.0) as f32)
 }
 
+async fn video_stream_duration_ms(
+    cfg: &Config,
+    src: &Path,
+    cancel: &CancellationToken,
+) -> Result<Option<u64>> {
+    let args: Vec<String> = vec![
+        "-v".into(),
+        "error".into(),
+        "-select_streams".into(),
+        "v:0".into(),
+        "-show_entries".into(),
+        "stream=duration".into(),
+        "-of".into(),
+        "default=noprint_wrappers=1:nokey=1".into(),
+        src.to_string_lossy().into_owned(),
+    ];
+    let out = crate::util::run_capture_cancellable(&cfg.ffprobe, &args, cancel).await?;
+    Ok(out
+        .lines()
+        .find_map(|line| line.trim().parse::<f64>().ok())
+        .map(|seconds| (seconds * 1000.0).round() as u64))
+}
+
 /// Detect scene-boundary timestamps once per Source during inspection.
 ///
 /// Runs ffmpeg `scdet` over a downscaled copy of the video — cheap enough
@@ -535,7 +558,16 @@ where
         "-".into(),
     ];
     let mut boundaries: Vec<u64> = Vec::new();
-    let dur_us = (duration_ms as f64) * 1000.0;
+    // Container duration can include a longer audio track, while this scan
+    // decodes video only (`-an`). Compare decode coverage with the video
+    // stream's own duration so complete videos with trailing audio pass.
+    let scan_duration_ms = match video_stream_duration_ms(cfg, src, cancel).await {
+        Ok(Some(ms)) if ms > 0 => ms,
+        Ok(_) => duration_ms,
+        Err(e) if crate::util::is_cancelled(&e) => return Err(e),
+        Err(_) => duration_ms,
+    };
+    let dur_us = (scan_duration_ms as f64) * 1000.0;
     let mut decoded_fraction = 0.0f32;
     let mut demuxer_reported_partial_file = false;
     let result = run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
@@ -568,7 +600,10 @@ where
             }
             return Err(e);
         }
-        Ok(()) if duration_ms >= 5_000 && decoded_fraction < 0.90 => {
+        Ok(())
+            if demuxer_reported_partial_file
+                || (scan_duration_ms >= 5_000 && decoded_fraction < 0.90) =>
+        {
             return Err(anyhow::Error::new(TruncatedSource));
         }
         Ok(()) => {}
@@ -698,6 +733,17 @@ where
 mod tests {
     use super::*;
 
+    fn media_tools_available(cfg: &crate::config::Config) -> bool {
+        fn available(bin: &str) -> bool {
+            if bin.contains('/') || bin.contains('\\') {
+                Path::new(bin).is_file()
+            } else {
+                crate::util::which(bin).is_some()
+            }
+        }
+        available(&cfg.ffmpeg) && available(&cfg.ffprobe)
+    }
+
     #[tokio::test]
     async fn scene_scan_rejects_truncated_faststart_mp4() {
         let tmp = std::env::temp_dir().join(format!("cf-trunc-test-{}", crate::util::short_id()));
@@ -705,6 +751,9 @@ mod tests {
         let full = tmp.join("full.mp4");
         let half = tmp.join("half.mp4");
         let cfg = crate::config::Config::resolve();
+        if !media_tools_available(&cfg) {
+            return;
+        }
         let status = std::process::Command::new(&cfg.ffmpeg)
             .args([
                 "-hide_banner",
@@ -745,6 +794,48 @@ mod tests {
                 .await
                 .is_ok()
         );
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn scene_scan_accepts_complete_video_with_longer_audio() {
+        let tmp = std::env::temp_dir().join(format!("cf-long-audio-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let video = tmp.join("long-audio.mp4");
+        let cfg = crate::config::Config::resolve();
+        if !media_tools_available(&cfg) {
+            return;
+        }
+        let status = std::process::Command::new(&cfg.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=30:duration=5",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=44100:duration=8",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-movflags",
+                "+faststart",
+            ])
+            .arg(&video)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        scene_boundaries(&cfg, &video, 8_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap();
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
 
