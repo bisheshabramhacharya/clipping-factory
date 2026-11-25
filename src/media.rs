@@ -492,6 +492,37 @@ pub fn is_truncated_source(e: &anyhow::Error) -> bool {
     e.chain().any(|cause| cause.is::<TruncatedSource>())
 }
 
+/// ffmpeg's MP4 demuxer reports a physically short read as
+/// `stream 0, offset 0x…: partial file`. Require the demuxer context rather
+/// than the bare phrase because input metadata/titles also reach stderr.
+fn is_demuxer_partial_file_line(line: &str) -> bool {
+    line.contains("stream ")
+        && line.contains(" offset 0x")
+        && line.trim_end().ends_with(": partial file")
+}
+
+/// Decode the video stream that inspection models to completion. Scene
+/// detection already performs this decode in the normal path; this stricter
+/// fallback distinguishes a scan/filter failure from damaged media bytes.
+async fn validate_video_decode(cfg: &Config, src: &Path, cancel: &CancellationToken) -> Result<()> {
+    let args: Vec<String> = vec![
+        "-hide_banner".into(),
+        "-v".into(),
+        "error".into(),
+        "-nostats".into(),
+        "-xerror".into(),
+        "-i".into(),
+        src.to_string_lossy().into_owned(),
+        "-map".into(),
+        "0:v:0".into(),
+        "-an".into(),
+        "-f".into(),
+        "null".into(),
+        "-".into(),
+    ];
+    crate::util::run_streaming(&cfg.ffmpeg, &args, cancel, |_, _| {}).await
+}
+
 /// The 0–1 fraction for an ffmpeg `-progress` line's `out_time_ms`
 /// (microseconds), clamped to `dur_us`; `None` for other lines or when the
 /// duration is not yet known.
@@ -546,8 +577,11 @@ where
     let args: Vec<String> = vec![
         "-hide_banner".into(),
         "-nostats".into(),
+        "-xerror".into(),
         "-i".into(),
         src.to_string_lossy().into_owned(),
+        "-map".into(),
+        "0:v:0".into(),
         "-an".into(),
         "-vf".into(),
         "scale=320:-2,scdet".into(),
@@ -570,6 +604,7 @@ where
     let dur_us = (scan_duration_ms as f64) * 1000.0;
     let mut decoded_fraction = 0.0f32;
     let mut demuxer_reported_partial_file = false;
+    let mut stream_mapping_started = false;
     let result = run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
         if !is_err {
             if let Some(pct) = out_time_fraction(line, dur_us) {
@@ -578,8 +613,11 @@ where
             }
             return;
         }
-        if line.contains("partial file") {
+        if is_demuxer_partial_file_line(line) {
             demuxer_reported_partial_file = true;
+        }
+        if line.starts_with("Stream mapping:") {
+            stream_mapping_started = true;
         }
         if let Some(ms) = parse_scdet_time_ms(line) {
             boundaries.push(ms);
@@ -597,6 +635,19 @@ where
             }
             if demuxer_reported_partial_file {
                 return Err(anyhow::Error::new(TruncatedSource));
+            }
+            // Once decoding has entered stream mapping, `-xerror` normally
+            // means damaged media. Confirm with the filter-free decode so a
+            // missing/broken scdet capability remains advisory instead of
+            // being misreported as corruption.
+            if stream_mapping_started {
+                match validate_video_decode(cfg, src, cancel).await {
+                    Ok(()) => return Err(e),
+                    Err(validation_error) if crate::util::is_cancelled(&validation_error) => {
+                        return Err(validation_error)
+                    }
+                    Err(_) => return Err(anyhow::Error::new(TruncatedSource)),
+                }
             }
             return Err(e);
         }
@@ -837,6 +888,117 @@ mod tests {
             .await
             .unwrap();
         tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn scene_scan_rejects_corrupt_video_payload() {
+        let tmp = std::env::temp_dir().join(format!("cf-corrupt-test-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let video = tmp.join("corrupt.mp4");
+        let cfg = crate::config::Config::resolve();
+        if !media_tools_available(&cfg) {
+            return;
+        }
+        let status = std::process::Command::new(&cfg.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=30:duration=5",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=44100:duration=5",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-movflags",
+                "+faststart",
+            ])
+            .arg(&video)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let mut bytes = std::fs::read(&video).unwrap();
+        let mdat = bytes
+            .windows(4)
+            .position(|window| window == b"mdat")
+            .expect("generated mp4 has an mdat box")
+            + 4;
+        let corrupt_end = (bytes.len() - 1024).min(mdat + 80_000);
+        for byte in &mut bytes[mdat + 1024..corrupt_end] {
+            *byte = 0;
+        }
+        std::fs::write(&video, bytes).unwrap();
+        let error = scene_boundaries(&cfg, &video, 5_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap_err();
+        assert!(is_truncated_source(&error), "{error:#}");
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
+    async fn scene_scan_accepts_multi_track_video() {
+        let tmp = std::env::temp_dir().join(format!("cf-multi-video-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let video = tmp.join("multi.mp4");
+        let cfg = crate::config::Config::resolve();
+        if !media_tools_available(&cfg) {
+            return;
+        }
+        let status = std::process::Command::new(&cfg.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=30:duration=10",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=640x360:rate=30:duration=5",
+                "-map",
+                "0:v",
+                "-map",
+                "1:v",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+            ])
+            .arg(&video)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        scene_boundaries(&cfg, &video, 10_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap();
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[test]
+    fn partial_file_detection_requires_demuxer_context() {
+        assert!(is_demuxer_partial_file_line(
+            "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x0] stream 0, offset 0x2b7a1: partial file"
+        ));
+        assert!(!is_demuxer_partial_file_line(
+            "    title           : partial file"
+        ));
+        assert!(!is_demuxer_partial_file_line(
+            "partial file downloaded successfully"
+        ));
     }
 
     #[test]
