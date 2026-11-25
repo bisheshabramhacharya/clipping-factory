@@ -7,6 +7,10 @@ use crate::domain::SourceInfo;
 use crate::util::run_streaming;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 /// Long-form ceiling for one uploaded source. Twelve hours covers normal
@@ -89,6 +93,29 @@ pub fn source_name_for_url(url: &reqwest::Url) -> String {
     )
 }
 
+/// Remove HTTP(S) URLs from subprocess errors before they are persisted or
+/// shown through the local API. Signed CDN links often carry bearer tokens in
+/// query parameters; the error text around the URL remains useful without
+/// retaining the credential.
+fn redact_urls(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    loop {
+        let https = rest.find("https://");
+        let http = rest.find("http://");
+        let Some(pos) = [https, http].into_iter().flatten().min() else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos..];
+        let end = after.find(char::is_whitespace).unwrap_or(after.len());
+        out.push_str("<redacted-url>");
+        rest = &after[end..];
+    }
+    out
+}
+
 /// Parse yt-dlp's normal `[download]  42.0%` progress line.
 pub(crate) fn ytdlp_progress_percent(line: &str) -> Option<f32> {
     let rest = line.trim().strip_prefix("[download]")?.trim_start();
@@ -97,10 +124,38 @@ pub(crate) fn ytdlp_progress_percent(line: &str) -> Option<f32> {
     (0.0..=100.0).contains(&pct).then_some(pct)
 }
 
+static URL_DOWNLOAD_SLOTS: OnceLock<Semaphore> = OnceLock::new();
+
+async fn directory_file_bytes(dir: &Path) -> u64 {
+    let mut total = 0u64;
+    let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
+        return 0;
+    };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if let Ok(meta) = entry.metadata().await {
+            if meta.is_file() {
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    total
+}
+
+fn ytdlp_rejection_reason(line: &str) -> Option<&'static str> {
+    if line.contains("larger than max-filesize") {
+        Some("The video is larger than the current disk and upload limit.")
+    } else if line.contains("does not pass filter") {
+        Some("That link is a livestream or playlist, not one downloadable video.")
+    } else {
+        None
+    }
+}
+
 /// Download one validated HTTP(S) video URL with yt-dlp. The URL is passed as
-/// plain argv (never shell-interpolated), playlists are disabled, the same
-/// byte budget as uploads is enforced both in yt-dlp and after completion,
-/// and the source is promoted into place only after a successful exit.
+/// plain argv (never shell-interpolated), playlists and livestreams are
+/// rejected, concurrent downloads are serialized, and a merge-aware byte budget
+/// is enforced both by yt-dlp metadata and by watching real bytes as they land.
+/// The source is promoted into place only after a successful exit.
 pub async fn download_source_url<F>(
     cfg: &Config,
     download_dir: &Path,
@@ -108,7 +163,7 @@ pub async fn download_source_url<F>(
     input: &str,
     upload_capacity: u64,
     cancel: &CancellationToken,
-    on_line: F,
+    mut on_line: F,
 ) -> Result<String>
 where
     F: FnMut(bool, &str),
@@ -117,20 +172,45 @@ where
     let Some(bin) = cfg.ytdlp_bin.as_ref() else {
         bail!("URL import needs yt-dlp. Install yt-dlp or set CF_YTDLP, then try again.");
     };
+    // URL ingestion is serialized because every download receives a disk budget
+    // derived from currently free space. Running several at once would multiply
+    // that budget and defeat the reserve.
+    let slots = URL_DOWNLOAD_SLOTS.get_or_init(|| Semaphore::new(1));
+    let _permit = tokio::select! {
+        biased;
+        _ = cancel.cancelled() => return Err(crate::util::cancelled()),
+        permit = slots.acquire() => permit.context("URL download queue closed")?,
+    };
     if tokio::fs::try_exists(download_dir).await.unwrap_or(false) {
         tokio::fs::remove_dir_all(download_dir).await.ok();
     }
     tokio::fs::create_dir_all(download_dir).await?;
     let output_template = download_dir.join("source.%(ext)s");
-    let args = vec![
+    let mut args = vec![
         "--no-playlist".into(),
+        "--max-downloads".into(),
+        "1".into(),
+        "--newline".into(),
+        // A standalone playlist exposes `playlist_id` even before entries are
+        // processed. Rejecting it there prevents a whole collection from being
+        // treated as one source; `--no-playlist` still permits a video URL that
+        // merely happens to carry a playlist query parameter.
         "--match-filters".into(),
-        "!is_live".into(),
+        "!is_live & !playlist_id".into(),
         "--no-warnings".into(),
         "--socket-timeout".into(),
         "30".into(),
         "--retries".into(),
         "3".into(),
+    ];
+    // yt-dlp shells out to FFmpeg for split-track merges and otherwise searches
+    // PATH. Give it the same configured binary the rest of the studio uses;
+    // a plain `ffmpeg` command is already discoverable through PATH.
+    if cfg.ffmpeg.contains('/') || cfg.ffmpeg.contains('\\') {
+        args.push("--ffmpeg-location".into());
+        args.push(cfg.ffmpeg.clone());
+    }
+    args.extend([
         "-f".into(),
         "bv*[height<=1080]+ba/b[height<=1080]/best".into(),
         "--merge-output-format".into(),
@@ -140,8 +220,53 @@ where
         "-o".into(),
         output_template.to_string_lossy().into_owned(),
         url.as_str().to_string(),
-    ];
-    let result = run_streaming(&bin.to_string_lossy(), &args, cancel, on_line).await;
+    ]);
+    // The metadata-based `--max-filesize` check is not enough: sizes can be
+    // unknown, and split tracks coexist with ffmpeg's merged output. Watch real
+    // bytes in the private download directory and stop before the calculated
+    // peak budget is exceeded. A child token lets this watchdog be distinguished
+    // from the user's own cancellation.
+    let download_cancel = cancel.child_token();
+    let exceeded = Arc::new(AtomicBool::new(false));
+    let peak_limit = upload_capacity.saturating_mul(2);
+    let watcher = {
+        let download_cancel = download_cancel.clone();
+        let exceeded = exceeded.clone();
+        let download_dir = download_dir.to_path_buf();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(100));
+            loop {
+                interval.tick().await;
+                if download_cancel.is_cancelled() {
+                    break;
+                }
+                if directory_file_bytes(&download_dir).await > peak_limit {
+                    exceeded.store(true, Ordering::SeqCst);
+                    download_cancel.cancel();
+                    break;
+                }
+            }
+        })
+    };
+    let mut rejection = None;
+    let result = run_streaming(
+        &bin.to_string_lossy(),
+        &args,
+        &download_cancel,
+        |is_err, line| {
+            if rejection.is_none() {
+                rejection = ytdlp_rejection_reason(line);
+            }
+            on_line(is_err, line);
+        },
+    )
+    .await;
+    watcher.abort();
+    let _ = watcher.await;
+    if exceeded.load(Ordering::SeqCst) {
+        tokio::fs::remove_dir_all(download_dir).await.ok();
+        bail!("Downloaded video exceeds the upload limit or available disk space.");
+    }
     if let Err(e) = result {
         tokio::fs::remove_dir_all(download_dir).await.ok();
         if crate::util::is_cancelled(&e) {
@@ -149,7 +274,7 @@ where
         }
         return Err(anyhow!(
             "Could not download that video URL. Check the link and try again. {}",
-            e
+            redact_urls(&e.to_string())
         ));
     }
 
@@ -158,13 +283,20 @@ where
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with("source.") && !name.ends_with(".part") && path.is_file() {
+        if name.starts_with("source.")
+            && !name.ends_with(".part")
+            && is_supported_source_filename(&name)
+            && path.is_file()
+        {
             downloaded = Some(path);
             break;
         }
     }
     let Some(downloaded) = downloaded else {
         tokio::fs::remove_dir_all(download_dir).await.ok();
+        if let Some(reason) = rejection {
+            bail!(reason);
+        }
         bail!("The URL download finished without a video file.");
     };
     let size = tokio::fs::metadata(&downloaded)
@@ -622,14 +754,44 @@ mod tests {
         assert_eq!(ytdlp_progress_percent("[youtube] extracting info"), None);
     }
 
+    #[test]
+    fn ytdlp_rejections_become_actionable_messages() {
+        assert_eq!(
+            ytdlp_rejection_reason(
+                "[download] File is larger than max-filesize (1 > 2). Aborting."
+            ),
+            Some("The video is larger than the current disk and upload limit.")
+        );
+        assert_eq!(
+            ytdlp_rejection_reason(
+                "video does not pass filter (!is_live & !playlist_id), skipping .."
+            ),
+            Some("That link is a livestream or playlist, not one downloadable video.")
+        );
+        assert_eq!(ytdlp_rejection_reason("[download] 10%"), None);
+    }
+
+    #[test]
+    fn download_errors_redact_signed_urls() {
+        let redacted = redact_urls(
+            "unable to download https://cdn.example/video.mp4?sig=secret retry http://x.test/a?token=two",
+        );
+        assert!(!redacted.contains("secret"), "{redacted}");
+        assert!(!redacted.contains("token=two"), "{redacted}");
+        assert_eq!(redacted.matches("<redacted-url>").count(), 2);
+        assert!(redacted.contains("unable to download"), "{redacted}");
+    }
+
     #[tokio::test]
     async fn url_download_promotes_only_successful_ytdlp_output() {
         let tmp = std::env::temp_dir().join(format!("cf-url-test-{}", crate::util::short_id()));
         tokio::fs::create_dir_all(&tmp).await.unwrap();
         let fake = tmp.join("fake-yt-dlp");
         let args_log = tmp.join("argv-url.txt");
+        let all_args_log = tmp.join("argv-all.txt");
         let script = r#"#!/bin/bash
 out=""
+printf '%s\n' "$@" > "__ALL_ARGS_LOG__"
 while [ "$#" -gt 0 ]; do
   if [ "$1" = "-o" ]; then shift; out="$1"; fi
   url="$1"
@@ -637,9 +799,12 @@ while [ "$#" -gt 0 ]; do
 done
 printf '%s\n' "$url" > "__ARGS_LOG__"
 echo '[download]  50.0% of 1.00MiB'
+printf 'metadata' > "${out//%(ext)s/info.json}"
+printf 'thumbnail' > "${out//%(ext)s/jpg}"
 printf 'fake-video' > "${out//%(ext)s/mp4}"
 "#
-        .replace("__ARGS_LOG__", &args_log.to_string_lossy());
+        .replace("__ARGS_LOG__", &args_log.to_string_lossy())
+        .replace("__ALL_ARGS_LOG__", &all_args_log.to_string_lossy());
         tokio::fs::write(&fake, script).await.unwrap();
         #[cfg(unix)]
         {
@@ -651,6 +816,7 @@ printf 'fake-video' > "${out//%(ext)s/mp4}"
 
         let mut cfg = crate::config::Config::resolve();
         cfg.ytdlp_bin = Some(fake);
+        cfg.ffmpeg = "/opt/custom/bin/ffmpeg".into();
         let download_dir = tmp.join("download");
         let dest = tmp.join("source.mp4");
         let url = "https://www.youtube.com/watch?v=RJKDbEbxpCY";
@@ -674,6 +840,12 @@ printf 'fake-video' > "${out//%(ext)s/mp4}"
             tokio::fs::read_to_string(&args_log).await.unwrap().trim(),
             url
         );
+        let all_args = tokio::fs::read_to_string(&all_args_log).await.unwrap();
+        assert!(all_args.contains("--max-downloads\n1"));
+        assert!(all_args.contains("--newline"));
+        assert!(all_args.contains("--match-filters\n!is_live & !playlist_id"));
+        assert!(all_args.contains("--ffmpeg-location\n/opt/custom/bin/ffmpeg"));
+        assert!(all_args.contains("--max-filesize\n1024"));
         assert!(saw_progress);
         tokio::fs::remove_dir_all(&tmp).await.ok();
     }
