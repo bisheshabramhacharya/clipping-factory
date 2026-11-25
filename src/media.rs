@@ -496,13 +496,18 @@ pub fn is_truncated_source(e: &anyhow::Error) -> bool {
     e.chain().any(|cause| cause.is::<TruncatedSource>())
 }
 
-/// ffmpeg's MP4 demuxer reports a physically short read as
-/// `stream 0, offset 0x…: partial file`. Require the demuxer context rather
-/// than the bare phrase because input metadata/titles also reach stderr.
-fn is_demuxer_partial_file_line(line: &str) -> bool {
-    line.contains("stream ")
-        && line.contains(" offset 0x")
-        && line.trim_end().ends_with(": partial file")
+/// Demuxers report physically short reads in format-specific wording: MP4
+/// says `stream … offset …: partial file`, while Matroska/WebM says
+/// `File ended prematurely`. Require ffmpeg's demuxer log context so input
+/// metadata/titles containing those words cannot trigger a false positive.
+fn is_demuxer_truncation_line(line: &str) -> bool {
+    let demuxer_line = line.starts_with('[') && line.contains(" @ 0x");
+    demuxer_line
+        && ((line.contains("stream ")
+            && line.contains(" offset 0x")
+            && line.trim_end().ends_with(": partial file"))
+            || line.contains("] File ended prematurely")
+            || line.contains("] File is truncated"))
 }
 
 /// Decode the video stream that inspection models to completion. Scene
@@ -535,20 +540,6 @@ pub(crate) fn out_time_fraction(line: &str, dur_us: f64) -> Option<f32> {
     (dur_us > 0.0).then(|| (us / dur_us).clamp(0.0, 1.0) as f32)
 }
 
-fn parse_duration_tag_ms(text: &str) -> Option<u64> {
-    let parts: Vec<&str> = text.trim().split(':').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    let hours = parts[0].parse::<f64>().ok()?;
-    let minutes = parts[1].parse::<f64>().ok()?;
-    let seconds = parts[2].parse::<f64>().ok()?;
-    if hours < 0.0 || minutes < 0.0 || seconds < 0.0 {
-        return None;
-    }
-    Some((((hours * 60.0 + minutes) * 60.0 + seconds) * 1000.0).round() as u64)
-}
-
 async fn video_stream_duration_ms(
     cfg: &Config,
     src: &Path,
@@ -560,7 +551,7 @@ async fn video_stream_duration_ms(
         "-select_streams".into(),
         "V:0".into(),
         "-show_entries".into(),
-        "stream=duration:stream_tags=DURATION".into(),
+        "stream=duration".into(),
         "-of".into(),
         "json".into(),
         src.to_string_lossy().into_owned(),
@@ -576,17 +567,10 @@ async fn video_stream_duration_ms(
     else {
         return Ok(None);
     };
-    let direct = stream["duration"]
+    Ok(stream["duration"]
         .as_str()
         .and_then(|duration| duration.parse::<f64>().ok())
-        .map(|seconds| (seconds * 1000.0).round() as u64);
-    let tagged = stream["tags"].as_object().and_then(|tags| {
-        tags.iter()
-            .find(|(key, _)| key.eq_ignore_ascii_case("duration"))
-            .and_then(|(_, value)| value.as_str())
-            .and_then(parse_duration_tag_ms)
-    });
-    Ok(direct.or(tagged))
+        .map(|seconds| (seconds * 1000.0).round() as u64))
 }
 
 /// Detect scene-boundary timestamps once per Source during inspection.
@@ -629,9 +613,10 @@ where
     let mut boundaries: Vec<u64> = Vec::new();
     // Container duration can include a longer audio track, while this scan
     // decodes video only (`-an`). Compare decode coverage with the video
-    // stream's own duration when one is available. Matroska/WebM often omit
-    // the numeric field but carry a DURATION tag; if neither exists, skip the
-    // shortfall heuristic rather than measuring video against audio time.
+    // stream's own duration when one is authoritatively available. Matroska
+    // duration tags are user metadata and can be stale, so when the numeric
+    // stream duration is missing, skip the shortfall heuristic rather than
+    // measuring video against audio time or untrusted tags.
     let video_scan_duration_ms = match video_stream_duration_ms(cfg, src, cancel).await {
         Ok(Some(ms)) if ms > 0 => Some(ms),
         Ok(_) => None,
@@ -654,7 +639,7 @@ where
             }
             return;
         }
-        if is_demuxer_partial_file_line(line) {
+        if is_demuxer_truncation_line(line) {
             demuxer_reported_partial_file = true;
         }
         if line.starts_with("Stream mapping:") {
@@ -1031,6 +1016,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn scene_scan_rejects_truncated_webm() {
+        let tmp = std::env::temp_dir().join(format!("cf-webm-trunc-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let full = tmp.join("full.webm");
+        let half = tmp.join("half.webm");
+        let cfg = crate::config::Config::resolve();
+        if !media_tools_available(&cfg) {
+            return;
+        }
+        let status = std::process::Command::new(&cfg.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=30:duration=5",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=44100:duration=5",
+                "-c:v",
+                "libvpx",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "libvorbis",
+            ])
+            .arg(&full)
+            .status()
+            .unwrap();
+        if !status.success() {
+            tokio::fs::remove_dir_all(&tmp).await.ok();
+            return;
+        }
+        let bytes = std::fs::read(&full).unwrap();
+        std::fs::write(&half, &bytes[..bytes.len() / 2]).unwrap();
+        let error = scene_boundaries(&cfg, &half, 5_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap_err();
+        assert!(is_truncated_source(&error), "{error:#}");
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
+
+    #[tokio::test]
     async fn scene_scan_accepts_multi_track_video() {
         let tmp = std::env::temp_dir().join(format!("cf-multi-video-{}", crate::util::short_id()));
         tokio::fs::create_dir_all(&tmp).await.unwrap();
@@ -1072,14 +1104,6 @@ mod tests {
             .await
             .unwrap();
         tokio::fs::remove_dir_all(&tmp).await.ok();
-    }
-
-    #[test]
-    fn parses_matroska_duration_tags() {
-        assert_eq!(parse_duration_tag_ms("00:00:05.007000000"), Some(5_007));
-        assert_eq!(parse_duration_tag_ms("01:02:03.5"), Some(3_723_500));
-        assert_eq!(parse_duration_tag_ms("5.007"), None);
-        assert_eq!(parse_duration_tag_ms("bad"), None);
     }
 
     #[test]
@@ -1143,14 +1167,23 @@ printf '%s\n' '{"streams":[{"duration":"5.0"}]}'
     }
 
     #[test]
-    fn partial_file_detection_requires_demuxer_context() {
-        assert!(is_demuxer_partial_file_line(
+    fn truncation_detection_requires_demuxer_context() {
+        assert!(is_demuxer_truncation_line(
             "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x0] stream 0, offset 0x2b7a1: partial file"
         ));
-        assert!(!is_demuxer_partial_file_line(
+        assert!(is_demuxer_truncation_line(
+            "[matroska,webm @ 0x0] File ended prematurely"
+        ));
+        assert!(is_demuxer_truncation_line(
+            "[matroska,webm @ 0x0] File ended prematurely at pos. 100 (0x64)"
+        ));
+        assert!(!is_demuxer_truncation_line(
             "    title           : partial file"
         ));
-        assert!(!is_demuxer_partial_file_line(
+        assert!(!is_demuxer_truncation_line(
+            "    title           : File ended prematurely"
+        ));
+        assert!(!is_demuxer_truncation_line(
             "partial file downloaded successfully"
         ));
     }
