@@ -654,7 +654,7 @@ where
         ));
     };
     let capacity =
-        crate::util::upload_capacity_bytes(crate::util::disk_free_gb(&cfg.data_dir).await);
+        crate::util::url_download_capacity_bytes(crate::util::disk_free_gb(&cfg.data_dir).await);
     let download_dir = store.project_dir(id).join("url-download");
     progress(0.0, Some("Downloading video link…".into()));
     let mut last_pct = -1.0f32;
@@ -678,10 +678,9 @@ where
         },
     )
     .await?;
-    // Signed links often carry tokens in their query string. Keep the URL
-    // only while a retry might still need the download; the materialized
-    // source file is enough once yt-dlp has completed.
-    tokio::fs::remove_file(store.source_url_path(id)).await.ok();
+    // Signed links often carry tokens in their query string. The URL is kept
+    // until probe proves the materialized file usable; the inspect stage deletes
+    // it immediately after that validation succeeds.
     progress(0.45, Some("Video link downloaded".into()));
     Ok(true)
 }
@@ -753,6 +752,11 @@ async fn run(
                 let downloaded = downloaded.unwrap_or(false);
                 match crate::media::probe(cfg, &src, &source_name, &ctx.cancel).await {
                     Ok(mut info) => {
+                        // The downloaded bytes are now known to be a probeable
+                        // source, so retries never need the signed link again.
+                        tokio::fs::remove_file(store.source_url_path(&id))
+                            .await
+                            .ok();
                         let detail = format!(
                             "{}×{} · {} · {}/{}",
                             info.width,
@@ -770,6 +774,7 @@ async fn run(
                                 &cfg.ffmpeg,
                                 &cfg.ffprobe,
                                 &src,
+                                &ctx.cancel,
                             )
                             .await
                             {
@@ -819,7 +824,19 @@ async fn run(
                             }
                         }
                     }
-                    Err(e) => Err(e),
+                    Err(e) => {
+                        // A corrupt or truncated URL download otherwise poisons
+                        // every retry: the file exists, so ingestion is skipped
+                        // and probe fails forever. URL imports are replaceable,
+                        // unlike user uploads, so drop the bad bytes and let the
+                        // next retry download them again.
+                        if !is_cancelled(&e, &ctx.cancel)
+                            && store.load_source_url(&id).await.is_some()
+                        {
+                            tokio::fs::remove_file(&src).await.ok();
+                        }
+                        Err(e)
+                    }
                 }
             }
         });
