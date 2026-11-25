@@ -752,11 +752,6 @@ async fn run(
                 let downloaded = downloaded.unwrap_or(false);
                 match crate::media::probe(cfg, &src, &source_name, &ctx.cancel).await {
                     Ok(mut info) => {
-                        // The downloaded bytes are now known to be a probeable
-                        // source, so retries never need the signed link again.
-                        tokio::fs::remove_file(store.source_url_path(&id))
-                            .await
-                            .ok();
                         let detail = format!(
                             "{}×{} · {} · {}/{}",
                             info.width,
@@ -809,15 +804,29 @@ async fn run(
                         {
                             Ok(boundaries) => {
                                 info.scene_boundaries_ms = boundaries;
+                                // The media payload has now decoded end-to-end,
+                                // so retries never need the signed link again.
+                                tokio::fs::remove_file(store.source_url_path(&id))
+                                    .await
+                                    .ok();
                                 ctx.model.lock().unwrap().set_source(&info);
                                 p.source = Some(info);
                                 Ok(detail)
+                            }
+                            Err(e) if crate::media::is_truncated_source(&e) => {
+                                if store.load_source_url(&id).await.is_some() {
+                                    tokio::fs::remove_file(&src).await.ok();
+                                }
+                                Err(e)
                             }
                             Err(e) if is_cancelled(&e, &ctx.cancel) => Err(e),
                             Err(e) => {
                                 tracing::warn!(
                                     "scene detection failed; continuing without boundaries: {e:#}"
                                 );
+                                tokio::fs::remove_file(store.source_url_path(&id))
+                                    .await
+                                    .ok();
                                 ctx.model.lock().unwrap().set_source(&info);
                                 p.source = Some(info);
                                 Ok(detail)

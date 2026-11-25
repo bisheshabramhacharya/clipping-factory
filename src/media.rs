@@ -475,6 +475,23 @@ fn decoder_list_has(list: &str, codec: &str) -> bool {
     })
 }
 
+#[derive(Debug)]
+pub struct TruncatedSource;
+
+impl std::fmt::Display for TruncatedSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            "This video appears truncated or incomplete. Download or upload the complete file, then try again.",
+        )
+    }
+}
+
+impl std::error::Error for TruncatedSource {}
+
+pub fn is_truncated_source(e: &anyhow::Error) -> bool {
+    e.chain().any(|cause| cause.is::<TruncatedSource>())
+}
+
 /// The 0–1 fraction for an ffmpeg `-progress` line's `out_time_ms`
 /// (microseconds), clamped to `dur_us`; `None` for other lines or when the
 /// duration is not yet known.
@@ -519,18 +536,43 @@ where
     ];
     let mut boundaries: Vec<u64> = Vec::new();
     let dur_us = (duration_ms as f64) * 1000.0;
-    run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
+    let mut decoded_fraction = 0.0f32;
+    let mut demuxer_reported_partial_file = false;
+    let result = run_streaming(&cfg.ffmpeg, &args, cancel, |is_err, line| {
         if !is_err {
             if let Some(pct) = out_time_fraction(line, dur_us) {
+                decoded_fraction = decoded_fraction.max(pct);
                 on_progress(pct);
             }
             return;
+        }
+        if line.contains("partial file") {
+            demuxer_reported_partial_file = true;
         }
         if let Some(ms) = parse_scdet_time_ms(line) {
             boundaries.push(ms);
         }
     })
-    .await?;
+    .await;
+    // A truncated faststart MP4 can still probe at its nominal duration and
+    // ffmpeg can exit 0 after stopping at the last available packet. Treat a
+    // demuxer partial-file report or a large decode shortfall as source
+    // corruption rather than silently clipping only the first part.
+    match result {
+        Err(e) => {
+            if crate::util::is_cancelled(&e) {
+                return Err(e);
+            }
+            if demuxer_reported_partial_file {
+                return Err(anyhow::Error::new(TruncatedSource));
+            }
+            return Err(e);
+        }
+        Ok(()) if duration_ms >= 5_000 && decoded_fraction < 0.90 => {
+            return Err(anyhow::Error::new(TruncatedSource));
+        }
+        Ok(()) => {}
+    }
     boundaries.sort_unstable();
     boundaries.dedup();
     Ok(boundaries)
@@ -655,6 +697,56 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn scene_scan_rejects_truncated_faststart_mp4() {
+        let tmp = std::env::temp_dir().join(format!("cf-trunc-test-{}", crate::util::short_id()));
+        tokio::fs::create_dir_all(&tmp).await.unwrap();
+        let full = tmp.join("full.mp4");
+        let half = tmp.join("half.mp4");
+        let cfg = crate::config::Config::resolve();
+        let status = std::process::Command::new(&cfg.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=30",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=44100",
+                "-t",
+                "5",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-movflags",
+                "+faststart",
+            ])
+            .arg(&full)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let bytes = std::fs::read(&full).unwrap();
+        std::fs::write(&half, &bytes[..bytes.len() / 2]).unwrap();
+        let error = scene_boundaries(&cfg, &half, 5_000, &CancellationToken::new(), |_| {})
+            .await
+            .unwrap_err();
+        assert!(is_truncated_source(&error), "{error:#}");
+        assert!(
+            scene_boundaries(&cfg, &full, 5_000, &CancellationToken::new(), |_| {})
+                .await
+                .is_ok()
+        );
+        tokio::fs::remove_dir_all(&tmp).await.ok();
+    }
 
     #[test]
     fn parses_scdet_time_across_ffmpeg_versions() {
