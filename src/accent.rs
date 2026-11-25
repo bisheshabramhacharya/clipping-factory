@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 const VIDEO_TOOL_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -97,6 +98,7 @@ pub async fn optimized_accent_for_video(
     ffmpeg: &str,
     ffprobe: &str,
     source: &Path,
+    cancel: &CancellationToken,
 ) -> Result<&'static str> {
     let probe_args: Vec<String> = vec![
         "-v".into(),
@@ -107,10 +109,14 @@ pub async fn optimized_accent_for_video(
         "default=noprint_wrappers=1:nokey=1".into(),
         source.to_string_lossy().into_owned(),
     ];
-    let probe =
-        crate::util::run_capture_output_with_timeout(ffprobe, &probe_args, VIDEO_TOOL_TIMEOUT)
-            .await
-            .context("could not inspect video duration")?;
+    let probe = crate::util::run_capture_output_with_timeout_cancellable(
+        ffprobe,
+        &probe_args,
+        VIDEO_TOOL_TIMEOUT,
+        cancel,
+    )
+    .await
+    .context("could not inspect video duration")?;
     if !probe.status.success() {
         bail!("ffprobe could not read video duration");
     }
@@ -121,6 +127,9 @@ pub async fn optimized_accent_for_video(
 
     let mut pixels = Vec::with_capacity(16 * 16 * 4);
     for fraction in [0.1, 0.35, 0.65, 0.9] {
+        if cancel.is_cancelled() {
+            return Err(crate::util::cancelled());
+        }
         let timestamp = (duration * fraction).max(0.0).to_string();
         let sample_args: Vec<String> = vec![
             "-hide_banner".into(),
@@ -140,10 +149,14 @@ pub async fn optimized_accent_for_video(
             "rgb24".into(),
             "pipe:1".into(),
         ];
-        let output =
-            crate::util::run_capture_output_with_timeout(ffmpeg, &sample_args, VIDEO_TOOL_TIMEOUT)
-                .await
-                .context("could not sample video colors")?;
+        let output = crate::util::run_capture_output_with_timeout_cancellable(
+            ffmpeg,
+            &sample_args,
+            VIDEO_TOOL_TIMEOUT,
+            cancel,
+        )
+        .await
+        .context("could not sample video colors")?;
         if !output.status.success() {
             bail!("ffmpeg could not sample video colors");
         }
@@ -186,10 +199,11 @@ mod tests {
     #[tokio::test]
     async fn bounded_capture_times_out_a_sleeping_child_quickly() {
         let started = std::time::Instant::now();
-        let error = crate::util::run_capture_output_with_timeout(
+        let error = crate::util::run_capture_output_with_timeout_cancellable(
             "/bin/sleep",
             &["5".to_string()],
             Duration::from_millis(50),
+            &CancellationToken::new(),
         )
         .await
         .unwrap_err();

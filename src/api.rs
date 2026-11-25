@@ -21,6 +21,7 @@
 //! GET    /api/projects/{id}/clips/{clipId}/export/{kind}  export pack sidecar (srt|vtt|meta|poster)
 //! POST   /api/projects/{id}/clips/{clipId}/restyle   re-render in a new look (captions, garnish)
 //! POST   /api/projects/{id}/open-output-folder
+use tokio_util::sync::CancellationToken;
 
 use crate::domain::*;
 use crate::pipeline;
@@ -607,6 +608,7 @@ async fn receive_upload(
                 &state.cfg.ffmpeg,
                 &state.cfg.ffprobe,
                 &dest,
+                &CancellationToken::new(),
             )
             .await
             {

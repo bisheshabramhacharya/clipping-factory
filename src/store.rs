@@ -15,7 +15,9 @@
 //! ```
 
 use crate::domain::*;
-use crate::util::{atomic_write_bytes, atomic_write_json, is_nonempty_file};
+use crate::util::{
+    atomic_write_bytes, atomic_write_bytes_private, atomic_write_json, is_nonempty_file,
+};
 use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -117,7 +119,7 @@ impl Store {
     }
 
     pub async fn save_source_url(&self, id: &str, url: &str) -> Result<()> {
-        atomic_write_bytes(&self.source_url_path(id), url.as_bytes()).await
+        atomic_write_bytes_private(&self.source_url_path(id), url.as_bytes()).await
     }
 
     pub fn exists(&self, id: &str) -> bool {

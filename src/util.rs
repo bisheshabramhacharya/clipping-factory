@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -16,8 +16,8 @@ use tokio_util::sync::CancellationToken;
 pub const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
 pub const UPLOAD_DISK_RESERVE_BYTES: u64 = 1024 * 1024 * 1024;
 
-/// Bytes a new source may occupy after keeping one GiB free for project state
-/// and render intermediates. URL downloads use the same budget as uploads.
+/// Bytes a new uploaded source may occupy after keeping one GiB free for
+/// project state and render intermediates.
 pub fn upload_capacity_bytes(disk_free_gb: Option<f64>) -> u64 {
     disk_free_gb
         .map(|gb| {
@@ -25,6 +25,20 @@ pub fn upload_capacity_bytes(disk_free_gb: Option<f64>) -> u64 {
             free.saturating_sub(UPLOAD_DISK_RESERVE_BYTES)
         })
         .unwrap_or(MAX_SOURCE_BYTES)
+        .min(MAX_SOURCE_BYTES)
+}
+
+/// Capacity for URL downloads. Split media tracks commonly coexist with the
+/// merged output, so the download itself can need about twice the final file's
+/// size at peak. The normal source size cap still applies after that safety
+/// factor; unknown disk capacity falls back conservatively.
+pub fn url_download_capacity_bytes(disk_free_gb: Option<f64>) -> u64 {
+    disk_free_gb
+        .map(|gb| {
+            let free = (gb.max(0.0) * 1024.0 * 1024.0 * 1024.0) as u64;
+            free.saturating_sub(UPLOAD_DISK_RESERVE_BYTES) / 2
+        })
+        .unwrap_or(MAX_SOURCE_BYTES / 2)
         .min(MAX_SOURCE_BYTES)
 }
 
@@ -49,6 +63,19 @@ pub fn is_cancelled(e: &anyhow::Error) -> bool {
     e.chain().any(|cause| cause.is::<Cancelled>())
 }
 
+async fn kill_child_tree(child: &mut tokio::process::Child) {
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        // SAFETY: `pid` is the live, unreaped child we just spawned with
+        // `process_group(0)`, so the negative pid addresses only that child's
+        // process group. The pid cannot be reused before the child is reaped.
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
+    }
+    let _ = child.kill().await;
+}
+
 /// Run a subprocess, streaming stdout/stderr lines to `on_line(is_stderr, line)`.
 /// Kills the child immediately if `cancel` fires. Fails on non-zero exit with
 /// the last few stderr lines included in the error message.
@@ -61,12 +88,19 @@ pub async fn run_streaming<F>(
 where
     F: FnMut(bool, &str),
 {
-    let mut child = Command::new(bin)
+    let mut command = Command::new(bin);
+    command
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    // Tools such as yt-dlp may spawn FFmpeg as a child. Put the command in
+    // its own process group so cancellation can stop the whole tree rather
+    // than orphaning a merge that keeps using CPU and disk.
+    #[cfg(unix)]
+    command.process_group(0);
+    let mut child = command
         .spawn()
         .with_context(|| format!("failed to start `{}`", bin))?;
 
@@ -97,7 +131,7 @@ where
         tokio::select! {
             biased;
             _ = cancel.cancelled() => {
-                let _ = child.kill().await;
+                kill_child_tree(&mut child).await;
                 return Err(cancelled());
             }
             msg = rx.recv() => match msg {
@@ -116,7 +150,7 @@ where
     let status = tokio::select! {
         biased;
         _ = cancel.cancelled() => {
-            let _ = child.kill().await;
+            kill_child_tree(&mut child).await;
             return Err(cancelled());
         }
         s = child.wait() => s.context("waiting for subprocess")?,
@@ -298,6 +332,36 @@ pub async fn atomic_write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     promote_atomic(&temp, path).await
 }
 
+/// Atomically write a small secret byte payload with owner-only permissions
+/// from creation onward. Used for links and settings that may carry tokens.
+pub async fn atomic_write_bytes_private(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await.ok();
+    }
+    let temp = unique_temp_path(path);
+    let result = async {
+        let mut options = tokio::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            options.mode(0o600);
+        }
+        let mut file = options
+            .open(&temp)
+            .await
+            .with_context(|| format!("creating {}", temp.display()))?;
+        file.write_all(bytes).await?;
+        file.flush().await?;
+        drop(file);
+        promote_atomic(&temp, path).await
+    }
+    .await;
+    if result.is_err() {
+        tokio::fs::remove_file(&temp).await.ok();
+    }
+    result
+}
+
 /// Short, URL-safe project/clip id.
 pub fn short_id() -> String {
     let id = uuid::Uuid::new_v4().simple().to_string();
@@ -387,28 +451,30 @@ pub fn which(bin: &str) -> Option<std::path::PathBuf> {
     None
 }
 
-/// Run a quiet subprocess to completion with a wall-clock cap, capturing its
-/// raw output. For short analyses whose caller has no cancellation token of
-/// its own; a child that outlives the cap is killed.
-pub async fn run_capture_output_with_timeout(
+/// Run a quiet subprocess to completion with a wall-clock cap and caller
+/// cancellation, capturing raw output. Losing either race aborts the
+/// subprocess task and `kill_on_drop` terminates the child before returning.
+pub async fn run_capture_output_with_timeout_cancellable(
     bin: &str,
     args: &[String],
     timeout: std::time::Duration,
+    cancel: &CancellationToken,
 ) -> Result<std::process::Output> {
-    let cancel = CancellationToken::new();
-    let run = output_cancellable(bin, args, &cancel);
-    tokio::pin!(run);
-    tokio::select! {
-        biased;
-        out = &mut run => out,
-        _ = tokio::time::sleep(timeout) => {
-            cancel.cancel();
-            // Drive the cancelled run to completion so the child is killed
-            // before this returns.
-            let _ = run.await;
-            bail!("`{}` timed out after {:?}", bin, timeout)
-        }
+    let token = cancel.child_token();
+    let trigger = token.clone();
+    let timed_out = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let timeout_flag = timed_out.clone();
+    let timeout_task = tokio::spawn(async move {
+        tokio::time::sleep(timeout).await;
+        timeout_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+        trigger.cancel();
+    });
+    let out = output_cancellable(bin, args, &token).await;
+    timeout_task.abort();
+    if timed_out.load(std::sync::atomic::Ordering::SeqCst) && !cancel.is_cancelled() {
+        bail!("`{}` timed out after {:?}", bin, timeout);
     }
+    out
 }
 
 #[cfg(test)]
@@ -469,5 +535,74 @@ mod tests {
         assert_eq!(tokio::fs::read(&final_path).await.unwrap(), b"complete");
         assert!(!temp.exists());
         tokio::fs::remove_dir_all(&dir).await.ok();
+    }
+
+    #[test]
+    fn url_download_capacity_reserves_merge_headroom() {
+        let gib = 1024.0 * 1024.0 * 1024.0;
+        let expected = ((100.0 * gib) as u64 - UPLOAD_DISK_RESERVE_BYTES) / 2;
+        assert_eq!(url_download_capacity_bytes(Some(100.0)), expected);
+        assert_eq!(
+            url_download_capacity_bytes(Some(10_000.0)),
+            MAX_SOURCE_BYTES
+        );
+        assert_eq!(url_download_capacity_bytes(None), MAX_SOURCE_BYTES / 2);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn private_atomic_writes_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("cf-private-{}", short_id()));
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let path = dir.join("source-url.txt");
+        atomic_write_bytes_private(&path, b"https://signed")
+            .await
+            .unwrap();
+        assert_eq!(tokio::fs::read(&path).await.unwrap(), b"https://signed");
+        assert_eq!(
+            tokio::fs::metadata(&path)
+                .await
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+        tokio::fs::remove_dir_all(&dir).await.ok();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn streaming_cancellation_kills_the_process_group() {
+        use std::sync::{Arc, Mutex};
+        let cancel = CancellationToken::new();
+        let trigger = cancel.clone();
+        let grandchild = Arc::new(Mutex::new(None::<i32>));
+        let seen = grandchild.clone();
+        let args = vec!["-c".into(), "sleep 30 & echo $!; wait".into()];
+        let result = run_streaming("/bin/sh", &args, &cancel, move |_, line| {
+            if let Ok(pid) = line.trim().parse::<i32>() {
+                *seen.lock().unwrap() = Some(pid);
+                trigger.cancel();
+            }
+        })
+        .await;
+        assert!(is_cancelled(&result.unwrap_err()));
+        let pid = grandchild.lock().unwrap().expect("grandchild pid");
+        let mut gone_or_zombie = false;
+        for _ in 0..20 {
+            let out = std::process::Command::new("ps")
+                .args(["-o", "stat=", "-p", &pid.to_string()])
+                .output()
+                .unwrap();
+            let state = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if state.is_empty() || state.starts_with('Z') {
+                gone_or_zombie = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        assert!(gone_or_zombie, "grandchild {pid} is still running");
     }
 }

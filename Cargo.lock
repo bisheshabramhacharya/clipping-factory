@@ -185,6 +185,7 @@ dependencies = [
  "dirs",
  "futures",
  "image",
+ "libc",
  "reqwest",
  "rustface",
  "serde",
